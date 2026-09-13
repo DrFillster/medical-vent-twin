@@ -53,7 +53,9 @@ flow-resistive work vs strain work.
 ### PEEP titration (decremental trial)
 Steps PEEP 20→4 in 2-cmH2O decrements after a recruitment maneuver.
 Computes the static P/V curve, inflection pressure (Pflex), and
-Recruitment-to-Inflation ratio per Chen 2020 (Intensive Care Med).
+Recruitment-to-Inflation ratio per Chen 2020 (AJRCCM). Pflex is the
+PEEP at which Crs is maximal (Hickling 2001, AJRCCM); R/I uses the
+endpoints of the curve, not the area under it, per Chen's derivation.
 
 ## Presets
 
@@ -70,7 +72,8 @@ Recruitment-to-Inflation ratio per Chen 2020 (Intensive Care Med).
 - Driving pressure — Amato et al, *NEJM* 372:747-55 (2015)
 - Mechanical power — Gattinoni et al, *Anesthesiology* 124:441-50 (2016)
 - MP VILI threshold — Serpa Neto et al, *Crit Care Med* 46:762-7 (2018)
-- R/I ratio — Chen et al, *Intensive Care Med* 46:2044-46 (2020)
+- R/I ratio — Chen et al, *AJRCCM* 201:178-87 (2020)
+- Decremental PEEP / best-compliance Pflex — Hickling, *AJRCCM* 163:69-78 (2001)
 - R/I and dynamic strain — *PMID 38963617* (2025)
 - Berlin ARDS definition — Ranieri et al, *JAMA* 307:2526-33 (2012)
 - Computational lung modelling review — Neelakantan et al, *J R Soc Interface* 19:20220062 (2022)

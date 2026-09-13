@@ -696,49 +696,43 @@ function peepTitration(fixedVt, fixedRR, ie) {
     prevCrs = crsAtP;
   }
 
-  // Pflex detection.
-  // Real decremental PEEP trials have a flat plateau then a sharp drop (collapse).
-  //   Pflex = the PEEP step just BEFORE the sharp drop (the "knee").
-  // My detection: find the largest drop in compliance between consecutive PEEP steps
-  // (going from high PEEP to low PEEP). The drop before that step is Pflex.
-  // If no sharp drop exists, the lung is non-recruitable → Pflex = 0 (set PEEP low).
-  let maxDrop = 0, maxDropIdx = 0;
-  for (let i = 1; i < pts.length; i++) {
-    const drop = pts[i-1].crs - pts[i].crs;
-    if (drop > maxDrop) { maxDrop = drop; maxDropIdx = i; }
+  // Pflex detection (Hickling 2001, AJRCCM 163:69).
+  // Best compliance during a DECREMENTAL PEEP trial is the open-lung PEEP.
+  // Operationally: Pflex = the PEEP at which Crs is maximal across the decremental
+  // sweep. If multiple steps share the max, take the highest PEEP (most protective
+  // and matches "start of derecruitment"). For monotonic curves the highest-PEEP
+  // tie-break will report the top step, which is also correct (the lung was fully
+  // recruited throughout the sweep → derecruitment starts immediately as PEEP drops).
+  let peakCrs = -Infinity, peakIdx = 0;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].crs > peakCrs) { peakCrs = points[i].crs; peakIdx = i; }
   }
-  // Significant collapse: largest drop > 20% of peak compliance
-  const peakCrs = pts[0].crs;
-  let pflex;
-  if (maxDrop > peakCrs * 0.20) {
-    // Pflex is the PEEP step just before the collapse begins
-    pflex = pts[maxDropIdx - 1].peep;
-  } else {
-    // No significant collapse in the tested range → non-recruitable
-    // Recommended PEEP is the LOWEST tested (no benefit from high PEEP)
-    pflex = pts[pts.length - 1].peep;  // = 4
+  // Tie-break to highest PEEP when several steps share the peak (within 2%).
+  for (let i = 0; i < points.length; i++) {
+    if (Math.abs(points[i].crs - peakCrs) / peakCrs < 0.02 && points[i].peep > points[peakIdx].peep) {
+      peakIdx = i;
+    }
   }
+  const pflex = points[peakIdx].peep;
+  const pflexMethod = 'best-compliance (Hickling 2001)';
 
-  // R/I ratio: integrated compliance gain from PEEP 5 to PEEP 20
-  // Volume above PEEP at each step = sum of (Crs_i * ΔPEEP_i)
-  // Baseline volume at PEEP 5 = Crs_5 × (PEEP_max - PEEP_min)... actually, Chen 2020:
-  // R/I = (ΔV_recruited) / (V_t_at_PEEP5)
-  // where ΔV_recruited is the volume gained from PEEP 5 to PEEP 20 = ∫ Crs dPEEP.
-  // We approximate by trapezoidal integration of Crs vs PEEP (high to low).
-  let dV = 0;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p1 = points[i], p2 = points[i+1];
-    // area under the Crs curve between PEEP p1 and PEEP p2
-    const avgCrs = (p1.crs + p2.crs) / 2;
-    dV += avgCrs * Math.abs(p1.peep - p2.peep);
-  }
-  // R/I in Chen 2020 is per-breath: dV / Vt_breath_at_low_PEEP
-  const lowP = points[points.length - 1];  // PEEP 5
-  const ri = dV / Math.max(50, lowP.vt);
+  // R/I ratio (Chen 2020, AJRCCM 201:178).
+  // Single-breath decrement from high-PEEP to low-PEEP. The recruited volume is
+  // the compliance gained when stepping from low to high PEEP, normalized by the
+  // tidal volume at low PEEP. Per the published derivation:
+  //   R/I = (Crs_high - Crs_low) * (PEEP_high - PEEP_low) / Vt_at_PEEP_low
+  // Endpoints only — do NOT integrate the whole curve (double-counts the area
+  // that the compliance endpoints already capture). The PEEP 20 step is the
+  // highest-PEEP point in our sweep; PEEP 5 (last step) is the low-PEEP point.
+  // Drop to PEEP 5 from PEEP 20 = ΔPEEP 15 cmH2O per the Chen protocol.
+  const highP = points[0];                       // PEEP 20 (after RM)
+  const lowP  = points[points.length - 1];       // PEEP 5
+  const dV = (highP.crs - lowP.crs) * (highP.peep - lowP.peep);   // mL
+  const ri = dV / Math.max(50, lowP.vt);                          // unitless
   // Chen 2020 interpretation: R/I > 0.5 high recruiters; 0.2-0.5 moderate; <0.2 low
   const riClass = ri > 0.5 ? 'High recruiter' : ri > 0.2 ? 'Moderate recruiter' : 'Low recruiter';
 
-  return {points, pflex, ri, riClass, dV};
+  return {points, pflex, pflexMethod, ri, riClass, dV};
 }
 
 // ---------- simulator ----------
