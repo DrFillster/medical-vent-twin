@@ -1,0 +1,14 @@
+.DS_Store
+*.swp
+*.swo
+*~
+.DS_Store?
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+*.log
