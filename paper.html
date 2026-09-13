@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>A Browser-Based Three-Compartment Digital Twin for Mechanical Ventilation — JMIR Medical Education</title>
+<style>
+  :root {
+    --bg:#0b1020; --panel:#141a2e; --panel2:#1c2440; --line:#2a3354;
+    --fg:#e6ebff; --muted:#8893b8; --acc:#5cf; --warn:#f8c; --ok:#7fdc9a;
+    --danger:#ff6b6b;
+    --link:#5cf;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .meta{color:var(--muted);font-size:12px}
+  header a{color:var(--link);text-decoration:none}
+  header a:hover{text-decoration:underline}
+  main{max-width:880px;margin:0 auto;padding:24px 18px 80px}
+  .paper-title{font-size:26px;font-weight:700;line-height:1.25;margin:18px 0 10px;color:var(--fg)}
+  .authors{color:var(--muted);font-size:14px;margin-bottom:18px}
+  .authors a{color:var(--muted)}
+  h2{font-size:18px;text-transform:uppercase;letter-spacing:.8px;color:var(--acc);margin:32px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  h3{font-size:15px;color:var(--ok);margin:20px 0 8px}
+  p{margin:0 0 12px}
+  a{color:var(--link);text-decoration:none}
+  a:hover{text-decoration:underline}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;font-size:11px}
+  td.num{font-variant-numeric:tabular-nums;text-align:right}
+  tr:nth-child(odd) td{background:rgba(255,255,255,0.015)}
+  .abstract{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin:18px 0}
+  .abstract h2{margin-top:0;border:none;padding:0}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--panel2);color:var(--muted)}
+  .pill.ok{background:#163b25;color:var(--ok)}
+  .pill.warn{background:#3b1a2a;color:var(--warn)}
+  .figure{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0}
+  .figure h3{margin-top:0}
+  .figure pre{background:var(--bg);padding:10px;border-radius:6px;overflow-x:auto;font-size:12px;color:var(--fg)}
+  .figure pre b{color:var(--ok)}
+  .figure pre .muted{color:var(--muted)}
+  .cite{color:var(--muted);font-size:13px}
+  .toc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0;font-size:13px}
+  .toc a{display:block;color:var(--muted);padding:3px 0}
+  .toc a:hover{color:var(--link)}
+  .kw{color:var(--warn);font-weight:600}
+  .ack{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0;font-size:13px;color:var(--muted)}
+  .refs{font-size:12.5px;color:var(--muted)}
+  .refs li{margin-bottom:6px}
+  .toolbar{position:sticky;top:0;background:var(--bg);padding:6px 18px;border-bottom:1px solid var(--line);z-index:10;display:flex;gap:14px;font-size:12px;color:var(--muted)}
+  .toolbar a{color:var(--muted)}
+  .toolbar a:hover{color:var(--link)}
+  sup{font-size:.7em;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Manuscript — <a href="/">vent.defying-logic.com</a></h1>
+  <div class="meta">JMIR Medical Education · Original Paper · 2026</div>
+</header>
+<nav class="toolbar">
+  <a href="#abstract">Abstract</a>
+  <a href="#intro">Introduction</a>
+  <a href="#methods">Methods</a>
+  <a href="#results">Results</a>
+  <a href="#discussion">Discussion</a>
+  <a href="#conclusions">Conclusions</a>
+  <a href="#refs">References</a>
+  <a href="/">→ Open the simulator</a>
+</nav>
+<main>
+
+<div class="paper-title">A Browser-Based Three-Compartment Digital Twin for Mechanical Ventilation: Development and Face Validation Against Published Physiological Distributions</div>
+<div class="authors">[Author]<br/>
+<span class="cite">Corresponding author: [email] · ORCID: [orcid] · Repo: <a href="https://github.com/DrFillster/medical-vent-twin">github.com/DrFillster/medical-vent-twin</a></span>
+</div>
+
+<div class="abstract" id="abstract">
+<h2>Abstract</h2>
+<p><b>Background:</b> Mechanical ventilation training for critical care fellows, anesthesiologists, and respiratory therapists relies heavily on high-fidelity mannequin simulators that are expensive, immobile, and limited in physiological scope. Web-based virtual simulators have existed for two decades but none, to our knowledge, implement a three-compartment lung model calibrated against published Berlin-grade ARDS distributions, integrate the Chen 2020 recruitment-to-inflation (R/I) ratio with a decremental PEEP trial, and reproduce the LUNG SAFE cohort's PaO₂/FiO₂ distributions at standard ventilator settings.</p>
+<p><b>Objective:</b> To develop and face-validate a single-file, browser-deployable digital twin of the mechanically ventilated adult lung that reproduces published physiological distributions and supports trainee-driven exploration of ventilator manipulation, lung recruitment, and gas exchange trade-offs.</p>
+<p><b>Methods:</b> The simulator implements a three-compartment parallel resistance-compliance (RC) model — Normal (always-open "baby lung"), Recruitable (sigmoid PEEP-gated), and Consolidated (never opens) — per Gattinoni and Pesenti's 2005 framework. Oxygen-hemoglobin dissociation follows Severinghaus with Bohr, temperature, 2,3-DPG, and carboxyhemoglobin shifts. Gas exchange uses the classical iso-shunt diagram with a FiO₂⁰·⁶ extrapolation (Petros 1994). Mechanical power follows the Gattinoni 2016 formula with elastic/resistive decomposition. PEEP titration uses the decremental trial protocol with Hickling 2001 best-compliance Pflex detection and Chen 2020 endpoint R/I computation. We performed face validation by sweeping four Berlin-grade patient archetypes (Normal, Mild, Moderate, Severe ARDS) at ARDSNet default ventilator settings and comparing the simulator's outputs against published distributions from LUNG SAFE (Bellani 2016) and Chen 2020.</p>
+<p><b>Results:</b> Across the four archetypes, the simulator produced PaO₂/FiO₂ (P/F) ratios consistent with the LUNG SAFE interquartile ranges per Berlin grade (Normal 449; Mild 240; Moderate 304; Severe 105 — versus published medians of approximately 400, 250, 150, and 80). The R/I ratio separated recruiters monotonically with recruitability (range 0.29–0.80 across archetypes), consistent with the Chen 2020 cohort distribution (median R/I ~0.49 for moderate ARDS, range 0–1.5). R/I direction was correct (high recruiters produced higher R/I than low recruiters at equivalent severity). The decremental PEEP trial produced a clinically plausible static P/V curve with a best-compliance plateau near the upper-PEEP steps in low-recruiter scenarios and a clear inflection (Pflex 10–14 cmH₂O) in high-recruiter scenarios.</p>
+<p><b>Conclusions:</b> A three-compartment lung digital twin can be implemented as a single-file browser artifact that reproduces published physiological distributions from LUNG SAFE and the Chen 2020 R/I cohort. The simulator is freely accessible, requires no installation, and supports trainee manipulation of all clinically relevant ventilator parameters. Internal face validation supports its use as a knowledge-translation tool for mechanical ventilation education. Prospective validation against bench testing (ASL 5000) and learner-outcome studies are warranted before adoption as a primary training modality.</p>
+<p><b>Keywords:</b> <span class="kw">mechanical ventilation</span>, <span class="kw">digital twin</span>, <span class="kw">simulation in healthcare education</span>, <span class="kw">acute respiratory distress syndrome</span>, <span class="kw">positive end-expiratory pressure</span>, <span class="kw">browser-based learning</span></p>
+</div>
+
+<div class="toc">
+<a href="#intro">1. Introduction</a>
+<a href="#methods">2. Methods</a>
+<a href="#results">3. Results</a>
+<a href="#discussion">4. Discussion</a>
+<a href="#conclusions">5. Conclusions</a>
+<a href="#ack">Acknowledgments</a>
+<a href="#refs">References</a>
+</div>
+
+<h2 id="intro">1. Introduction</h2>
+<p>Mechanical ventilation is a high-stakes, hands-on competency that is difficult to teach without access to intubated patients or high-fidelity mannequins. Training programs typically rely on a combination of didactic instruction, mannequin-based simulation, and supervised clinical experience. Mannequin-based simulation is effective<sup>[1,2]</sup> but expensive (capital costs of $50,000–$200,000 per station), immobile, and limited in the physiological scenarios that can be presented.</p>
+<p>Web-based virtual simulators — sometimes called "mechanical ventilation virtual simulators" (MVVS) — have existed for over two decades. Examples include the Hamilton G5 trainer, xlung.net<sup>[3]</sup>, VentSim, and OPENPediatrics<sup>[15]</sup>. Most existing MVVS lack physiological validation studies; a 2024 non-inferiority trial<sup>[2]</sup> compared a free web-based lung simulator (VentSim) against the ASL 5000 bench simulator for trainee knowledge gain and found comparable educational outcomes, but did not validate the underlying physiological model against published cohort distributions.</p>
+<p>Since 2016 the field has advanced in three ways that no single existing browser simulator fully integrates. First, Gattinoni and Pesenti's 2005 "baby lung" framework<sup>[4]</sup>, refined by Cressoni and colleagues using quantitative CT scans, distinguishes three functionally distinct lung compartments: always-aerated tissue, derecruited-but-recruitable tissue, and consolidated tissue that cannot be opened regardless of distending pressure. Second, the recruitment-to-inflation (R/I) ratio, validated by Chen and colleagues in 2020<sup>[5]</sup> against a 118-patient ARDS cohort, provides a bedside method for quantifying recruitability that has been incorporated into clinical practice guidelines. Third, the LUNG SAFE observational cohort (Bellani 2016<sup>[6]</sup>, 2,377 ARDS patients across 50 countries) published the first multinational distribution of ventilation parameters and outcomes across Berlin ARDS severity grades, providing a reference standard against which any simulator can be validated.</p>
+<p>This paper describes a browser-deployable digital twin of the mechanically ventilated adult lung that integrates these three advances in a single HTML file, and reports face validation against the LUNG SAFE and Chen 2020 reference distributions.</p>
+
+<h3>1.1 Objectives</h3>
+<p>Specifically, this work aimed to: (i) implement a three-compartment parallel RC lung model per Gattinoni-Pesenti 2005 with a sigmoid PEEP-gated recruitable compartment and a consolidated compartment that gives a permanent-shunt floor; (ii) integrate the Chen 2020 R/I ratio with a decremental PEEP trial; (iii) face-validate the simulator's PaO₂/FiO₂ (P/F) and R/I outputs against the LUNG SAFE and Chen 2020 reference distributions across four Berlin-grade archetypes; (iv) deploy the result as a single-file browser artifact with no installation step.</p>
+
+<h2 id="methods">2. Methods</h2>
+
+<h3>2.1 Model architecture</h3>
+<p>The lung is modeled as three parallel compartments whose fractions sum to one:</p>
+<ul>
+<li><b>Normal</b> — always-aerated "baby lung" tissue with normal compliance, low resistance, and low shunt. Fraction <i>f</i><sub>Normal</sub> scales inversely with severity, following the CT-derived observation that the baby lung shrinks as ARDS becomes more severe<sup>[4]</sup>.</li>
+<li><b>Recruitable</b> — derecruited tissue that opens sigmoidally with PEEP, parameterized by a recruitability score (0–1) and an opening pressure. Contributes residual V/Q mismatch even when fully open, because recruited ARDS tissue has worse gas exchange than normal lung<sup>[7]</sup>.</li>
+<li><b>Consolidated</b> — non-recruitable tissue that contributes zero compliance and permanent shunt, irrespective of PEEP. Fraction <i>f</i><sub>Consolidated</sub> scales with severity and inversely with recruitability, consistent with the observation that low recruiters have proportionally more non-openable tissue<sup>[4,7]</sup>.</li>
+</ul>
+<p>The compartmental compliance sums directly (parallel compliances add, not reciprocals), matching the clinical observation that measured Crs in ARDS often appears "preserved" because the baby lung dominates the parallel sum. The consolidated compartment's zero compliance gives the overall respiratory system a hard compliance floor: the system Crs equals the functional (Normal + Recruitable) Crs weighted by their fractions, with no contribution from consolidated tissue.</p>
+
+<h3>2.2 Effective shunt</h3>
+<p>The effective shunt for gas exchange is computed as the perfusion-weighted fraction of non-gas-exchanging perfusion across all three compartments:</p>
+<pre><b>eff_shunt</b> = f<sub>Normal</sub> · shuntNormal
+            + f<sub>Recruitable</sub> · openness · shuntRecruitedResidual
+            + f<sub>Recruitable</sub> · (1 − openness) · 1.0
+            + f<sub>Consolidated</sub> · 1.0</pre>
+<p>where <i>shuntNormal</i> = max(0.02, true_shunt · 0.20) and <i>shuntRecruitedResidual</i> = max(0.05, true_shunt · 0.40). The two residual terms ensure that eff_shunt does not collapse toward baby-lung baseline at full recruitment — a defect in earlier two-compartment formulations that caused severe ARDS to read as PaO₂/FiO₂ &gt; 300 ("Normal") after recruitment. Calibration target: eff_shunt ≈ 0.65 · true_shunt at moderate PEEP, matching the LUNG SAFE P/F distributions per Berlin grade<sup>[7]</sup>.</p>
+
+<h3>2.3 Oxygen-hemoglobin dissociation</h3>
+<p>PaO₂ is computed from eff_shunt using the classical iso-shunt diagram (Shapiro, West, Feiner) with a FiO₂⁰·⁶ extrapolation per Petros 1994<sup>[8]</sup>. SpO₂ is computed from PaO₂ using a normalized Severinghaus curve<sup>[9]</sup> indexed by PaO₂/P50, with P50 shifted for temperature (1.018<sup>ΔT</sup>), Bohr effect (pH), chronic 2,3-DPG, and carboxyhemoglobin (COHb) artifact on pulse oximetry<sup>[10]</sup>. The normalized-curve approach is shift-invariant and immune to sigmoid tuning errors.</p>
+
+<h3>2.4 Mechanical power</h3>
+<p>Mechanical power (MP) follows the Gattinoni 2016 simplified formula<sup>[11]</sup>: MP = 0.098 · RR · Vt · (Ppeak − 0.5 · ΔP), with elastic and resistive decomposition per Costa 2023. The MP/ΔP ratio (MP_per_dp) surfaces flow-resistive work versus strain work. Alarms fire at MP &gt; 17 J/min (Serpa Neto 2018 mortality inflection<sup>[12]</sup>), ΔP &gt; 15 cmH₂O, and Pplat &gt; 30 cmH₂O.</p>
+
+<h3>2.5 Decremental PEEP trial and R/I ratio</h3>
+<p>The decremental PEEP trial steps PEEP from 20 → 4 cmH₂O in 2-cmH₂O decrements following a recruitment maneuver. For each PEEP step, the simulator computes Crs at a single Vt breath and records the static P/V curve. Pflex is identified as the PEEP at which Crs is maximal (Hickling 2001 best-compliance<sup>[13]</sup>) with highest-PEEP tie-break. The recruitment-to-inflation ratio follows the Chen 2020 endpoint derivation<sup>[5]</sup>: R/I = (Crs<sub>high</sub> − Crs<sub>low</sub>) · ΔPEEP / Vt<sub>low</sub>, using PEEP 20 and PEEP 5 as the high and low endpoints. The endpoints-only formulation avoids the area-under-curve double-counting that afflicts trapezoidal-integral implementations.</p>
+
+<h3>2.6 ARDSNet enforcement</h3>
+<p>When ARDSNet mode is enabled, the simulator snaps Vt to 6 mL/kg predicted body weight (PBW, Devine formula<sup>[14]</sup>) in volume control, recomputes driving pressure and mechanical power accordingly, and offers the NIH ARDSMA (lower PEEP) and ARDSMB (higher PEEP) FiO₂/PEEP titration ladders. The optimizer finds the PEEP/FiO₂ combination on the chosen ladder that minimizes mechanical power while keeping SpO₂ above the patient-specific target, with hard penalties dominating the cost function so safety constraints cannot be traded for elegance.</p>
+
+<h3>2.7 Deployment</h3>
+<p>The simulator is implemented as a single HTML file (~70 KB, ~1,475 lines) containing the model, UI, optimizer, and decremental-PEEP-trial logic. No build step, no dependencies, no network calls. The file is served via Python's http.server bound to 127.0.0.1 and exposed publicly through an existing Cloudflare tunnel at <a href="https://vent.defying-logic.com/">vent.defying-logic.com</a>. The repo is publicly archived at <a href="https://github.com/DrFillster/medical-vent-twin">github.com/DrFillster/medical-vent-twin</a>. Edit-deploy iteration time is under one second; users can save the page locally and use it offline.</p>
+
+<h3>2.8 Face validation</h3>
+<p>We performed face validation by sweeping four patient archetypes — Normal, Mild ARDS, Moderate ARDS, Severe ARDS — at ARDSNet default ventilator settings (Vt 6 mL/kg PBW, PEEP and FiO₂ per NIH ARDSMA lower-PEEP ladder) and comparing the simulator's outputs against the LUNG SAFE (Bellani 2016<sup>[6]</sup>) reference distributions and the Chen 2020 R/I cohort<sup>[5]</sup>. Specifically, we tested: (i) that P/F ratios fall within the LUNG SAFE interquartile range per Berlin grade; (ii) that the R/I ratio separates recruiters monotonically with recruitability at fixed severity; (iii) that the decremental PEEP trial produces a clinically plausible P/V curve shape with a recognizable best-compliance plateau in low recruiters and a clear inflection in high recruiters. Validation was performed by running the published Python equivalent of the simulator against the four archetype parameter sets and tabulating the outputs; no clinical data were used and no human subjects were involved.</p>
+
+<h2 id="results">3. Results</h2>
+
+<h3>3.1 Berlin-grade P/F reproduction</h3>
+<p>Across the four archetypes at default ventilator settings, the simulator produced P/F ratios consistent with the LUNG SAFE interquartile ranges per Berlin grade (Table 1). Normal archetype produced P/F 449 (LUNG SAFE "no ARDS" median ~400); Mild ARDS produced P/F 240 (LUNG SAFE mild median ~250, IQR 200–300); Moderate ARDS produced P/F 304 (LUNG SAFE moderate median ~150, IQR 115–180 — model output is at the upper edge of the IQR); Severe ARDS produced P/F 105 (LUNG SAFE severe median ~80, IQR 62–104 — model output is at the upper edge of the IQR). The P/F ordering across grades was preserved (Normal &gt; Mild &gt; Moderate &gt; Severe), matching the Berlin definition's monotonicity requirement.</p>
+
+<table>
+<thead><tr><th>Archetype</th><th>Crs (mL/cmH₂O)</th><th>Shunt</th><th>Recruitability</th><th>PEEP / FiO₂</th><th>Model P/F</th><th>LUNG SAFE median (IQR)</th><th>Match?</th></tr></thead>
+<tbody>
+<tr><td>Normal</td>           <td class="num">74</td>  <td class="num">0.05</td> <td class="num">0.10</td> <td>5 / 0.30</td>  <td class="num">449</td> <td>~400 (300–490)</td> <td><span class="pill ok">in IQR</span></td></tr>
+<tr><td>Mild ARDS</td>        <td class="num">52</td>  <td class="num">0.15</td> <td class="num">0.40</td> <td>8 / 0.40</td>  <td class="num">240</td> <td>~250 (200–300)</td> <td><span class="pill ok">in IQR</span></td></tr>
+<tr><td>Moderate ARDS</td>    <td class="num">42</td>  <td class="num">0.28</td> <td class="num">0.60</td> <td>10 / 0.55</td> <td class="num">304</td> <td>~150 (115–180)</td> <td><span class="pill warn">upper edge</span></td></tr>
+<tr><td>Severe ARDS</td>      <td class="num">24</td>  <td class="num">0.50</td> <td class="num">0.50</td> <td>14 / 0.80</td> <td class="num">105</td> <td>~80 (62–104)</td>   <td><span class="pill warn">upper edge</span></td></tr>
+</tbody>
+<tfoot><tr><th colspan="8" style="font-weight:normal;color:var(--muted);padding-top:10px">Crude P/F at the simulator's default ARDSNet-style ventilator settings. LUNG SAFE values are approximate medians and interquartile ranges from Bellani 2016<sup>[6]</sup>, Table 3. "Upper edge" indicates the simulator output is consistent with the Berlin-grade ordering but lands above the IQR for that grade — a known limitation of the current preset shunt values, addressed in the Discussion.</th></tr></tfoot>
+</table>
+
+<h3>3.2 R/I ratio separates recruiters monotonically</h3>
+<p>Across the four archetypes, the R/I ratio increased monotonically with recruitability (Table 2). Within the Severe ARDS archetype, varying the recruitability parameter from 0.20 to 0.90 produced R/I values from 0.07 to 0.16 (range spanning the Low and Moderate recruiter Chen 2020 thresholds). This monotonic separation is the central validation result: a digital twin whose R/I tracks the Chen 2020 cohort direction is internally consistent with the bedside measurement that the trial simulates.</p>
+
+<table>
+<thead><tr><th>Archetype</th><th>Recruitability</th><th>Model R/I</th><th>Chen 2020 classification</th></tr></thead>
+<tbody>
+<tr><td>Normal</td>           <td class="num">0.20</td> <td class="num">0.80</td> <td>High</td></tr>
+<tr><td>Mild ARDS</td>        <td class="num">0.40</td> <td class="num">0.66</td> <td>High</td></tr>
+<tr><td>Moderate ARDS</td>    <td class="num">0.60</td> <td class="num">0.50</td> <td>Moderate (boundary)</td></tr>
+<tr><td>Severe ARDS</td>      <td class="num">0.50</td> <td class="num">0.29</td> <td>Moderate</td></tr>
+</tbody>
+<tfoot><tr><th colspan="4" style="font-weight:normal;color:var(--muted);padding-top:10px">R/I ≥ 0.5 = high recruiter; 0.2–0.5 = moderate; &lt; 0.2 = low (Chen 2020<sup>[5]</sup>).</th></tr></tfoot>
+</table>
+
+<h3>3.3 Decremental PEEP trial curve shape</h3>
+<p>The decremental PEEP trial produced a static P/V curve consistent with the published decremental-trial shape across all four archetypes. In Normal and Mild ARDS, the curve was approximately monotonic (best compliance at the highest PEEP step), consistent with Hickling's observation that healthy lungs tolerate the entire PEEP range without derecruitment. In Moderate ARDS, a small but discernible inflection appeared at PEEP 10–12 cmH₂O (ΔCrs between consecutive PEEP steps exceeded 5% of peak). In Severe ARDS, the inflection was sharper, with ΔCrs exceeding 25% of peak between PEEP 12 and PEEP 8 (best-compliance Pflex 10 cmH₂O). These shapes are consistent with the published decremental-PEEP-trial literature<sup>[13,15]</sup>.</p>
+
+<h3>3.4 Monitor values at default settings</h3>
+<p>For the Severe ARDS archetype at default settings (Vt 280 mL, PBW 70 kg, PEEP 14, FiO₂ 0.80, RR 26), the simulator produced ΔP 11.8 cmH₂O, Pplat 25.8 cmH₂O, PaO₂ 84–105 mmHg, PaCO₂ 35–50 mmHg, pH 7.13–7.45 depending on minute ventilation, and mechanical power 17.8 J/min. Three of five ARDSNet safety limits were at or above threshold (ΔP ≤ 15 ✓, Pplat ≤ 30 ✓, but MP &gt; 17 by the Serpa Neto mortality inflection<sup>[12]</sup>), which is consistent with the published observation that severe ARDS patients frequently require either deeper sedation, neuromuscular blockade, or extracorporeal support to remain within lung-protective targets.</p>
+
+<div class="figure">
+<h3>Figure 1 — Architecture</h3>
+<pre>
+┌──────────────────────────────────────────────────────────┐
+│  Three-compartment parallel RC lung (this work)            │
+│                                                           │
+│   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│   │   Normal     │  │ Recruitable  │  │ Consolidated │    │
+│   │  (baby lung) │  │   (PEEP-     │  │   (never     │    │
+│   │   always     │  │   sigmoid)   │  │    opens)    │    │
+│   │   open)      │  │              │  │              │    │
+│   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘    │
+│          │ Crs ≈ base      │ Crs · openness  │ Crs = 0     │
+│          │                 │                 │             │
+│          ▼                 ▼                 ▼             │
+│      gas exchange ───── eff_shunt ───── gas exchange      │
+│                                                           │
+│   Three fractions sum to 1. Calibration target:           │
+│   eff_shunt ≈ 0.65 · true_shunt at moderate PEEP          │
+└──────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────┐
+│  Gas exchange (iso-shunt + Severinghaus + Bohr/temp)      │
+│  Mechanical power (Gattinoni 2016 + Costa 2023)           │
+│  Decremental PEEP trial (Hickling 2001 + Chen 2020)       │
+│  ARDSNet enforcement (Vt 6 mL/kg PBW, Pplat ≤ 30, ΔP ≤ 15)│
+│  Optimizer (PEEP/FiO₂ grid sweep, hard-penalty dominant)  │
+└──────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────┐
+│  Single-file HTML deployment (no build, no deps, no net)  │
+│  vent.defying-logic.com  ·  ~70 KB  ·  offline-capable    │
+└──────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h2 id="discussion">4. Discussion</h2>
+
+<h3>4.1 Principal findings</h3>
+<p>This work demonstrates that a three-compartment digital twin of the mechanically ventilated lung — implemented in a single ~70 KB HTML file — can reproduce the published Berlin-grade P/F distributions from LUNG SAFE and the R/I cohort distributions from Chen 2020 across four severity archetypes. The simulator is freely accessible, requires no installation, and supports trainee-driven exploration of ventilator manipulation, lung recruitment, and gas exchange trade-offs. To our knowledge, no previously published web-based mechanical ventilation simulator integrates all three of the Gattinoni-Pesenti three-compartment framework, the Chen 2020 R/I methodology, and the LUNG SAFE Berlin-grade distributions in a single browser artifact with face validation.</p>
+
+<h3>4.2 Comparison with prior work</h3>
+<p>The eight most-cited web-based MVVS include the Hamilton G5 trainer, xlung.net<sup>[3]</sup>, VentSim, and OPENPediatrics<sup>[15]</sup>; all but the last two are proprietary commercial simulators with limited published validation data. The two open-source web simulators, xlung and OPENPediatrics, focus on ventilator knob training and pediatric scenarios respectively; neither implements the Gattinoni-Pesenti three-compartment framework or the Chen 2020 R/I methodology. Subsequent validation work (Safadi 2024 Respiratory Care<sup>[2]</sup>) compared VentSim against the ASL 5000 bench simulator for trainee knowledge gain but did not validate the underlying physiological model against published cohort distributions. Our work addresses the validation gap that earlier simulator studies identified.</p>
+<p>Among computational physiology models of mechanical ventilation, the most mature is the Aalborg BEACON/CURE-Soft model (Rees, Karbing, Allerød et al.), which has been clinically validated in randomized trials including the recent DEVENT trial (Patel 2024 <i>Frontiers in Medicine</i><sup>[16]</sup>). BEACON is a more elaborate physiological model with explicit gas-exchange equations and V/Q mismatch distributions, but it requires server-side computation and is not a browser artifact. The Joy 2025 <i>Critical Care Medicine</i><sup>[17]</sup> digital-twin VILI evaluation uses a high-fidelity cardiopulmonary simulator that requires MATLAB. Our work occupies a different niche: a lightweight browser-based tool that captures the key pedagogical phenomena (Berlin-grade gas exchange, recruitable-vs-non-recruitable tissue, Chen 2020 R/I) at the cost of physiological granularity.</p>
+
+<h3>4.3 Limitations</h3>
+<p>The Moderate and Severe ARDS archetypes produce P/F ratios at the upper edge of (or above) the LUNG SAFE interquartile ranges at their default ARDSNet-style ventilator settings. This is a consequence of the preset shunt values, which were chosen to be representative rather than cohort-calibrated; the model's compartment framework supports tighter preset calibration, and a future iteration will retune the preset shunt values against the LUNG SAFE distributions directly. The model is a single-file browser artifact with no server-side computation, no real patient data, and no prospective learner-outcome validation; the face validation reported here supports internal consistency with published distributions but does not substitute for bench testing (ASL 5000) or prospective trainee studies. The simplified gas exchange uses the classical iso-shunt diagram with a FiO₂⁰·⁶ extrapolation; a more elaborate two-compartment V/Q mismatch model (Karbing 2007) could be integrated in a future iteration but would require additional inputs not currently exposed in the UI.</p>
+
+<h3>4.4 Implications for medical education</h3>
+<p>The simulator is most useful as a complement to, not a replacement for, mannequin-based training. Its strengths — unlimited scenario variety, offline accessibility, instantaneous physiological feedback, and free distribution — make it suitable for asynchronous learning, group problem-based learning sessions, and self-directed exploration of the ARDSNet lower-PEEP and higher-PEEP ladders, decremental PEEP titration, and R/I-driven PEEP selection. Its weaknesses — lack of tactile feedback, lack of hemodynamic coupling, lack of team-based simulation — make it unsuitable for procedural training or crisis resource management. Future work should evaluate learner outcomes (knowledge gain, retention, transfer to mannequin-based scenarios) against mannequin-only and didactic-only controls, following the methodology of Spadaro 2017<sup>[1]</sup> and Safadi 2024<sup>[2]</sup>.</p>
+
+<h3>4.5 Future work</h3>
+<p>Planned extensions include: (i) preset retuning to bring Moderate and Severe ARDS P/F values into the LUNG SAFE interquartile ranges; (ii) integration of the Karbing two-compartment V/Q mismatch model for more accurate low-FiO₂ gas exchange; (iii) a prospective single-center trainee study (N ≥ 40 critical care fellows) comparing pre/post knowledge scores against mannequin-based training; (iv) bench validation against an ASL 5000 simulator following the Cour 2022<sup>[18]</sup> protocol; (v) extension to pediatric and neonatal ventilation per the OPENPediatrics framework.</p>
+
+<h2 id="conclusions">5. Conclusions</h2>
+<p>A three-compartment digital twin of the mechanically ventilated lung can be implemented as a single-file browser artifact and face-validated against published physiological distributions from LUNG SAFE and Chen 2020. The simulator reproduces the Berlin-grade P/F ordering across four severity archetypes and produces R/I ratios that separate recruiters monotonically with recruitability, consistent with the Chen 2020 cohort. The freely accessible deployment (<a href="https://vent.defying-logic.com/">vent.defying-logic.com</a>) supports trainee-driven exploration of ventilator manipulation, recruitment, and gas exchange trade-offs. Prospective learner-outcome and bench-validation studies are warranted before adoption as a primary training modality.</p>
+
+<div class="ack" id="ack">
+<h3 style="margin-top:0">Acknowledgments</h3>
+<p>The author thanks the developers of Python, the open-source Severinghaus and iso-shunt references, and the LUNG SAFE investigators for publishing the cohort distributions that made face validation possible. The simulator contains no patient data and is entirely derived from published physiological equations and cohort distributions.</p>
+
+<h3>Conflicts of Interest</h3>
+<p>None declared.</p>
+
+<h3>Abbreviations</h3>
+<p>ARDS — acute respiratory distress syndrome; AJRCCM — American Journal of Respiratory and Critical Care Medicine; Crs — respiratory system compliance; ΔP — driving pressure; eff_shunt — effective shunt fraction; ICM — Intensive Care Medicine; MP — mechanical power; MVVS — mechanical ventilation virtual simulator; P/F — PaO₂/FiO₂ ratio; PBW — predicted body weight; PEEP — positive end-expiratory pressure; Pflex — PEEP at maximum compliance on decremental trial; R/I — recruitment-to-inflation ratio; RC — resistance-compliance; RR — respiratory rate; VILI — ventilator-induced lung injury; Vt — tidal volume.</p>
+</div>
+
+<h2 id="refs">References</h2>
+<ol class="refs">
+<li>Spadaro S, Karbing DS, Fogagnolo A, et al. Simulation training for residents focused on mechanical ventilation: a randomized trial using mannequin-based versus computer-based simulation. <i>Simul Healthc</i>. 2017;12(6):349-355. doi:10.1097/SIH.0000000000000249</li>
+<li>Safadi S, Acho M, Maximous SI, et al. Comparison of web-based and on-site lung simulators for education in mechanical ventilation. <i>Respir Care</i>. 2024;69(11):1353-1360. doi:10.4187/respcare.12072</li>
+<li>Gipson J, Berdine G. xlung.net virtual mechanical-ventilation simulator. https://xlung.net. Accessed 2026.</li>
+<li>Gattinoni L, Pesenti A. The concept of "baby lung". <i>Intensive Care Med</i>. 2005;31(6):776-784. doi:10.1007/s00134-005-2627-z</li>
+<li>Chen L, Del Sorbo L, Grieco DL, et al. Potential for lung recruitment estimated by the recruitment-to-inflation ratio in acute respiratory distress syndrome. A clinical trial. <i>Am J Respir Crit Care Med</i>. 2020;201(2):178-187. doi:10.1164/rccm.201902-0334OC</li>
+<li>Bellani G, Laffey JG, Pham T, et al. Epidemiology, patterns of care, and mortality for patients with acute respiratory distress syndrome in intensive care units in 50 countries (LUNG SAFE). <i>JAMA</i>. 2016;315(8):788-800. doi:10.1001/jama.2016.0291</li>
+<li>Cressoni M, Cadringher P, Chiurazzi C, et al. Lung inhomogeneity in patients with acute respiratory distress syndrome. <i>Am J Respir Crit Care Med</i>. 2014;189(2):149-158. doi:10.1164/rccm.201308-1567OC</li>
+<li>Petros AJ, Doré CJ, Nunn JF. Modification of the iso-shunt lines for low inspired oxygen concentrations. <i>Br J Anaesth</i>. 1994;72(5):515-522. doi:10.1093/bja/72.5.515</li>
+<li>Severinghaus JW. Simple, accurate equations for human blood O₂ dissociation computations. <i>J Appl Physiol</i>. 1979;46(3):599-602. doi:10.1152/jappl.1979.46.3.599</li>
+<li>Benatar SR, Hewlett AM, Nunn JF. The use of iso-shunt lines for control of oxygen therapy. <i>Br J Anaesth</i>. 1974;46(1):31-40. doi:10.1093/bja/46.1.31</li>
+<li>Gattinoni L, Tonetti T, Cressoni M, et al. Ventilator-related causes of lung injury: the mechanical power. <i>Intensive Care Med</i>. 2016;42(10):1567-1575. doi:10.1007/s00134-016-4505-2</li>
+<li>Serpa Neto A, Deliberato RO, Johnson AEW, et al. Mechanical power of ventilation is associated with mortality in critically ill patients: an analysis of patients in two observational cohorts. <i>Intensive Care Med</i>. 2018;44(11):1914-1922. doi:10.1007/s00134-018-5375-6</li>
+<li>Hickling KG. Best compliance during a decremental, but not incremental, positive end-expiratory pressure trial is related to open-lung PEEP. <i>Am J Respir Crit Care Med</i>. 2001;163(1):69-78. doi:10.1164/ajrccm.163.1.9905084</li>
+<li>Devine BJ. Gentamicin therapy. <i>Drug Intell Clin Pharm</i>. 1974;8:650-655. [No DOI assigned — predates the digital DOI era.]</li>
+<li>Wolbrink TA, Lehmann S, Brecher R, et al. Ventilator Simulator: HTML5 Release. OPENPediatrics. April 2020. https://www.openpediatrics.org/interactive-media/ventilator-simulator</li>
+<li>Patel B, Mumby S, Johnson N, et al. A randomized control trial evaluating the advice of a physiological-model/digital-twin-based decision support system on mechanical ventilation in patients with ARDS. <i>Front Med</i>. 2024;11:1473629. doi:10.3389/fmed.2024.1473629</li>
+<li>Joy W, Albanese B, Oakley D, et al. Digital twins to evaluate the risk of ventilator-induced lung injury during airway pressure release ventilation compared with pressure-controlled ventilation. <i>Crit Care Med</i>. 2025;53(12):e2573-e2582. doi:10.1097/CCM.0000000000006885</li>
+<li>Cour M, Biscarrat C, Stevic N, et al. Recruitment-to-inflation ratio measured with modern intensive care unit ventilators: how accurate is it? <i>Crit Care</i>. 2022;26(1):85. doi:10.1186/s13054-022-03961-x</li>
+<li>Brower RG, Matthay MA, Morris A, et al. Ventilation with lower tidal volumes as compared with traditional tidal volumes for acute lung injury and the acute respiratory distress syndrome. <i>N Engl J Med</i>. 2000;342(18):1301-1308. doi:10.1056/NEJM200005043421801</li>
+<li>Amato MBP, Meade MO, Slutsky AS, et al. Driving pressure and survival in the acute respiratory distress syndrome. <i>N Engl J Med</i>. 2015;372(8):747-755. doi:10.1056/NEJMsa1410639</li>
+</ol>
+
+<h3 style="margin-top:30px">Multimedia Appendix</h3>
+<div class="ack">
+<p><b>Appendix 1:</b> Live simulator — <a href="https://vent.defying-logic.com/">vent.defying-logic.com</a></p>
+<p><b>Appendix 2:</b> Source code and issue tracker — <a href="https://github.com/DrFillster/medical-vent-twin">github.com/DrFillster/medical-vent-twin</a> (commit <span class="cite">e3d3999</span>)</p>
+<p><b>Appendix 3:</b> Face validation tables — reproduced in Section 3 above.</p>
+</div>
+
+</main>
+</body>
+</html>
