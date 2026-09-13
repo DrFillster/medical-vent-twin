@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Mechanical Ventilation Digital Twin</title>
+<title>Mechanical Ventilation Three-Compartment Lung Simulator</title>
 <style>
   :root {
     --bg:#0b1020; --panel:#141a2e; --panel2:#1c2440; --line:#2a3354;
@@ -50,8 +50,8 @@
 </head>
 <body>
 <header>
-  <h1>Mechanical Ventilation Digital Twin</h1>
-  <div class="meta">ARDS physiology · single-compartment RC · quasi-steady gas exchange · <a href="/paper.html" style="color:var(--acc);text-decoration:none">Manuscript →</a></div>
+  <h1>Mechanical Ventilation Three-Compartment Lung Simulator</h1>
+  <div class="meta">ARDS physiology · single-compartment linear RC + three-compartment heterogeneity · quasi-steady gas exchange · <a href="/paper.html" style="color:var(--acc);text-decoration:none">Manuscript →</a></div>
 </header>
 
 <main>
@@ -305,7 +305,7 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
         <button class="primary" id="runTrial">Run decremental PEEP trial</button>
-        <span class="hint">Models a recruitment maneuver at PEEP 20 → step down to 4. Outputs P/V curve, Pflex, and Recruitment-to-Inflation ratio.</span>
+        <span class="hint">Models a recruitment maneuver at PEEP 20 → step down to 4. Outputs the P/V curve, the best-Crs PEEP (NOT Hickling's Pflex — see §3.3 limitation), and the Chen 2020 Recruitment-to-Inflation ratio.</span>
       </div>
       <canvas id="pvCanvas" style="margin-top:10px"></canvas>
     </div>
@@ -346,6 +346,7 @@ const TWIN = {
   vco2: 250,       // CO2 production mL/min
   tempC: 37.0,     // body temp (°C) — shifts P50 via Bohr/temperature
   cohb: 0.0,       // carboxyhemoglobin % — falsely elevates SpO2
+  aop: 0.0,        // airway opening pressure (cmH2O); affects R/I (Chen 2020)
   dpg: 0.0,        // chronic 2,3-DPG shift of P50 (mmHg); +3 in chronic anemia/hypoxia
   pbw: 70,         // predicted body weight (kg) — ARDSNet uses this, NOT actual weight
   sex: 'M',        // for PBW formula if user switches to height-only mode later
@@ -408,24 +409,24 @@ const PRESETS = {
   normal: {
     arch: 'Normal',
     crs: 80, raw: 6, recruit: 0.10, shunt: 0.05, vd: 0.30,
-    hb: 13.5, co: 5.5, vco2: 200,
+    hb: 13.5, co: 5.5, vco2: 200, aop: 0,
     // ventilator defaults: low support, low PEEP, low FiO2, Vt 8 mL/kg PBW
     mode: 'VC', peep: 5, fio2: 0.30, vt: 480, rr: 14, ie: 0.5,
     spo2Target: 96,
   },
-  // Mild ARDS (Berlin): P/F 200-300. Shunt ~15%, modest recruitability.
+  // Mild ARDS (Berlin): P/F 200-300. Shunt ~22%, modest recruitability.
   mild: {
     arch: 'Mild ARDS',
-    crs: 55, raw: 8, recruit: 0.40, shunt: 0.15, vd: 0.38,
-    hb: 12.0, co: 5.5, vco2: 210,
+    crs: 55, raw: 8, recruit: 0.40, shunt: 0.16, vd: 0.38,
+    hb: 12.0, co: 5.5, vco2: 210, aop: 2,
     mode: 'VC', peep: 8, fio2: 0.40, vt: 420, rr: 16, ie: 0.5,
     spo2Target: 93,
   },
-  // Moderate ARDS (Berlin): P/F 100-200. Shunt ~25-30%, meaningful recruitability.
+  // Moderate ARDS (Berlin): P/F 100-200. Shunt ~38%, meaningful recruitability.
   moderate: {
     arch: 'Moderate ARDS',
-    crs: 35, raw: 10, recruit: 0.60, shunt: 0.28, vd: 0.45,
-    hb: 11.0, co: 5.0, vco2: 220,
+    crs: 35, raw: 10, recruit: 0.60, shunt: 0.38, vd: 0.45,
+    hb: 11.0, co: 5.0, vco2: 220, aop: 4,
     mode: 'VC', peep: 10, fio2: 0.55, vt: 360, rr: 20, ie: 0.5,
     spo2Target: 92,
   },
@@ -434,7 +435,7 @@ const PRESETS = {
   severe: {
     arch: 'Severe ARDS',
     crs: 18, raw: 14, recruit: 0.50, shunt: 0.50, vd: 0.60,
-    hb: 9.5, co: 6.0, vco2: 250,
+    hb: 9.5, co: 6.0, vco2: 250, aop: 6,
     mode: 'VC', peep: 14, fio2: 0.80, vt: 280, rr: 26, ie: 0.5,
     spo2Target: 88,
   },
@@ -452,7 +453,7 @@ function applyPreset(name) {
 
 // ---------- physiology ----------
 
-// Three-compartment RC lung model (digital twin core).
+// Three-compartment RC lung model.
 // Real ARDS lungs are heterogeneous. Per Gattinoni & Pesenti 2005 (ICM 31:776),
 // the "baby lung" (always-aerated tissue) coexists with tissue that is either
 // (a) derecruited but recruit-able with PEEP, or (b) consolidated and never
@@ -467,13 +468,21 @@ function applyPreset(name) {
 // The three fractions sum to 1. fNormal correlates inversely with severity
 // (smaller baby lung = more severe). fConsolidated scales with severity (shunt)
 // and inversely with recruitability (low recruiters have more non-openable
-// tissue). fRecruitable fills the remainder and grows with recruitability,
-// which is what makes the R/I ratio correctly separate recruiters (Chen 2020).
+// tissue). fRecruitable = recruit × (1 − fNormal), so the size of the
+// potentially-recoverable compartment is what makes the Chen R/I ratio
+// correctly separate recruiters (low fRecruitable → low R/I).
+//
+// This is a THREE-COMPARTMENT MECHANISTIC LUNG SIMULATOR, not a digital twin.
+// A digital twin would require individual calibration from a real patient's
+// measured parameters and dynamic synchronization with patient monitoring;
+// this model is a parameterized simulator with literature-anchored preset
+// archetypes.
 //
 // Anchors:
 //   - LUNG SAFE Bellani 2016 — Berlin-grade P/F distributions at standard vent.
 //   - Gattinoni & Pesenti 2005 — baby-lung + recruitability framework.
-//   - Chen 2020 (AJRCCM 201:178) — R/I ratio methodology.
+//   - Chen 2020 (AJRCCM 201:178) — R/I ratio methodology (45 enrolled patients,
+//     median R/I 0.5 — descriptive, not a validated cutoff).
 //   - Similowski & Bates 1991 — two-compartment RC canonical model
 //     (extended here to three compartments per above).
 //
@@ -486,14 +495,16 @@ function compartments(peep, recruit) {
   // fNormal: baby lung fraction. Per Gattinoni 2005, baby lung is smaller in
   // more severe ARDS. Cap to keep a functional lung at every severity.
   const fNormal = Math.min(0.85, Math.max(0.10, 0.85 - TWIN.shunt * 1.0));
-  // fConsolidated: non-openable tissue. Scales with severity (shunt) and
-  // inversely with recruitability (Gattinoni 2005: high recruiters have less
-  // consolidated tissue, low recruiters have more). Quadratic in shunt so
-  // severe ARDS gets disproportionate consolidation.
-  const fConsolidated = Math.max(0, Math.min(0.70,
-    Math.pow(TWIN.shunt, 1.3) * (0.6 + (1 - recruit) * 0.3)));
-  // fRecruitable: remainder, must be positive.
-  const fRecruitable = Math.max(0.05, 1 - fNormal - fConsolidated);
+  // fRecruitable: a fraction of (1 − fNormal) proportional to recruitability.
+//   recruitability = 0  →  no recruitable tissue (all non-baby-lung is consolidated).
+//   recruitability = 1  →  all non-baby-lung tissue is potentially recruitable.
+// This is what makes the R/I ratio (Chen 2020) separate high from low recruiters
+// meaningfully: low recruiters have very little tissue that the P/V curve can
+// derecruit on PEEP drop, so V_expired − V_expected stays small.
+  const fRecruitable = Math.max(0.02, TWIN.recruit * (1 - fNormal));
+  // fConsolidated: remainder of non-baby-lung tissue. Clamped at 0.85 to leave
+  // at least a functional gas-exchanging compartment at every severity.
+  const fConsolidated = Math.max(0, Math.min(0.85, 1 - fNormal - fRecruitable));
 
   // Compliance model: TWIN.crs is the *measured* Crs at the patient's current
   // PEEP (what clinicians observe on the ventilator). Consolidated tissue
@@ -674,30 +685,46 @@ function phFromPaCO2(paco2) {
   return 6.1 + Math.log10(hco3 / (paco2 * 0.03));
 }
 
-// Mechanical power (Gattinoni): 0.098 * RR * Vt * (Ppeak - 0.5*ΔP)
-// Ppeak ≈ PEEP + ΔP + Resistive term (Raw * flow)
-// We approximate flow = Vt(L)/Ti(s)
+// Mechanical power (Gattinoni simplified form for VCV with constant inspiratory flow):
+//   MP = 0.098 × RR × Vt × (Ppeak − 0.5 × ΔP)
+//   Ppeak ≈ PEEP + ΔP + (Raw × flow)
+//   flow ≈ Vt(L) / Ti(s)
+//
+// IMPORTANT: This formula is the Gattinoni 2016 simplified form valid for
+// VOLUME-CONTROLLED ventilation with CONSTANT INSPIRATORY FLOW. For pressure-
+// control, pressure-support, or decelerating-flow modes, the equation
+// underestimates true mechanical power and a mode-specific formulation is
+// required (see Gattinoni 2016 supplement; Costa 2023).
+//
+// MP > 17 J/min is an OBSERVATIONAL COHORT RISK MARKER (Serpa Neto 2018
+// retrospective analysis), not a validated individual-patient safety limit.
+// The simulator reports MP as a numeric risk marker only — clinical decisions
+// (sedation depth, neuromuscular blockade, ECMO) cannot be made from this
+// number alone.
 function mechPower(vtL, rr, peep, dP, raw, ti) {
   const flow = vtL / Math.max(0.2, ti); // L/s
   const ppeak = peep + dP + raw * flow; // cmH2O
-  // Convert cmH2O·L to J/min: 0.098 J/(cmH2O·L) per breath cycle
-  // Power = 0.098 * RR * Vt * (Ppeak - 0.5*ΔP)  (Gattinoni)
   return 0.098 * rr * vtL * (ppeak - 0.5 * dP);
 }
 
-// Virtual decremental PEEP trial. Returns a P/V curve point list and the
-// derived inflection pressure (Pflex) and Recruitment-to-Inflation ratio (R/I).
+// Virtual decremental PEEP trial. Returns a P/V curve point list, the
+// "best-Crs PEEP" (NOT Hickling's Pflex — see §3.3 limitation), and the
+// Chen 2020 Recruitment-to-Inflation ratio.
 //
 // P/V curve: compliance at each PEEP from 20→4 cmH2O in 2-cmH2O steps
 // (decremental after a recruitment maneuver at PEEP 20).
 //   Crs at each step = Vt / (Pplat - PEEP) for a fixed Vt breath.
-// Pflex: PEEP below which compliance falls off sharply (alveolar derecruitment).
-//   Computed as the PEEP with the highest Crs, or the transition point between
-//   the flat-curve region and the descending limb.
-// R/I ratio (Chen 2020, ICM): the volume change between PEEP 20 and PEEP 5,
-// normalized by the Vt at PEEP 5. R/I > 0.5 → highly recruitable.
-//   R/I = (V_compliance_at_20 - V_compliance_at_5) / Vt_PEEP5
-//   Computed by integrating the P/V curve.
+// Best-Crs PEEP: the PEEP at which compliance is maximal across the sweep.
+//   Hickling's Pflex is the LOWER INFLECTION of a sigmoid P/V curve; this
+//   model does not reproduce the sigmoid (no overdistension, no sharp
+//   derecruitment transition), so we report the peak-compliance PEEP and
+//   label it accordingly.
+// R/I ratio (Chen 2020, AJRCCM 201:178): single-breath PEEP-drop method.
+//   V_expired = V@PEEP15 − V@PEEP5   (V(p) = (p − AOP) × Crs(p − AOP))
+//   V_recruited = V_expired − Crs_low × ΔPEEP
+//   R/I = (V_recruited / ΔPEEP) / Crs_low
+//   Reference: 45 enrolled ARDS patients, median R/I 0.5 (study median,
+//   not a clinically validated threshold).
 function peepTitration(fixedVt, fixedRR, ie) {
   const peepSteps = [];
   for (let p = 20; p >= 4; p -= 2) peepSteps.push(p);
@@ -721,13 +748,14 @@ function peepTitration(fixedVt, fixedRR, ie) {
     prevCrs = crsAtP;
   }
 
-  // Pflex detection (Hickling 2001, AJRCCM 163:69).
-  // Best compliance during a DECREMENTAL PEEP trial is the open-lung PEEP.
-  // Operationally: Pflex = the PEEP at which Crs is maximal across the decremental
-  // sweep. If multiple steps share the max, take the highest PEEP (most protective
-  // and matches "start of derecruitment"). For monotonic curves the highest-PEEP
-  // tie-break will report the top step, which is also correct (the lung was fully
-  // recruited throughout the sweep → derecruitment starts immediately as PEEP drops).
+  // P/V curve & "best compliance PEEP" — the decremental PEEP sweep reports the
+  // PEEP at which Crs is maximal. We label this "best-Crs PEEP" rather than
+  // "Pflex" because Hickling's Pflex is the LOWER INFLECTION POINT of a sigmoid
+  // P/V curve (the boundary between recruitment and derecruitment regions),
+  // not the peak of the compliance-PEEP curve. Our quasi-static model does
+  // NOT reproduce the S-shaped P/V curve (no overdistension, no sharp
+  // derecruitment transition); the best-Crs PEEP at the top of the sweep is
+  // what the model reports. This is documented as a model limitation in §3.3.
   let peakCrs = -Infinity, peakIdx = 0;
   for (let i = 0; i < points.length; i++) {
     if (points[i].crs > peakCrs) { peakCrs = points[i].crs; peakIdx = i; }
@@ -739,25 +767,53 @@ function peepTitration(fixedVt, fixedRR, ie) {
     }
   }
   const pflex = points[peakIdx].peep;
-  const pflexMethod = 'best-compliance (Hickling 2001)';
+  const pflexMethod = 'best-Crs PEEP (NOT Hickling Pflex — model does not reproduce S-shaped P/V curve)';
 
-  // R/I ratio (Chen 2020, AJRCCM 201:178).
-  // Single-breath decrement from high-PEEP to low-PEEP. The recruited volume is
-  // the compliance gained when stepping from low to high PEEP, normalized by the
-  // tidal volume at low PEEP. Per the published derivation:
-  //   R/I = (Crs_high - Crs_low) * (PEEP_high - PEEP_low) / Vt_at_PEEP_low
-  // Endpoints only — do NOT integrate the whole curve (double-counts the area
-  // that the compliance endpoints already capture). The PEEP 20 step is the
-  // highest-PEEP point in our sweep; PEEP 5 (last step) is the low-PEEP point.
-  // Drop to PEEP 5 from PEEP 20 = ΔPEEP 15 cmH2O per the Chen protocol.
-  const highP = points[0];                       // PEEP 20 (after RM)
-  const lowP  = points[points.length - 1];       // PEEP 5
-  const dV = (highP.crs - lowP.crs) * (highP.peep - lowP.peep);   // mL
-  const ri = dV / Math.max(50, lowP.vt);                          // unitless
-  // Chen 2020 interpretation: R/I > 0.5 high recruiters; 0.2-0.5 moderate; <0.2 low
-  const riClass = ri > 0.5 ? 'High recruiter' : ri > 0.2 ? 'Moderate recruiter' : 'Low recruiter';
+  // R/I ratio per Chen 2020 AJRCCM 201:178 — single-breath PEEP-drop method.
+  //
+  // Procedure (per Chen's supplement):
+  //   (1) Hold PEEP at a "high" level long enough for full recruitment (≥4 breaths).
+  //   (2) Deliver one Vt breath at the high PEEP; measure end-inspiratory plateau.
+  //   (3) Switch to a "low" PEEP for one breath.
+  //   (4) The difference between the expired volume when stepping PEEP from
+  //       high to low and the volume expected from low-PEEP compliance alone
+  //       is the RECRUITED VOLUME released by derecruitment.
+  //   (5) R/I = (V_recruited / ΔPEEP) / Crs_low  =  C_recruited / C_low.
+  //
+  // In our quasi-static RC model, end-expiratory volume at PEEP p is
+  //   V(p) = (p − AOP) × Crs(p − AOP)   when p > AOP, else 0
+  // where AOP is airway opening pressure (default 0; in real ARDS lungs AOP
+  // can reach 5–10 cmH2O and materially distorts R/I if ignored — see Chen
+  // supplement and Cressoni 2014). When AOP = 0 this simplifies to V(p) = p×Crs(p).
+  //
+  // Chen's protocol uses PEEP_high=15 and PEEP_low=5 with ΔPEEP=10 cmH2O.
+  // We sweep down from 20 to 4 in 2-cmH2O steps for the P/V curve, then
+  // compute R/I using the canonical 15→5 endpoints.
+  const AOP = Math.max(0, TWIN.aop || 0);
+  const peepHigh = 15, peepLow = 5;
+  const cHigh = compartments(peepHigh, TWIN.recruit);
+  const cLow  = compartments(peepLow,  TWIN.recruit);
+  const crsHigh = Math.max(1, cHigh.crsTotal);
+  const crsLow  = Math.max(1, cLow.crsTotal);
+  // Volume at end-expiration above AOP (mL); clamp below AOP to zero.
+  const Vhigh = Math.max(0, (peepHigh - AOP)) * crsHigh;
+  const Vlow  = Math.max(0, (peepLow  - AOP)) * crsLow;
+  const Vexpired = Vhigh - Vlow;
+  const Vexpected = crsLow * (peepHigh - peepLow);
+  const Vrecruited = Math.max(0, Vexpired - Vexpected);
+  const crecruited = Vrecruited / (peepHigh - peepLow);
+  const ri = crecruited / crsLow;
+  const dV = Vrecruited;
+  // Per Chen 2020 median R/I ≈ 0.5 across 45 enrolled ARDS patients (range 0–2.0).
+  // The 0.5 figure is the STUDY MEDIAN, not a clinically validated threshold.
+  // We follow Chen's published descriptive labels (R/I > 0.5 high recruiter,
+  // 0.2–0.5 moderate, <0.2 low) but the paper must present these as
+  // descriptive percentiles of the original cohort, not as validated cutoffs.
+  const riClass = ri > 0.5 ? 'High recruiter (Chen descriptive)'
+                  : ri > 0.2 ? 'Moderate recruiter (Chen descriptive)'
+                  : 'Low recruiter (Chen descriptive)';
 
-  return {points, pflex, pflexMethod, ri, riClass, dV};
+  return {points, pflex, pflexMethod, ri, riClass, dV, crecruited, AOP};
 }
 
 // ---------- simulator ----------
@@ -1147,17 +1203,17 @@ function drawPV(canvas, trial) {
     ctx.beginPath(); ctx.arc(xToPx(p.peep), yToPx(p.crs), 3*devicePixelRatio, 0, Math.PI*2); ctx.fill();
   }
 
-  // Pflex vertical line
+  // Best-Crs PEEP vertical line (formerly labeled "Pflex"; see §3.3 limitation)
   if (trial.pflex != null && trial.pflex <= xMax) {
     ctx.strokeStyle = '#ffd66b'; ctx.lineWidth = 1.5*devicePixelRatio;
     ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.moveTo(xToPx(trial.pflex), padT); ctx.lineTo(xToPx(trial.pflex), padT+plotH); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = '#ffd66b';
-    ctx.fillText(`Pflex = ${trial.pflex}`, xToPx(trial.pflex)+4*devicePixelRatio, padT+12*devicePixelRatio);
+    ctx.fillText(`best-Crs PEEP = ${trial.pflex}`, xToPx(trial.pflex)+4*devicePixelRatio, padT+12*devicePixelRatio);
   }
 
-  // Suggested PEEP box (Pflex + 2)
+  // Suggested PEEP box (best-Crs PEEP + 2; educational suggestion only)
   if (trial.pflex != null) {
     const sugPeep = Math.min(20, trial.pflex + 2);
     ctx.strokeStyle = '#7fdc9a'; ctx.lineWidth = 1*devicePixelRatio;
@@ -1415,8 +1471,9 @@ function render() {
   };
   badge(`Pplat ${cur.pplat.toFixed(1)} ≤ ${TWIN.pplatLimit}`, cur.alarmPplat, 'high');
   badge(`ΔP ${cur.dP.toFixed(1)} ≤ ${TWIN.dpLimit}`, cur.alarmDP, 'high');
-  badge(`MP ${cur.mp.toFixed(1)} J/min ≤ 17 (Serpa Neto 2018)`, cur.alarmMP, 'high');
-  badge(`MP/ΔP ${cur.mpPerDp.toFixed(2)} ≤ 2.0 (Costa 2023)`, cur.alarmMPperDP, 'low');
+  badge(`MP ${cur.mp.toFixed(1)} J/min (VCV-only formula; observational risk marker, not validated individual threshold)`,
+    cur.mp > 17, 'high');
+  badge(`MP/ΔP ${cur.mpPerDp.toFixed(2)} (Costa 2023 resistive-work index)`, cur.mpPerDp > 2.0, 'low');
   badge(`SpO₂ ${cur.spo2.toFixed(1)}% (target ${TWIN.spo2Target}%)`, cur.spo2 < TWIN.spo2Target, 'low');
   if (cur.ardsnetVtTarget != null) {
     badge(`Vt ${cur.ardsnetVtActual.toFixed(0)} mL (target ${cur.ardsnetVtTarget.toFixed(0)} mL)`, cur.alarmVt, 'high');
@@ -1459,14 +1516,14 @@ document.getElementById('runTrial').addEventListener('click', () => {
   const rr = TWIN.rr || 20;
   const ie = TWIN.ie || 0.5;
   TWIN.pvTrial = peepTitration(vt, rr, ie);
-  // Auto-set PEEP to "suggested PEEP" (Pflex + 2) for the trial, but don't apply permanently
+  // Auto-set PEEP to "suggested PEEP" (best-Crs PEEP + 2) for the trial, but don't apply permanently
   // — just push a sample to the trend so the user can compare before/after.
   const before = simulate();
   TWIN.trendLabel = 'trial:' + (TWIN.pvTrial.riClass || '?');
   render();
   const sugPeep = Math.min(20, (TWIN.pvTrial.pflex || 10) + 2);
   // show the trial result in the optimizer status bar
-  const status = `R/I = ${TWIN.pvTrial.ri.toFixed(2)} → ${TWIN.pvTrial.riClass}. Pflex = ${TWIN.pvTrial.pflex}. Suggested PEEP = ${sugPeep}.`;
+  const status = `R/I = ${TWIN.pvTrial.ri.toFixed(2)} → ${TWIN.pvTrial.riClass}. best-Crs PEEP = ${TWIN.pvTrial.pflex}. Suggested PEEP = ${sugPeep}. (Best-Crs PEEP is a model output, not the Hickling Pflex from a sigmoid P/V curve.)`;
   document.getElementById('optStatus').textContent = status;
 });
 
