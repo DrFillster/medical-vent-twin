@@ -18,24 +18,29 @@ on the Severinghaus curve.
 
 ## Physiology model
 
-### Two-compartment RC lung
-The lung is modeled as two parallel compartments:
-- **Fast compartment** — the "baby lung" (Gattinoni): normal-ish compliance,
-  low resistance, modest shunt, always open.
-- **Slow compartment** — derecruited / flooded units: low compliance, high
-  resistance, large shunt. Opens sigmoidally with PEEP, parameterized by a
-  recruitability score and an opening pressure.
+### Three-compartment RC lung (digital twin core)
+The lung is modeled as three parallel compartments (Gattinoni & Pesenti 2005):
+- **Normal (baby lung)** — always open, normal compliance, low shunt.
+- **Recruitable** — opens sigmoidally with PEEP; opens more easily in high
+  recruiters (lower opening pressure). Contributes residual V/Q mismatch even
+  when fully open (recruited ARDS tissue is not normal tissue).
+- **Consolidated** — never opens; permanent shunt. Fraction scales with
+  severity (shunt) and inversely with recruitability — low recruiters have
+  more non-openable tissue (Gattinoni 2005 CT data).
 
-Compliance is the parallel sum (`Crs = C_fast · f_fast + C_slow · f_slow`).
-The slow compartment's effective shunt for gas exchange is:
+The three fractions sum to 1. Effective shunt for gas exchange:
 
-    eff_shunt = true_shunt · (1 - openness) + baby_lung_shunt · openness
+    eff_shunt = fNormal · shuntNormal
+              + fRecruitable · openness  · shuntRecruitedResidual
+              + fRecruitable · (1-openness) · 1.0
+              + fConsolidated · 1.0
 
-This is the key fix vs. a naive volume-weighted average: at low PEEP with
-low recruitability, most of the slow compartment is collapsed and perfused
-but not gas-exchanging, so the effective shunt stays close to the patient's
-true shunt. As PEEP recruits the slow compartment, eff_shunt drops toward
-the baby-lung baseline (~0.15 at full recruitment).
+This is the key fix vs. a naive two-compartment model: the consolidated
+compartment gives a *floor* on eff_shunt that no amount of PEEP can remove,
+and the residual V/Q mismatch in opened recruitable tissue prevents eff_shunt
+from collapsing toward normal-lung baseline. Calibration target: eff_shunt
+≈ 0.65 · true_shunt at moderate PEEP, matching Bellani 2016 LUNG SAFE P/F
+distributions per Berlin ARDS grade.
 
 ### Oxygen-hemoglobin dissociation
 Severinghaus curve with P50 shifts for temperature, Bohr effect (pH),
@@ -70,12 +75,14 @@ endpoints of the curve, not the area under it, per Chen's derivation.
 
 - ARDSNet ARMA trial — Brower et al, *NEJM* 342:1301-8 (2000)
 - Driving pressure — Amato et al, *NEJM* 372:747-55 (2015)
+- Baby lung + recruitability concept — Gattinoni & Pesenti, *Intensive Care Med* 31:776-84 (2005)
 - Mechanical power — Gattinoni et al, *Anesthesiology* 124:441-50 (2016)
 - MP VILI threshold — Serpa Neto et al, *Crit Care Med* 46:762-7 (2018)
 - R/I ratio — Chen et al, *AJRCCM* 201:178-87 (2020)
 - Decremental PEEP / best-compliance Pflex — Hickling, *AJRCCM* 163:69-78 (2001)
 - R/I and dynamic strain — *PMID 38963617* (2025)
 - Berlin ARDS definition — Ranieri et al, *JAMA* 307:2526-33 (2012)
+- LUNG SAFE cohort — Bellani et al, *JAMA* 315:788-800 (2016)
 - Computational lung modelling review — Neelakantan et al, *J R Soc Interface* 19:20220062 (2022)
 
 ## Local run
