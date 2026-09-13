@@ -218,7 +218,7 @@
           </select>
         </div>
       </div>
-      <div class="hint">ARDSNet: Vt = 6 mL/kg PBW, Pplat ≤ 30, ΔP ≤ 15. PEEP/FiO₂ ladder used when optimizer goal is "PEEP+FiO₂ at SpO₂".</div>
+      <div class="hint">ARDSNet (Brower 2000): Vt = 6 mL/kg PBW, Pplat ≤ 30 (with Vt-reduction to 4 mL/kg allowed if Pplat &gt; 30). ΔP around 14–15 cmH₂O is an observational risk marker from later analyses (Amato 2015), NOT an original ARDSNet limit. PEEP/FiO₂ ladder used when optimizer goal is "PEEP+FiO₂ at SpO₂".</div>
     </div>
 
     <div class="card group">
@@ -362,13 +362,13 @@ const TWIN = {
   ps: 10, rr3: 16, effort: 6,
   // ARDSNet protocol knobs
   ardsnetOn: true,         // when true, optimizer & live sim enforce Vt=6 mL/kg PBW + Pplat<=30 + ladder
-  vtPerKg: 6.0,            // current LTV target
+  vtPerKg: 6.0,            // current LTV target (allowed range 4-6 mL/kg per Brower 2000)
   peepFiO2Ladder: 'lower', // 'lower' (NIH ARDSMA) or 'higher' (NIH ARDSMB)
   // Targets
   spo2Target: 88,
   // Alarms
-  pplatLimit: 30,
-  dpLimit: 15,
+  pplatLimit: 30,                                  // ARDSNet (Brower 2000): Pplat ≤ 30
+  dpLimit: 15,                                     // Observational risk marker (Amato 2015) — NOT an original ARDSNet protocol limit
   // Optimization outputs
   opt: null, // populated by optimizer
   cancel: false,
@@ -402,42 +402,59 @@ function calcPBW(heightCm, sex) {
 }
 
 // Patient archetype presets. Each bundles coherent physiology + ventilator default settings.
-// Values picked to match ARDSNet Berlin-grade descriptors (mild/moderate/severe).
+// Values picked to match Berlin-grade descriptors (mild/moderate/severe). These are
+// educational archetypes, not calibrated patient data. Each preset sets ardsnetOn=false
+// so the PRESETS Vt is retained at runtime — when ardsnetOn=true, the simulator snaps
+// Vt to 6 mL/kg PBW, which would silently overwrite Mild's 420 (already 6 mL/kg), bump
+// Moderate's 360 up to 420, and overwrite Severe's 280 with 420. Disabling the snap
+// makes the manuscript tables and prose match the code exactly.
 const PRESETS = {
   // Healthy intubated patient (e.g. post-op, airway protection, normal lungs).
   // Crs ~80 mL/cmH2O, Raw normal, minimal shunt, normal dead space, no recruit needed.
+  // Vt = 480 mL (6.86 mL/kg PBW) — surgical-anesthesia standard, NOT an ARDSNet target.
   normal: {
     arch: 'Normal',
     crs: 80, raw: 6, recruit: 0.10, shunt: 0.05, vd: 0.30,
     hb: 13.5, co: 5.5, vco2: 200, aop: 0,
-    // ventilator defaults: low support, low PEEP, low FiO2, Vt 8 mL/kg PBW
     mode: 'VC', peep: 5, fio2: 0.30, vt: 480, rr: 14, ie: 0.5,
     spo2Target: 96,
+    ardsnetOn: false,        // surgical/Vt non-target intentional
   },
-  // Mild ARDS (Berlin): P/F 200-300. Shunt ~22%, modest recruitability.
+  // Mild ARDS (Berlin): P/F 200-300. Shunt ~16%, modest recruitability.
+  // Vt = 420 mL = 6 mL/kg PBW for the 70-kg preset (ARDSNet LTV target hit).
   mild: {
     arch: 'Mild ARDS',
     crs: 55, raw: 8, recruit: 0.40, shunt: 0.16, vd: 0.38,
     hb: 12.0, co: 5.5, vco2: 210, aop: 2,
     mode: 'VC', peep: 8, fio2: 0.40, vt: 420, rr: 16, ie: 0.5,
     spo2Target: 93,
+    ardsnetOn: false,        // PRESETS Vt retained; mild's 420 already equals 6 mL/kg
   },
   // Moderate ARDS (Berlin): P/F 100-200. Shunt ~38%, meaningful recruitability.
+  // Vt = 360 mL = 5.14 mL/kg PBW. Within the Brower 2000 allowed range (4-6 mL/kg).
   moderate: {
     arch: 'Moderate ARDS',
     crs: 35, raw: 10, recruit: 0.60, shunt: 0.38, vd: 0.45,
     hb: 11.0, co: 5.0, vco2: 220, aop: 4,
     mode: 'VC', peep: 10, fio2: 0.55, vt: 360, rr: 20, ie: 0.5,
     spo2Target: 92,
+    ardsnetOn: false,        // PRESETS Vt retained at 5.14 mL/kg, not snapped to 6
   },
   // Severe ARDS (Berlin): P/F <100. Variable recruitability per Gattinoni 2006 / 2012 CT data:
   // ~50% of severe ARDS are high recruiters, ~50% are low. We model a moderate recruiter here.
+  //
+  // Vt = 280 mL = 4 mL/kg PBW for the 70-kg preset. Per Brower 2000 (NEJM 342:1301) ARDSNet
+  // LTV protocol, tidal volume can be reduced to as low as 4 mL/kg PBW (typically when
+  // Vt = 6 mL/kg produces Pplat > 30 cmH2O or breath stacking). We turn ardsnetOn off so the
+  // simulator retains the deliberately-reduced Vt=280 rather than snapping it up to 6 mL/kg.
+  // A "Reduce Vt" clinical convention for severe ARDS; PRESETS Vt is the truth-of-record.
   severe: {
     arch: 'Severe ARDS',
     crs: 18, raw: 14, recruit: 0.50, shunt: 0.50, vd: 0.60,
     hb: 9.5, co: 6.0, vco2: 250, aop: 6,
     mode: 'VC', peep: 14, fio2: 0.80, vt: 280, rr: 26, ie: 0.5,
     spo2Target: 88,
+    ardsnetOn: false,        // PRESETS Vt retained; deliberate 4 mL/kg PBW
   },
 };
 
@@ -488,8 +505,11 @@ function applyPreset(name) {
 //
 // Calibration target: across the four ARDS severity grades with default
 // ARDSNet-style ventilator settings, P/F ratio falls within the LUNG SAFE
-// IQR per Berlin grade, and R/I separates recruiters monotonically with
-// recruitability (high recruiter → higher R/I).
+// IQR per Berlin grade. R/I in the simulator is a model analogue of Chen 2020's
+// single-breath PEEP-drop R/I; across fixed archetypes it does not rank directly
+// with the recruitability parameter, and in a within-Severe sensitivity sweep
+// it increases monotonically with recruitability up to a peak around recruit=0.70
+// then rolls off (sigmoid plateau + V_expected growing faster than V_expired).
 function compartments(peep, recruit) {
   const p = Math.max(0, peep);
   // fNormal: baby lung fraction. Per Gattinoni 2005, baby lung is smaller in
@@ -698,10 +718,11 @@ function phFromPaCO2(paco2) {
 //   flow ≈ Vt(L) / Ti(s)
 //
 // IMPORTANT: This formula is the Gattinoni 2016 simplified form valid for
-// VOLUME-CONTROLLED ventilation with CONSTANT INSPIRATORY FLOW. For pressure-
-// control, pressure-support, or decelerating-flow modes, the equation
-// underestimates true mechanical power and a mode-specific formulation is
-// required (see Gattinoni 2016 supplement; Costa 2023).
+// VOLUME-CONTROLLED ventilation with CONSTANT INSPIRATORY FLOW. Pressure-
+// controlled ventilation requires different formulations, and assisted
+// ventilation additionally involves patient-generated respiratory muscle
+// work that is not captured by ventilator-delivered mechanical power alone
+// (see Gattinoni 2016 supplement; Costa 2023).
 //
 // MP > 17 J/min is an OBSERVATIONAL COHORT RISK MARKER (Serpa Neto 2018
 // retrospective analysis), not a validated individual-patient safety limit.
@@ -1491,7 +1512,7 @@ function render() {
     alarms.appendChild(el);
   };
   badge(`Pplat ${cur.pplat.toFixed(1)} ≤ ${TWIN.pplatLimit}`, cur.alarmPplat, 'high');
-  badge(`ΔP ${cur.dP.toFixed(1)} ≤ ${TWIN.dpLimit}`, cur.alarmDP, 'high');
+  badge(`ΔP ${cur.dP.toFixed(1)} ≤ ${TWIN.dpLimit} (observational risk marker, Amato 2015; not an ARDSNet protocol limit)`, cur.alarmDP, 'high');
   badge(`MP ${cur.mp.toFixed(1)} J/min (VCV-only formula; observational risk marker, not validated individual threshold)`,
     cur.mp > 17, 'high');
   badge(`MP/ΔP ${cur.mpPerDp.toFixed(2)} (Costa 2023 resistive-work index)`, cur.mpPerDp > 2.0, 'low');
