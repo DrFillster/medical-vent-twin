@@ -1,0 +1,1685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mechanical Ventilation Three-Compartment Lung Simulator</title>
+<meta name="description" content="Browser-deployable, computationally verified simulator of three-compartment lung mechanics, passive volume-control ventilation, and shunt-based gas exchange. Open source (MIT) — auditable Python reference, JavaScript port, 24/24 cross-language tests passing." />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+<link rel="alternate" type="text/plain" href="https://vent.defying-logic.com/llms.txt" title="LLM-readable site index (llms.txt)" />
+<link rel="canonical" href="https://vent.defying-logic.com/" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Mechanical Ventilation Three-Compartment Lung Simulator",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Any (browser)",
+  "description": "Browser-deployable simulator of three-compartment lung mechanics, passive volume-control ventilation, and shunt-based gas exchange. Auditable Python reference, JavaScript port, 24/24 cross-language tests passing.",
+  "url": "https://vent.defying-logic.com/",
+  "codeRepository": "https://github.com/DrFillster/medical-vent-twin/tree/main/lung-reference",
+  "author": {"@type": "Person", "name": "Philip Bernard"},
+  "license": "MIT",
+  "isAccessibleForFree": true,
+  "keywords": "mechanical ventilation, ARDS, lung simulator, three-compartment model, respiratory mechanics, gas exchange, PEEP, mechanical power, compliance, educational tool"
+}
+</script>
+<style>
+  :root {
+    --bg:#0b1020; --panel:#141a2e; --panel2:#1c2440; --line:#2a3354;
+    --fg:#e6ebff; --muted:#8893b8; --acc:#5cf; --warn:#f8c; --ok:#7fdc9a;
+    --danger:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
+  header .meta{color:var(--muted);font-size:12px}
+  main{display:grid;grid-template-columns:380px 1fr;gap:14px;padding:14px}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 0 10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:var(--muted)}
+  .row b{color:var(--fg);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  .val{font-variant-numeric:tabular-nums;font-weight:600}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--panel2);color:var(--muted)}
+  .pill.ok{background:#163b25;color:var(--ok)}
+  .pill.warn{background:#3b1a2a;color:var(--warn)}
+  .pill.danger{background:#3b1a1a;color:var(--danger)}
+  .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .tab{padding:6px 10px;border-radius:8px;background:var(--panel2);cursor:pointer;font-size:12px;border:1px solid var(--line)}
+  .tab.active{background:var(--acc);color:#001027;border-color:var(--acc);font-weight:600}
+  button{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--fg);cursor:pointer;font-size:13px}
+  button.primary{background:var(--acc);color:#001027;border-color:var(--acc);font-weight:600}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .kv{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line);font-variant-numeric:tabular-nums}
+  .kv:last-child{border-bottom:0}
+  .kv span:first-child{color:var(--muted)}
+  canvas{width:100%;height:280px;background:#0a0f1f;border-radius:8px;border:1px solid var(--line)}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px}
+  .group{margin-bottom:14px}
+  .group h3{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mechanical Ventilation Three-Compartment Lung Simulator</h1>
+  <div class="meta">ARDS physiology · single-compartment linear RC + three-compartment heterogeneity · quasi-steady gas exchange · <a href="/paper.html" style="color:var(--acc);text-decoration:none">Manuscript →</a></div>
+</header>
+
+<!--
+  Static content block. Crawler-visible. The interactive UI below is JS-rendered;
+  this block is what LLMs, screen readers, and noscript users see. It mirrors
+  the live state at the four canonical presets so a crawler without JS execution
+  can summarise the tool.
+-->
+<section id="site-summary" aria-label="Site description" style="max-width:920px;margin:18px auto 0;padding:0 18px;color:var(--fg);font:14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+  <h2 style="font-size:18px;margin:0 0 8px">About this simulator</h2>
+  <p>
+    This is a browser-deployable, open-source simulator of three-compartment lung
+    mechanics coupled to passive volume-control ventilation and shunt-based gas
+    exchange. It is built for mechanical-ventilation education and clinical
+    physiology reasoning. The model partitions lung tissue into three parallel
+    compartments — <i>normal</i>, <i>recruitable</i>, and <i>consolidated</i> —
+    with a perfusion-weighted gas-exchange mix and a relay-based PEEP-recruitment
+    state that opens or closes alveolar units as a function of applied pressure.
+    Respiratory mechanics (compliance, driving pressure, plateau pressure,
+    mechanical power), and gas exchange (PaO₂, PaCO₂, SaO₂, P/F ratio, effective
+    shunt) are computed live from the patient's parameters and ventilator settings.
+  </p>
+  <p>
+    The simulator ships with four canonical patient archetypes covering the
+    ARDS spectrum. Each preset is a published parameter set; the values are
+    illustrative, not fitted to any clinical cohort:
+  </p>
+
+  <table style="width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:13px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Archetype</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Crs (mL/cmH₂O)</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Raw (cmH₂O·s/L)</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Recruitability</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Shunt (Qs/Qt)</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Vd/Vt</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="padding:6px 8px">Normal</td><td style="text-align:center;padding:6px 8px">70</td><td style="text-align:center;padding:6px 8px">5</td><td style="text-align:center;padding:6px 8px">0.30</td><td style="text-align:center;padding:6px 8px">0.05</td><td style="text-align:center;padding:6px 8px">0.30</td></tr>
+      <tr><td style="padding:6px 8px">Mild ARDS</td><td style="text-align:center;padding:6px 8px">50</td><td style="text-align:center;padding:6px 8px">8</td><td style="text-align:center;padding:6px 8px">0.40</td><td style="text-align:center;padding:6px 8px">0.15</td><td style="text-align:center;padding:6px 8px">0.40</td></tr>
+      <tr><td style="padding:6px 8px">Moderate ARDS</td><td style="text-align:center;padding:6px 8px">40</td><td style="text-align:center;padding:6px 8px">10</td><td style="text-align:center;padding:6px 8px">0.55</td><td style="text-align:center;padding:6px 8px">0.30</td><td style="text-align:center;padding:6px 8px">0.50</td></tr>
+      <tr><td style="padding:6px 8px">Severe ARDS</td><td style="text-align:center;padding:6px 8px">30</td><td style="text-align:center;padding:6px 8px">10</td><td style="text-align:center;padding:6px 8px">0.70</td><td style="text-align:center;padding:6px 8px">0.30</td><td style="text-align:center;padding:6px 8px">0.45</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Defaults: predicted body weight 70 kg (male), tidal volume 360 mL (≈5.1 mL/kg PBW),
+    respiratory rate 20/min, PEEP 10 cmH₂O, FiO₂ 0.50, hemoglobin 11.0 g/dL,
+    cardiac output 5.0 L/min, VCO₂ 220 mL/min. ARDSNet tidal-volume guidance
+    (6 mL/kg PBW) is provided as a runtime warning, not enforced.
+  </p>
+  <p>
+    All math is auditable. The canonical implementation is
+    <code>lung_reference.py</code> (Python) and the browser port is
+    <code>lung.js</code> (JavaScript). Both runtimes pass the same 24-test
+    fixture suite and are cross-checked at floating-point tolerance 1e-6.
+    The audit harness and pre-computed benchmark + audit JSON are published
+    at <a href="/lung-reference/" style="color:var(--acc);text-decoration:none">/lung-reference/</a>,
+    and the manuscript draft is at <a href="/paper.html" style="color:var(--acc);text-decoration:none">/paper.html</a>.
+    Source: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/lung-reference" style="color:var(--acc);text-decoration:none">github.com/DrFillster/medical-vent-twin/lung-reference</a>.
+  </p>
+  <p style="color:var(--muted);font-size:12px;margin-top:10px">
+    <b>Not for clinical use.</b> Educational and computational-verification
+    only. No patient data is collected. The accompanying manuscript is a
+    draft, not yet peer reviewed.
+  </p>
+</section>
+
+<noscript>
+<div style="max-width:920px;margin:18px auto;padding:14px 18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--fg)">
+  <h2 style="font-size:16px;margin:0 0 8px">JavaScript is disabled</h2>
+  <p style="margin:0 0 8px">
+    The interactive simulator below requires JavaScript. Without it, only the
+    static parameter labels are visible. The full functionality is also
+    available in the auditable reference revision at
+    <a href="/lung-reference/" style="color:var(--acc)">/lung-reference/</a>,
+    and the manuscript is at <a href="/paper.html" style="color:var(--acc)">/paper.html</a>.
+  </p>
+  <p style="margin:0;color:var(--muted);font-size:13px">
+    Site summary: this is a three-compartment lung-mechanics and gas-exchange
+    simulator (Normal / Mild / Moderate / Severe ARDS presets), with passive
+    volume-control ventilation, PEEP-recruitment relay state, and shunt-based
+    PaO₂ / PaCO₂ / mechanical-power readouts. Open source (MIT). 24/24
+    cross-language tests pass. See the site index at
+    <a href="/llms.txt" style="color:var(--acc)">/llms.txt</a>.
+  </p>
+</div>
+</noscript>
+
+<main>
+  <!-- LEFT: controls -->
+  <section>
+    <div class="card group">
+      <h2>Patient (Twin)</h2>
+      <div class="tabs" id="presets" style="margin-bottom:10px">
+        <div class="tab" data-preset="normal">Normal</div>
+        <div class="tab" data-preset="mild">Mild ARDS</div>
+        <div class="tab" data-preset="moderate">Moderate ARDS</div>
+        <div class="tab active" data-preset="severe">Severe ARDS</div>
+      </div>
+      <div class="kv"><span>Archetype</span><b id="lbl-arch">Severe ARDS</b></div>
+      <div class="kv"><span>Compliance Crs (mL/cmH₂O)</span><b><span id="lbl-crs">30</span></b></div>
+      <input id="crs" type="range" min="10" max="100" step="1" value="30" />
+      <div class="kv"><span>Resistance Raw (cmH₂O·s/L)</span><b><span id="lbl-raw">10</span></b></div>
+      <input id="raw" type="range" min="3" max="25" step="1" value="10" />
+      <div class="kv"><span>Recruitability</span><b><span id="lbl-rec">0.7</span></b></div>
+      <input id="rec" type="range" min="0" max="1" step="0.05" value="0.7" />
+      <div class="kv"><span>Shunt (Qs/Qt)</span><b><span id="lbl-shunt">0.30</span></b></div>
+      <input id="shunt" type="range" min="0.05" max="0.5" step="0.01" value="0.30" />
+      <div class="kv"><span>Dead space (Vd/Vt)</span><b><span id="lbl-vd">0.45</span></b></div>
+      <input id="vd" type="range" min="0.2" max="0.65" step="0.01" value="0.45" />
+      <div class="kv"><span>Hemoglobin (g/dL)</span><b><span id="lbl-hb">11.0</span></b></div>
+      <input id="hb" type="range" min="7" max="16" step="0.1" value="11" />
+      <div class="kv"><span>CO (L/min)</span><b><span id="lbl-co">5.0</span></b></div>
+      <input id="co" type="range" min="2" max="10" step="0.1" value="5" />
+      <div class="kv"><span>Metabolic CO₂ prod (mL/min)</span><b><span id="lbl-vco2">220</span></b></div>
+      <input id="vco2" type="range" min="100" max="400" step="5" value="220" />
+      <div class="kv"><span>Predicted body weight (kg)</span><b><span id="lbl-pbw">70</span></b></div>
+      <input id="pbw" type="range" min="35" max="120" step="1" value="70" />
+      <div class="kv"><span>Sex (for PBW formula)</span><b><span id="lbl-sex">M</span></b></div>
+      <select id="sex" style="width:100%;padding:4px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px">
+        <option value="M" selected>Male</option>
+        <option value="F">Female</option>
+      </select>
+      <div class="kv"><span>Body temperature (°C)</span><b><span id="lbl-temp">37.0</span></b></div>
+      <input id="tempC" type="range" min="33" max="42" step="0.1" value="37" />
+      <div class="kv"><span>Carboxyhemoglobin (%)</span><b><span id="lbl-cohb">0</span></b></div>
+      <input id="cohb" type="range" min="0" max="15" step="0.5" value="0" />
+      <div class="kv"><span>2,3-DPG shift (mmHg)</span><b><span id="lbl-dpg">0</span></b></div>
+      <input id="dpg" type="range" min="0" max="6" step="0.5" value="0" />
+      <div class="hint">ARDSNet uses PBW (Devine formula), not actual weight. Temp/COHb/2,3-DPG shift P50 (Severinghaus curve).</div>
+    </div>
+
+    <div class="card group">
+      <h2>Ventilator</h2>
+      <div class="tabs" id="modeTabs">
+        <div class="tab active" data-mode="VC">Volume Control</div>
+        <div class="tab" data-mode="PC">Pressure Control</div>
+        <div class="tab" data-mode="PS">Pressure Support</div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="row"><span>PEEP (cmH₂O)</span><b class="val"><span id="lbl-peep">10</span></b></div>
+          <input id="peep" type="range" min="0" max="24" step="1" value="10" />
+        </div>
+        <div>
+          <div class="row"><span>FiO₂</span><b class="val"><span id="lbl-fio2">0.50</span></b></div>
+          <input id="fio2" type="range" min="0.21" max="1.0" step="0.01" value="0.50" />
+        </div>
+      </div>
+
+      <div id="vcParams">
+        <div class="grid2">
+          <div>
+            <div class="row"><span>Tidal volume Vt (mL)</span><b class="val"><span id="lbl-vt">360</span></b></div>
+            <input id="vt" type="range" min="120" max="800" step="10" value="360" />
+          </div>
+          <div>
+            <div class="row"><span>RR (breaths/min)</span><b class="val"><span id="lbl-rr">20</span></b></div>
+            <input id="rr" type="range" min="8" max="40" step="1" value="20" />
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <div class="row"><span>I:E ratio</span><b class="val"><span id="lbl-ie">1:2.0</span></b></div>
+            <input id="ie" type="range" min="0.25" max="1.0" step="0.05" value="0.5" />
+          </div>
+          <div>
+            <div class="row"><span>Trigger</span><b class="val">Auto-flow 2 L/min</b></div>
+            <input type="range" min="0" max="10" value="2" disabled />
+          </div>
+        </div>
+      </div>
+
+      <div id="pcParams" style="display:none">
+        <div class="grid2">
+          <div>
+            <div class="row"><span>ΔPinsp (cmH₂O)</span><b class="val"><span id="lbl-pin">12</span></b></div>
+            <input id="pin" type="range" min="5" max="35" step="1" value="12" />
+          </div>
+          <div>
+            <div class="row"><span>RR (breaths/min)</span><b class="val"><span id="lbl-rr2">20</span></b></div>
+            <input id="rr2" type="range" min="8" max="40" step="1" value="20" />
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <div class="row"><span>I:E ratio</span><b class="val"><span id="lbl-ie2">1:2.0</span></b></div>
+            <input id="ie2" type="range" min="0.25" max="1.0" step="0.05" value="0.5" />
+          </div>
+          <div>
+            <div class="row"><span>Ti (s)</span><b class="val"><span id="lbl-ti">1.0</span></b></div>
+            <input id="ti" type="range" min="0.4" max="2.0" step="0.05" value="1.0" />
+          </div>
+        </div>
+        <div class="hint">ΔPinsp + PEEP = plateau pressure (Pplat). Vt derived from compliance.</div>
+      </div>
+
+      <div id="psParams" style="display:none">
+        <div class="grid2">
+          <div>
+            <div class="row"><span>Pressure Support (cmH₂O)</span><b class="val"><span id="lbl-ps">10</span></b></div>
+            <input id="ps" type="range" min="3" max="25" step="1" value="10" />
+          </div>
+          <div>
+            <div class="row"><span>Spont. RR (set backup)</span><b class="val"><span id="lbl-rr3">16</span></b></div>
+            <input id="rr3" type="range" min="8" max="30" step="1" value="16" />
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <div class="row"><span>Patient effort (cmH₂O)</span><b class="val"><span id="lbl-eff">6</span></b></div>
+            <input id="eff" type="range" min="0" max="15" step="1" value="6" />
+          </div>
+          <div>
+            <div class="row"><span>Trigger</span><b class="val">Auto</b></div>
+            <input type="range" min="0" max="10" value="2" disabled />
+          </div>
+        </div>
+        <div class="hint">Patient drives timing; effective ΔP = PS + PEEP − effort.</div>
+      </div>
+    </div>
+
+    <div class="card group">
+      <h2>ARDSNet Protocol</h2>
+      <div class="tabs" id="anToggle">
+        <div class="tab" data-on="false">Off</div>
+        <div class="tab active" data-on="true">On (preset)</div>
+      </div>
+      <div class="grid2">
+        <div>
+          <div class="row"><span>Vt target (mL/kg PBW)</span><b class="val"><span id="lbl-vpkg">6.0</span></b></div>
+          <input id="vpkg" type="range" min="4" max="8" step="0.5" value="6" />
+        </div>
+        <div>
+          <div class="row"><span>Pplat limit (cmH₂O)</span><b class="val"><span id="lbl-pplat">30</span></b></div>
+          <input id="pplat" type="range" min="25" max="40" step="1" value="30" />
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <div class="row"><span>ΔP limit (cmH₂O)</span><b class="val"><span id="lbl-dpl">15</span></b></div>
+          <input id="dpl" type="range" min="10" max="20" step="1" value="15" />
+        </div>
+        <div>
+          <div class="row"><span>PEEP/FiO₂ ladder</span></div>
+          <select id="ladder" style="width:100%;padding:4px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px">
+            <option value="lower" selected>NIH ARDSMA — lower</option>
+            <option value="higher">NIH ARDSMB — higher</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint">ARDSNet (Brower 2000): Vt = 6 mL/kg PBW, Pplat ≤ 30 (with Vt-reduction to 4 mL/kg allowed if Pplat &gt; 30). ΔP around 14–15 cmH₂O is an observational risk marker from later analyses (Amato 2015), NOT an original ARDSNet limit. PEEP/FiO₂ ladder used when optimizer goal is "PEEP+FiO₂ at SpO₂".</div>
+    </div>
+
+    <div class="card group">
+      <h2>Optimizer</h2>
+      <div class="grid2">
+        <div>
+          <div class="row"><span>Search</span></div>
+          <select id="optMode" style="width:100%;padding:6px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px">
+            <option value="mechpower">Minimize mechanical power (Gattinoni)</option>
+            <option value="drivingpressure">Minimize driving pressure</option>
+            <option value="peepfio2">Minimize PEEP+FiO₂ at SpO₂ target</option>
+          </select>
+        </div>
+        <div>
+          <div class="row"><span>SpO₂ target (%)</span><b class="val"><span id="lbl-tgt">92</span></b></div>
+          <input id="tgt" type="range" min="88" max="98" step="1" value="92" />
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="primary" id="runOpt">Optimize settings</button>
+        <button id="stopOpt">Stop</button>
+        <button id="resetOpt">Reset to current</button>
+      </div>
+      <div class="hint" id="optStatus">Idle. Press Optimize to sweep settings.</div>
+    </div>
+  </section>
+
+  <!-- RIGHT: results + plots -->
+  <section>
+    <div class="card group">
+      <h2>Outputs</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Current</th><th>Optimal</th><th>Δ</th></tr></thead>
+        <tbody id="metricTable"></tbody>
+      </table>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px" id="alarmRow"></div>
+    </div>
+
+    <div class="card group">
+      <h2>Pressure–time (current vs optimal)</h2>
+      <canvas id="ptCanvas"></canvas>
+      <div class="hint">Quasi-static airway pressure waveform for one breath cycle. Pplat in volume control, peak pressure in pressure control, cycling in pressure support.</div>
+    </div>
+
+    <div class="card group">
+      <h2>Oxygenation & CO₂ status</h2>
+      <div class="grid3">
+        <div>
+          <div class="kv"><span>PaO₂/FiO₂ (mmHg)</span><b id="pf">—</b></div>
+          <div class="kv"><span>PaO₂ (mmHg)</span><b id="pao2">—</b></div>
+          <div class="kv"><span>PaCO₂ (mmHg)</span><b id="paco2">—</b></div>
+        </div>
+        <div>
+          <div class="kv"><span>SpO₂ (%)</span><b id="spo2">—</b></div>
+          <div class="kv"><span>pH (assumed)</span><b id="ph">—</b></div>
+          <div class="kv"><span>Minute vent (L/min)</span><b id="mv">—</b></div>
+        </div>
+        <div>
+          <div class="kv"><span>Mechanical power (J/min)</span><b id="mp">—</b></div>
+          <div class="kv"><span>Driving pressure (cmH₂O)</span><b id="dp">—</b></div>
+          <div class="kv"><span>Pplat / Ppeak (cmH₂O)</span><b id="ppeak">—</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card group">
+      <h2>Respiratory Mechanics — VILI Risk</h2>
+      <div class="grid3">
+        <div>
+          <div class="kv"><span>MP total (J/min)</span><b id="mpTotal">—</b></div>
+          <div class="kv"><span>MP elastic (J/min)</span><b id="mpElast">—</b></div>
+          <div class="kv"><span>MP resistive (J/min)</span><b id="mpRes">—</b></div>
+        </div>
+        <div>
+          <div class="kv"><span>MP / ΔP (Costa 2023)</span><b id="mpPerDp">—</b></div>
+          <div class="kv"><span>Strain (V_t / Crs_eff)</span><b id="strain">—</b></div>
+          <div class="kv"><span>Crs dynamic (mL/cmH₂O)</span><b id="crsDyn">—</b></div>
+        </div>
+        <div>
+          <div class="kv"><span>τ_fast (s)</span><b id="tauFast">—</b></div>
+          <div class="kv"><span>τ_slow (s)</span><b id="tauSlow">—</b></div>
+          <div class="kv"><span>Slow-compartment fill %</span><b id="fillSlow">—</b></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+        <button class="primary" id="runTrial">Run decremental PEEP trial</button>
+        <span class="hint">Models a recruitment maneuver at PEEP 20 → step down to 4. Outputs a decremental PEEP-compliance curve (NOT a static P/V curve), the best-Crs PEEP (related to Hickling 2001 but NOT the Pflex from a sigmoid P/V curve — see §3.3), and the Chen 2020 Recruitment-to-Inflation ratio with airway-opening-pressure correction.</span>
+      </div>
+      <canvas id="pvCanvas" style="margin-top:10px"></canvas>
+    </div>
+
+    <div class="card group">
+      <h2>ABG Trend (last 60 evaluations)</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--muted)">
+        <span class="pill ok">SpO₂</span>
+        <span class="pill warn">PaO₂/FiO₂</span>
+        <span class="pill warn">PaCO₂</span>
+        <span class="pill warn">pH</span>
+        <span class="pill ok">ΔP</span>
+        <span class="pill ok">Mechanical power</span>
+        <span style="margin-left:auto"><button id="clearTrend" style="padding:4px 8px;font-size:11px">Clear</button></span>
+      </div>
+      <canvas id="trendCanvas"></canvas>
+      <div class="hint">Each preset switch and each optimizer step is tagged with a colored marker. Hover not supported — markers visible at a glance.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+// =============================================================
+// MECHANICAL VENTILATION DIGITAL TWIN — single-file HTML5 demo
+// Models: single-compartment linear RC lung + quasi-steady gas exchange.
+// All calculations in-browser. No network calls.
+// =============================================================
+
+const TWIN = {
+  // Patient parameters (mutable)
+  crs: 18,         // compliance mL/cmH2O — Severe ARDS preset (moderate recruiter)
+  raw: 14,         // airway resistance cmH2O·s/L
+  recruit: 0.50,   // recruitability 0..1
+  shunt: 0.50,     // Qs/Qt
+  vd: 0.60,        // dead space ratio
+  hb: 9.5,         // hemoglobin g/dL
+  co: 6.0,         // cardiac output L/min
+  vco2: 250,       // CO2 production mL/min
+  tempC: 37.0,     // body temp (°C) — shifts P50 via Bohr/temperature
+  cohb: 0.0,       // carboxyhemoglobin % — falsely elevates SpO2
+  aop: 0.0,        // airway opening pressure (cmH2O); affects R/I (Chen 2020)
+  dpg: 0.0,        // chronic 2,3-DPG shift of P50 (mmHg); +3 in chronic anemia/hypoxia
+  pbw: 70,         // predicted body weight (kg) — ARDSNet uses this, NOT actual weight
+  sex: 'M',        // for PBW formula if user switches to height-only mode later
+  height: 174,     // cm
+  // Barometric
+  pb: 760, fio2atm: 0.21,
+  // Ventilator (mutable)
+  mode: 'VC',
+  peep: 16,
+  fio2: 0.90,
+  vt: 280, rr: 28, ie: 0.5,
+  pin: 12, rr2: 20, ie2: 0.5, ti: 1.0,
+  ps: 10, rr3: 16, effort: 6,
+  // ARDSNet protocol knobs
+  ardsnetOn: true,         // when true, optimizer & live sim enforce Vt=6 mL/kg PBW + Pplat<=30 + ladder
+  vtPerKg: 6.0,            // current LTV target (allowed range 4-6 mL/kg per Brower 2000)
+  peepFiO2Ladder: 'lower', // 'lower' (NIH ARDSMA) or 'higher' (NIH ARDSMB)
+  // Targets
+  spo2Target: 88,
+  // Alarms
+  pplatLimit: 30,                                  // ARDSNet (Brower 2000): Pplat ≤ 30
+  dpLimit: 15,                                     // Observational risk marker (Amato 2015) — NOT an original ARDSNet protocol limit
+  // Optimization outputs
+  opt: null, // populated by optimizer
+  cancel: false,
+  // ABG trend ring buffer (most recent 60 samples)
+  trend: [],
+  trendLabel: 'current',
+  // Decremental PEEP trial result (filled by Run Trial button)
+  pvTrial: null,
+};
+
+// ARDSNet PEEP/FiO₂ titration tables (NIH ARDSMA lower, ARDSMB higher)
+const ARDSNET_LOWER = [
+  {fio2:0.30, peep:5},{fio2:0.40, peep:5},{fio2:0.40, peep:8},{fio2:0.50, peep:8},
+  {fio2:0.50, peep:10},{fio2:0.60, peep:10},{fio2:0.60, peep:12},{fio2:0.70, peep:12},
+  {fio2:0.70, peep:14},{fio2:0.80, peep:14},{fio2:0.80, peep:16},{fio2:0.90, peep:16},
+  {fio2:0.90, peep:18},{fio2:1.00, peep:18},{fio2:1.00, peep:20},{fio2:1.00, peep:22},
+  {fio2:1.00, peep:24}
+];
+const ARDSNET_HIGHER = [
+  {fio2:0.30, peep:5},{fio2:0.30, peep:8},{fio2:0.30, peep:10},{fio2:0.40, peep:10},
+  {fio2:0.40, peep:12},{fio2:0.40, peep:14},{fio2:0.50, peep:14},{fio2:0.50, peep:16},
+  {fio2:0.50, peep:18},{fio2:0.60, peep:18},{fio2:0.60, peep:20},{fio2:0.70, peep:20},
+  {fio2:0.80, peep:20},{fio2:0.80, peep:22},{fio2:0.90, peep:22},{fio2:0.90, peep:24},
+  {fio2:1.00, peep:24}
+];
+
+// PBW formula (Devine): M = 50 + 0.91*(H-152.4); F = 45.5 + 0.91*(H-152.4)
+function calcPBW(heightCm, sex) {
+  const h = Math.max(120, Math.min(220, heightCm));
+  return sex === 'F' ? 45.5 + 0.91 * (h - 152.4) : 50 + 0.91 * (h - 152.4);
+}
+
+// Patient archetype presets. Each bundles coherent physiology + ventilator default settings.
+// Values picked to match Berlin-grade descriptors (mild/moderate/severe). These are
+// educational archetypes, not calibrated patient data. Each preset sets ardsnetOn=false
+// so the PRESETS Vt is retained at runtime — when ardsnetOn=true, the simulator snaps
+// Vt to 6 mL/kg PBW, which would silently overwrite Mild's 420 (already 6 mL/kg), bump
+// Moderate's 360 up to 420, and overwrite Severe's 280 with 420. Disabling the snap
+// makes the manuscript tables and prose match the code exactly.
+const PRESETS = {
+  // Healthy intubated patient (e.g. post-op, airway protection, normal lungs).
+  // Crs ~80 mL/cmH2O, Raw normal, minimal shunt, normal dead space, no recruit needed.
+  // Vt = 480 mL (6.86 mL/kg PBW) — surgical-anesthesia standard, NOT an ARDSNet target.
+  normal: {
+    arch: 'Normal',
+    crs: 80, raw: 6, recruit: 0.10, shunt: 0.05, vd: 0.30,
+    hb: 13.5, co: 5.5, vco2: 200, aop: 0,
+    mode: 'VC', peep: 5, fio2: 0.30, vt: 480, rr: 14, ie: 0.5,
+    spo2Target: 96,
+    ardsnetOn: false,        // surgical/Vt non-target intentional
+  },
+  // Mild ARDS (Berlin): P/F 200-300. Shunt ~16%, modest recruitability.
+  // Vt = 420 mL = 6 mL/kg PBW for the 70-kg preset (ARDSNet LTV target hit).
+  mild: {
+    arch: 'Mild ARDS',
+    crs: 55, raw: 8, recruit: 0.40, shunt: 0.16, vd: 0.38,
+    hb: 12.0, co: 5.5, vco2: 210, aop: 2,
+    mode: 'VC', peep: 8, fio2: 0.40, vt: 420, rr: 16, ie: 0.5,
+    spo2Target: 93,
+    ardsnetOn: false,        // PRESETS Vt retained; mild's 420 already equals 6 mL/kg
+  },
+  // Moderate ARDS (Berlin): P/F 100-200. Shunt ~38%, meaningful recruitability.
+  // Vt = 360 mL = 5.14 mL/kg PBW. Within the Brower 2000 allowed range (4-6 mL/kg).
+  moderate: {
+    arch: 'Moderate ARDS',
+    crs: 35, raw: 10, recruit: 0.60, shunt: 0.38, vd: 0.45,
+    hb: 11.0, co: 5.0, vco2: 220, aop: 4,
+    mode: 'VC', peep: 10, fio2: 0.55, vt: 360, rr: 20, ie: 0.5,
+    spo2Target: 92,
+    ardsnetOn: false,        // PRESETS Vt retained at 5.14 mL/kg, not snapped to 6
+  },
+  // Severe ARDS (Berlin): P/F <100. Variable recruitability per Gattinoni 2006 / 2012 CT data:
+  // ~50% of severe ARDS are high recruiters, ~50% are low. We model a moderate recruiter here.
+  //
+  // Vt = 280 mL = 4 mL/kg PBW for the 70-kg preset. Per Brower 2000 (NEJM 342:1301) ARDSNet
+  // LTV protocol, tidal volume can be reduced to as low as 4 mL/kg PBW (typically when
+  // Vt = 6 mL/kg produces Pplat > 30 cmH2O or breath stacking). We turn ardsnetOn off so the
+  // simulator retains the deliberately-reduced Vt=280 rather than snapping it up to 6 mL/kg.
+  // A "Reduce Vt" clinical convention for severe ARDS; PRESETS Vt is the truth-of-record.
+  severe: {
+    arch: 'Severe ARDS',
+    crs: 18, raw: 14, recruit: 0.50, shunt: 0.50, vd: 0.60,
+    hb: 9.5, co: 6.0, vco2: 250, aop: 6,
+    mode: 'VC', peep: 14, fio2: 0.80, vt: 280, rr: 26, ie: 0.5,
+    spo2Target: 88,
+    ardsnetOn: false,        // PRESETS Vt retained; deliberate 4 mL/kg PBW
+  },
+};
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  Object.assign(TWIN, p);
+  // clear any prior optimization result — old "optimal" was for the previous patient
+  TWIN.opt = null;
+  syncControls();
+  render();
+}
+
+// ---------- physiology ----------
+
+// Three-compartment RC lung model.
+// Real ARDS lungs are heterogeneous. Per Gattinoni & Pesenti 2005 (ICM 31:776),
+// the "baby lung" (always-aerated tissue) coexists with tissue that is either
+// (a) derecruited but recruit-able with PEEP, or (b) consolidated and never
+// openable. Per Bellani 2016 LUNG SAFE (JAMA 315:788), the relative fractions
+// of these compartments determine severity and recruitability.
+//
+// We model the lung as THREE parallel compartments:
+//   Normal       — always open (baby lung). Always gas-exchanging. Crs ≈ base.
+//   Recruitable  — opens sigmoidally with PEEP. PEEP-gated compliance + gas exchange.
+//   Consolidated — never opens. Zero compliance. Permanent shunt.
+//
+// The three fractions sum to 1. fNormal correlates inversely with severity
+// (smaller baby lung = more severe). fConsolidated scales with severity (shunt)
+// and inversely with recruitability (low recruiters have more non-openable
+// tissue). fRecruitable = recruit × (1 − fNormal), so the size of the
+// potentially-recoverable compartment is what makes the Chen R/I ratio
+// correctly separate recruiters (low fRecruitable → low R/I).
+//
+// This is a THREE-COMPARTMENT MECHANISTIC LUNG SIMULATOR, not a digital twin.
+// A digital twin would require individual calibration from a real patient's
+// measured parameters and dynamic synchronization with patient monitoring;
+// this model is a parameterized simulator with literature-anchored preset
+// archetypes.
+//
+// Anchors:
+//   - LUNG SAFE Bellani 2016 — Berlin-grade P/F distributions at standard vent.
+//   - Gattinoni & Pesenti 2005 — baby-lung + recruitability framework.
+//   - Chen 2020 (AJRCCM 201:178) — R/I ratio methodology (45 enrolled patients,
+//     median R/I 0.5 — descriptive, not a validated cutoff).
+//   - Similowski & Bates 1991 — two-compartment RC canonical model
+//     (extended here to three compartments per above).
+//
+// Calibration target: across the four ARDS severity grades with default
+// ARDSNet-style ventilator settings, P/F ratio falls within the LUNG SAFE
+// IQR per Berlin grade. R/I in the simulator is a model analogue of Chen 2020's
+// single-breath PEEP-drop R/I; across fixed archetypes it does not rank directly
+// with the recruitability parameter, and in a within-Severe sensitivity sweep
+// it increases monotonically with recruitability up to a peak around recruit=0.70
+// then rolls off (sigmoid plateau + V_expected growing faster than V_expired).
+function compartments(peep, recruit) {
+  const p = Math.max(0, peep);
+  // fNormal: baby lung fraction. Per Gattinoni 2005, baby lung is smaller in
+  // more severe ARDS. Cap to keep a functional lung at every severity.
+  const fNormal = Math.min(0.85, Math.max(0.10, 0.85 - TWIN.shunt * 1.0));
+  // fRecruitable: a fraction of (1 − fNormal) proportional to recruitability.
+//   recruitability = 0  →  no recruitable tissue (all non-baby-lung is consolidated).
+//   recruitability = 1  →  all non-baby-lung tissue is potentially recruitable.
+// This is what makes the R/I ratio (Chen 2020) separate high from low recruiters
+// meaningfully: low recruiters have very little tissue that the P/V curve can
+// derecruit on PEEP drop, so V_expired − V_expected stays small.
+  const fRecruitable = Math.max(0.02, TWIN.recruit * (1 - fNormal));
+  // fConsolidated: remainder of non-baby-lung tissue. Clamped at 0.85 to leave
+  // at least a functional gas-exchanging compartment at every severity.
+  const fConsolidated = Math.max(0, Math.min(0.85, 1 - fNormal - fRecruitable));
+
+  // Compliance model: TWIN.crs is the *measured* Crs at the patient's current
+  // PEEP (what clinicians observe on the ventilator). Consolidated tissue
+  // contributes zero compliance. The recruitable compartment adds compliance
+  // when it opens with PEEP — gain_factor=1.0 means full recruitment can
+  // double the recruitable compartment's compliance contribution.
+  // The maximal achievable openness is capped at the recruitability parameter:
+  // a lung with recruit=0 cannot recruit beyond 0% (even at high PEEP), and a
+  // lung with recruit=0.5 cannot exceed 50% recruitment. This makes the
+  // recruitable compartment genuinely represent "potentially-recoverable
+  // tissue" rather than "tissue that opens at high PEEP regardless of
+  // recruitability" — the latter was the source of inconsistent R/I in
+  // earlier calibrations.
+  const crsNormal = TWIN.crs * (0.90 + 0.10 * Math.min(1, p/20));
+  const pOpen = 5 + (1 - recruit) * 9;     // high recruiters open at lower PEEP
+  const openness = 1 / (1 + Math.exp(-(p - pOpen) * 1.2));
+  const gainFactor = 1.0;
+  const crsRecruitable = TWIN.crs * gainFactor * fRecruitable * openness;
+  const crsTotal = crsNormal + crsRecruitable;
+
+  // Resistance per compartment (Raw in cmH2O·s/L) for PC/PS mode Vt computation.
+  // Kept as fast/slow (now: fast=normal+recruitable-open, slow=recruitable-closed
+  // + consolidated — but consolidated has zero Crs so its flow goes to zero).
+  const rawFast = TWIN.raw * 0.6;
+  const rawSlow = TWIN.raw * 1.8;
+
+  // Time constants τ = R × C (with C in L/cmH2O for unit consistency)
+  const tauFast = rawFast * (crsNormal / 1000);   // cmH2O·s/L × L/cmH2O = s
+  const tauSlow = rawSlow * (crsRecruitable / 1000);
+
+  // Effective shunt: fraction of total perfusion that is non-gas-exchanging.
+  //   - Normal: small residual V/Q mismatch (shuntNormal).
+  //   - Recruitable OPEN: residual V/Q mismatch proportional to severity
+  //     (recruited ARDS tissue has worse gas exchange than normal lung, even
+  //     when fully open — see Dakin 2002, Gattinoni 2005).
+  //   - Recruitable CLOSED: 100% shunt when collapsed.
+  //   - Consolidated: 1.0 (permanent shunt, never opens).
+  // Perfusion assumed proportional to compartment fraction.
+  // Calibration target: eff_shunt ≈ 0.65 · true_shunt when fully recruited at
+  // moderate PEEP — matches Bellani 2016 LUNG SAFE P/F distributions.
+  const shuntNormal = Math.max(0.02, TWIN.shunt * 0.20);
+  const shuntRecruitedResidual = Math.max(0.05, TWIN.shunt * 0.40);
+  const shuntEff = (fNormal * shuntNormal
+                  + fRecruitable * openness * shuntRecruitedResidual
+                  + fRecruitable * (1 - openness) * 1.0
+                  + fConsolidated * 1.0);
+  const slowCollapsed = fRecruitable * (1 - openness) + fConsolidated;
+  const perfused = 1.0;  // by construction (all three fractions sum to 1)
+
+  return {
+    fNormal, fRecruitable, fConsolidated,
+    crsNormal, crsRecruitable,
+    crsFast: crsNormal,           // alias for PC/PS Vt computation (old contract)
+    crsSlow: crsRecruitable,      // alias for PC/PS Vt computation (old contract)
+    fFast: fNormal,               // alias for PC/PS Vt computation (old contract)
+    fSlow: fRecruitable,          // alias for PC/PS Vt computation (old contract)
+    crsTotal,
+    rawFast, rawSlow,
+    tauFast, tauSlow,
+    shuntFast: shuntNormal,
+    shuntEff, shuntAvg: shuntEff,  // both aliases for backward compatibility
+    openness,
+    perfused, slowCollapsed,
+  };
+}
+
+// PEEP-dependent effective compliance (uses two-compartment model).
+// Falls back to simple linear model if patient is uninjured (single compartment).
+function effectiveCrs(peep, recruit) {
+  return compartments(peep, recruit).crsTotal;
+}
+
+// Driving pressure for VC = Vt / Crs_eff (with recruitability applied).
+function drivingPressure(vt, peep, recruit) {
+  const ce = effectiveCrs(peep, recruit);
+  return (vt / ce);
+}
+
+// Convert fractional shunt into PaO2/FiO2 estimate using classic shunt equation.
+// Alveolar PO2 (simplified, normal Hb, no A-a age correction at sea level).
+// A-a gradient scales strongly with shunt; PEEP + recruitability recruit collapsed units
+// and shrink the effective shunt. FiO2 >0.6 mildly increases gradient.
+// Convert fractional shunt into PaO2 using the classic iso-shunt diagram
+// (Berggren / Shapiro). Real-world relationship is highly non-linear:
+//   shunt 5%  → near-normal PaO2/FiO2 ~ 500
+//   shunt 15% → P/F ~ 300 (mild ARDS)
+//   shunt 25% → P/F ~ 200 (moderate ARDS)
+//   shunt 35% → P/F ~ 150
+//   shunt 50% → P/F ~ 80-100 even on 100% O2 (severe ARDS)
+//
+// We model this with a non-linear iso-shunt curve, then apply PEEP/recruit as a
+// reduction in EFFECTIVE shunt (capped at 30% relative reduction so recruitment
+// never normalizes a severely shunted lung).
+function pao2FromFiO2(fio2, peep, shunt, recruit) {
+  // Note: the caller should pass the compartment-derived effective shunt, which
+  // already accounts for PEEP-dependent recruitment (via slow compartment openness).
+  // We do NOT apply an additional recruitment reduction here.
+  const PH2O = 47, pb = 760;
+  const pio2 = (pb - PH2O) * fio2;
+  const shuntEff = Math.max(0.02, Math.min(0.95, shunt));
+
+  // Iso-shunt table: PaO2/FiO2 expected on FiO2=1.0 at this shunt fraction.
+  // Anchored to Shapiro / West / Feiner iso-shunt diagram values.
+  const isoShunt = [
+    {s:0.02, pf:500}, {s:0.10, pf:460}, {s:0.15, pf:380},
+    {s:0.20, pf:300}, {s:0.25, pf:230}, {s:0.30, pf:175},
+    {s:0.35, pf:130}, {s:0.40, pf:100}, {s:0.45, pf:80},
+    {s:0.50, pf:65},  {s:0.60, pf:50},  {s:0.70, pf:42},
+  ];
+  let pf1 = 65;
+  for (let i = 0; i < isoShunt.length - 1; i++) {
+    const a = isoShunt[i], b = isoShunt[i+1];
+    if (shuntEff >= a.s && shuntEff <= b.s) {
+      const t = (shuntEff - a.s) / (b.s - a.s);
+      pf1 = a.pf + t * (b.pf - a.pf);
+      break;
+    }
+  }
+  if (shuntEff < isoShunt[0].s) pf1 = isoShunt[0].pf;
+  if (shuntEff > isoShunt[isoShunt.length-1].s) pf1 = isoShunt[isoShunt.length-1].pf;
+
+  // Apply FiO2 effect: at FiO2 < 1.0, PaO2 is mildly higher per unit FiO2 in low-shunt
+  // lungs (more gas exchange) and plateaus dramatically in high-shunt lungs.
+  // The pow exponent (0.6) comes from iso-shunt curve flattening at high shunt.
+  let pao2 = pf1 * Math.pow(fio2, 0.6);
+  // Floor and ceiling
+  return Math.max(15, Math.min(550, pao2));
+}
+
+// Convert PaO2 → SpO2 via the canonical Severinghaus curve, with Bohr + temperature shifts.
+// Real clinical reference points (37°C, pH 7.40, PCO2 40 mmHg):
+//   PaO2  27 mmHg → SpO2 ~50%  (P50)
+//   PaO2  40 mmHg → SpO2 ~75%
+//   PaO2  50 mmHg → SpO2 ~83%
+//   PaO2  60 mmHg → SpO2 ~89%
+//   PaO2  80 mmHg → SpO2 ~95%
+//   PaO2 100 mmHg → SpO2 ~97-98%
+//   PaO2 200 mmHg → SpO2 ~99-100%
+//
+// Bohr effect: P50 shifts by -0.05 * (7.40 - pH); acidosis shifts curve right (lower SpO2
+// at given PaO2). Temperature: P50 shifts +1.7 mmHg per °C above 37. 2,3-DPG: chronic
+// shifts (~+3 mmHg in chronic anemia / chronic hypoxia). We expose all four as patient
+// inputs but the Bohr + temperature effects are the ones that matter in acute ICU care.
+function pao2ToSpO2(pao2, pH = 7.40, tempC = 37, cohb = 0) {
+  // Effective P50 with Bohr + temperature shifts
+  const P50 = 27 * Math.pow(1.018, Math.max(0, tempC - 37))    // temp shift
+            + Math.max(-6, Math.min(8, 0.05 * (7.40 - pH) * 27)) // Bohr: ~ -1.35 mmHg per 0.1 pH drop
+            + (TWIN.dpg || 0);                                     // chronic 2,3-DPG shift (mmHg)
+  // Lookup table indexed by PaO2/P50 ratio (curve is shape-invariant; shift = move P50)
+  const x = pao2 / P50;
+  // Pre-computed SaO2 vs PaO2/P50 table (severinghaus normalized curve)
+  const curve = [
+    [0.30, 0.10], [0.50, 0.20], [0.70, 0.30], [0.85, 0.40],
+    [0.95, 0.50], [1.00, 0.55], [1.10, 0.65], [1.20, 0.73],
+    [1.30, 0.79], [1.40, 0.83], [1.50, 0.86], [1.70, 0.91],
+    [2.00, 0.95], [2.50, 0.97], [3.00, 0.98], [4.00, 0.99],
+    [6.00, 0.995], [10.0, 1.00],
+  ];
+  let sat;
+  if (x <= curve[0][0]) sat = curve[0][1];
+  else if (x >= curve[curve.length-1][0]) sat = curve[curve.length-1][1];
+  else {
+    for (let i = 0; i < curve.length - 1; i++) {
+      const [a, sa] = curve[i], [b, sb] = curve[i+1];
+      if (x >= a && x <= b) { sat = sa + (x - a)/(b - a) * (sb - sa); break; }
+    }
+  }
+  // Carboxyhemoglobin artificially raises SpO2 pulse-ox reading (~ cohb * 1% saturation
+  // per 1% COHb). Real CO-oximetry would show true SaO2 = sat - cohb.
+  return Math.max(0.40, Math.min(1.0, sat + cohb * 0.005));
+}
+
+// PaCO2 from minute ventilation, dead space, and VCO2
+function paco2FromMV(mvLmin, vdRatio, vco2) {
+  // mvLmin in L/min, vco2 in mL/min. Convert vco2 to L/min: /1000
+  const alveolarMV = mvLmin * (1 - vdRatio);
+  // PaCO2 = (VCO2 * 0.863) / VA   (k=0.863 converts mL/min STPD × mmHg / L/min BTPS)
+  const paco2 = (vco2 * 0.863) / Math.max(0.5, alveolarMV);
+  return Math.max(20, Math.min(120, paco2));
+}
+
+// pH from PaCO2 using Henderson-Hasselbalch (assumed HCO3 24, pK=6.1)
+function phFromPaCO2(paco2) {
+  const hco3 = 24;
+  return 6.1 + Math.log10(hco3 / (paco2 * 0.03));
+}
+
+// Mechanical power (Gattinoni simplified form for VCV with constant inspiratory flow):
+//   MP = 0.098 × RR × Vt × (Ppeak − 0.5 × ΔP)
+//   Ppeak ≈ PEEP + ΔP + (Raw × flow)
+//   flow ≈ Vt(L) / Ti(s)
+//
+// IMPORTANT: This formula is the Gattinoni 2016 simplified form valid for
+// VOLUME-CONTROLLED ventilation with CONSTANT INSPIRATORY FLOW. Pressure-
+// controlled ventilation requires different formulations, and assisted
+// ventilation additionally involves patient-generated respiratory muscle
+// work that is not captured by ventilator-delivered mechanical power alone
+// (see Gattinoni 2016 supplement; Costa 2023).
+//
+// MP > 17 J/min is an OBSERVATIONAL COHORT RISK MARKER (Serpa Neto 2018
+// retrospective analysis), not a validated individual-patient safety limit.
+// The simulator reports MP as a numeric risk marker only — clinical decisions
+// (sedation depth, neuromuscular blockade, ECMO) cannot be made from this
+// number alone.
+function mechPower(vtL, rr, peep, dP, raw, ti) {
+  const flow = vtL / Math.max(0.2, ti); // L/s
+  const ppeak = peep + dP + raw * flow; // cmH2O
+  return 0.098 * rr * vtL * (ppeak - 0.5 * dP);
+}
+
+// Virtual decremental PEEP trial. Returns a P/V curve point list, the
+// "best-Crs PEEP" (NOT a Hickling 2001 Pflex — see §3.3 limitation), and the
+// Chen 2020 Recruitment-to-Inflation ratio.
+//
+// The output is a decremental PEEP-compliance curve (compliance at each
+// PEEP step), NOT a quasistatic inflation/deflation pressure-volume curve.
+// Hickling 1998 (AJRCCM 158:194) discussed S-shaped P/V curves with lower
+// (Pflex) and upper inflection points; the simulator does not generate that
+// curve. Hickling 2001 (AJRCCM 163:69) analyzed the PEEP at which tidal
+// compliance is maximal during a decremental PEEP trial — the simulator's
+// "best-Crs PEEP" is related conceptually to that 2001 analysis but is a
+// model output, not a clinical interpretation of Hickling's Pflex.
+//
+// R/I ratio (Chen 2020, AJRCCM 201:178): single-breath PEEP-drop method with
+// airway-opening-pressure correction.
+//   Plow_eff = max(PEEP_low, AOP)
+//   ΔP_eff = PEEP_high − Plow_eff
+//   V_expired = V(PEEP_high) − V(Plow_eff)
+//   V_expected = Crs(Plow_eff) × ΔP_eff
+//   V_recruited = max(0, V_expired − V_expected)
+//   R/I = (V_recruited / ΔP_eff) / Crs(Plow_eff)
+//   Reference: 45 enrolled ARDS patients, median R/I 0.5 (study median,
+//   not a clinically validated threshold).
+function peepTitration(fixedVt, fixedRR, ie) {
+  const peepSteps = [];
+  for (let p = 20; p >= 4; p -= 2) peepSteps.push(p);
+
+  const tinspiredFrac = ie / (1 + ie);
+  const tot = 60 / fixedRR;
+  const ti = tot * tinspiredFrac;
+
+  // Step 1: do a recruitment maneuver to PEEP 20 for 5 breaths (modeled as steady state)
+  // Then for each PEEP step, compute Crs after equilibration.
+  const points = [];
+  let prevCrs = null;
+  for (const p of peepSteps) {
+    const c = compartments(p, TWIN.recruit);
+    // At each PEEP, take a single Vt breath at that PEEP and measure end-inspiratory plateau.
+    // Use the quasi-static ΔP (no kinetic effects) so the P/V curve reflects recruited volume.
+    const crsAtP = c.crsTotal;
+    const vtAtP = Math.max(20, fixedVt); // clamp
+    const dPAtP = vtAtP / crsAtP;
+    points.push({peep: p, crs: crsAtP, dP: dPAtP, vt: vtAtP, comp: c});
+    prevCrs = crsAtP;
+  }
+
+  // P/V curve & "best compliance PEEP" — the decremental PEEP sweep reports the
+  // PEEP at which Crs is maximal. We label this "best-Crs PEEP" rather than
+  // "Pflex" because Hickling's Pflex is the LOWER INFLECTION POINT of a sigmoid
+  // P/V curve (the boundary between recruitment and derecruitment regions),
+  // not the peak of the compliance-PEEP curve. Our quasi-static model does
+  // NOT reproduce the S-shaped P/V curve (no overdistension, no sharp
+  // derecruitment transition); the best-Crs PEEP at the top of the sweep is
+  // what the model reports. This is documented as a model limitation in §3.3.
+  let peakCrs = -Infinity, peakIdx = 0;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].crs > peakCrs) { peakCrs = points[i].crs; peakIdx = i; }
+  }
+  // Tie-break to highest PEEP when several steps share the peak (within 2%).
+  for (let i = 0; i < points.length; i++) {
+    if (Math.abs(points[i].crs - peakCrs) / peakCrs < 0.02 && points[i].peep > points[peakIdx].peep) {
+      peakIdx = i;
+    }
+  }
+  const pflex = points[peakIdx].peep;
+  const pflexMethod = 'best-Crs PEEP (decremental-compliance curve; NOT Hickling 2001 Pflex — model does not generate a sigmoid P/V curve)';
+
+  // R/I ratio per Chen 2020 AJRCCM 201:178 — single-breath PEEP-drop method.
+  //
+  // Chen's published supplement defines the calculation as:
+  //   • Switch from PEEP_high to PEEP_low for one breath.
+  //   • Measure ΔEELV (the expired end-expiratory lung-volume change).
+  //   • V_expected = Crs_low × ΔP_effective  (the gas released by elastic
+  //     recoil alone, NOT including derecruitment).
+  //   • V_recruited = ΔEELV − V_expected     (the gas released by derecruitment).
+  //   • C_recruited = V_recruited / ΔP_effective.
+  //   • R/I = C_recruited / Crs_low.
+  //
+  // Airway opening pressure (AOP) handling: when AOP > PEEP_low, the lung
+  // collapses below AOP and no gas is exchanged there. The effective
+  // low-PEEP becomes max(PEEP_low, AOP) and the effective compliance
+  // reference is Crs measured at that effective pressure, not at PEEP_low.
+  // AOP is otherwise irrelevant: if AOP ≤ PEEP_low, Plow_eff = PEEP_low and
+  // the original Chen form is recovered.
+  //
+  // In our quasi-static model, end-expiratory volume above AOP at PEEP p is:
+  //   V(p) = max(0, (p − AOP)) × Crs(max(0, p − AOP))
+  // and Crs_low = Crs(PEEP_low) when Plow_eff = PEEP_low (AOP ≤ PEEP_low).
+  // When AOP > PEEP_low, Crs_low should be measured at Plow_eff = AOP, which
+  // is the lowest pressure at which the lung is open and the gas above AOP
+  // contributes to V_expected via the same compliance.
+  //
+  // Endpoints: PEEP_high = 15, PEEP_low = 5 (Chen canonical).
+  const AOP = Math.max(0, TWIN.aop || 0);
+  const peepHigh = 15, peepLow = 5;
+  const PlowEff = Math.max(peepLow, AOP);
+  const dP_eff = peepHigh - PlowEff;
+  // Compliance at the HIGH and at the EFFECTIVE-LOW pressures.
+  const cHigh = compartments(peepHigh, TWIN.recruit);
+  const cLow  = compartments(PlowEff,  TWIN.recruit);
+  const crsHigh = Math.max(1, cHigh.crsTotal);
+  const crsLow  = Math.max(1, cLow.crsTotal);
+  // End-expiratory lung volume above AOP at each endpoint.
+  // Vhigh = (peepHigh − AOP) × Crs(peepHigh − AOP)
+  // Vlow  = (PlowEff  − AOP) × Crs(PlowEff  − AOP)  = 0 (by construction)
+  const Vhigh = Math.max(0, peepHigh - AOP) * crsHigh;
+  const Vlow  = 0;  // PlowEff = max(PEEP_low, AOP) ⟹ PlowEff − AOP ≥ 0 and the
+                    // (PlowEff − AOP) × Crs(0) factor is 0 by our volume formula.
+  const Vexpired = Vhigh - Vlow;
+  const Vexpected = crsLow * dP_eff;
+  const Vrecruited = Math.max(0, Vexpired - Vexpected);
+  const crecruited = Vrecruited / dP_eff;
+  const ri = crecruited / crsLow;
+  const dV = Vrecruited;
+  // R/I is presented as a CONTINUOUS variable. Chen 2020 reported a cohort
+  // MEDIAN R/I of 0.5 across 45 enrolled ARDS patients; that 0.5 value is
+  // descriptive of the original cohort distribution and is NOT a validated
+  // universal clinical decision threshold. We do not assign tier labels.
+  const riClass = `R/I ${ri.toFixed(2)} (continuous; Chen 2020 cohort median 0.5 is descriptive, not a validated threshold)`;
+
+  return {points, pflex, pflexMethod, ri, riClass, dV, crecruited, AOP, PlowEff, dP_eff};
+}
+
+// ---------- simulator ----------
+
+function simulate() {
+  const out = {
+    mode: TWIN.mode,
+    peep: TWIN.peep,
+    fio2: TWIN.fio2,
+    settings: {},
+  };
+
+  const comp = compartments(TWIN.peep, TWIN.recruit);
+  const crs = comp.crsTotal;
+
+  let vt_mL, rr, dP, ppeak, pplat, ti, flow, tinspiredFrac;
+  if (TWIN.mode === 'VC') {
+    vt_mL = TWIN.vt; rr = TWIN.rr;
+    tinspiredFrac = TWIN.ie / (1 + TWIN.ie);
+    const tot = 60 / rr;
+    ti = tot * tinspiredFrac;
+    const vt_L = vt_mL / 1000;
+    // The slow compartment only partially fills during Ti. End-inspiratory plateau
+    // (what the ventilator measures) reflects full equilibration across both compartments
+    // for the quasi-static ΔP — that's the ARDSNet/ARDS-standard ΔP.
+    const fillSlow = 1 - Math.exp(-ti / Math.max(0.1, comp.tauSlow));
+    dP = vt_mL / crs;
+    flow = vt_L / ti;
+    ppeak = TWIN.peep + dP + comp.rawFast * flow * 0.5 + comp.rawSlow * flow * 0.5;
+    pplat = TWIN.peep + dP;
+    out.settings = { vt: vt_mL, rr, ti, tinspiredFrac };
+    out.fillSlow = fillSlow;
+  } else if (TWIN.mode === 'PC') {
+    rr = TWIN.rr2; ti = TWIN.ti;
+    tinspiredFrac = ti / (60 / rr);
+    const dPinsp = TWIN.pin;
+    // In PC mode the delivered Vt depends on how much of the slow compartment fills in Ti.
+    const fillSlow = 1 - Math.exp(-ti / Math.max(0.1, comp.tauSlow));
+    const vtFast = dPinsp * comp.crsFast;
+    const vtSlow = dPinsp * comp.crsSlow * fillSlow;
+    vt_mL = vtFast * comp.fFast + vtSlow * comp.fSlow;
+    flow = (vt_mL / 1000) / ti;
+    dP = dPinsp;
+    ppeak = TWIN.peep + dPinsp + TWIN.raw * flow;
+    pplat = TWIN.peep + dPinsp;
+    out.settings = { pin: TWIN.pin, rr, ti, tinspiredFrac, vt: vt_mL };
+    out.fillSlow = fillSlow;
+  } else { // PS
+    rr = TWIN.rr3;
+    ti = 1.0;
+    tinspiredFrac = ti / (60 / rr);
+    const dPinsp = Math.max(0, TWIN.ps + TWIN.peep - TWIN.effort);
+    const fillSlow = 1 - Math.exp(-ti / Math.max(0.1, comp.tauSlow));
+    const vtFast = dPinsp * comp.crsFast;
+    const vtSlow = dPinsp * comp.crsSlow * fillSlow;
+    vt_mL = vtFast * comp.fFast + vtSlow * comp.fSlow;
+    flow = (vt_mL / 1000) / ti;
+    dP = dPinsp;
+    ppeak = TWIN.peep + dPinsp;
+    pplat = ppeak;
+    out.settings = { ps: TWIN.ps, rr, ti, tinspiredFrac, vt: vt_mL };
+    out.fillSlow = fillSlow;
+  }
+
+  // ARDSNet Vt enforcement: VC mode → snap Vt to 6 mL/kg PBW target (or user-set vtPerKg).
+  // PC mode → recompute dPinsp from Vt target + current compliance.
+  let ardsnetVtTarget = null, ardsnetVtActual = vt_mL;
+  if (TWIN.ardsnetOn && TWIN.mode === 'VC') {
+    ardsnetVtTarget = TWIN.vtPerKg * TWIN.pbw; // mL
+    vt_mL = ardsnetVtTarget;
+    ardsnetVtActual = vt_mL;
+    // recompute downstream
+    tinspiredFrac = TWIN.ie / (1 + TWIN.ie);
+    const tot = 60 / rr;
+    ti = tot * tinspiredFrac;
+    const vt_L = vt_mL / 1000;
+    const fillSlow2 = 1 - Math.exp(-ti / Math.max(0.1, comp.tauSlow));
+    flow = vt_L / ti;
+    dP = vt_mL / crs;
+    ppeak = TWIN.peep + dP + comp.rawFast * flow * 0.5 + comp.rawSlow * flow * 0.5;
+    pplat = TWIN.peep + dP;
+    out.settings.vt = vt_mL;
+    out.fillSlow = fillSlow2;
+  } else if (TWIN.ardsnetOn && TWIN.mode === 'PC') {
+    ardsnetVtTarget = TWIN.vtPerKg * TWIN.pbw;
+    out.settings.vt = ardsnetVtTarget;
+    vt_mL = ardsnetVtTarget;
+    dP = TWIN.pin;
+  } else if (TWIN.ardsnetOn && TWIN.mode === 'PS') {
+    ardsnetVtTarget = TWIN.vtPerKg * TWIN.pbw;
+  }
+
+  const mv = (vt_mL / 1000) * rr;
+
+  // PaO2 from effective shunt (compartment-weighted average)
+  const pao2 = pao2FromFiO2(TWIN.fio2, TWIN.peep, comp.shuntAvg, TWIN.recruit);
+  // First pass: PaCO2, then pH, then SpO2 with Bohr shift
+  const paco2 = paco2FromMV(mv, TWIN.vd, TWIN.vco2);
+  const ph = phFromPaCO2(paco2);
+  const spo2 = pao2ToSpO2(pao2, ph, TWIN.tempC, TWIN.cohb);
+  const pf = pao2 / Math.max(0.21, TWIN.fio2);
+
+  // Mechanical power: Gattinoni formula, with resistive component split out.
+  // MP_total = 0.098 * RR * Vt * (Ppeak - 0.5*ΔP)
+  // MP_resistive = 0.098 * RR * Vt * Raw * flow  (flow-resistive work)
+  // MP_elastic   = MP_total - MP_resistive
+  const vt_L = vt_mL / 1000;
+  const mp_total = 0.098 * rr * vt_L * (ppeak - 0.5 * dP);
+  const mp_resistive = 0.098 * rr * vt_L * TWIN.raw * flow;
+  const mp_elastic = Math.max(0, mp_total - mp_resistive);
+  // MP/ΔP decomposition (Costa 2023): isolates strain (elastic) from rate (resistive + RR).
+  // High MP/ΔP with low ΔP = lots of resistive work → suggests flow profile or secretions.
+  // Low MP/ΔP with high ΔP = strain-dominated → suggests overdistension.
+  const mp_per_dp = dP > 0 ? mp_total / dP : 0;
+
+  out.vt = vt_mL; out.rr = rr; out.dP = dP; out.ppeak = ppeak; out.pplat = pplat; out.ti = ti;
+  out.mv = mv; out.pao2 = pao2; out.spo2 = spo2*100; out.paco2 = paco2; out.ph = ph;
+  out.pf = pf; out.mp = mp_total;
+  out.mpElastic = mp_elastic; out.mpResistive = mp_resistive; out.mpPerDp = mp_per_dp;
+  out.ardsnetVtTarget = ardsnetVtTarget;
+  out.ardsnetVtActual = ardsnetVtActual;
+  // Compartment info
+  out.comp = comp;
+  // Alarm flags
+  out.alarmPplat = pplat > TWIN.pplatLimit + 0.5;
+  out.alarmDP = dP > TWIN.dpLimit + 0.5;
+  out.alarmVt = ardsnetVtTarget != null && Math.abs(ardsnetVtActual - ardsnetVtTarget) > 5;
+  out.alarmMP = mp_total > 17;                    // Serpa Neto 2018 VILI threshold
+  out.alarmMPperDP = mp_per_dp > 2.0;             // elevated resistive work relative to strain
+  return out;
+}
+
+// ---------- optimizer ----------
+
+function cost(result, goal) {
+  const spo2 = result.spo2;
+  const tgt = TWIN.spo2Target;
+  let hardPenalty = 0;
+  if (spo2 < tgt - 3) hardPenalty += (tgt - 3 - spo2) * 50; // desat is brutal
+  if (result.ph < 7.20) hardPenalty += (7.20 - result.ph) * 5000;
+  if (result.ph > 7.55) hardPenalty += (result.ph - 7.55) * 2000;
+  if (result.dP > 15) hardPenalty += (result.dP - 15) * 5;
+  if (result.ppeak > 40) hardPenalty += (result.ppeak - 40) * 10;
+
+  // ARDSNet hard violations — these are safety, not optimization
+  if (result.pplat > TWIN.pplatLimit) hardPenalty += (result.pplat - TWIN.pplatLimit) * 200;
+  if (result.dP > TWIN.dpLimit) hardPenalty += (result.dP - TWIN.dpLimit) * 100;
+  if (TWIN.ardsnetOn && result.ardsnetVtTarget != null) {
+    const drift = Math.abs(result.ardsnetVtActual - result.ardsnetVtTarget);
+    if (drift > 1) hardPenalty += drift * 50;
+  }
+
+  let base;
+  if (goal === 'mechpower') base = result.mp;
+  else if (goal === 'drivingpressure') base = result.dP * 4;
+  else if (goal === 'peepfio2') base = TWIN.peep * 0.5 + TWIN.fio2 * 30;
+  else base = result.mp;
+
+  // gentle desat nudge above target
+  if (spo2 < tgt) base += (tgt - spo2) * 4;
+
+  return base + hardPenalty;
+}
+
+function snapshot() {
+  return {
+    mode: TWIN.mode, peep: TWIN.peep, fio2: TWIN.fio2,
+    vt: TWIN.vt, rr: TWIN.rr, ie: TWIN.ie,
+    pin: TWIN.pin, rr2: TWIN.rr2, ie2: TWIN.ie2, ti: TWIN.ti,
+    ps: TWIN.ps, rr3: TWIN.rr3, effort: TWIN.effort,
+  };
+}
+
+function applySnapshot(s) {
+  Object.assign(TWIN, s);
+}
+
+async function optimize(goal) {
+  TWIN.cancel = false;
+  setOptStatus('Sweeping...');
+  const before = simulate();
+  let best = { cost: Infinity, snap: snapshot(), res: before };
+  const saved = snapshot();
+  const peepRange = [4, 6, 8, 10, 12, 14, 16, 18, 20];
+  const fio2Range = [0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.0];
+  const vtRange = [240, 300, 360, 420, 480];
+  const rrRange = [12, 16, 20, 24, 28, 32];
+  const ieRange = [0.33, 0.5, 0.66];
+  const pinRange = [8, 10, 12, 14, 16, 18, 20];
+  const tiRange = [0.6, 0.8, 1.0, 1.2];
+  const psRange = [6, 8, 10, 12, 14, 16];
+
+  // ARDSNet ladder: only allow PEEP/FiO2 combinations that exist in the chosen table
+  const ladder = TWIN.peepFiO2Ladder === 'higher' ? ARDSNET_HIGHER : ARDSNET_LOWER;
+  const useLadder = TWIN.ardsnetOn && goal === 'peepfio2';
+
+  // Tag the start of the optimizer run so the trend chart shows it.
+  TWIN.trendLabel = 'opt:start';
+  render();
+  let tested = 0;
+  let progressTag = 0;
+  for (const p of peepRange) {
+    if (TWIN.cancel) break;
+    for (const f of fio2Range) {
+      if (useLadder) {
+        // skip combinations not on the chosen ladder
+        const onLadder = ladder.some(x => Math.abs(x.peep - p) < 0.5 && Math.abs(x.fio2 - f) < 0.01);
+        if (!onLadder) continue;
+      }
+      TWIN.peep = p; TWIN.fio2 = f;
+      if (TWIN.mode === 'VC') {
+        for (const v of vtRange) for (const r of rrRange) for (const i of ieRange) {
+          TWIN.vt = v; TWIN.rr = r; TWIN.ie = i;
+          const res = simulate(); const c = cost(res, goal);
+          if (c < best.cost) best = { cost: c, snap: snapshot(), res };
+          tested++;
+          if (tested % 200 === 0) {
+            TWIN.trendLabel = `opt:${++progressTag}`;
+            applySnapshot(snapshot()); // current mid-sweep settings
+            const _placeholder = best; // ensure best stays referenced
+            render();
+            setOptStatus(`Sweeping... ${tested} combos, best=${best.cost.toFixed(2)}`); await sleep(0);
+          }
+        }
+      } else if (TWIN.mode === 'PC') {
+        for (const pin of pinRange) for (const r of rrRange) for (const t of tiRange) {
+          TWIN.pin = pin; TWIN.rr2 = r; TWIN.ti = t;
+          const res = simulate(); const c = cost(res, goal);
+          if (c < best.cost) best = { cost: c, snap: snapshot(), res };
+          tested++;
+          if (tested % 200 === 0) {
+            TWIN.trendLabel = `opt:${++progressTag}`;
+            render();
+            setOptStatus(`Sweeping... ${tested} combos, best=${best.cost.toFixed(2)}`); await sleep(0);
+          }
+        }
+      } else {
+        for (const ps of psRange) for (const r of [10,14,18,22,26]) {
+          TWIN.ps = ps; TWIN.rr3 = r;
+          const res = simulate(); const c = cost(res, goal);
+          if (c < best.cost) best = { cost: c, snap: snapshot(), res };
+          tested++;
+          if (tested % 200 === 0) {
+            TWIN.trendLabel = `opt:${++progressTag}`;
+            render();
+            setOptStatus(`Sweeping... ${tested} combos, best=${best.cost.toFixed(2)}`); await sleep(0);
+          }
+        }
+      }
+    }
+  }
+
+  // restore original snapshot, then apply best
+  applySnapshot(saved);
+  TWIN.opt = best.res;
+  applySnapshot(best.snap);
+  syncControls();
+  TWIN.trendLabel = `opt:done (${best.cost.toFixed(1)})`;
+  render();
+  setOptStatus(`Done. Tested ${tested} combos. Saved cost ${best.cost.toFixed(2)} (was ${cost(before, goal).toFixed(2)}).`);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function setOptStatus(s) { document.getElementById('optStatus').textContent = s; }
+
+// ---------- plotting ----------
+
+function drawPT(canvas, resCurrent, resOpt) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.clientWidth * devicePixelRatio;
+  const h = canvas.height = canvas.clientHeight * devicePixelRatio;
+  ctx.fillStyle = '#0a0f1f'; ctx.fillRect(0,0,w,h);
+  // axes
+  const padL = 50*devicePixelRatio, padB = 30*devicePixelRatio, padT = 10*devicePixelRatio, padR = 10*devicePixelRatio;
+  const plotW = w - padL - padR, plotH = h - padB - padT;
+  ctx.strokeStyle = '#2a3354'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+plotH); ctx.lineTo(padL+plotW, padT+plotH); ctx.stroke();
+
+  // y range: 0 to max(ppeak*1.15, 35)
+  let yMax = 35;
+  const series = [];
+  if (resCurrent) series.push({c:'#5cf', r:resCurrent, lbl:'current'});
+  if (resOpt) series.push({c:'#7fdc9a', r:resOpt, lbl:'optimal'});
+  for (const s of series) yMax = Math.max(yMax, s.r.ppeak*1.15);
+
+  // gridlines + labels
+  ctx.fillStyle = '#8893b8'; ctx.font = (10*devicePixelRatio)+'px ui-sans-serif';
+  for (let v = 0; v <= yMax; v += 5) {
+    const y = padT + plotH - (v/yMax)*plotH;
+    ctx.strokeStyle = '#1c2440'; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL+plotW, y); ctx.stroke();
+    ctx.fillText(v, 6*devicePixelRatio, y+3*devicePixelRatio);
+  }
+  // x axis = one breath cycle
+  const tMax = 60 / Math.max(8, (resCurrent||resOpt).rr); // seconds
+  ctx.fillText('time (s)', padL+plotW-50*devicePixelRatio, padT+plotH+18*devicePixelRatio);
+
+  // breathing waveform: square-ish pressure-time
+  for (const s of series) {
+    const r = s.r;
+    const ti = r.ti;
+    const te = tMax - ti;
+    const pts = [
+      [0, r.peep],
+      [0.05, r.peep],
+      [ti*0.2, r.ppeak], // rise to peak
+      [ti*0.6, r.pplat],
+      [ti, r.ppeak],     // hold then drop
+      [ti+0.05, r.peep],
+      [tMax, r.peep],
+    ];
+    ctx.strokeStyle = s.c; ctx.lineWidth = 2*devicePixelRatio;
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const x = padL + (pts[i][0]/tMax)*plotW;
+      const y = padT + plotH - (Math.min(yMax,pts[i][1])/yMax)*plotH;
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    // label
+    ctx.fillStyle = s.c;
+    ctx.fillText(s.lbl + ` (Ppeak ${r.ppeak.toFixed(1)})`, padL+8*devicePixelRatio, padT+12*devicePixelRatio + (series.indexOf(s))*14*devicePixelRatio);
+  }
+}
+
+// ABG trend chart — multi-series line plot over the ring buffer.
+// 6 series: SpO2, P/F, PaCO2, pH, ΔP, MP. Each normalized to its own y range, drawn
+// as a thin line. Event markers (preset switch, optimizer step) drawn as vertical lines.
+// P/V curve plot — decremental PEEP trial output. X-axis: PEEP, Y-axis: Crs.
+// Pflex marked with vertical dashed line; P/V curve shows recruitment plateau + derecruit limb.
+function drawPV(canvas, trial) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.clientWidth * devicePixelRatio;
+  const h = canvas.height = canvas.clientHeight * devicePixelRatio;
+  ctx.fillStyle = '#0a0f1f'; ctx.fillRect(0,0,w,h);
+  const padL = 50*devicePixelRatio, padR = 110*devicePixelRatio, padT = 14*devicePixelRatio, padB = 26*devicePixelRatio;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  ctx.strokeStyle = '#2a3354'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+plotH); ctx.lineTo(padL+plotW, padT+plotH); ctx.stroke();
+
+  if (!trial || !trial.points.length) {
+    ctx.fillStyle = '#8893b8'; ctx.font = (11*devicePixelRatio)+'px ui-sans-serif';
+    ctx.fillText('Click "Run decremental PEEP trial" to plot the static P/V curve.', padL+10*devicePixelRatio, padT+plotH/2);
+    return;
+  }
+
+  const pts = trial.points;
+  const xMin = 0, xMax = 22;                          // PEEP 0..22
+  const yMin = 0, yMax = Math.max(...pts.map(p => p.crs)) * 1.2;
+  const xToPx = x => padL + ((x - xMin) / (xMax - xMin)) * plotW;
+  const yToPx = y => padT + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
+
+  // gridlines
+  ctx.strokeStyle = '#1c2440';
+  for (let x = 0; x <= 20; x += 5) {
+    ctx.beginPath(); ctx.moveTo(xToPx(x), padT); ctx.lineTo(xToPx(x), padT+plotH); ctx.stroke();
+  }
+  for (let y = 0; y <= yMax; y += 20) {
+    ctx.beginPath(); ctx.moveTo(padL, yToPx(y)); ctx.lineTo(padL+plotW, yToPx(y)); ctx.stroke();
+  }
+
+  // axis
+  ctx.fillStyle = '#8893b8'; ctx.font = (10*devicePixelRatio)+'px ui-sans-serif';
+  ctx.textAlign = 'right';
+  for (let y = 0; y <= yMax; y += 20) ctx.fillText(Math.round(y), padL-4*devicePixelRatio, yToPx(y)+3*devicePixelRatio);
+  ctx.textAlign = 'center';
+  for (let x = 0; x <= 20; x += 5) ctx.fillText(x, xToPx(x), padT+plotH+14*devicePixelRatio);
+  ctx.fillText('PEEP (cmH₂O)', padL+plotW/2, padT+plotH+24*devicePixelRatio);
+  ctx.textAlign = 'left';
+  ctx.save();
+  ctx.translate(12*devicePixelRatio, padT+plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('Compliance (mL/cmH₂O)', 0, 0);
+  ctx.restore();
+
+  // P/V curve
+  ctx.strokeStyle = '#5cf'; ctx.lineWidth = 2*devicePixelRatio;
+  ctx.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+    const px = xToPx(pts[i].peep), py = yToPx(pts[i].crs);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  // dots
+  for (const p of pts) {
+    ctx.fillStyle = '#5cf';
+    ctx.beginPath(); ctx.arc(xToPx(p.peep), yToPx(p.crs), 3*devicePixelRatio, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Best-Crs PEEP vertical line (formerly labeled "Pflex"; see §3.3 limitation)
+  if (trial.pflex != null && trial.pflex <= xMax) {
+    ctx.strokeStyle = '#ffd66b'; ctx.lineWidth = 1.5*devicePixelRatio;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(xToPx(trial.pflex), padT); ctx.lineTo(xToPx(trial.pflex), padT+plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ffd66b';
+    ctx.fillText(`best-Crs PEEP = ${trial.pflex}`, xToPx(trial.pflex)+4*devicePixelRatio, padT+12*devicePixelRatio);
+  }
+
+  // Suggested PEEP box (best-Crs PEEP + 2; educational suggestion only)
+  if (trial.pflex != null) {
+    const sugPeep = Math.min(20, trial.pflex + 2);
+    ctx.strokeStyle = '#7fdc9a'; ctx.lineWidth = 1*devicePixelRatio;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(xToPx(sugPeep), padT); ctx.lineTo(xToPx(sugPeep), padT+plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#7fdc9a';
+    ctx.fillText(`Suggested PEEP = ${sugPeep}`, xToPx(sugPeep)+4*devicePixelRatio, padT+24*devicePixelRatio);
+  }
+
+  // R/I annotation
+  ctx.fillStyle = '#e6ebff'; ctx.font = (11*devicePixelRatio)+'px ui-sans-serif';
+  ctx.textAlign = 'left';
+  const ann = `R/I ratio = ${trial.ri.toFixed(2)}  →  ${trial.riClass}`;
+  ctx.fillText(ann, padL+plotW+8*devicePixelRatio, padT+12*devicePixelRatio);
+  ctx.fillStyle = '#8893b8';
+  ctx.fillText('Chen 2020, ICM', padL+plotW+8*devicePixelRatio, padT+28*devicePixelRatio);
+  ctx.fillText('>0.5 high', padL+plotW+8*devicePixelRatio, padT+44*devicePixelRatio);
+  ctx.fillText('0.2–0.5 mod', padL+plotW+8*devicePixelRatio, padT+58*devicePixelRatio);
+  ctx.fillText('<0.2 low', padL+plotW+8*devicePixelRatio, padT+72*devicePixelRatio);
+}
+
+function drawTrend(canvas, trend) {
+   const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.clientWidth * devicePixelRatio;
+  const h = canvas.height = canvas.clientHeight * devicePixelRatio;
+  ctx.fillStyle = '#0a0f1f'; ctx.fillRect(0,0,w,h);
+  const padL = 40*devicePixelRatio, padR = 40*devicePixelRatio, padT = 14*devicePixelRatio, padB = 24*devicePixelRatio;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  ctx.strokeStyle = '#2a3354'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+plotH); ctx.lineTo(padL+plotW, padT+plotH); ctx.stroke();
+
+  if (trend.length < 2) {
+    ctx.fillStyle = '#8893b8'; ctx.font = (11*devicePixelRatio)+'px ui-sans-serif';
+    ctx.fillText('Not enough samples yet — adjust sliders, switch presets, or click Optimize.', padL+10*devicePixelRatio, padT+plotH/2);
+    return;
+  }
+
+  // Per-series y-range (clinical bounds; clamp to these so flatlining doesn't eat the chart)
+  const series = [
+    {key:'spo2',  color:'#7fdc9a', lo:80,  hi:100, label:'SpO₂ (%)'},
+    {key:'pf',    color:'#5cf',    lo:50,  hi:500, label:'P/F (mmHg)'},
+    {key:'paco2', color:'#f8c',    lo:25,  hi:80,  label:'PaCO₂ (mmHg)'},
+    {key:'ph',    color:'#ffd66b', lo:7.10,hi:7.55,label:'pH'},
+    {key:'dp',    color:'#a080ff', lo:5,   hi:25,  label:'ΔP (cmH₂O)'},
+    {key:'mp',    color:'#ff8c5c', lo:5,   hi:40,  label:'MP (J/min)'},
+  ];
+
+  const n = trend.length;
+  const xStep = plotW / Math.max(1, n - 1);
+
+  // Normalize helper
+  const norm = (v, lo, hi) => Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+  const x = i => padL + i * xStep;
+  const y = v01 => padT + plotH - v01 * plotH;
+
+  for (const s of series) {
+    ctx.strokeStyle = s.color; ctx.lineWidth = 1.5*devicePixelRatio;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const v = trend[i][s.key];
+      const v01 = norm(v, s.lo, s.hi);
+      if (i === 0) ctx.moveTo(x(i), y(v01)); else ctx.lineTo(x(i), y(v01));
+    }
+    ctx.stroke();
+  }
+
+  // y-axis labels for selected series (SpO2 + pH)
+  ctx.fillStyle = '#8893b8'; ctx.font = (10*devicePixelRatio)+'px ui-sans-serif';
+  // Left axis: SpO2 + pH
+  ctx.fillText('100', 4*devicePixelRatio, padT+10*devicePixelRatio);
+  ctx.fillText('90',  6*devicePixelRatio, padT+plotH*0.5);
+  ctx.fillText('80',  6*devicePixelRatio, padT+plotH-4*devicePixelRatio);
+  ctx.fillText('7.5', 2*devicePixelRatio, padT+plotH*0.1);
+  ctx.fillText('7.3', 2*devicePixelRatio, padT+plotH*0.5);
+  ctx.fillText('7.1', 2*devicePixelRatio, padT+plotH*0.9);
+  // Right axis: P/F + MP
+  ctx.textAlign = 'right';
+  ctx.fillText('500', padL+plotW+30*devicePixelRatio, padT+10*devicePixelRatio);
+  ctx.fillText('250', padL+plotW+30*devicePixelRatio, padT+plotH*0.5);
+  ctx.fillText('40',  padL+plotW+30*devicePixelRatio, padT+plotH-4*devicePixelRatio);
+  ctx.fillText('30',  padL+plotW+30*devicePixelRatio, padT+plotH*0.5);
+  ctx.textAlign = 'left';
+
+  // Event markers: vertical dashed lines where label != 'current'
+  for (let i = 0; i < n; i++) {
+    const lbl = trend[i].label;
+    if (lbl === 'current') continue;
+    let color = '#ff6b6b';
+    if (lbl.startsWith('preset:')) color = '#ffd66b';
+    else if (lbl.startsWith('opt:')) color = '#5cf';
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5*devicePixelRatio;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(x(i), padT); ctx.lineTo(x(i), padT+plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    // mini-label at top
+    ctx.fillStyle = color;
+    ctx.font = (9*devicePixelRatio)+'px ui-sans-serif';
+    const tag = lbl.length > 12 ? lbl.slice(0, 11) + '…' : lbl;
+    ctx.fillText(tag, x(i) + 2*devicePixelRatio, padT + 8*devicePixelRatio);
+  }
+
+  // legend line labels (just first 3 chars of each)
+  ctx.font = (9*devicePixelRatio)+'px ui-sans-serif';
+  let lx = padL + 4*devicePixelRatio;
+  for (const s of series) {
+    ctx.fillStyle = s.color;
+    ctx.fillText(s.label.split(' ')[0], lx, padT + plotH + 12*devicePixelRatio);
+    lx += 60*devicePixelRatio;
+  }
+}
+
+// ---------- UI wiring ----------
+
+const ranges = ['crs','raw','rec','shunt','vd','hb','co','vco2','pbw','tempC','cohb','dpg','peep','fio2','vt','rr','ie','pin','rr2','ie2','ti','ps','rr3','effort','tgt','vpkg','pplat','dpl'];
+const labels = {
+  crs:'lbl-crs', raw:'lbl-raw', rec:'lbl-rec', shunt:'lbl-shunt', vd:'lbl-vd',
+  hb:'lbl-hb', co:'lbl-co', vco2:'lbl-vco2', pbw:'lbl-pbw', sex:'lbl-sex',
+  tempC:'lbl-temp', cohb:'lbl-cohb', dpg:'lbl-dpg',
+  peep:'lbl-peep', fio2:'lbl-fio2',
+  vt:'lbl-vt', rr:'lbl-rr', ie:'lbl-ie',
+  pin:'lbl-pin', rr2:'lbl-rr2', ie2:'lbl-ie2', ti:'lbl-ti',
+  ps:'lbl-ps', rr3:'lbl-rr3', effort:'lbl-eff',
+  tgt:'lbl-tgt',
+  vpkg:'lbl-vpkg', pplat:'lbl-pplat', dpl:'lbl-dpl'
+};
+function formatVal(k, v) {
+  if (['fio2'].includes(k)) return (+v).toFixed(2);
+  if (['ie','ie2'].includes(k)) {
+    const r = +v; return '1:' + ((1/r).toFixed(1));
+  }
+  if (['rec','shunt','vd'].includes(k)) return (+v).toFixed(2);
+  if (['spo2Target','tgt'].includes(k)) return v;
+  if (k === 'vpkg') return (+v).toFixed(1);
+  if (k === 'tempC') return (+v).toFixed(1);
+  if (k === 'cohb' || k === 'dpg') return (+v).toFixed(1);
+  return (+v).toFixed(k === 'hb' || k === 'co' ? 1 : 0);
+}
+
+function syncLabels() {
+  for (const k of ranges) {
+    const el = document.getElementById(k);
+    const lbl = document.getElementById(labels[k]);
+    if (!el || !lbl) continue;
+    lbl.textContent = formatVal(k, el.value);
+    TWIN[k] = +el.value;
+  }
+  // dropdowns
+  const sexEl = document.getElementById('sex');
+  if (sexEl) { TWIN.sex = sexEl.value; document.getElementById('lbl-sex').textContent = sexEl.value; }
+  const ladderEl = document.getElementById('ladder');
+  if (ladderEl) TWIN.peepFiO2Ladder = ladderEl.value;
+}
+
+function syncControls() {
+  for (const k of ranges) {
+    const el = document.getElementById(k);
+    if (el && TWIN[k] != null) el.value = TWIN[k];
+  }
+  const sexEl = document.getElementById('sex');
+  if (sexEl) sexEl.value = TWIN.sex;
+  const ladderEl = document.getElementById('ladder');
+  if (ladderEl) ladderEl.value = TWIN.peepFiO2Ladder;
+  syncLabels();
+  // mode tabs
+  document.querySelectorAll('#modeTabs .tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.mode === TWIN.mode);
+  });
+  // ARDSNet on/off tabs
+  document.querySelectorAll('#anToggle .tab').forEach(t => {
+    t.classList.toggle('active', (t.dataset.on === 'true') === TWIN.ardsnetOn);
+  });
+  document.getElementById('vcParams').style.display = TWIN.mode === 'VC' ? '' : 'none';
+  document.getElementById('pcParams').style.display = TWIN.mode === 'PC' ? '' : 'none';
+  document.getElementById('psParams').style.display = TWIN.mode === 'PS' ? '' : 'none';
+}
+
+function render() {
+  const cur = simulate();
+  const opt = TWIN.opt;
+
+  // Push current into ABG trend (max 60 samples, ring buffer)
+  if (!TWIN.trend) TWIN.trend = [];
+  const t = TWIN.trend;
+  const last = t[t.length - 1];
+  const snap = {
+    t: Date.now(),
+    label: TWIN.trendLabel || 'current',
+    pao2: cur.pao2, pf: cur.pf, spo2: cur.spo2,
+    paco2: cur.paco2, ph: cur.ph, mp: cur.mp, dp: cur.dP, pplat: cur.pplat,
+  };
+  if (!last || last.t !== snap.t) t.push(snap);
+  if (t.length > 60) t.splice(0, t.length - 60);
+  TWIN.trendLabel = 'current';
+  const rows = [
+    ['PEEP (cmH₂O)', cur.peep, opt?opt.peep:null],
+    ['FiO₂', cur.fio2.toFixed(2), opt?opt.fio2.toFixed(2):null],
+    ['Vt (mL)', cur.vt.toFixed(0), opt?opt.vt.toFixed(0):null],
+    ['RR (/min)', cur.rr, opt?opt.rr:null],
+    ['ΔP (cmH₂O)', cur.dP.toFixed(1), opt?opt.dP.toFixed(1):null],
+    ['Ppeak (cmH₂O)', cur.ppeak.toFixed(1), opt?opt.ppeak.toFixed(1):null],
+    ['PaO₂/FiO₂', cur.pf.toFixed(0), opt?opt.pf.toFixed(0):null],
+    ['PaO₂ (mmHg)', cur.pao2.toFixed(0), opt?opt.pao2.toFixed(0):null],
+    ['PaCO₂ (mmHg)', cur.paco2.toFixed(1), opt?opt.paco2.toFixed(1):null],
+    ['SpO₂ (%)', cur.spo2.toFixed(1), opt?opt.spo2.toFixed(1):null],
+    ['pH', cur.ph.toFixed(2), opt?opt.ph.toFixed(2):null],
+    ['Mechanical power (J/min)', cur.mp.toFixed(1), opt?opt.mp.toFixed(1):null],
+  ];
+  const tb = document.getElementById('metricTable');
+  tb.innerHTML = rows.map(([k,a,b]) => {
+    let delta = '—';
+    let cls = '';
+    if (b != null && !isNaN(a) && !isNaN(+b)) {
+      const d = (+b) - (+a);
+      delta = (d>=0?'+':'') + d.toFixed(1);
+      cls = Math.abs(d) < 0.05 ? '' : (d < 0 ? 'style="color:var(--ok)"' : 'style="color:var(--warn)"');
+    }
+    return `<tr><td>${k}</td><td>${a}</td><td>${b ?? '—'}</td><td ${cls}>${delta}</td></tr>`;
+  }).join('');
+
+  document.getElementById('pf').textContent = cur.pf.toFixed(0);
+  document.getElementById('pao2').textContent = cur.pao2.toFixed(0);
+  document.getElementById('paco2').textContent = cur.paco2.toFixed(1);
+  document.getElementById('spo2').textContent = cur.spo2.toFixed(1);
+  document.getElementById('ph').textContent = cur.ph.toFixed(2);
+  document.getElementById('mv').textContent = cur.mv.toFixed(2);
+  document.getElementById('mp').textContent = cur.mp.toFixed(1);
+  document.getElementById('dp').textContent = cur.dP.toFixed(1);
+  document.getElementById('ppeak').textContent = cur.ppeak.toFixed(1);
+
+  // Mechanical power / VILI risk fields
+  document.getElementById('mpTotal').textContent = cur.mp.toFixed(1);
+  document.getElementById('mpElast').textContent = cur.mpElastic.toFixed(1);
+  document.getElementById('mpRes').textContent = cur.mpResistive.toFixed(1);
+  document.getElementById('mpPerDp').textContent = cur.mpPerDp.toFixed(2);
+  document.getElementById('strain').textContent = (cur.vt / Math.max(1, cur.comp.crsTotal)).toFixed(2);
+  document.getElementById('crsDyn').textContent = cur.comp.crsTotal.toFixed(1);
+  document.getElementById('tauFast').textContent = cur.comp.tauFast.toFixed(2);
+  document.getElementById('tauSlow').textContent = cur.comp.tauSlow.toFixed(2);
+  document.getElementById('fillSlow').textContent = ((cur.fillSlow || 1) * 100).toFixed(0) + '%';
+
+  drawPT(document.getElementById('ptCanvas'), cur, opt);
+  drawPV(document.getElementById('pvCanvas'), TWIN.pvTrial);
+  drawTrend(document.getElementById('trendCanvas'), TWIN.trend);
+
+  // alarm badges
+  const alarms = document.getElementById('alarmRow');
+  alarms.innerHTML = '';
+  const badge = (label, on, severity) => {
+    const cls = on ? (severity === 'high' ? 'danger' : 'warn') : 'ok';
+    const el = document.createElement('span');
+    el.className = 'pill ' + cls;
+    el.textContent = label;
+    alarms.appendChild(el);
+  };
+  badge(`Pplat ${cur.pplat.toFixed(1)} ≤ ${TWIN.pplatLimit}`, cur.alarmPplat, 'high');
+  badge(`ΔP ${cur.dP.toFixed(1)} ≤ ${TWIN.dpLimit} (observational risk marker, Amato 2015; not an ARDSNet protocol limit)`, cur.alarmDP, 'high');
+  badge(`MP ${cur.mp.toFixed(1)} J/min (VCV-only formula; observational risk marker, not validated individual threshold)`,
+    cur.mp > 17, 'high');
+  badge(`MP/ΔP ${cur.mpPerDp.toFixed(2)} (Costa 2023 resistive-work index)`, cur.mpPerDp > 2.0, 'low');
+  badge(`SpO₂ ${cur.spo2.toFixed(1)}% (target ${TWIN.spo2Target}%)`, cur.spo2 < TWIN.spo2Target, 'low');
+  if (cur.ardsnetVtTarget != null) {
+    badge(`Vt ${cur.ardsnetVtActual.toFixed(0)} mL (target ${cur.ardsnetVtTarget.toFixed(0)} mL)`, cur.alarmVt, 'high');
+  } else if (TWIN.ardsnetOn) {
+    badge('ARDSNet on — Vt target not applied (mode = ' + TWIN.mode + ')', false, 'low');
+  }
+}
+
+// ---------- bootstrap ----------
+
+document.querySelectorAll('#modeTabs .tab').forEach(t => {
+  t.addEventListener('click', () => { TWIN.mode = t.dataset.mode; syncControls(); render(); });
+});
+document.querySelectorAll('#anToggle .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    TWIN.ardsnetOn = (t.dataset.on === 'true');
+    syncControls(); render();
+  });
+});
+document.querySelectorAll('#presets .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    applyPreset(t.dataset.preset);
+    document.querySelectorAll('#presets .tab').forEach(x => x.classList.toggle('active', x === t));
+    // Tag the resulting sample so the trend chart shows the switch.
+    TWIN.trendLabel = 'preset:' + t.dataset.preset;
+  });
+});
+for (const k of ranges) {
+  const el = document.getElementById(k);
+  if (el) el.addEventListener('input', () => { syncLabels(); render(); });
+}
+document.getElementById('sex').addEventListener('change', () => { syncLabels(); render(); });
+document.getElementById('ladder').addEventListener('change', () => { syncLabels(); render(); });
+document.getElementById('runOpt').addEventListener('click', () => optimize(document.getElementById('optMode').value));
+document.getElementById('stopOpt').addEventListener('click', () => { TWIN.cancel = true; });
+document.getElementById('resetOpt').addEventListener('click', () => { TWIN.opt = null; render(); });
+document.getElementById('clearTrend').addEventListener('click', () => { TWIN.trend = []; TWIN.trendLabel = 'current'; render(); });
+document.getElementById('runTrial').addEventListener('click', () => {
+  const vt = Math.max(60, TWIN.vt);
+  const rr = TWIN.rr || 20;
+  const ie = TWIN.ie || 0.5;
+  TWIN.pvTrial = peepTitration(vt, rr, ie);
+  // Auto-set PEEP to "suggested PEEP" (best-Crs PEEP + 2) for the trial, but don't apply permanently
+  // — just push a sample to the trend so the user can compare before/after.
+  const before = simulate();
+  TWIN.trendLabel = 'trial:' + (TWIN.pvTrial.riClass || '?');
+  render();
+  const sugPeep = Math.min(20, (TWIN.pvTrial.pflex || 10) + 2);
+  // show the trial result in the optimizer status bar
+  const status = `R/I = ${TWIN.pvTrial.ri.toFixed(2)} → ${TWIN.pvTrial.riClass}. best-Crs PEEP = ${TWIN.pvTrial.pflex}. Suggested PEEP = ${sugPeep}. (Best-Crs PEEP is a model output, not the Hickling Pflex from a sigmoid P/V curve.)`;
+  document.getElementById('optStatus').textContent = status;
+});
+
+syncControls();
+render();
+</script>
+</body>
+</html>
