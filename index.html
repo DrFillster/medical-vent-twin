@@ -2,16 +2,26 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Lung Simulator v0.2.0-rc1</title>
-<meta http-equiv="refresh" content="0; url=lung-reference/">
+<title>Medical Ventilation Twin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow">
-<link rel="canonical" href="lung-reference/">
-<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:6em auto;padding:0 1em;color:#eee;background:#1c1c20;line-height:1.5}a{color:#6ad}</style>
+<style>body{font-family:system-ui,sans-serif;max-width:780px;margin:4em auto;padding:0 1.2em;color:#eee;background:#1c1c20;line-height:1.6}a{color:#6ad}h1{font-weight:500;letter-spacing:-0.01em}h2{font-weight:500;margin-top:2em;border-top:1px solid #333;padding-top:1em;font-size:1.1em;color:#aaa;text-transform:uppercase;letter-spacing:0.05em}.ver{font-family:ui-monospace,Menlo,monospace;font-size:0.85em;color:#888}li{margin:0.4em 0}</style>
 </head>
 <body>
-<h1>Lung Simulator v0.2.0-rc1</h1>
-<p>Redirecting to <a href="lung-reference/">lung-reference/</a> &hellip;</p>
-<p>If your browser did not follow the redirect, click the link above.</p>
-<p>Previous single-file simulator preserved at <a href="_previous-draft/index.html">_previous-draft/index.html</a>.</p>
+<h1>Medical Ventilation Twin</h1>
+<p class="ver">Three-compartment mechanical-ventilation simulator &mdash; auditable reference, JS port, manuscript draft.</p>
+
+<h2>Releases</h2>
+<ul>
+  <li><strong><a href="ards-twin-v0.3/">ARDS virtual-patient v0.3</a></strong> &mdash; dynamic three-compartment engine with VC-AC ventilator controller. Node test suite: 25/25 acceptance tests passing (deterministic, conservation, single-RC, VC-AC). Source: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.3">GitHub</a>.</li>
+  <li><strong><a href="lung-reference/">Lung simulator v0.2.0-rc1</a></strong> &mdash; static reference implementation with browser UI, manuscript, and cross-language verification (Python + JS, 24/24 tests, 1e-6 tolerance).</li>
+  <li><strong><a href="_previous-draft/index.html">v0.1 single-file simulator</a></strong> &mdash; previous draft preserved for archival reference.</li>
+</ul>
+
+<h2>Specs &amp; docs</h2>
+<ul>
+  <li><a href="ards-twin-v0.3/HANDOFF_README.md">v0.3 architecture handoff</a> &mdash; the spec that v0.3 implements.</li>
+  <li><a href="lung-reference/paper.html">Manuscript draft</a> &mdash; rewritten per v0.3 handoff brief.</li>
+</ul>
 </body>
 </html>
