@@ -1,0 +1,313 @@
+{
+  "status": "pass",
+  "scenario_count": 49,
+  "atol": 1e-09,
+  "rtol": 1e-09,
+  "criterion": "abs(a-b) <= max(atol, rtol*max(abs(a),abs(b)))",
+  "comparison": "complete records, traces where requested, all trial rows, explicit errors, all relay states",
+  "seed": 20260914,
+  "cases": [
+    {
+      "scenario": "Baseline / snapshot",
+      "numeric": 891,
+      "max_abs": 1.4210854715202004e-14,
+      "pass": true
+    },
+    {
+      "scenario": "Baseline / conditioned",
+      "numeric": 891,
+      "max_abs": 1.4210854715202004e-14,
+      "pass": true
+    },
+    {
+      "scenario": "Injury A / snapshot",
+      "numeric": 891,
+      "max_abs": 2.842170943040401e-14,
+      "pass": true
+    },
+    {
+      "scenario": "Injury A / conditioned",
+      "numeric": 891,
+      "max_abs": 3.552713678800501e-15,
+      "pass": true
+    },
+    {
+      "scenario": "Injury B / snapshot",
+      "numeric": 891,
+      "max_abs": 3.552713678800501e-14,
+      "pass": true
+    },
+    {
+      "scenario": "Injury B / conditioned",
+      "numeric": 891,
+      "max_abs": 3.552713678800501e-14,
+      "pass": true
+    },
+    {
+      "scenario": "Injury C / snapshot",
+      "numeric": 880,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "Injury C / conditioned",
+      "numeric": 880,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "units=64",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "units=128",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "units=256",
+      "numeric": 157,
+      "max_abs": 0.0,
+      "pass": true
+    },
+    {
+      "scenario": "units=512",
+      "numeric": 157,
+      "max_abs": 0.0,
+      "pass": true
+    },
+    {
+      "scenario": "aop=0",
+      "numeric": 168,
+      "max_abs": 4.618527782440651e-14,
+      "pass": true
+    },
+    {
+      "scenario": "aop=2",
+      "numeric": 168,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "aop=4",
+      "numeric": 168,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "aop=6",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "aop=8",
+      "numeric": 146,
+      "max_abs": 2.220446049250313e-16,
+      "pass": true
+    },
+    {
+      "scenario": "aop=10",
+      "numeric": 135,
+      "max_abs": 3.3306690738754696e-16,
+      "pass": true
+    },
+    {
+      "scenario": "aop=12",
+      "numeric": 124,
+      "max_abs": 0.0,
+      "pass": true
+    },
+    {
+      "scenario": "aop=14",
+      "numeric": 113,
+      "max_abs": 0.0,
+      "pass": true
+    },
+    {
+      "scenario": "aop=15",
+      "numeric": 54,
+      "max_abs": 2.4868995751603507e-14,
+      "pass": true
+    },
+    {
+      "scenario": "aop=16",
+      "numeric": 54,
+      "max_abs": 3.552713678800501e-15,
+      "pass": true
+    },
+    {
+      "scenario": "vt=0.2",
+      "numeric": 157,
+      "max_abs": 8.526512829121202e-14,
+      "pass": true
+    },
+    {
+      "scenario": "vt=0.28",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "vt=0.36",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "vt=0.42",
+      "numeric": 157,
+      "max_abs": 2.842170943040401e-14,
+      "pass": true
+    },
+    {
+      "scenario": "vt=0.5",
+      "numeric": 157,
+      "max_abs": 2.1316282072803006e-14,
+      "pass": true
+    },
+    {
+      "scenario": "fio2=0.21",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "fio2=0.3",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "fio2=0.4",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "fio2=0.6",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "fio2=0.8",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "fio2=1.0",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "work_n=60",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "work_n=120",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "work_n=240",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "work_n=480",
+      "numeric": 157,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 1",
+      "numeric": 146,
+      "max_abs": 1.4210854715202004e-14,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 2",
+      "numeric": 168,
+      "max_abs": 1.4210854715202004e-14,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 3",
+      "numeric": 168,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 4",
+      "numeric": 157,
+      "max_abs": 1.7763568394002505e-15,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 5",
+      "numeric": 168,
+      "max_abs": 7.105427357601002e-15,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 6",
+      "numeric": 157,
+      "max_abs": 6.394884621840902e-14,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 7",
+      "numeric": 168,
+      "max_abs": 4.263256414560601e-14,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 8",
+      "numeric": 168,
+      "max_abs": 5.684341886080802e-14,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 9",
+      "numeric": 168,
+      "max_abs": 4.263256414560601e-14,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 10",
+      "numeric": 146,
+      "max_abs": 0.0,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 11",
+      "numeric": 168,
+      "max_abs": 1.4210854715202004e-14,
+      "pass": true
+    },
+    {
+      "scenario": "seeded multifactor 12",
+      "numeric": 168,
+      "max_abs": 4.263256414560601e-14,
+      "pass": true
+    }
+  ],
+  "complete_audit_comparison": {
+    "numeric": 324,
+    "max_abs": 2.1316282072803006e-14
+  },
+  "canonical_preset_comparison": {
+    "numeric": 132,
+    "max_abs": 0.0
+  }
+}

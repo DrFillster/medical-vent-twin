@@ -1,0 +1,261 @@
+{
+  "version": "0.2.0-rc1",
+  "scope": "Educational model outputs; not clinical recommendations",
+  "configuration": {
+    "lung": {
+      "tissue": [
+        0.2,
+        0.5,
+        0.3
+      ],
+      "perfusion": [
+        0.3,
+        0.45,
+        0.25
+      ],
+      "c_specific": 0.12,
+      "k_normal": 30,
+      "k_recruit": 22,
+      "aop": 6,
+      "resistance": 14,
+      "opening_mid": 14,
+      "closing_mid": 6,
+      "threshold_width": 1.5,
+      "units": 128,
+      "residual_normal": 0.02,
+      "residual_recruit": 0.05
+    },
+    "vent": {
+      "peep": 14,
+      "vt": 0.28,
+      "rr": 26,
+      "fio2": 0.8,
+      "flow": 0.5,
+      "pbw": 70
+    },
+    "gas": {
+      "hb": 12,
+      "svo2": 0.75,
+      "dead_fraction": 0.6,
+      "vco2": 0.2,
+      "bicarbonate": 24,
+      "rq": 0.8,
+      "barometric": 760,
+      "water_vapor": 47,
+      "p50": 26.8
+    },
+    "history": [
+      14
+    ]
+  },
+  "protocols": {
+    "snapshot": {
+      "history": [
+        14
+      ]
+    },
+    "ri": {
+      "conditioning": 30,
+      "high": 15,
+      "low": 5
+    },
+    "trial": {
+      "conditioning": 30,
+      "steps": [
+        20,
+        18,
+        16,
+        14,
+        12,
+        10,
+        8,
+        6,
+        4
+      ]
+    }
+  },
+  "snapshot": {
+    "ok": true,
+    "data": {
+      "peep": 14,
+      "vt_L": 0.28,
+      "vt_ml_kg": 4,
+      "pplat": 34.321719252633486,
+      "ppeak": 41.321719252633486,
+      "driving_pressure": 20.321719252633486,
+      "crs_tidal_ml_cmH2O": 13.77836178716596,
+      "crs_tangent_ml_cmH2O": 19.03397755362552,
+      "elastic_eelv_above_reference_L": 0.17481925285422606,
+      "open_fraction": 0.015625,
+      "mp_integral_J_min": 21.424819801319025,
+      "mp_linear_estimate_J_min": 22.24648928716171,
+      "alveolar_ventilation_L_min": 2.912000000000001,
+      "paco2": 59.271978021978015,
+      "ph_fixed_bicarbonate": 7.230240566253752,
+      "alveolar_po2": 508.1644230769231,
+      "pao2": 49.952112316183616,
+      "sao2": 0.8503300997908255,
+      "pf": 62.44014039522952,
+      "effective_shunt": 0.6993203125,
+      "cc_o2": 17.652462611824717,
+      "cv_o2": 12.183862614583722,
+      "ca_o2": 13.828159552816645
+    }
+  },
+  "ri": {
+    "ok": true,
+    "data": {
+      "valid": true,
+      "delta_eelv_L": 0.577860074846364,
+      "expected_inflation_L": 0.17056651950259027,
+      "excess_volume_signed_L": 0.40729355534377376,
+      "ri_signed": 2.3878868873653043,
+      "effective_low": 6,
+      "delta_p": 9,
+      "clow_tidal_ml_cmH2O": 18.951835500287807,
+      "model_recruitment_volume_L": 0.3912491937372009,
+      "nonlinear_inflation_volume_L": 0.18661088110916313,
+      "recruitment_component": 2.293821758679078,
+      "nonlinear_baseline_component": 0.09406512868622618,
+      "high_open": 0.8828125,
+      "low_open": 0
+    }
+  },
+  "trial": {
+    "ok": true,
+    "data": {
+      "rows": [
+        {
+          "peep": 20,
+          "vt_L": 0.28,
+          "vt_ml_kg": 4,
+          "pplat": 26.91821262606046,
+          "ppeak": 33.91821262606046,
+          "driving_pressure": 6.918212626060459,
+          "crs_tidal_ml_cmH2O": 40.47288152799151,
+          "crs_tangent_ml_cmH2O": 46.55486978272822,
+          "elastic_eelv_above_reference_L": 0.8850792604075526,
+          "open_fraction": 0.9921875,
+          "mp_integral_J_min": 21.627694661688114,
+          "mp_linear_estimate_J_min": 21.745490670516553,
+          "valid": true
+        },
+        {
+          "peep": 18,
+          "vt_L": 0.28,
+          "vt_ml_kg": 4,
+          "pplat": 24.327242120003582,
+          "ppeak": 31.327242120003582,
+          "driving_pressure": 6.327242120003582,
+          "crs_tidal_ml_cmH2O": 44.25308763114655,
+          "crs_tangent_ml_cmH2O": 50.31902319558315,
+          "elastic_eelv_above_reference_L": 0.7836550408583278,
+          "open_fraction": 0.984375,
+          "mp_integral_J_min": 20.008009682943594,
+          "mp_linear_estimate_J_min": 20.106688381275248,
+          "valid": true
+        },
+        {
+          "peep": 16,
+          "vt_L": 0.28,
+          "vt_ml_kg": 4,
+          "pplat": 21.975472358968325,
+          "ppeak": 28.975472358968325,
+          "driving_pressure": 5.975472358968325,
+          "crs_tidal_ml_cmH2O": 46.85822026768482,
+          "crs_tangent_ml_cmH2O": 52.90067501916179,
+          "elastic_eelv_above_reference_L": 0.6561111379482728,
+          "open_fraction": 0.9375,
+          "mp_integral_J_min": 18.465377058819225,
+          "mp_linear_estimate_J_min": 18.553271682730394,
+          "valid": true
+        },
+        {
+          "peep": 14,
+          "vt_L": 0.28,
+          "vt_ml_kg": 4,
+          "pplat": 20.180408340006686,
+          "ppeak": 27.180408340006686,
+          "driving_pressure": 6.180408340006686,
+          "crs_tidal_ml_cmH2O": 45.30444989977751,
+          "crs_tangent_ml_cmH2O": 51.29300048088598,
+          "elastic_eelv_above_reference_L": 0.48605824845449574,
+          "open_fraction": 0.7890625,
+          "mp_integral_J_min": 17.105489683845743,
+          "mp_linear_estimate_J_min": 17.19857781268997,
+          "valid": true
+        },
+        {
+          "peep": 12,
+          "vt_L": 0.28,
+          "vt_ml_kg": 4,
+          "pplat": 19.641713826570715,
+          "ppeak": 26.641713826570715,
+          "driving_pressure": 7.641713826570715,
+          "crs_tidal_ml_cmH2O": 36.64099524722092,
+          "crs_tangent_ml_cmH2O": 42.48854967477777,
+          "elastic_eelv_above_reference_L": 0.2880556025639164,
+          "open_fraction": 0.5,
+          "mp_integral_J_min": 16.154607544577274,
+          "mp_linear_estimate_J_min": 16.292360189463167,
+          "valid": true
+        },
+        {
+          "peep": 10,
+          "vt_L": 0.28,
+          "vt_ml_kg": 4,
+          "pplat": 20.773540293601968,
+          "ppeak": 27.773540293601968,
+          "driving_pressure": 10.773540293601968,
+          "crs_tidal_ml_cmH2O": 25.989599738749043,
+          "crs_tangent_ml_cmH2O": 31.55634502641974,
+          "elastic_eelv_above_reference_L": 0.13616463216251976,
+          "open_fraction": 0.2109375,
+          "mp_integral_J_min": 15.726145568307068,
+          "mp_linear_estimate_J_min": 15.982455176697165,
+          "valid": true
+        },
+        {
+          "peep": 8,
+          "vt_L": 0.28,
+          "vt_ml_kg": 4,
+          "pplat": 21.584892265947154,
+          "ppeak": 28.584892265947154,
+          "driving_pressure": 13.584892265947154,
+          "crs_tidal_ml_cmH2O": 20.611131433251604,
+          "crs_tangent_ml_cmH2O": 25.87629532681731,
+          "elastic_eelv_above_reference_L": 0.05360416168394858,
+          "open_fraction": 0.0625,
+          "mp_integral_J_min": 15.17716021699106,
+          "mp_linear_estimate_J_min": 15.558152928130566,
+          "valid": true
+        },
+        {
+          "peep": 6,
+          "vt_L": 0.28,
+          "vt_ml_kg": 4,
+          "pplat": 20.774294552933824,
+          "ppeak": 27.774294552933824,
+          "driving_pressure": 14.774294552933824,
+          "crs_tidal_ml_cmH2O": 18.951835500287807,
+          "crs_tangent_ml_cmH2O": 24,
+          "elastic_eelv_above_reference_L": 0,
+          "open_fraction": 0,
+          "mp_integral_J_min": 14.123748026811455,
+          "mp_linear_estimate_J_min": 14.554876178662038,
+          "valid": true
+        },
+        {
+          "peep": 4,
+          "valid": false,
+          "reason": "Waveform requires PEEP >= AOP"
+        }
+      ],
+      "max_crs_peeps": [
+        16
+      ],
+      "boundary": false,
+      "label": "Sampled compliance maximum; not recommended PEEP"
+    }
+  }
+}

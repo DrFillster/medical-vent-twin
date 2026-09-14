@@ -1,0 +1,41 @@
+test_aop_endpoint_and_invalid_cases (test_lung_reference.ReferenceChecks) ... ok
+test_co2_alveolar_ventilation_identity (test_lung_reference.ReferenceChecks) ... ok
+test_exact_p50_and_monotone_saturation (test_lung_reference.ReferenceChecks) ... ok
+test_grid_never_selects_infeasible_candidate (test_lung_reference.ReferenceChecks) ... ok
+test_history_and_reset (test_lung_reference.ReferenceChecks) ... ok
+test_integrated_compliance_matches_volume (test_lung_reference.ReferenceChecks) ... ok
+test_invalid_gas_boundary_rejected (test_lung_reference.ReferenceChecks) ... ok
+test_invalid_inputs (test_lung_reference.ReferenceChecks) ... ok
+test_inverse_and_capacity_guard (test_lung_reference.ReferenceChecks) ... ok
+test_known_linear_ri_cases (test_lung_reference.ReferenceChecks) ... ok
+test_more_shunt_reduces_oxygenation (test_lung_reference.ReferenceChecks) ... ok
+test_no_recruitable_tissue_has_zero_true_recruitment (test_lung_reference.ReferenceChecks) ... ok
+test_oxygen_content_balance (test_lung_reference.ReferenceChecks) ... ok
+test_pbw_protocol_coefficients (test_lung_reference.ReferenceChecks) ... ok
+test_peep_trial_flags_boundary_and_aop_exclusion (test_lung_reference.ReferenceChecks) ... ok
+test_power_against_independent_closed_form (test_lung_reference.ReferenceChecks) ... ok
+test_quadrature_convergence (test_lung_reference.ReferenceChecks) ... ok
+test_resistance_changes_peak_and_work_not_plateau (test_lung_reference.ReferenceChecks) ... ok
+test_ri_exact_volume_decomposition (test_lung_reference.ReferenceChecks) ... ok
+test_shunt_bounds_and_recruitment_effect (test_lung_reference.ReferenceChecks) ... ok
+test_signed_ri_not_clipped (test_lung_reference.ReferenceChecks) ... ok
+test_stiffening_at_fixed_recruitment (test_lung_reference.ReferenceChecks) ... ok
+test_volume_derivative_matches_compliance (test_lung_reference.ReferenceChecks) ... ok
+test_zero_and_total_shunt_limits (test_lung_reference.ReferenceChecks) ... ok
+test_comparator_mixed_tolerance_is_explicit (test_release.ReleaseTests) ... ok
+test_comparator_rejects_boolean_number (test_release.ReleaseTests) ... ok
+test_comparator_rejects_changed_relay_vector (test_release.ReleaseTests) ... ok
+test_comparator_rejects_missing_keys (test_release.ReleaseTests) ... ok
+test_comparator_rejects_nonfinite (test_release.ReleaseTests) ... ok
+test_fraction_inputs_copied_to_immutable_tuple (test_release.ReleaseTests) ... ok
+test_history_is_a_material_input (test_release.ReleaseTests) ... ok
+test_no_recruitment_stiffening_can_have_signed_bias (test_release.ReleaseTests) ... ok
+test_no_valid_sweep_has_label (test_release.ReleaseTests) ... ok
+test_numeric_booleans_rejected (test_release.ReleaseTests) ... ok
+test_relay_resource_limit (test_release.ReleaseTests) ... ok
+test_unknown_fields_rejected (test_release.ReleaseTests) ... ok
+
+----------------------------------------------------------------------
+Ran 36 tests in 1.912s
+
+OK

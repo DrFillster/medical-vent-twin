@@ -1,4 +1,4 @@
-"""Auditable educational lung model, version 0.1.0 (2026-09-13).
+"""Auditable educational lung model, version 0.2.0-rc1 (2026-09-14).
 
 Python 3.10+, standard library only. This is a NEW reference implementation,
 not a patch or reproduction of medical-vent-twin commit b18b8a7.
@@ -17,7 +17,7 @@ import json
 import math
 import platform
 
-VERSION = "0.1.0"
+VERSION = "0.2.0-rc1"
 J_PER_L_CMH2O = 0.0980665
 
 
@@ -27,7 +27,8 @@ def require(condition, message):
 
 
 def finite(*values):
-    require(all(math.isfinite(x) for x in values), "Non-finite input")
+    require(all(type(x) in (int, float) and math.isfinite(x)
+                for x in values), "Expected finite numeric input")
 
 
 def fractions(values):
@@ -69,6 +70,8 @@ class Lung:
     def __post_init__(self):
         fractions(self.tissue)
         fractions(self.perfusion)
+        object.__setattr__(self, "tissue", tuple(self.tissue))
+        object.__setattr__(self, "perfusion", tuple(self.perfusion))
         finite(self.c_specific, self.k_normal, self.k_recruit, self.aop,
                self.resistance, self.opening_mid, self.closing_mid,
                self.threshold_width, self.residual_normal,
@@ -78,7 +81,8 @@ class Lung:
         require(self.aop >= 0 and self.resistance >= 0, "Invalid AOP/R")
         require(self.opening_mid > self.closing_mid >= 0, "Bad hysteresis")
         require(self.threshold_width > 0, "Invalid threshold width")
-        require(type(self.units) is int and self.units >= 8, "Invalid units")
+        require(type(self.units) is int and 8 <= self.units <= 4096,
+                "Relay resolution must be an integer from 8 to 4096")
         require(0 <= self.residual_normal <= 1, "Invalid residual shunt")
         require(0 <= self.residual_recruit <= 1, "Invalid residual shunt")
         for f, q in zip(self.tissue, self.perfusion):
@@ -373,7 +377,8 @@ def peep_trial(lung, vent, steps=tuple(range(20, 3, -2)),
         rows.append(row)
     valid = [r for r in rows if r["valid"]]
     if not valid:
-        return {"rows": rows, "max_crs_peeps": [], "boundary": None}
+        return {"rows": rows, "max_crs_peeps": [], "boundary": None,
+                "label": "Sampled compliance maximum; not recommended PEEP"}
     best = max(r["crs_tidal_ml_cmH2O"] for r in valid)
     winners = [r["peep"] for r in valid
                if abs(r["crs_tidal_ml_cmH2O"] - best) < 1e-7]
@@ -443,6 +448,9 @@ def run_benchmarks():
     for name, lung, vent, gas in illustrative_cases():
         cases.append({"name": name, "lung": asdict(lung),
                       "vent": asdict(vent), "gas": asdict(gas),
+                      "history": [vent.peep],
+                      "endpoint_protocol": {"conditioning": 30,
+                                            "high": 15, "low": 5},
                       "outputs": evaluate(lung, vent, gas),
                       "ri": ri_analogue(lung, vt=vent.vt),
                       "peep_trial": peep_trial(lung, vent)})

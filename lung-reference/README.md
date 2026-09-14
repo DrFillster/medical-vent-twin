@@ -1,82 +1,123 @@
-# lung-reference — browser-port of lung_reference.py v0.1.0
+# Lung Reference - 0.2.0-rc1
 
-This directory is the **reference-backed revision** of the lung simulator.
-The Python source `lung_reference.py` is the contract; `lung.js` is its
-faithful JS port; `cross_check.py` enforces 1e-6 agreement.
+A browser-based educational explorer with a Python reference implementation.
+This is a **release candidate**, not a validated medical device or a journal-accepted publication.
 
-The previous simulator (`../index.html`) is preserved unchanged in version
-control, per the handoff brief. This directory sits alongside it.
+## Start here
 
-## Layout
+Open `index.html` in a modern browser. Keep `index.html`, `lung.js`, `app.js`,
+`style.css`, and `paper.html` together. No installation, server, network calls,
+external fonts, analytics, or patient data are required by the application.
+The distribution is multiple static files, not a single HTML file.
 
-| File | Role |
-|---|---|
-| `lung_reference.py` | Python source of record (v0.1.0, stdlib only, 506 lines) |
-| `test_lung_reference.py` | 24 software-verification tests, Python |
-| `audit_reference.py` | Sensitivity/convergence records, Python |
-| `example_config.json` | Reproducible scenario; consumed by `lung_reference.py --config` |
-| `lung.js` | Equivalent JS port |
-| `harness.js` | Node CLI: case evaluation + parametric sweeps |
-| `test_lung_reference.js` | 24 software-verification tests, JS |
-| `audit_lung_reference.js` | Equivalent JS audit; produces `results/audit.js.json` |
-| `cross_check.py` | Cross-language check at abs/rel tolerance 1e-6 |
-| `index.html`, `app.js`, `style.css` | Browser UI for manual exploration |
-| `results/benchmark.json` | Reference benchmark JSON (Python) |
-| `results/audit.json` | Reference audit JSON (Python) |
-| `results/audit.js.json` | JS audit JSON (matches Python at 1e-6) |
-| `results/tests.txt` | Reference test log |
-| `results/example/scenario.json` | Reference example config output |
-| `SHA256.json` | SHA-256 hashes for delivered files |
+If local-file restrictions interfere, run `python3 -m http.server 8000 --bind
+127.0.0.1` in this directory, then open `http://127.0.0.1:8000`.
+For web hosting, upload the static application files to a directory on your
+host. HTTPS and public deployment were not tested in this environment.
 
-## Run
+## Run the Python simulator
+
+Requires Python 3.10+; the model and tests use only the standard library.
 
 ```bash
-# Software verification (each language independently)
-python3 -m unittest test_lung_reference.py
-node test_lung_reference.js
-
-# Benchmarks
 python3 lung_reference.py --out results
-node harness.js --case Injury C
-
-# Sensitivity/convergence (Python / JS mirrors)
-python3 audit_reference.py
-node audit_lung_reference.js
-
-# Cross-language verification (the contract for the JS port)
-python3 cross_check.py
+python3 lung_reference.py --config example_config.json --out results/example
 ```
 
-All four inputs and outputs use the unit conventions in the docstrings of
-`lung_reference.py` and the header of `lung.js`.
+Python is the mathematical source of record. `lung.js` implements the same
+equations for the browser and Node 18+. The JSON configuration contains `lung`,
+`vent`, `gas`, and `history`; omitted model fields use documented defaults.
+The browser's results download includes this object under `configuration`.
+To reuse a results download with the Python CLI, save that `configuration`
+object as the configuration file. Units are L, s, cmH2O, mmHg, g/dL and mL/dL;
+Vt is in liters, not milliliters.
 
-## Scope (consistent with `lung_reference.py`)
+```bash
+node harness.js --case "Injury C"
+node harness.js --case "Injury C" --history "30,14"
+node harness.js --config example_config.json
+```
 
-- Quasi-static three-compartment elastic mechanics (`tissue`, `perfusion`)
-- One lumped airway resistance
-- Passive constant-flow VCV; **not** dynamic parallel RC
-- Discrete relay-based PEEP-history recruitment; **frozen during a breath**
-- Pressure-dependent stiffening via a finite-capacity elastic law
-- Steady shunt-only oxygen mixing with content conservation
-- Fixed-bicarbonate pH; P50 is held fixed (no automatic Bohr/COHb shift)
-- A signed R/I-style endpoint analogue with its exact model decomposition
-- An explicit feasible grid (NOT a clinical optimizer)
-- A failure state returned explicitly when AOP ≥ high PEEP, gas boundary is
-  invalid, or the elastic capacity cannot supply the tidal volume
+## Reproduce verification
 
-## What is *not* in scope
+Requires Python 3.10+ and Node 18+; no npm install is needed.
 
-- Parallel RC transients, expiration, intrinsic PEEP, intratidal recruitment
-- Assisted or pressure-control ventilation; the displayed MP value is for
-  passive VCV only
-- V/Q mismatch, true low-V/Q distribution, cardiac output coupling
-- Learner-outcome validation, bench validation, ASL 5000 comparison
-- A clinical "best PEEP" recommendation; the sampled compliance maximum is
-  explicitly labeled as such and is *not* a recommendation
+```bash
+python3 verify_release.py
+```
 
-## Caveats on the JS output
+This regenerates unit-test logs, DOM-adapter logs, benchmarks, both audit
+JSON files, complete-record cross-language checks, and a verification summary
+in `results/`. It exits nonzero on failure. It does not validate the model
+against patients, bench equipment, experts, or educational outcomes.
 
-Browser usage loads `lung.js` as a classic script exposing
-`window.LungRef`; Node usage `require`s it. Both paths produce identical
-floating-point output and pass `cross_check.py`. Compatibility is checked by
-running the suite in both languages and diffing the audit JSON.
+Cross-language comparisons use raw floating-point outputs with
+`abs(a-b) <= max(1e-9, 1e-9*max(abs(a),abs(b)))`. They compare complete nested
+records, explicit failures, all sampled PEEP rows and all relay vectors;
+strings, schemas, booleans and nulls must match exactly. Nonfinite numbers
+are rejected. Native tests also include analytical and conservation checks;
+agreement between implementations alone does not establish correctness.
+
+The UI tests use a minimal in-memory DOM. They are not real-browser rendering,
+accessibility, cross-browser, mobile, or download tests. Perform the manual
+browser checks in `PUBLICATION_CHECKLIST.md` before public deployment.
+
+## Model scope
+
+- Three quasi-static mechanical compartments: normally aerated, recruitable,
+  consolidated; one lumped airway resistance, not three dynamic RC branches.
+- Separate tissue and perfusion fractions, with exponential elastic stiffening.
+- Discrete recruitment relays with history, instant settling and frozen state
+  during each modeled breath.
+- Passive constant-flow volume control; full expiration is assumed, not simulated.
+- One ventilated alveolar gas compartment and oxygen-content-conserving shunt
+  mixing; fixed venous saturation, P50, dead-space fraction and bicarbonate.
+- Signed R/I-style settled endpoint index, with recruitment and nonlinear
+  inflation-reference components exposed separately.
+- Decremental PEEP-compliance samples; no clinical best-PEEP recommendation.
+
+No patient effort, pressure-control modes, expiratory dynamics, auto-PEEP,
+intratidal recruitment, regional V/Q distribution, automatic Bohr shifts,
+hemodynamics, clinical outcomes, or therapeutic recommendations are modeled.
+The API also retains a research candidate-grid function; it is not exposed
+as a clinical optimizer in the interface.
+
+## Files and provenance
+
+- `index.html`, `app.js`, `style.css`: rewritten interface.
+- `lung_reference.py`, `lung.js`: hardened paired model implementations.
+- `test_*.py`, `test_*.js`, `cross_check.py`, `verify_release.py`: executable checks.
+- `results/`: machine-generated evidence, including exact configurations.
+- `manuscript.md`, `paper.html`, `manuscript.pdf`: one rewritten manuscript in
+  editable, web and PDF forms; numbers are generated from verified outputs.
+- `manuscript_template.md`, `build_manuscript.py`: manuscript regeneration.
+- `CHANGELOG.md`, `MODEL_REVIEW.md`: changes and remaining scientific critiques.
+- `SHA256.json`: hashes of this release's delivered files (excluding itself).
+- `author_metadata.json`, `LICENSE_STATUS.md`, `PUBLICATION_CHECKLIST.md`:
+  owner-controlled items to complete before publication.
+
+This is a separate revision of the supplied `vent-review-package.zip`.
+The supplied originals were not modified. The v0.1.0 Python mathematical core
+was retained and hardened; it was not replaced with a new calibrated physiology
+model. The interface, comparison harness, manuscript and documentation were
+rewritten. The original reference code was AI-assisted, so this review is not
+an independent clinical or expert validation.
+
+## Rebuild manuscript and package
+
+`build_manuscript.py` additionally requires `reportlab` to produce the PDF.
+The browser and model have no such dependency. Set author metadata first if
+preparing a journal submission; unset details remain visibly marked pending.
+
+```bash
+python3 verify_release.py
+python3 build_manuscript.py
+python3 package_release.py
+```
+
+The final command hashes the delivered files and creates a sibling ZIP. Do not
+claim a checksum matches after editing files without regenerating the manifest.
+Keep each returned ZIP intact and increment the release identifier on changes.
+
+No public site was changed by producing this package. No new software license
+has been granted on the owner's behalf; see `LICENSE_STATUS.md`.

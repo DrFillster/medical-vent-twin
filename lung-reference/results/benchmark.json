@@ -1,7 +1,7 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0-rc1",
   "python": "3.9.6",
-  "source_sha256": "542f48fa30e155f798ede1c79cd6d42da383b79e1fb0dc2954cf7c300d14e4e9",
+  "source_sha256": "f265bae938a143ae3231cd41e4b9d7eb639cc673cba71f6a894529894433770a",
   "status": "illustrative computational results, not validation",
   "cases": [
     {
@@ -47,6 +47,14 @@
         "barometric": 760.0,
         "water_vapor": 47.0,
         "p50": 26.8
+      },
+      "history": [
+        5
+      ],
+      "endpoint_protocol": {
+        "conditioning": 30,
+        "high": 15,
+        "low": 5
       },
       "outputs": {
         "peep": 5,
@@ -278,6 +286,14 @@
         "water_vapor": 47.0,
         "p50": 26.8
       },
+      "history": [
+        8
+      ],
+      "endpoint_protocol": {
+        "conditioning": 30,
+        "high": 15,
+        "low": 5
+      },
       "outputs": {
         "peep": 8,
         "vt_L": 0.42,
@@ -508,6 +524,14 @@
         "water_vapor": 47.0,
         "p50": 26.8
       },
+      "history": [
+        10
+      ],
+      "endpoint_protocol": {
+        "conditioning": 30,
+        "high": 15,
+        "low": 5
+      },
       "outputs": {
         "peep": 10,
         "vt_L": 0.36,
@@ -737,6 +761,14 @@
         "barometric": 760.0,
         "water_vapor": 47.0,
         "p50": 26.8
+      },
+      "history": [
+        14
+      ],
+      "endpoint_protocol": {
+        "conditioning": 30,
+        "high": 15,
+        "low": 5
       },
       "outputs": {
         "peep": 14,

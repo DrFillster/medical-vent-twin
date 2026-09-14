@@ -1,0 +1,10 @@
+{
+  "source_archive": "vent-review-package.zip",
+  "source_archive_sha256": "ce82d642e8518be23f4e3494b2adaf8c1f73b4d57e6a8227922267829216559a",
+  "reviewed_revision": "vent-review-package/lung-reference",
+  "previous_python_sha256": "542f48fa30e155f798ede1c79cd6d42da383b79e1fb0dc2954cf7c300d14e4e9",
+  "previous_javascript_sha256": "eb8dbf786b3d55c1dd72335559704dec4e9f0c3ea89ec4ee06ae922c60f8a1dc",
+  "new_release": "0.2.0-rc1",
+  "original_archive_modified": false,
+  "scope": "Separate engineering and manuscript revision; no new patient data, calibration, external validation, public deployment, or license selection."
+}

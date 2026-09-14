@@ -1,0 +1,15 @@
+PASS default case uses every canonical parameter and single-step history
+PASS editing an input clears every previous output and disables export
+PASS invalid tissue leaves no stale snapshot
+PASS reset history uses actual set PEEP and recomputes successfully
+PASS history mismatch reports specific cause
+PASS conditioned history is explicit and changes snapshot not endpoint protocol
+PASS trial columns correspond to row values and expose failed-point reason
+PASS undefined R/I and snapshot errors remain separate
+PASS no valid trial rows produce no optimum and retain reasons
+PASS loading Baseline resets gas and history and preserves negative index
+PASS numeric parsing rejects blanks and trailing junk
+PASS unknown configuration fields are rejected
+PASS configuration is deeply frozen and detached from caller arrays
+PASS booleans and excessive relay resolution are rejected
+{"suite":"DOM adapter and input contract","passed":14,"failed":0,"real_browser_test":false}

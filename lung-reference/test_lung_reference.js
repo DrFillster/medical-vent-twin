@@ -1,8 +1,6 @@
 // test_lung_reference.js — JS port of the Python 24-test suite.
 //
-// Each test replicates test_lung_reference.py exactly: same inputs, same
-// expected outputs. Cross-language agreement at 1e-6 is enforced by
-// cross_check.py; this file is the JS-native equivalent run by `npm test`.
+// Native unit checks, complemented by strict cross-language comparisons.
 
 const M = require("./lung.js");
 
@@ -13,7 +11,7 @@ function assert(cond, msg) {
 function approx(a, b, abs_tol = 1e-6, rel_tol = 1e-6) {
   if (a === null || b === null) return a === b;
   if (typeof a === "boolean" || typeof b === "boolean") return a === b;
-  if (Number.isNaN(a) && Number.isNaN(b)) return true;
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
   const err = Math.abs(a - b);
   if (err <= abs_tol) return true;
   const ref = Math.max(Math.abs(a), Math.abs(b));
@@ -203,27 +201,10 @@ test("power_against_independent_closed_form", () => {
   const capacity = lung.cfg.c_specific * lung.cfg.k_normal;
   const v0 = capacity * (1 - Math.exp(-vent.cfg.peep / lung.cfg.k_normal));
   const v1 = v0 + vent.cfg.vt;
-  // Closed-form primitive for ∫(K - V)·dV where V = capacity·(1 - exp(-v/K))
-  //   = K·((cap - v)·ln(1 - v/cap) + v - (cap - v))   (after algebraic step)
-  // For numeric precision we directly integrate paw.
-  const n = 480;
-  let area = 0;
-  for (let i = 0; i <= n; i++) {
-    const v = (i / n) * vent.cfg.vt;
-    const base = capacity * (1 - Math.exp(-(vent.cfg.peep) / lung.cfg.k_normal));
-    const target = base + v;
-    // invert via bisection (matches pressureForVolume contract)
-    const lower = 0, upper = 1000;
-    let lo = lower, hi = upper;
-    for (let s = 0; s < 65; s++) {
-      const m = 0.5 * (lo + hi);
-      if (capacity * (1 - Math.exp(-m / lung.cfg.k_normal)) < target) lo = m;
-      else hi = m;
-    }
-    const pel = 0.5 * (lo + hi);
-    const paw = pel + lung.cfg.resistance * vent.cfg.flow;
-    area += paw * (vent.cfg.vt / n) * (i === 0 || i === n ? 0.5 : 1.0);
-  }
+  // Independent primitive of P(V)=-K*log(1-V/capacity), AOP=0.
+  const F = v => lung.cfg.k_normal * ((capacity-v)
+    * Math.log1p(-v/capacity) - (capacity-v));
+  const area = F(v1)-F(v0) + lung.cfg.resistance*vent.cfg.flow*vent.cfg.vt;
   const expected = M.J_PER_L_CMH2O * vent.cfg.rr * area;
   assert(Math.abs(row.mp_integral_J_min - expected) < 1e-5, "trapezoid matches closed form");
 });

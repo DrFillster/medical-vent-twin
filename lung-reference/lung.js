@@ -1,5 +1,5 @@
 /*
- lung.js — JavaScript port of lung_reference.py v0.1.0
+ lung.js — JavaScript implementation paired with lung_reference.py v0.2.0-rc1
 
  Equations, units, defaults, and return shapes match the Python source.
  Scope is identical: quasi-static three-compartment mechanics, lumped airway
@@ -19,7 +19,7 @@
    O2 content mL/dL
 */
 
-const VERSION = "0.1.0 (js port of lung_reference.py v0.1.0)";
+const VERSION = "0.2.0-rc1";
 
 // ---- numeric helpers ----
 
@@ -29,8 +29,25 @@ function require(cond, msg) {
 
 function finite(...v) {
   for (const x of v) {
-    require(Number.isFinite(x), "Non-finite input");
+    require(Number.isFinite(x), "Expected finite numeric input");
   }
+}
+
+function checkedConfig(defaults, supplied) {
+  require(supplied && typeof supplied === "object" && !Array.isArray(supplied),
+          "Configuration must be an object");
+  for (const key of Object.keys(supplied)) {
+    require(Object.hasOwn(defaults, key), "Unknown configuration key: " + key);
+  }
+  return Object.assign({}, defaults, supplied);
+}
+
+function freezeConfig(owner, cfg) {
+  for (const key of Object.keys(cfg)) {
+    if (Array.isArray(cfg[key])) cfg[key] = Object.freeze([...cfg[key]]);
+  }
+  owner.cfg = Object.freeze(cfg);
+  Object.freeze(owner);
 }
 
 // Bisection on a monotone-increasing function.
@@ -52,6 +69,7 @@ function bisectIncreasing(fn, target, lo, hi, steps = 65) {
 // ---- Lung, Vent, Gas configuration dataclasses (frozen) ----
 
 function fractionsOk(arr) {
+  require(Array.isArray(arr), "Fractions must be an array");
   finite(...arr);
   require(arr.length === 3, "Need Normal/Recruitable/Consolidated");
   for (const x of arr) require(0 <= x && x <= 1, "Invalid fraction");
@@ -59,7 +77,7 @@ function fractionsOk(arr) {
 }
 
 function Lung(cfg = {}) {
-  cfg = Object.assign({
+  cfg = checkedConfig({
     tissue: [0.40, 0.40, 0.20],
     perfusion: [0.55, 0.30, 0.15],
     c_specific: 0.120,
@@ -84,17 +102,18 @@ function Lung(cfg = {}) {
   require(cfg.aop >= 0 && cfg.resistance >= 0, "Invalid AOP/R");
   require(cfg.opening_mid > cfg.closing_mid && cfg.closing_mid >= 0, "Bad hysteresis");
   require(cfg.threshold_width > 0, "Invalid threshold width");
-  require(Number.isInteger(cfg.units) && cfg.units >= 8, "Invalid units");
+  require(Number.isInteger(cfg.units) && cfg.units >= 8 && cfg.units <= 4096,
+          "Relay resolution must be an integer from 8 to 4096");
   require(0 <= cfg.residual_normal && cfg.residual_normal <= 1, "Invalid residual shunt");
   require(0 <= cfg.residual_recruit && cfg.residual_recruit <= 1, "Invalid residual shunt");
   for (let i = 0; i < 3; i++) {
     if (cfg.tissue[i] === 0) require(cfg.perfusion[i] === 0, "Absent tissue cannot carry perfusion");
   }
-  this.cfg = cfg;
+  freezeConfig(this, cfg);
 }
 
 function Vent(cfg = {}) {
-  cfg = Object.assign({
+  cfg = checkedConfig({
     peep: 10.0,
     vt: 0.360,
     rr: 20.0,
@@ -109,11 +128,11 @@ function Vent(cfg = {}) {
   require(0.21 <= cfg.fio2 && cfg.fio2 <= 1, "FiO2 outside 0.21-1");
   require((cfg.vt / cfg.flow) < (60.0 / cfg.rr),
           "Inspiratory time leaves no expiration");
-  this.cfg = cfg;
+  freezeConfig(this, cfg);
 }
 
 function Gas(cfg = {}) {
-  cfg = Object.assign({
+  cfg = checkedConfig({
     hb: 12.0,
     svo2: 0.75,
     dead_fraction: 0.50,
@@ -131,7 +150,7 @@ function Gas(cfg = {}) {
           "Invalid SvO2 or VD/VT");
   require(cfg.barometric > cfg.water_vapor && cfg.water_vapor >= 0,
           "Invalid atmospheric pressures");
-  this.cfg = cfg;
+  freezeConfig(this, cfg);
 }
 
 // Devine PBW (cm and sex string per protocol).
@@ -422,7 +441,8 @@ function peepTrial(lung, vent, steps = null, conditioning = 30.0) {
   }
   const valid = rows.filter(r => r.valid);
   if (valid.length === 0) {
-    return { rows, max_crs_peeps: [], boundary: null };
+    return { rows, max_crs_peeps: [], boundary: null,
+      label: "Sampled compliance maximum; not recommended PEEP" };
   }
   let best = -Infinity;
   for (const r of valid) best = Math.max(best, r.crs_tidal_ml_cmH2O);
@@ -507,7 +527,7 @@ function illustrativeCases() {
   }));
 }
 
-// Compute MD5-ish hash string of source-code-relevant parameter for audit.
+// Expose fixed model defaults (not a cryptographic hash).
 function caseSpec() {
   // Exposed for reproducibility tooling only.
   return {

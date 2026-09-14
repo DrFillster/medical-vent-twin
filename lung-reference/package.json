@@ -1,27 +1,14 @@
 {
   "name": "lung-reference",
-  "version": "0.1.0",
+  "version": "0.2.0-rc1",
   "private": true,
-  "description": "Browser-port of lung_reference.py with cross-language verification at 1e-6",
+  "description": "Educational three-compartment model; computational verification only",
   "scripts": {
-    "test": "node test_lung_reference.js",
+    "test": "node test_lung_reference.js && node test_ui.js",
     "audit": "node audit_lung_reference.js",
-    "benchmark": "node harness.js --case Injury C",
-    "cross-check": "python3 cross_check.py"
+    "benchmark": "node harness.js --case \"Injury C\"",
+    "cross-check": "python3 cross_check.py",
+    "verify": "python3 verify_release.py"
   },
-  "files": [
-    "lung_reference.py",
-    "test_lung_reference.py",
-    "audit_reference.py",
-    "example_config.json",
-    "lung.js",
-    "harness.js",
-    "test_lung_reference.js",
-    "audit_lung_reference.js",
-    "cross_check.py",
-    "index.html",
-    "app.js",
-    "style.css"
-  ],
-  "engines": { "node": ">=18" }
+  "engines": {"node": ">=18"}
 }

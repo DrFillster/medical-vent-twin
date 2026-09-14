@@ -1,0 +1,108 @@
+{
+  "status": "pass",
+  "python": "3.9.6",
+  "node": "v26.8.2",
+  "commands": [
+    {
+      "name": "python_tests",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "-m",
+        "unittest",
+        "-v",
+        "test_lung_reference.py",
+        "test_release.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.946
+    },
+    {
+      "name": "javascript_tests",
+      "command": [
+        "node",
+        "test_lung_reference.js"
+      ],
+      "exit_code": 0,
+      "seconds": 0.086
+    },
+    {
+      "name": "ui_tests",
+      "command": [
+        "node",
+        "test_ui.js"
+      ],
+      "exit_code": 0,
+      "seconds": 0.449
+    },
+    {
+      "name": "benchmark",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "lung_reference.py",
+        "--out",
+        "results"
+      ],
+      "exit_code": 0,
+      "seconds": 3.498
+    },
+    {
+      "name": "audit_python",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "audit_reference.py"
+      ],
+      "exit_code": 0,
+      "seconds": 5.22
+    },
+    {
+      "name": "audit_javascript",
+      "command": [
+        "node",
+        "audit_lung_reference.js"
+      ],
+      "exit_code": 0,
+      "seconds": 0.238
+    },
+    {
+      "name": "cross_check",
+      "command": [
+        "/Library/Developer/CommandLineTools/usr/bin/python3",
+        "cross_check.py"
+      ],
+      "exit_code": 0,
+      "seconds": 48.059
+    },
+    {
+      "name": "cli",
+      "command": [
+        "node",
+        "harness.js",
+        "--case",
+        "Injury C"
+      ],
+      "exit_code": 0,
+      "seconds": 0.062
+    }
+  ],
+  "browser_rendering_tested": false,
+  "ui_test_scope": "In-memory DOM adapter tests; not real-browser rendering or download checks",
+  "source_sha256": {
+    "test_release.py": "8d5c506d4a8ba3a867058559a4118f4ceb0b0145b81874459624f533b44025eb",
+    "verify_release.py": "3a6afd0beab28edc11b672c99bc23109a2f4562a87c52e210e5a60a0c3710524",
+    "test_lung_reference.js": "773a7967712f7269ae0c5e5e34f419ecfbcead9e81513179ba6c739bee23f1ca",
+    "index.html": "54db59e5c9db84a82624b19c37f3c35142d5da23c1355428e7116d62b49def41",
+    "test_ui.js": "5db72f4ce5c0abacb8879c6ca657abcbd38fdca9bbc4060d05f92efbcbff13f0",
+    "harness.js": "3e383334814c7f1e3cef6c3b0a481bfdd980760341cbffea2ac28f8e8998034b",
+    "test_lung_reference.py": "8f57c51062e427ff88c3984c33bcb3a8d845a64f643e12864106803d3beb9e94",
+    "lung.js": "6543930b710e6e6b56b397b48f0ee027e80248d7dfee9bb939bd56b3f4708a03",
+    "audit_reference.py": "af1ad3a424a775839c23b9d17584860e982db4dd60ed31e268b3314c19b115e8",
+    "lung_reference.py": "f265bae938a143ae3231cd41e4b9d7eb639cc673cba71f6a894529894433770a",
+    "paper.html": "5affbe11443ac49ed7adb80c2bcd45d2492eec0bc5ee5592001b993b0245f1cd",
+    "audit_lung_reference.js": "69bf8f7070fcb647943703cb6592f80e579666c3d6026c4c314c1ac915eef662",
+    "style.css": "d3aa7319240e5ac7b360a3d8c9362da202ba6ce41b684bba1a26411194c814b3",
+    "package_release.py": "55fd0cfb5a77c1d3ab5af22d241a348ed7e3d747d3960669b2295065cb8ea650",
+    "app.js": "52b09a8572d2d23e74b6cc268db3d3d4f50df42cfe322d3be5979a829ff7ec9f",
+    "cross_check.py": "8016ea84a911897da40f2acebc8331634e039eb6e1eb0f3151abc5981af08f51",
+    "build_manuscript.py": "27d4980531336f289dd30a2014c56c8781f991a1a271e8e0040e7cdc988fcf49"
+  }
+}

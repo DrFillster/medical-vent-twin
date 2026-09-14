@@ -1,0 +1,5 @@
+Baseline   P/F= 457.2 Pplat= 10.3 MP=  7.0 R/I*=-0.073
+Injury A   P/F= 193.0 Pplat= 15.4 MP= 10.3 R/I*=0.331
+Injury B   P/F= 111.4 Pplat= 20.9 MP= 14.2 R/I*=0.918
+Injury C   P/F=  62.4 Pplat= 34.3 MP= 21.4 R/I*=2.388
+Saved results/benchmark.json
