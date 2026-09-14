@@ -1,0 +1,26 @@
+ok - invalid_inputs
+ok - pbw_protocol_coefficients
+ok - volume_derivative_matches_compliance
+ok - integrated_compliance_matches_volume
+ok - inverse_and_capacity_guard
+ok - history_and_reset
+ok - stiffening_at_fixed_recruitment
+ok - shunt_bounds_and_recruitment_effect
+ok - exact_p50_and_monotone_saturation
+ok - oxygen_content_balance
+ok - zero_and_total_shunt_limits
+ok - more_shunt_reduces_oxygenation
+ok - co2_alveolar_ventilation_identity
+ok - invalid_gas_boundary_rejected
+ok - power_against_independent_closed_form
+ok - quadrature_convergence
+ok - resistance_changes_peak_and_work_not_plateau
+ok - known_linear_ri_cases
+ok - signed_ri_not_clipped
+ok - aop_endpoint_and_invalid_cases
+ok - ri_exact_volume_decomposition
+ok - no_recruitable_tissue_has_zero_true_recruitment
+ok - peep_trial_flags_boundary_and_aop_exclusion
+ok - grid_never_selects_infeasible_candidate
+---
+Tests: passed=24 failed=0

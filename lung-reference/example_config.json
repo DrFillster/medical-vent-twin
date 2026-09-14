@@ -1,0 +1,25 @@
+{
+  "lung": {
+    "tissue": [0.4, 0.4, 0.2],
+    "perfusion": [0.55, 0.30, 0.15],
+    "aop": 4.0,
+    "resistance": 10.0
+  },
+  "vent": {
+    "peep": 10.0,
+    "vt": 0.36,
+    "rr": 20.0,
+    "fio2": 0.55,
+    "flow": 0.5,
+    "pbw": 70.0
+  },
+  "gas": {
+    "hb": 12.0,
+    "svo2": 0.75,
+    "dead_fraction": 0.5,
+    "vco2": 0.2,
+    "bicarbonate": 24.0,
+    "p50": 26.8
+  },
+  "history": [30.0, 10.0]
+}

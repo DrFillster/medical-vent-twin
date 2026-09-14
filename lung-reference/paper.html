@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manuscript — browser port of lung_reference.py</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+       max-width: 880px; margin: 2em auto; padding: 0 1em;
+       color: #222; line-height: 1.55; }
+h1, h2 { color: #111; }
+h2 { border-top: 1px solid #ccc; padding-top: 0.6em; margin-top: 1.5em; }
+h3 { color: #1a365d; margin-bottom: 0.4em; }
+.meta { color: #777; font-size: 0.95em; }
+.paper-title { font-size: 1.55em; font-weight: 600; margin: 1em 0 0.5em; color: #0c2540; }
+.authors { color: #444; font-size: 0.95em; margin-bottom: 1em; }
+.cite { color: #555; font-size: 0.95em; }
+table { border-collapse: collapse; margin: 1em 0; font-size: 0.93em; }
+th, td { border: 1px solid #aaa; padding: 5px 9px; text-align: left; }
+th { background: #eaecef; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.85em; }
+.pill.ok { background: #d4edda; color: #155724; }
+.pill.warn { background: #fff3cd; color: #856404; }
+.pill.bad { background: #f8d7da; color: #721c24; }
+pre, code { font-family: ui-monospace, monospace, "SFMono-Regular", Menlo, monospace; }
+pre { background: #f5f5f5; padding: 0.6em 1em; border-radius: 4px;
+       overflow-x: auto; font-size: 0.92em; border: 1px solid #ddd; }
+.kw { display: inline-block; padding: 2px 8px; background: #dde;
+      border-radius: 3px; font-size: 0.9em; margin: 2px; }
+.abstract { background: #f8f9fb; border: 1px solid #cfd6e0;
+            padding: 1em 1.2em; border-radius: 6px; }
+.ack { background: #fafafa; padding: 1em 1.2em; border: 1px solid #ddd;
+        border-radius: 6px; margin-top: 1.5em; }
+.refs li { margin-bottom: 0.4em; font-size: 0.93em; }
+.warn { background: #fff3cd; border: 1px solid #856404;
+        padding: 0.7em 1em; border-radius: 4px; color: #5b4400; }
+ol.refs { padding-left: 1.6em; }
+.figure { margin: 1em 0; padding: 0.8em; background: #f8f9fb;
+          border: 1px solid #dde; border-radius: 4px; }
+.figure pre { background: #fff; }
+</style>
+</head>
+<body>
+
+<h1>Manuscript — <a href="lung-reference/">vent-defying-logic-com/lung-reference/</a></h1>
+<div class="meta">Manuscript prepared for submission to JMIR Medical Education · 2026 ·
+Draft for the reference-backed revision · NOT yet peer reviewed.
+This is a NEW draft, not a patch to the previous one.</div>
+
+<div class="paper-title">A Browser-Based Three-Compartment Lung Simulator for Mechanical
+Ventilation Education: Development and Computational Verification</div>
+<div class="authors">Philip Bernard<br>
+<span class="cite">Affiliation: independent · Corresponding: [email redacted] ·
+ORCID: [redacted] · Repo: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/lung-reference">github.com/DrFillster/medical-vent-twin/lung-reference</a></span>
+</div>
+
+<div class="abstract">
+<h2>Abstract</h2>
+
+<p><b>Objective.</b> To develop a single-file, browser-deployable three-compartment
+mechanistic lung simulator for mechanical ventilation education, to provide an
+auditable reference implementation in Python and JavaScript with cross-language
+verification, and to report computational behaviour with explicit limitation
+labels.</p>
+
+<p><b>Methods.</b> We implemented the model twice — once in Python
+(<code>lung_reference.py</code> v0.1.0, 506 lines, standard library only) and
+once in JavaScript (<code>lung.js</code>). A 24-test verification suite
+covers pressure-volume consistency, history-dependent recruitment, gas
+exchange conservation, mechanical power quadrature, and R/I endpoint
+arithmetic. <code>cross_check.py</code> enforces absolute/relative
+agreement at 1e-6 across the four illustrative archetypes and a parameter
+sensitivity grid. We tested 24 software identities, the four-illustrative-case
+benchmark, and five additional audit sweeps.</p>
+
+<p><b>Results.</b> All 24 Python tests pass; all 24 JavaScript tests pass;
+cross-language agreement at 1e-6 across the benchmark and audit sweeps
+succeeds. The model produces the following illustrative outputs at the
+default illustrative presets (PBW 70 kg, AOP 0/2/4/6 cmH₂O across the four
+cases):
+<span class="pill ok">Baseline  P/F 457</span> ·
+<span class="pill ok">Injury A  P/F 193</span> ·
+<span class="pill ok">Injury B  P/F 111</span> ·
+<span class="pill warn">Injury C  P/F 62 (Pplat 34, exceeds the 30 cmH₂O
+soft limit and is reported as-is, not adjusted)</span>.
+The signed R/I-style endpoint index was -0.07 / 0.33 / 0.92 / 2.39
+respectively. Injury C's R/I exceeds the broad Chen-cohort range (0–2.0);
+that value is reported visibly rather than clipped or rebadged.</p>
+
+<p><b>Conclusions.</b> A browser-deployable three-compartment lung simulator
+can be implemented and cross-checked against an auditable Python reference.
+The artifact is intended for trainee-driven exploration of
+quasi-static mechanics, PEEP-history-dependent recruitment, oxygen-content
+mixing, and decremental P/V curves. It is <b>not</b> a clinical decision
+tool, has not been bench-validated (no ASL 5000 comparison), has not been
+face-validated by intensivists, and has not been evaluated against trainee
+learning outcomes. The bundled Three-Phase Manuscript Workflow
+"single P/F by Berlin grade" reproduction was dropped; the model is
+calibrated to physical equations, not clinical-cohort distributions.</p>
+
+<p><b>Keywords:</b> <span class="kw">mechanical ventilation</span>
+<span class="kw">mechanistic lung simulator</span>
+<span class="kw">education</span> <span class="kw">PEEP</span>
+<span class="kw">ARDS</span> <span class="kw">open-source simulation</span></p>
+</div>
+
+<h2 id="intro">1. Introduction</h2>
+
+<p>Mechanical ventilation training for critical-care fellows, anesthesiologists,
+and respiratory therapists relies heavily on expensive and immobile
+manuscript-grade mannequin simulators. Web-based virtual simulators
+mitigate the access barrier but historically have either implemented a
+narrow educational fragment (single-compartment RC, no
+arterial-oxygenation model) or have made unsupported claims about clinical
+fidelity. This manuscript describes <b>a quasi-static three-compartment
+mechanistic lung simulator</b>, with cross-language verification against an
+auditable Python reference and an explicit enumeration of what the artifact
+does and does not model.</p>
+
+<p>The model itself draws on three established frameworks:
+Gattinoni and Pesenti 2005's "baby lung" picture of always-aerated,
+recruitable, and consolidated tissue<sup>[4]</sup>; Chen 2020's
+single-breath PEEP-drop measurement of recruitability<sup>[5]</sup>;
+and Severinghaus 1979's saturation equation<sup>[9]</sup>. Per the
+technical handoff brief for this revision, the artifact's distinguishing
+computational property is auditable correctness: every equation lives in
+two languages, a 24-test verification suite checks internal identities, and
+a cross-language check enforces agreement at 1e-6.</p>
+
+<h3>1.1 Scope and non-claims</h3>
+<p>The model is a <b>mechanistic simulator</b>, not a digital twin. It is
+calibrated to physical equations and standard gas-exchange identities. It is
+<b>not</b> tuned to LUNG SAFE, Bellani 2016, Chen 2020, or any clinical
+cohort. Each "injury" archetype is an illustrative parameter set, not a
+patient fit. P/F, R/I, MP and other outputs are model outputs, not
+measurements of any particular patient.</p>
+
+<h3>1.2 Objectives</h3>
+<p>This work aimed to: (i) implement a quasi-static three-compartment elastic
+mechanistic lung simulator with one lumped airway resistance, passive
+constant-flow VCV, and a relay-based PEEP-history recruitment gate; (ii)
+publish the implementation in two languages (Python source of record, JS
+browser port) and enforce agreement via a 24-test verification suite;
+(iii) report the verification results, illustrate the four
+baseline/injury archetypes that the simulator produces, and enumerate the
+limitations explicitly.</p>
+
+<h2 id="methods">2. Methods</h2>
+
+<h3>2.1 Model description</h3>
+<p>The lung is three compartments with tissue fractions
+<code>(fN, fR, fC)</code> weighing mechanics; perfusion fractions
+<code>(qN, qR, qC)</code> (independent of tissue fractions) weighing
+gas exchange. <i>Normal</i> tissue is always open. <i>Recruitable</i> tissue
+has open fraction <code>r</code> ∈ [0, 1]. <i>Consolidated</i> tissue has
+zero mechanical contribution and acts as a permanent shunt. Elastic
+volume above a common reference is:
+<pre>
+V_i(p) = c_i · k_i · (1 − exp(−p/k_i)),   p = max(P − AOP, 0)
+</pre>
+with compartment-specific scales; this is a <i>phenomenological</i> design
+choice, not a published patient fit (per the handoff brief, §1.7).</p>
+
+<h3>2.2 Compliance definitions are consistent</h3>
+<p><i>Tidal compliance</i> is <code>Crs_tidal = 1000·Vt/(Pplat−PEEP)</code>;
+<i>tangent compliance</i> is <code>dV/dP = c_i·exp(−p/k_i)</code> at fixed
+recruitment state. The integration identity holds:
+∫<sub>PEEP</sub><sup>Pplat</sup> dV = V(Pplat) − V(PEEP). The implementation
+checks this in software (24-test suite, <code>test_volume_derivative_matches_compliance</code>).</p>
+
+<h3>2.3 Recruitment history</h3>
+<p>Recruitment is implemented as 128 relay thresholds in [closing, opening]
+order. At each PEEP step, each relay decides based on its own opening and
+closing thresholds; once opened, a relay stays open until its closing
+threshold is crossed from above. Each step is instantaneous (no time
+constant); recruitment is frozen during a breath. The relay thresholds are
+<i>above AOP</i>; changing AOP shifts their airway-pressure positions.
+This was demonstrated empirically in the AOP sweep where R/I* peaked at
+intermediate AOP values and at AOP≥high PEEP the calculation correctly
+reports invalid.</p>
+
+<h3>2.4 Gas exchange (one ventilated alveolar PO₂)</h3>
+<p>The implementation assumes all ventilated perfusion equilibrates with a
+common alveolar PO₂; residual perfusion terms are shunt equivalents, not
+resolved V/Q distributions. O₂ content is conserved across pulmonary
+capillary mixing:
+<pre>
+CcO2 = 1.34·Hb·S(PAO2) + 0.0031·PAO2
+CvO2 = 1.34·Hb·S(PvO2) + 0.0031·PvO2
+CaO2 = (1−s)·CcO2 + s·CvO2     # solve for PaO2 such that C(PaO2) = CaO2
+</pre>
+Saturation <code>S(P)</code> is the Severinghaus cubic normalized so
+<code>S(P50)=0.5</code> exactly; P50 is held fixed (no automatic
+Bohr/temperature/COHb shift). PAO2 is given by the alveolar gas equation
+with inspired CO₂ assumed zero. pH is computed from PaCO₂ under fixed
+bicarbonate (no respiratory compensation). SvO₂ is imposed, not modelled
+from cardiac output and VO₂. This is the "pure-shunt approximation" as
+flagged by the handoff brief; Petros 1994<sup>[8]</sup> provides additional
+V/Q work that is not adopted here.</p>
+
+<h3>2.5 Mechanical power</h3>
+<p>Mechanical power is the integral of airway pressure relative to atmosphere
+over the inspired volume, multiplied by RR:
+<pre>
+MP = 0.098 · RR · ∫<sub>0</sub><sup>Vt</sup> P_aw(v) dv
+</pre>
+<i>Restricted to passive volume-controlled ventilation with constant
+inspiratory flow.</i> Pressure-controlled ventilation requires different
+formulations; assisted ventilation additionally involves patient-generated
+respiratory muscle work that is not captured by ventilator-delivered
+mechanical power alone. The displayed <code>mp_linear_estimate</code> is the
+simplified constant-flow formula retained only as a comparator.</p>
+
+<h3>2.6 R/I endpoint analogue (signed)</h3>
+<p>Following Chen 2020<sup>[5]</sup> (single-breath PEEP-drop), the calculator
+steps a state through conditioning → PEEP_high → PEEP_low and computes the
+signed index
+<pre>
+ΔV       = V(H, rH) − V(L_eff, rL)
+expected = C_low · (H − L_eff)
+R/I      = (ΔV − expected) / expected
+</pre>
+with <code>L_eff = max(PEEP_low, AOP)</code>. A conditioning step at 30 cmH₂O
+is a model-history input, not a clinical recruitment maneuver.
+<i>Negative values are preserved; never clipped.</i> When AOP ≥ high PEEP
+the calculator returns <code>{valid: false, reason: "AOP >= high PEEP"}</code>
+rather than a fabricated value.</p>
+
+<h3>2.7 Decremental P/V curve</h3>
+<p>Compliance at each PEEP step from 20 → 4 cmH₂O after the 30 cmH₂O
+conditioning; the sampled maximum is reported as such, not as a
+recommendation. If the maximum lies on a sweep boundary this is flagged
+(<code>boundary: true</code>). The simulator does not generate a
+quasi-static inflation/deflation P/V curve and does not estimate a
+lower inflection point (Pflex).</p>
+
+<h3>2.8 Deployment and verification</h3>
+<p>The artifact is delivered as a sibling directory in the project repo:
+<code>lung-reference/</code>. The Python source is the contract;
+<code>lung.js</code> is its faithful port; <code>cross_check.py</code>
+enforces agreement at 1e-6. Twenty-four unit tests on each side cover
+input validation, pressure-volume consistency, history dependent
+recruitment, gas exchange conservation (including zero-shunt and total-shunt
+limits), and quadrature convergence. The browser UI in
+<code>index.html</code> exposes the configuration and outputs directly.</p>
+
+<h2 id="results">3. Results</h2>
+
+<h3>3.1 Verification</h3>
+<p>Twenty-four Python tests and twenty-four JavaScript tests pass.
+<code>cross_check.py</code> succeeds on Baseline, Injury A, Injury B, and
+Injury C, plus the audit sweeps (power resolution, relay resolution,
+AOP sweep, Vt sweep, FiO2 sweep at fixed state) at absolute/relative
+tolerance 1e-6.</p>
+
+<h3>3.2 Illustrative four-case benchmark</h3>
+<p>The four illustrative archetypes use illustrative parameter sets; <b>no
+fit to LUNG SAFE or Chen distributions</b>. Outputs are model outputs and
+should be read as evidence that the equations produce the expected
+mechanistic behaviour, not as clinical validation.</p>
+
+<table>
+<thead><tr><th>Case</th><th>Tissue [N,R,C]</th><th>Perfusion [qN,qR,qC]</th>
+<th>AOP</th><th>PEEP / FiO₂</th><th>VT mL / RR</th></tr></thead>
+<tbody>
+<tr><td>Baseline</td>           <td>0.98 / 0.00 / 0.02</td><td>0.98 / 0.00 / 0.02</td><td class="num">0</td><td>5 / 0.30</td><td>480 / 14</td></tr>
+<tr><td>Injury A</td>           <td>0.65 / 0.25 / 0.10</td><td>0.75 / 0.18 / 0.07</td><td class="num">2</td><td>8 / 0.40</td><td>420 / 16</td></tr>
+<tr><td>Injury B</td>           <td>0.40 / 0.40 / 0.20</td><td>0.55 / 0.30 / 0.15</td><td class="num">4</td><td>10 / 0.55</td><td>360 / 20</td></tr>
+<tr><td>Injury C</td>           <td>0.20 / 0.50 / 0.30</td><td>0.30 / 0.45 / 0.25</td><td class="num">6</td><td>14 / 0.80</td><td>280 / 26</td></tr>
+</tbody>
+</table>
+
+<table>
+<thead><tr><th>Case</th><th>P/F</th><th>Pplat cmH₂O</th><th>MP J/min</th><th>PaCO₂</th>
+<th>R/I (signed)</th><th>Crs max PEEP</th><th>Boundary?</th></tr></thead>
+<tbody>
+<tr><td>Baseline</td>          <td class="num">457.2</td><td class="num">10.3</td> <td class="num">7.0</td>  <td class="num">36.7</td><td class="num">−0.073</td><td class="num">4 (edge)</td>  <td><span class="pill ok">true</span></td></tr>
+<tr><td>Injury A</td>          <td class="num">193.0</td><td class="num">15.4</td> <td class="num">10.3</td> <td class="num">42.8</td><td class="num">0.331</td> <td class="num">10</td>        <td><span class="pill ok">false</span></td></tr>
+<tr><td>Injury B</td>          <td class="num">111.4</td><td class="num">20.9</td> <td class="num">14.2</td> <td class="num">47.9</td><td class="num">0.918</td> <td class="num">12</td>        <td><span class="pill ok">false</span></td></tr>
+<tr><td>Injury C</td>          <td class="num">62.4</td> <td class="num"><b>34.3</b></td> <td class="num">21.4</td> <td class="num">59.3</td><td class="num"><b>2.388</b></td> <td class="num">16</td>        <td><span class="pill ok">false</span></td></tr>
+</tbody>
+<tfoot><tr><th colspan="8" style="font-weight:normal;color:#444;padding-top:10px;font-size:0.92em;text-align:left">
+Numerical outputs (with full precision in <code>results/benchmark.json</code>). Injury C P/F=62.4 sits
+below the Berlin severe band; its Pplat (34.3) exceeds the conventional 30 cmH₂O soft limit and its
+R/I* (2.39) sits above the Chen cohort range (0–2.0). These are
+<i>visible</i> features of the illustrative parameter set, not adjusted outputs. Names deliberately
+do not assert a Berlin grade.
+</th></tr></tfoot>
+</table>
+
+<p><b>What these outputs show.</b> Baseline has zero recruitable tissue and
+zero model recruitment volume; its R/I* is slightly negative because the
+linear expected-inflation reference differs from the nonlinear elastic
+volume change. Injury C's R/I* exceeds 2.0 and its Pplat exceeds 30. The
+simulator reports these values rather than adjusting them.</p>
+
+<p><b>What these outputs do not show.</b> They do not show that the
+simulator reproduces the LUNG SAFE P/F distribution, the Chen R/I
+distribution, or any other clinical cohort. No Berlin-grade
+classification is asserted; the four cases are illustrative parameter
+sets, not cohort fits.</p>
+
+<h3>3.3 Audit sweeps</h3>
+<p><b>Power resolution.</b> Integrated airway work with the exponential
+elastic law at the Injury C snapshot: 60/120/240/480 intervals yield
+MP 17.10551408 / 17.10549456 / 17.10548968 / 17.10548846. The
+240→480 difference is ≈1.2 × 10⁻⁶ J/min, consistent with the 240-interval
+default.</p>
+
+<p><b>Relay resolution.</b> With 64/128/256/512 relays, Injury C R/I* is
+2.37 / 2.39 / 2.38 / 2.38 and the sampled compliance maximum stays at
+PEEP=16. The 128-relay default is consistent with the broader set.</p>
+
+<p><b>AOP sweep.</b> R/I* peaks at intermediate AOP (1.40 / 2.34 / 2.52 /
+2.39 / 1.93 / 1.12 / 0.55 / 0.34 across AOP 0/2/4/6/8/10/12/14).
+At AOP ≥ 15 cmH₂O the calculator returns <code>valid: false</code>;
+the failure state is reported rather than coerced.</p>
+
+<p><b>Vt sensitivity.</b> The endpoint index changes with the low-pressure
+tidal compliance denominator (R/I* 2.13 / 2.39 / 2.71 / 3.02 / 3.57 across
+Vt 0.20 / 0.28 / 0.36 / 0.42 / 0.50 L). This is a derivative of the
+formula, not a feature of any particular patient.</p>
+
+<p><b>FiO2 sweep at fixed state.</b> At conditioning (30, 14), Injury C
+PaO₂ rises from 54.8 (FiO₂ 0.21) to 92.9 (FiO₂ 1.00); P/F falls from
+261 to 93 because the numerator-PaO₂ gain is sublinear. This sweep uses
+a single fixed state, so it does not include the recruitment dynamics of
+a clinician-driven incremental PEEP/FiO₂ protocol.</p>
+
+<h3>3.4 Cross-language verification</h3>
+<p><code>cross_check.py</code> invokes the same code paths in Python
+(<code>lung_reference.py</code>) and JavaScript (<code>lung.js</code> via
+<code>harness.js</code>) and compares matched numerical fields at
+absolute/relative tolerance 1e-6. <i>All checks pass.</i> Exact-equality
+comparisons are used for validity flags and relay state.</p>
+
+<h2 id="discussion">4. Discussion</h2>
+
+<h3>4.1 What was verified and what was not</h3>
+<p>Verified: pressure-volume consistency, history-dependent recruitment
+and reset, gas exchange conservation, mechanical-power quadrature
+convergence (against an independent closed form for a single
+exponential spring with a lumped resistance), R/I endpoint arithmetic,
+the zero-shunt and total-shunt limits, exact P50 normalization, AOP
+endpoint handling, and bound checks. The 24-test suite is a software
+verification, not a physiological validation; a model can be
+self-consistent and still inaccurate in patient-relevant units.</p>
+
+<p><i>Not verified</i>: bench comparison (no ASL 5000), expert face
+validity (no intensivist panel), learner outcomes (no trainee study),
+gas exchange against measured blood gases in real patients, mechanical
+power against an independent nonlinear-pressure-curve implementation.</p>
+
+<h3>4.2 Misinterpretation risks</h3>
+<ol style="margin:0 0 1em 1.6em">
+<li><b>P/F by severity is illustrative, not calibrated.</b> The four cases
+sit in overlapping P/F bands; this is expected because they were not
+fit to LUNG SAFE. The simulator should not be cited as reproducing the
+cohort distribution.</li>
+<li><b>The signed R/I-style index is not Chen R/I.</b> The Chen study
+measures the actual single-breath expired volume when PEEP is
+stepped 15 → 5 cmH₂O. The simulator derives an analogous volume from its
+mechanistic volume law. The two are not directly comparable numerically;
+they are directions-comparable.</li>
+<li><b>Injury C Pplat 34 cmH₂O is a visible model output, not a
+recommendation.</b> It is reported as-is rather than adjusted. The
+simulator does not compute a recommended PEEP.</li>
+<li><b>The sampled compliance maximum is not "best PEEP".</b> When the
+maximum lies on the sweep boundary (<code>boundary: true</code>),
+the value should not be read as an optimum. The 30 cmH₂O conditioning
+is a model-history input, not a clinical maneuver recommendation.</li>
+</ol>
+
+<h3>4.3 Relation to prior web-based simulators</h3>
+<p>Review articles<sup>[2]</sup> identify a number of web-based
+mechanical-ventilation simulators with various scopes. None, to our
+knowledge, publishes the model equations and a cross-language
+verification suite at 1e-6 in a single repository. The handoff brief
+cites <i>OPENPediatrics</i> and <i>CURE-Soft</i> as exemplars; neither
+makes the audit infrastructure claimed here. No priority-of-invention
+claim is made.</p>
+
+<h3>4.4 Open-source and licensing</h3>
+<p>This artifact is published at the project repository
+(<a href="https://github.com/DrFillster/medical-vent-twin/tree/main/lung-reference">lung-reference/</a>)
+without a stated open-source license; that status, plus any
+republication requirements, should be confirmed before any external
+distribution.</p>
+
+<h3>4.5 Limitations</h3>
+<ol style="margin:0 0 1em 1.6em">
+<li><b>Quasi-static mechanics.</b> Parallel RC transients, expiration,
+auto-PEEP, and intratidal recruitment are not modelled. Each breath is
+a settled steady state.</li>
+<li><b>Pure-shunt gas exchange.</b> Ventilated perfusion is collapsed to
+a common alveolar PO₂; resolved V/Q distributions are absent.</li>
+<li><b>Fixed P50, no Bohr/temperature/COHb shift.</b> The saturation curve
+is shifted by the user (P50 input), not by blood gas state.</li>
+<li><b>Illustrative parameters.</b> The four cases are not fit to
+LUNG SAFE, Chen, or any other cohort. Reporting the outputs as
+"Berlin-grade behaviour" would overstate the model.</li>
+<li><b>No bench validation.</b> The simulator has not been compared
+against the ASL 5000 or any other mechanical test lung.</li>
+<li><b>No expert face validity.</b> No intensivists or respiratory
+therapists have rated apparent realism.</li>
+<li><b>No learner-outcome validation.</b> No trainee study has measured
+educational effect.</li>
+<li><b>No hemodynamic coupling.</b> Intrathoracic-pressure effects on
+venous return are not modelled.</li>
+<li><b>Browser deployment.</b> Models of patient effort, secretion
+distribution, secretion clearance, and equipment failure are not in
+scope.</li>
+</ol>
+
+<h2 id="conclusions">5. Conclusions</h2>
+
+<p>A browser-deployable three-compartment lung simulator can be implemented
+with cross-language agreement at 1e-6 against an auditable Python
+reference. The artifact demonstrates the deterministic behaviour of
+quasi-static mechanics, relay-based PEEP-history recruitment,
+content-conserving gas exchange, and signed R/I endpoint arithmetic.
+The model has been <i>computationally verified</i>; it has not been
+<i>patient-validated</i>. Distinguishing these two conditions is the
+central safety message of this manuscript.</p>
+
+<p>Next planned validation steps, in order: (i) bench comparison
+(ASL 5000); (ii) expert face-validity panel; (iii) learner-outcome
+study. Until those steps are completed, the simulator should be
+positioned as an educational exploration tool and not as evidence that
+any particular ventilation strategy is optimal.</p>
+
+<div class="ack">
+<h3 style="margin-top:0">Acknowledgments</h3>
+<p>Thanks to the reviewers who provided the technical handoff that shaped
+this revision. The artifact is a parameterised archetype-based
+simulator, not a digital twin in the industrial-cybernetics sense; no
+patient data are involved.</p>
+
+<h3>Conflicts of Interest</h3>
+<p>The author developed and maintains the simulator described in this
+manuscript. No financial conflict of interest exists. The author has no
+consulting relationships with ventilator manufacturers, simulator
+vendors, or mechanical-ventilation-education companies.</p>
+
+<h3>Abbreviations</h3>
+<p>AOP — airway-opening pressure; ARDS — acute respiratory distress
+syndrome; AJRCCM — American Journal of Respiratory and Critical Care
+Medicine; Crs — respiratory-system compliance; ΔP — driving pressure;
+ECMO — extracorporeal membrane oxygenation; FRC — functional residual
+capacity; MP — mechanical power; PBW — predicted body weight;
+PEEP — positive end-expiratory pressure; P/F — PaO₂/FiO₂ ratio;
+P50 — partial pressure of O₂ at 50% hemoglobin saturation;
+Pflex — lower inflection point of a quasi-static P/V curve
+(not produced by this model); R/I — recruitment-to-inflation ratio;
+SaO2 — arterial oxygen saturation (computed); SvO2 — mixed-venous
+saturation (input); RC — resistance-compliance; RR — respiratory rate;
+VCV — volume-controlled ventilation; V/Q — ventilation/perfusion;
+Vt — tidal volume.</p>
+</div>
+
+<h2 id="refs">References</h2>
+<ol class="refs">
+<li>Spadaro S, Karbing DS, Fogagnolo A, et al. Simulation training for residents focused on mechanical ventilation: a randomized trial using mannequin-based versus computer-based simulation. <i>Simul Healthc</i>. 2017;12(6):349-355. doi:10.1097/SIH.0000000000000249</li>
+<li>Safadi S, Acho M, Maximous SI, et al. Comparison of web-based and on-site lung simulators for education in mechanical ventilation. <i>Respir Care</i>. 2024;69(11):1353-1360. doi:10.4187/respcare.12072</li>
+<li>Gattinoni L, Pesenti A. The concept of "baby lung". <i>Intensive Care Med</i>. 2005;31(6):776-784. doi:10.1007/s00134-005-2627-z</li>
+<li>Chen L, Del Sorbo L, Grieco DL, et al. Potential for lung recruitment estimated by the recruitment-to-inflation ratio in acute respiratory distress syndrome. A clinical trial. <i>Am J Respir Crit Care Med</i>. 2020;201(2):178-187. doi:10.1164/rccm.201902-0334OC</li>
+<li>Gattinoni L, Tonetti T, Cressoni M, et al. Ventilator-related causes of lung injury: the mechanical power. <i>Intensive Care Med</i>. 2016;42(10):1567-1575. doi:10.1007/s00134-016-4505-2</li>
+<li>Cavalcanti AB, Suzumura ÉA, Ladeira JP, et al. Effect of lung recruitment and titrated PEEP vs low PEEP on mortality in ARDS: the ART randomized clinical trial. <i>JAMA</i>. 2017;318(14):1335-1345. doi:10.1001/jama.2017.14171</li>
+<li>Severinghaus JW. Simple, accurate equations for human blood O₂ dissociation computations. <i>J Appl Physiol</i>. 1979;46(3):599-602. doi:10.1152/jappl.1979.46.3.599</li>
+<li>Petros AJ, Doré CJ, Nunn JF. Modification of the iso-shunt lines for low inspired oxygen concentrations. <i>Br J Anaesth</i>. 1994;72(5):515-522. doi:10.1093/bja/72.5.515</li>
+<li>ARDS Network. Ventilation with lower tidal volumes as compared with traditional tidal volumes for acute lung injury and the acute respiratory distress syndrome. <i>N Engl J Med</i>. 2000;342(18):1301-1308. doi:10.1056/NEJM200005043421801</li>
+<li>Cour M, Biscarrat C, Stevic N, et al. Recruitment-to-inflation ratio measured with modern intensive care unit ventilators: how accurate is it? <i>Crit Care</i>. 2022;26(1):85. doi:10.1186/s13054-022-03961-x</li>
+<li>Richard JC, et al. Diagnostic performance of the recruitment-to-inflation ratio to assess lung recruitability by PEEP in ARDS: a CT study. <i>Crit Care</i>. 2025;29:220. doi:10.1186/s13054-025-05453-0</li>
+</ol>
+
+<h3 style="margin-top:30px">Appendices</h3>
+
+<h4>Appendix A: Source code</h4>
+<p><code>lung-reference/lung_reference.py</code> (Python source of record, 506 lines, stdlib only);
+<code>lung-reference/lung.js</code> (JS port);
+<code>lung-reference/harness.js</code> (CLI for parametric sweeps);
+<code>lung-reference/cross_check.py</code> (1e-6 cross-language check);
+24-test verification suite in each language.</p>
+
+<h4>Appendix B: Frozen commit</h4>
+<p>The artifact and all reported outputs are reproducible from the
+companion code at the project repo. The Python source SHA-256 is
+<code>542f48fa30e155f798ede1c79cd6d42da383b79e1fb0dc2954cf7c300d14e4e9</code>;
+the JS SHA-256 is recorded in <code>lung-reference/SHA256.json</code>.</p>
+
+<h4>Appendix C: Where the artifact's outputs diverge from the preceding draft</h4>
+<p>The previous manuscript draft reported four archetype P/F values
+(449 / 219 / 178 / 98) and four archetype R/I values (0.61 / 0.54 / 0.53
+/ 0.39). Those were calibration targets, not mechanistic outputs. The
+current draft's four cases are illustrative parameter sets, not
+Berlin-grade behaviours, and the published outputs are the model's
+own. The two papers are not directly comparable.</p>
+
+</body>
+</html>
