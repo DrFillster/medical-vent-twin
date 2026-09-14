@@ -1,0 +1,35 @@
+# Mechanical Ventilation Three-Compartment Lung Simulator
+
+> Browser-deployable, single-file, computationally verified simulator of three-compartment lung mechanics, passive volume-control ventilation, and shunt-based gas exchange. Repository: github.com/DrFillster/medical-vent-twin/lung-reference
+
+This site hosts an open educational simulator for mechanical ventilation physiology. All mathematics are auditable: the canonical implementation is `lung_reference.py`, the browser port is `lung.js`, and the two are cross-checked at floating-point tolerance 1e-6 against the same test fixtures.
+
+## Pages
+
+- [Interactive simulator](https://vent.defying-logic.com/): single-page browser app with patient archetype presets (Normal, Mild ARDS, Moderate ARDS, Severe ARDS), tunable respiratory-system compliance, airway resistance, recruitability, shunt, dead space, hemoglobin, cardiac output, and metabolic CO₂ production. Live readouts of driving pressure, compliance, mechanical power, PaO₂/FiO₂ ratio, and gas exchange.
+- [Reference revision (lung-reference/)](https://vent.defying-logic.com/lung-reference/): the auditable, paper-backed build. Includes the Python source of record, the JavaScript port, the cross-language test suite (24/24 tests passing on both runtimes), the audit harness, and pre-computed benchmark + audit JSON.
+- [Manuscript (paper.html)](https://vent.defying-logic.com/paper.html): draft of "A Browser-Based Three-Compartment Lung Simulator for Mechanical Ventilation Education: Development and Computational Verification" by Philip Bernard. JMIR Medical Education submission draft, 2026.
+- [Repository](https://github.com/DrFillster/medical-vent-twin/tree/main/lung-reference): source code, tests, audit artifacts.
+
+## What this site is
+
+A single-author academic project that ports a clinically motivated three-compartment lung model into a browser. The model separates lung tissue into three parallel compartments (normal, recruitable, consolidated) with a perfusion-weighted gas-exchange mix and a relay-based PEEP-recruitment state. Equations, units, and default constants are documented inline in the source. No patient data is collected; no server-side state; no accounts.
+
+## What this site is NOT
+
+- Not a clinical decision-support tool. Not for use in patient care.
+- Not a reproduction of any specific commercial ventilator.
+- Not a reproduction of LUNG SAFE or any other cohort dataset.
+- No proprietary third-party models are vendored.
+
+## Citation
+
+```
+Philip Bernard. (2026). A Browser-Based Three-Compartment Lung Simulator for
+Mechanical Ventilation Education: Development and Computational Verification.
+JMIR Medical Education. Draft, not yet peer reviewed.
+```
+
+## Contact
+
+Repository issues: github.com/DrFillster/medical-vent-twin/issues

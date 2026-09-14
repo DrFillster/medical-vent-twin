@@ -4,6 +4,26 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Mechanical Ventilation Three-Compartment Lung Simulator</title>
+<meta name="description" content="Browser-deployable, computationally verified simulator of three-compartment lung mechanics, passive volume-control ventilation, and shunt-based gas exchange. Open source (MIT) — auditable Python reference, JavaScript port, 24/24 cross-language tests passing." />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+<link rel="alternate" type="text/plain" href="https://vent.defying-logic.com/llms.txt" title="LLM-readable site index (llms.txt)" />
+<link rel="canonical" href="https://vent.defying-logic.com/" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Mechanical Ventilation Three-Compartment Lung Simulator",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Any (browser)",
+  "description": "Browser-deployable simulator of three-compartment lung mechanics, passive volume-control ventilation, and shunt-based gas exchange. Auditable Python reference, JavaScript port, 24/24 cross-language tests passing.",
+  "url": "https://vent.defying-logic.com/",
+  "codeRepository": "https://github.com/DrFillster/medical-vent-twin/tree/main/lung-reference",
+  "author": {"@type": "Person", "name": "Philip Bernard"},
+  "license": "MIT",
+  "isAccessibleForFree": true,
+  "keywords": "mechanical ventilation, ARDS, lung simulator, three-compartment model, respiratory mechanics, gas exchange, PEEP, mechanical power, compliance, educational tool"
+}
+</script>
 <style>
   :root {
     --bg:#0b1020; --panel:#141a2e; --panel2:#1c2440; --line:#2a3354;
@@ -53,6 +73,95 @@
   <h1>Mechanical Ventilation Three-Compartment Lung Simulator</h1>
   <div class="meta">ARDS physiology · single-compartment linear RC + three-compartment heterogeneity · quasi-steady gas exchange · <a href="/paper.html" style="color:var(--acc);text-decoration:none">Manuscript →</a></div>
 </header>
+
+<!--
+  Static content block. Crawler-visible. The interactive UI below is JS-rendered;
+  this block is what LLMs, screen readers, and noscript users see. It mirrors
+  the live state at the four canonical presets so a crawler without JS execution
+  can summarise the tool.
+-->
+<section id="site-summary" aria-label="Site description" style="max-width:920px;margin:18px auto 0;padding:0 18px;color:var(--fg);font:14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif">
+  <h2 style="font-size:18px;margin:0 0 8px">About this simulator</h2>
+  <p>
+    This is a browser-deployable, open-source simulator of three-compartment lung
+    mechanics coupled to passive volume-control ventilation and shunt-based gas
+    exchange. It is built for mechanical-ventilation education and clinical
+    physiology reasoning. The model partitions lung tissue into three parallel
+    compartments — <i>normal</i>, <i>recruitable</i>, and <i>consolidated</i> —
+    with a perfusion-weighted gas-exchange mix and a relay-based PEEP-recruitment
+    state that opens or closes alveolar units as a function of applied pressure.
+    Respiratory mechanics (compliance, driving pressure, plateau pressure,
+    mechanical power), and gas exchange (PaO₂, PaCO₂, SaO₂, P/F ratio, effective
+    shunt) are computed live from the patient's parameters and ventilator settings.
+  </p>
+  <p>
+    The simulator ships with four canonical patient archetypes covering the
+    ARDS spectrum. Each preset is a published parameter set; the values are
+    illustrative, not fitted to any clinical cohort:
+  </p>
+
+  <table style="width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:13px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Archetype</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Crs (mL/cmH₂O)</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Raw (cmH₂O·s/L)</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Recruitability</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Shunt (Qs/Qt)</th>
+        <th style="padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500">Vd/Vt</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="padding:6px 8px">Normal</td><td style="text-align:center;padding:6px 8px">70</td><td style="text-align:center;padding:6px 8px">5</td><td style="text-align:center;padding:6px 8px">0.30</td><td style="text-align:center;padding:6px 8px">0.05</td><td style="text-align:center;padding:6px 8px">0.30</td></tr>
+      <tr><td style="padding:6px 8px">Mild ARDS</td><td style="text-align:center;padding:6px 8px">50</td><td style="text-align:center;padding:6px 8px">8</td><td style="text-align:center;padding:6px 8px">0.40</td><td style="text-align:center;padding:6px 8px">0.15</td><td style="text-align:center;padding:6px 8px">0.40</td></tr>
+      <tr><td style="padding:6px 8px">Moderate ARDS</td><td style="text-align:center;padding:6px 8px">40</td><td style="text-align:center;padding:6px 8px">10</td><td style="text-align:center;padding:6px 8px">0.55</td><td style="text-align:center;padding:6px 8px">0.30</td><td style="text-align:center;padding:6px 8px">0.50</td></tr>
+      <tr><td style="padding:6px 8px">Severe ARDS</td><td style="text-align:center;padding:6px 8px">30</td><td style="text-align:center;padding:6px 8px">10</td><td style="text-align:center;padding:6px 8px">0.70</td><td style="text-align:center;padding:6px 8px">0.30</td><td style="text-align:center;padding:6px 8px">0.45</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Defaults: predicted body weight 70 kg (male), tidal volume 360 mL (≈5.1 mL/kg PBW),
+    respiratory rate 20/min, PEEP 10 cmH₂O, FiO₂ 0.50, hemoglobin 11.0 g/dL,
+    cardiac output 5.0 L/min, VCO₂ 220 mL/min. ARDSNet tidal-volume guidance
+    (6 mL/kg PBW) is provided as a runtime warning, not enforced.
+  </p>
+  <p>
+    All math is auditable. The canonical implementation is
+    <code>lung_reference.py</code> (Python) and the browser port is
+    <code>lung.js</code> (JavaScript). Both runtimes pass the same 24-test
+    fixture suite and are cross-checked at floating-point tolerance 1e-6.
+    The audit harness and pre-computed benchmark + audit JSON are published
+    at <a href="/lung-reference/" style="color:var(--acc);text-decoration:none">/lung-reference/</a>,
+    and the manuscript draft is at <a href="/paper.html" style="color:var(--acc);text-decoration:none">/paper.html</a>.
+    Source: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/lung-reference" style="color:var(--acc);text-decoration:none">github.com/DrFillster/medical-vent-twin/lung-reference</a>.
+  </p>
+  <p style="color:var(--muted);font-size:12px;margin-top:10px">
+    <b>Not for clinical use.</b> Educational and computational-verification
+    only. No patient data is collected. The accompanying manuscript is a
+    draft, not yet peer reviewed.
+  </p>
+</section>
+
+<noscript>
+<div style="max-width:920px;margin:18px auto;padding:14px 18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--fg)">
+  <h2 style="font-size:16px;margin:0 0 8px">JavaScript is disabled</h2>
+  <p style="margin:0 0 8px">
+    The interactive simulator below requires JavaScript. Without it, only the
+    static parameter labels are visible. The full functionality is also
+    available in the auditable reference revision at
+    <a href="/lung-reference/" style="color:var(--acc)">/lung-reference/</a>,
+    and the manuscript is at <a href="/paper.html" style="color:var(--acc)">/paper.html</a>.
+  </p>
+  <p style="margin:0;color:var(--muted);font-size:13px">
+    Site summary: this is a three-compartment lung-mechanics and gas-exchange
+    simulator (Normal / Mild / Moderate / Severe ARDS presets), with passive
+    volume-control ventilation, PEEP-recruitment relay state, and shunt-based
+    PaO₂ / PaCO₂ / mechanical-power readouts. Open source (MIT). 24/24
+    cross-language tests pass. See the site index at
+    <a href="/llms.txt" style="color:var(--acc)">/llms.txt</a>.
+  </p>
+</div>
+</noscript>
 
 <main>
   <!-- LEFT: controls -->

@@ -1,0 +1,89 @@
+# robots.txt — vent.defying-logic.com
+# Allow all crawlers including LLM / AI search crawlers.
+# Last updated 2026-09-06.
+#
+# Reference: https://llmstxt.org and Cloudflare / IETF content-signal draft.
+
+# ─── Default policy: allow everything ─────────────────────────────────────────
+User-agent: *
+Allow: /
+Disallow: /results/
+Disallow: /cross_check.py
+Disallow: /audit_*.py
+
+# ─── AI / LLM crawlers: explicitly permitted (no restrictive signals) ──────────
+# OpenAI (ChatGPT browse, SearchGPT)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic (Claude)
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Google (Gemini, AI Overviews, AI Mode)
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GoogleBot
+Allow: /
+
+# Microsoft (Bing Chat / Copilot)
+User-agent: MSNBot-Media
+Allow: /
+
+User-agent: BingPreview
+Allow: /
+
+# Apple Intelligence
+User-agent: Applebot-Extended
+Allow: /
+
+# Common Crawl (training corpora)
+User-agent: CCBot
+Allow: /
+
+# Meta AI
+User-agent: Meta-ExternalAgent
+Allow: /
+
+# Cohere
+User-agent: cohere-ai
+Allow: /
+
+# ByteDance / DuckDuckGo
+User-agent: Bytespider
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+# You.com
+User-agent: YouBot
+Allow: /
+
+# ─── Sitemaps ────────────────────────────────────────────────────────────────
+Sitemap: https://vent.defying-logic.com/sitemap.xml
+
+# ─── Content signals ─────────────────────────────────────────────────────────
+# Per the IETF content-signal draft. Permissive defaults for this academic
+# simulator. Operators can change these per use case.
+Content-signal: search=yes, ai-input=yes, ai-train=yes
