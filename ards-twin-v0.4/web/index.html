@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ARDS Digital Twin v0.4.2</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="index,follow">
+<style>
+  :root {
+    --bg: #1c1c20; --panel: #25252a; --text: #eee; --muted: #999;
+    --accent: #6ad; --border: #333; --ok: #6c6; --warn: #c84; --err: #c66;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 0; padding: 0; color: var(--text); background: var(--bg);
+    line-height: 1.5;
+  }
+  header {
+    padding: 1.2em 1.5em;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  header h1 { margin: 0 0 .2em 0; font-size: 1.4em; font-weight: 500; }
+  header p { margin: 0; color: var(--muted); font-size: .9em; }
+  main {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 80px);
+  }
+  .panel {
+    padding: 1.2em 1.5em;
+    border-right: 1px solid var(--border);
+  }
+  .results {
+    padding: 1.2em 1.5em;
+    overflow: auto;
+  }
+  label { display: block; font-size: .85em; color: var(--muted); margin: .8em 0 .2em; }
+  select, input[type=number] {
+    width: 100%;
+    padding: .5em;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: ui-monospace, monospace;
+    font-size: .95em;
+  }
+  input[type=number]:focus, select:focus { outline: 1px solid var(--accent); }
+  button {
+    padding: .55em 1em;
+    background: var(--accent);
+    color: var(--bg);
+    border: 0;
+    border-radius: 3px;
+    font-size: .95em;
+    cursor: pointer;
+    margin-top: 1em;
+    font-weight: 500;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { background: var(--muted); cursor: not-allowed; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: .8em; }
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .8em;
+    margin-bottom: 1em;
+  }
+  .metric {
+    background: var(--panel);
+    padding: .8em;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .metric .label { color: var(--muted); font-size: .8em; }
+  .metric .value { font-family: ui-monospace, monospace; font-size: 1.6em; margin-top: .2em; }
+  .metric .unit { font-size: .6em; color: var(--muted); margin-left: .2em; }
+  svg {
+    width: 100%;
+    height: 320px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .axis { stroke: var(--border); }
+  .grid { stroke: var(--border); stroke-dasharray: 2 4; opacity: .5; }
+  .label-text { fill: var(--muted); font-size: 11px; }
+  .paw-line { stroke: #6ad; stroke-width: 1.5; fill: none; }
+  .flow-line { stroke: #c84; stroke-width: 1; fill: none; opacity: .7; }
+  .vol-line { stroke: #6c6; stroke-width: 1.5; fill: none; }
+  .recruit-bar {
+    height: 24px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin: .3em 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .recruit-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width .2s;
+  }
+  .recruit-label {
+    position: absolute; top: 4px; left: 8px;
+    font-family: ui-monospace, monospace;
+    font-size: .85em;
+    color: var(--bg);
+    mix-blend-mode: screen;
+  }
+  pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: .8em;
+    border-radius: 3px;
+    overflow-x: auto;
+    font-size: .8em;
+    color: var(--muted);
+  }
+  .ver { font-family: ui-monospace, Menlo, monospace; font-size: .85em; color: var(--muted); }
+  details { margin-top: 1em; }
+  details summary { cursor: pointer; color: var(--muted); font-size: .9em; }
+  .footer { color: var(--muted); font-size: .8em; padding: 1em 1.5em; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<header>
+  <h1>ARDS Digital Twin v0.4.2</h1>
+  <p>Three-compartment mechanical ventilation simulator &mdash; Newton-Raphson implicit solver, finite-capacity exponential elastic law, bounded recruitment. JS port; runs entirely in the browser.</p>
+</header>
+<main>
+  <aside class="panel">
+    <h2 style="margin-top:0;font-size:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Patient</h2>
+    <label for="preset">Preset</label>
+    <select id="preset">
+      <option value="Baseline">Baseline (healthy)</option>
+      <option value="Injury A">Injury A — mild</option>
+      <option value="Injury B">Injury B — moderate</option>
+      <option value="Injury C">Injury C — severe</option>
+    </select>
+
+    <h2 style="margin-top:1.5em;font-size:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">VC-A/C settings</h2>
+    <label for="fio2">FiO2 (0–1)</label>
+    <input id="fio2" type="number" value="0.40" step="0.01" min="0.21" max="1.0">
+
+    <div class="row">
+      <div><label for="peep">PEEP (cmH₂O)</label><input id="peep" type="number" value="5" step="1" min="0" max="20"></div>
+      <div><label for="rr">RR (/min)</label><input id="rr" type="number" value="14" step="1" min="6" max="40"></div>
+    </div>
+    <div class="row">
+      <div><label for="vt">Vt (L)</label><input id="vt" type="number" value="0.480" step="0.01" min="0.1" max="1.5"></div>
+      <div><label for="flow">Insp flow (L/s)</label><input id="flow" type="number" value="0.500" step="0.1" min="0.1" max="2.0"></div>
+    </div>
+    <label for="pause">Insp pause (s)</label>
+    <input id="pause" type="number" value="0.500" step="0.05" min="0" max="2.0">
+
+    <label for="breaths">Run for (breaths)</label>
+    <input id="breaths" type="number" value="3" step="1" min="1" max="20">
+
+    <label for="dt">dt (s)</label>
+    <input id="dt" type="number" value="0.005" step="0.001" min="0.001" max="0.05">
+
+    <button id="run" type="button">Run simulation</button>
+
+    <details>
+      <summary>About this simulator</summary>
+      <p class="ver">v0.4.2 mechanics: finite-capacity exponential elastic law (`p = -K·log(1-V/Vmax)`), Newton-Raphson implicit solver, conservation exact by construction, bounded recruitment kinetics with feasibility floor.</p>
+      <p class="ver">89/89 tests pass server-side; this UI runs the same simulator in the browser at your chosen dt. Larger dt is faster but less accurate.</p>
+    </details>
+  </aside>
+
+  <section class="results">
+    <h2 style="margin-top:0;font-size:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Breath metrics (last breath)</h2>
+    <div class="metrics">
+      <div class="metric"><div class="label">Ppeak</div><div class="value"><span id="m-ppeak">—</span><span class="unit">cmH₂O</span></div></div>
+      <div class="metric"><div class="label">Pplat</div><div class="value"><span id="m-pplat">—</span><span class="unit">cmH₂O</span></div></div>
+      <div class="metric"><div class="label">Vt insp</div><div class="value"><span id="m-vti">—</span><span class="unit">L</span></div></div>
+      <div class="metric"><div class="label">Vt exp</div><div class="value"><span id="m-vte">—</span><span class="unit">L</span></div></div>
+      <div class="metric"><div class="label">Driving ΔP</div><div class="value"><span id="m-dp">—</span><span class="unit">cmH₂O</span></div></div>
+      <div class="metric"><div class="label">RR</div><div class="value"><span id="m-rr">—</span><span class="unit">/min</span></div></div>
+      <div class="metric"><div class="label">MV</div><div class="value"><span id="m-mv">—</span><span class="unit">L/min</span></div></div>
+      <div class="metric"><div class="label">Total V</div><div class="value"><span id="m-tv">—</span><span class="unit">L</span></div></div>
+    </div>
+
+    <h2 style="font-size:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Airway pressure &amp; volume</h2>
+    <svg id="waveform" viewBox="0 0 800 320" preserveAspectRatio="none">
+      <g class="axis"><line x1="40" y1="20" x2="40" y2="280"/><line x1="40" y1="280" x2="780" y2="280"/></g>
+      <g id="grid"></g>
+      <path id="paw-path" class="paw-line"/>
+      <path id="vol-path" class="vol-line"/>
+      <g id="axis-labels"></g>
+    </svg>
+
+    <h2 style="font-size:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Recruitment state (final)</h2>
+    <div id="recruitment-bars"></div>
+
+    <details>
+      <summary>Compartment details (final)</summary>
+      <pre id="comp-details">(run a simulation)</pre>
+    </details>
+
+    <details>
+      <summary>Solver diagnostics</summary>
+      <pre id="diag">(run a simulation)</pre>
+    </details>
+  </section>
+</main>
+<footer class="footer">
+  <span class="ver">vent.defying-logic.com/ards-twin-v0.4/web/ &middot; <a href="../ards-twin-v0.4/HANDOFF_README.md" style="color:var(--accent)">v0.4.2 handoff README</a> &middot; <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4" style="color:var(--accent)">GitHub source</a></span>
+</footer>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
