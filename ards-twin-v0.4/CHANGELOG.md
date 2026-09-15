@@ -34,7 +34,7 @@
 - **G**: 5 — Multi-breath VC + PC, all injury severities, zero failures
 - **H**: 3 — dt convergence at 2/1/0.5 ms
 - **I**: 4 — Failure semantics, INFEASIBLE_BOUNDARY classification
-- **J**: 3 — Instrumentation, machine-readable diagnostics
+- **J**: 4 — Instrumentation: solverStats includes lineSearchHalvings, activeSetTransitions
 
 ### Known pathology (NOT a correctness bug, flagged for future work)
 - Injury C PEEP=5 dt=1ms: 32% of steps subdivide (substeps=2).
@@ -52,3 +52,15 @@
 
 ## v0.4.1 (earlier) — Central R + AOP fix + gas-toggle test + plateau
 ## v0.4.0 — Initial multi-compartment mechanics
+
+### v0.4.3 instrumentation additions
+- `output.solverStats.lineSearchHalvings` (total per Newton call)
+- `output.solverStats.activeSetTransitions` (compartments crossing
+  regime boundaries: CLOSED / FLOOR / INTERIOR / CAP)
+- Both fields propagated through `newtonStep` → `solveImplicitStep`
+  → `finalize` → `output.solverStats`.
+
+### v0.4.3 test additions
+- I5: SOLVER_NONCONVERGENCE is distinct from INFEASIBLE_BOUNDARY
+  (now both kinds are demonstrated)
+- J4: active-set transitions are tracked and machine-readable

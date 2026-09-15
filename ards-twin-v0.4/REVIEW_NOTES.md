@@ -144,3 +144,18 @@ but NOT fixed — this is by design (numerical rigor release, not perf).
 Future releases should address it via the active-set formulation.
 
 No clinical validation was attempted or claimed.
+
+## v0.4.3 instrumentation fields
+
+`output.solverStats` per step:
+- `newtonIters` — Newton iterations this step
+- `substeps` — dt subdivision depth (1 = no subdivision)
+- `lineSearchHalvings` — count of `stepScale *= 0.5` events
+- `activeSetTransitions` — compartment regime crossings
+  (CLOSED → FLOOR, INTERIOR → CAP, etc.)
+- `residualNorm` — raw Euclidean norm (diagnostic only)
+- `scaledResidual` — infinity norm of componentwise-scaled residual
+- `converged` — `iterations > 0 && iterations < SOLVER_MAX_ITER`
+
+The `activeSetTransitions` counter enables future work to use
+regime-change detection for active-set solver optimization.

@@ -1,9 +1,9 @@
 {
   "version": "v0.4.3",
-  "date": "2026-09-15T22:46:55Z",
+  "date": "2026-09-15T23:09:52Z",
   "commit": "v0.4.3-numerical-rigor-rewrite",
   "summary": {
-    "total_pass": 123,
+    "total_pass": 125,
     "total_fail": 0,
     "test_suites": [
       {"name": "a_initialization.test", "pass": 11, "fail": 0},
@@ -15,8 +15,8 @@
       {"name": "f_recruitment.test", "pass": 4, "fail": 0},
       {"name": "g_multi_breath.test", "pass": 5, "fail": 0},
       {"name": "h_dt_convergence.test", "pass": 3, "fail": 0},
-      {"name": "i_failure_semantics.test", "pass": 4, "fail": 0},
-      {"name": "j_instrumentation.test", "pass": 3, "fail": 0},
+      {"name": "i_failure_semantics.test", "pass": 5, "fail": 0},
+      {"name": "j_instrumentation.test", "pass": 4, "fail": 0},
       {"name": "p0_central_airway.test", "pass": 7, "fail": 0},
       {"name": "p0_single_compartment.test", "pass": 9, "fail": 0},
       {"name": "p1_gas_toggle.test", "pass": 4, "fail": 0},
@@ -38,10 +38,10 @@
     "F_recruitment": "4/4 — closed-compartment invariants + derecruitment projection rule",
     "G_multi_breath": "5/5 — zero solver failures across VC and PC, all injury severities",
     "H_dt_convergence": "3/3 — monotone convergence at 2/1/0.5 ms",
-    "I_failure_semantics": "4/4 — STEP_FAILED contract, INFEASIBLE_BOUNDARY vs SOLVER_NONCONVERGENCE",
-    "J_instrumentation": "3/3 — machine-readable per-step solver work counters"
+    "I_failure_semantics": "5/5 — STEP_FAILED contract, INFEASIBLE_BOUNDARY (forced) vs SOLVER_NONCONVERGENCE",
+    "J_instrumentation": "4/4 — machine-readable per-step solver work counters including active-set transitions"
   },
   "v0.4.2_baseline_passing_tests": 89,
-  "v0.4.3_new_tests": 34,
-  "v0.4.3_total": 123
+  "v0.4.3_new_tests": 36,
+  "v0.4.3_total": 125
 }

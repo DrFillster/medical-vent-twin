@@ -1,12 +1,17 @@
 {
   "version": "v0.4.3",
-  "date": "2026-09-15T22:47:11Z",
+  "date": "2026-09-15T23:09:30Z",
   "solver_failures": {
     "total_across_all_test_runs": 0,
-    "INFEASIBLE_BOUNDARY_events": 0,
-    "SOLVER_NONCONVERGENCE_events": 0,
+    "INFEASIBLE_BOUNDARY_events_in_normal_runs": 0,
+    "SOLVER_NONCONVERGENCE_events_in_normal_runs": 0,
     "STEP_FAILED_state_advances": 0,
-    "note": "Zero failures across 123 tests including multi-breath VC and PC at all injury severities."
+    "I_test_forced_INFEASIBLE_BOUNDARY": {
+      "scenario": "100 L/s into 1e-6 L compartment (capacity=1e-6, PEEP=5, dt=1ms)",
+      "expected_failureKind": "INFEASIBLE_BOUNDARY",
+      "expected_behavior": "Solver reports failure; state unchanged; time unchanged",
+      "verified": true
+    }
   },
   "conservation": {
     "max_conservation_residual_lt": 1e-6,
@@ -53,10 +58,27 @@
     "trapped_gas_preserved": true,
     "V_le_Vmax_at_all_times": true
   },
+  "flow_feasibility_global": {
+    "implementation": "Newton system has global flow row: F[N] = sum_i (V_new - V_old)/dt - Q_requested. Jacobian row J[N][i] = 1/dt couples all compartments to the boundary.",
+    "classification": "INFEASIBLE_BOUNDARY returned when |Q_requested * dt| > Σ capacity remaining",
+    "verified_in_test": "I1, I3 (forced 100 L/s into 1e-6 L compartment)"
+  },
   "presets": {
     "Baseline": {"initialPEEP": 5, "initialRecruitmentState": {"normal": 1, "recruitable": 0, "consolidated": 0}},
     "Injury A": {"initialPEEP": 8, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}},
     "Injury B": {"initialPEEP": 10, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}},
     "Injury C": {"initialPEEP": 12, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}}
+  },
+  "instrumentation_fields": {
+    "per_step_output_solverStats": [
+      "newtonIters",
+      "substeps",
+      "lineSearchHalvings",
+      "activeSetTransitions",
+      "residualNorm",
+      "scaledResidual",
+      "converged"
+    ],
+    "verified_present_in_test": "J1, J2, J4 (solverStats.activeSetTransitions and .lineSearchHalvings must be present)"
   }
 }

@@ -436,6 +436,18 @@ var require_mechanics = __commonJS({
       let initialScaled = Infinity;
       let lastScaled = Infinity;
       let converged = false;
+      let totalHalvings = 0;
+      let activeSetTransitions = 0;
+      function regime(vNew, cp, cs) {
+        const vmax = effectiveVolumeCapacity2(cp, cs.recruitment);
+        if (vmax <= 0) return "CLOSED";
+        const floorTol = 1e-6 * vmax;
+        if (vNew <= floorTol) return "FLOOR";
+        const constLimit = (1 - EPS_CAP) * vmax;
+        if (vNew >= constLimit - 1e-15) return "CAP";
+        return "INTERIOR";
+      }
+      const initialRegimes = activeComps.map((ac, i) => regime(vTrial[i], ac.cp, ac.cs));
       const scales = computeScales(activeComps, params, pBranch[0]);
       for (iter = 0; iter < SOLVER_MAX_ITER; iter++) {
         const { F, J } = buildSystem(
@@ -466,7 +478,9 @@ var require_mechanics = __commonJS({
             residual: norm,
             scaledResidual: scaled,
             iterations: iter,
-            substeps: 0
+            substeps: 0,
+            lineSearchHalvings: totalHalvings,
+            activeSetTransitions
           };
         }
         let stepScale = 1;
@@ -493,6 +507,7 @@ var require_mechanics = __commonJS({
           }
           if (!trialOK) {
             stepScale *= 0.5;
+            totalHalvings++;
             continue;
           }
           const newPBranch = pBranch[0] + stepScale * dx[N];
@@ -528,12 +543,20 @@ var require_mechanics = __commonJS({
           trialF[N] = boundaryRes;
           newScaled = scaledNorm(trialF, scales);
           if (newScaled < lastScaled) {
+            const newRegimes = activeComps.map((ac, i) => regime(newVTrial[i], ac.cp, ac.cs));
+            for (let i = 0; i < N; i++) {
+              if (newRegimes[i] !== initialRegimes[i]) {
+                activeSetTransitions++;
+                initialRegimes[i] = newRegimes[i];
+              }
+            }
             for (let i = 0; i < N; i++) vTrial[i] = newVTrial[i];
             pBranch[0] = newPBranch;
             stepAccepted = true;
             break;
           }
           stepScale *= 0.5;
+          totalHalvings++;
         }
         if (!stepAccepted) {
           return {
@@ -541,7 +564,9 @@ var require_mechanics = __commonJS({
             residual: norm,
             scaledResidual: lastScaled,
             iterations: iter,
-            substeps: 0
+            substeps: 0,
+            lineSearchHalvings: totalHalvings,
+            activeSetTransitions
           };
         }
       }
@@ -550,7 +575,9 @@ var require_mechanics = __commonJS({
         residual: lastResidualNorm,
         scaledResidual: lastScaled,
         iterations: iter,
-        substeps: 0
+        substeps: 0,
+        lineSearchHalvings: totalHalvings,
+        activeSetTransitions
       };
     }
     function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
@@ -608,7 +635,9 @@ var require_mechanics = __commonJS({
           r.iterations,
           r.residual,
           r.scaledResidual,
-          1
+          1,
+          r.lineSearchHalvings,
+          r.activeSetTransitions
         );
       }
       if (dt / 2 < 1e-6) {
@@ -654,7 +683,7 @@ var require_mechanics = __commonJS({
       half2.output.substeps = 2;
       return half2;
     }
-    function finalize(activeComps, vTrial, pBranchSolved, state, boundary, params, dt, iterations, residualNorm, scaledResidual, substeps) {
+    function finalize(activeComps, vTrial, pBranchSolved, state, boundary, params, dt, iterations, residualNorm, scaledResidual, substeps, lineSearchHalvings, activeSetTransitions) {
       const aop = params.airwayOpeningPressure;
       const nextComps = state.compartments.map((cs, i) => {
         const ac = activeComps.find((a) => a.idx === i);
@@ -702,8 +731,8 @@ var require_mechanics = __commonJS({
           solverStats: {
             newtonIters: iterations,
             substeps,
-            lineSearchHalvings: 0,
-            // TODO: propagate from newtonStep
+            lineSearchHalvings,
+            activeSetTransitions,
             residualNorm,
             scaledResidual,
             converged: iterations > 0 && iterations < SOLVER_MAX_ITER

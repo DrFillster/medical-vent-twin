@@ -326,7 +326,8 @@ function feasibleV(v, cp, cs) {
 
 // One Newton step with backtracking line search.
 // `vTrial` and `pBranch` are arrays of trial values (mutated in place).
-// Returns { converged, residual, iterations, scaledResidual }.
+// Returns { converged, residual, iterations, scaledResidual,
+//           lineSearchHalvings, activeSetTransitions }.
 function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
   const N = activeComps.length;
   let iter;
@@ -335,6 +336,23 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
   let initialScaled = Infinity;
   let lastScaled = Infinity;
   let converged = false;
+  let totalHalvings = 0;
+  // v0.4.3: count active-set transitions (compartment crossing 0 or
+  // (1 - EPS_CAP) * Vmax during this Newton call).
+  let activeSetTransitions = 0;
+  // Track each compartment's "regime" by whether its V is at the floor
+  // (≤ floorTol * Vmax) or at the cap (≥ (1 - EPS_CAP) * Vmax).
+  function regime(vNew, cp, cs) {
+    const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
+    if (vmax <= 0) return 'CLOSED';
+    const floorTol = 1e-6 * vmax;
+    if (vNew <= floorTol) return 'FLOOR';
+    const constLimit = (1 - EPS_CAP) * vmax;
+    if (vNew >= constLimit - 1e-15) return 'CAP';
+    return 'INTERIOR';
+  }
+  const initialRegimes = activeComps.map((ac, i) =>
+    regime(vTrial[i], ac.cp, ac.cs));
 
   // v0.4.3: compute scales once at the start (state is approximately
   // fixed during Newton iteration; per-iter recomputation would just
@@ -368,7 +386,9 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
     const dx = solve4x4(J, b);
     if (!dx) {
       return { converged: false, residual: norm,
-               scaledResidual: scaled, iterations: iter, substeps: 0 };
+               scaledResidual: scaled, iterations: iter, substeps: 0,
+               lineSearchHalvings: totalHalvings,
+               activeSetTransitions };
     }
 
     // Line search with backtracking on the volume feasibility.
@@ -391,6 +411,7 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
       }
       if (!trialOK) {
         stepScale *= 0.5;
+        totalHalvings++;
         continue;
       }
       const newPBranch = pBranch[0] + stepScale * dx[N];
@@ -431,21 +452,36 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
 
       if (newScaled < lastScaled) {
         // Accept step.
+        // Count active-set transitions: any compartment that changed
+        // regime (CLOSED/FLOOR/INTERIOR/CAP) since the start of Newton.
+        const newRegimes = activeComps.map((ac, i) =>
+          regime(newVTrial[i], ac.cp, ac.cs));
+        for (let i = 0; i < N; i++) {
+          if (newRegimes[i] !== initialRegimes[i]) {
+            activeSetTransitions++;
+            initialRegimes[i] = newRegimes[i];
+          }
+        }
         for (let i = 0; i < N; i++) vTrial[i] = newVTrial[i];
         pBranch[0] = newPBranch;
         stepAccepted = true;
         break;
       }
       stepScale *= 0.5;
+      totalHalvings++;
     }
     if (!stepAccepted) {
       // Could not reduce residual; abort.
       return { converged: false, residual: norm,
-               scaledResidual: lastScaled, iterations: iter, substeps: 0 };
+               scaledResidual: lastScaled, iterations: iter, substeps: 0,
+               lineSearchHalvings: totalHalvings,
+               activeSetTransitions };
     }
   }
   return { converged, residual: lastResidualNorm,
-           scaledResidual: lastScaled, iterations: iter, substeps: 0 };
+           scaledResidual: lastScaled, iterations: iter, substeps: 0,
+           lineSearchHalvings: totalHalvings,
+           activeSetTransitions };
 }
 
 // --- Driver: implicit step with dt subdivision -------------------------
@@ -505,7 +541,8 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
   const r = newtonStep(activeComps, vTrial, pBranch, boundary, params, dt);
   if (r.converged) {
     return finalize(activeComps, vTrial, pBranch[0], state, boundary, params, dt,
-                    r.iterations, r.residual, r.scaledResidual, 1);
+                    r.iterations, r.residual, r.scaledResidual, 1,
+                    r.lineSearchHalvings, r.activeSetTransitions);
   }
   // Newton failed: try with halved dt.
   if (dt / 2 < 1e-6) {
@@ -566,7 +603,7 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
 
 function finalize(activeComps, vTrial, pBranchSolved, state, boundary,
                  params, dt, iterations, residualNorm, scaledResidual,
-                 substeps) {
+                 substeps, lineSearchHalvings, activeSetTransitions) {
   // Build new state.
   const aop = params.airwayOpeningPressure;
   const nextComps = state.compartments.map((cs, i) => {
@@ -622,7 +659,8 @@ function finalize(activeComps, vTrial, pBranchSolved, state, boundary,
       solverStats: {
         newtonIters: iterations,
         substeps,
-        lineSearchHalvings: 0,  // TODO: propagate from newtonStep
+        lineSearchHalvings,
+        activeSetTransitions,
         residualNorm,
         scaledResidual,
         converged: iterations > 0 && iterations < SOLVER_MAX_ITER,
