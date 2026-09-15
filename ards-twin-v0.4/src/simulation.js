@@ -27,7 +27,30 @@ class Simulation {
     this.params = params;
     this.controller = controller;
     this.clock = new SimulationClock(dt);
-    this.state = makeInitialState(params, { initialVolume: 0.05 });
+    // v0.4.3: pressure-consistent initialization.
+    //
+    // Presets MUST own initialPEEP and initialRecruitmentState. makeInitialState
+    // pulls them from `params` (the preset). The controller's PEEP is the
+    // operating target, not the initializer's input — but if the preset is
+    // silent, fall back to controller.settings.peep (legacy compat for tests
+    // that don't use presets). The fallback is documented and explicit.
+    //
+    // If neither preset nor controller can supply initialPEEP, the
+    // initializer throws rather than guessing.
+    const presetRecState = params.initialRecruitmentState
+      && typeof params.initialRecruitmentState === 'object'
+      ? params.initialRecruitmentState : null;
+    const presetPEEP = typeof params.initialPEEP === 'number'
+      ? params.initialPEEP : null;
+    const ctrlPEEP = controller.settings
+      && typeof controller.settings.peep === 'number'
+      ? controller.settings.peep : null;
+    const finalPEEP = presetPEEP !== null ? presetPEEP : ctrlPEEP;
+    this.state = makeInitialState(params, {
+      initialPEEP: finalPEEP,
+      initialRecruitmentState: presetRecState
+        || { normal: 1, recruitable: 0, consolidated: 0 },
+    });
     this.mechanics = new ThreeCompartmentMechanics();
     this.trace = [];
     this.deliveredSinceBreathStart = 0;
@@ -67,6 +90,18 @@ class Simulation {
     // 3. Advance mechanics with the final boundary.
     let { state, output } = this.mechanics.step(this.params, this.state, boundary, dt);
 
+    // v0.4.3: STEP_FAILED contract.
+    //
+    // If the mechanical solve failed, do NOT commit the new state, do
+    // NOT advance time, do NOT update gas exchange or downstream metrics.
+    // Return the failure output as diagnostics so the caller can react
+    // (retry with smaller dt, abort the breath, surface error).
+    if (output.solverFailure) {
+      this.lastFailure = output;
+      // Do not push to trace; do not commit state.
+      return { state: this.state, output, boundary, failed: true };
+    }
+
     // 4. Gas exchange (parallel to mechanics, no irreversible coupling).
     if (this.trackGas) {
       this.gas = stepGasState(this.gas, this.params, state.compartments, dt);
@@ -95,7 +130,7 @@ class Simulation {
       boundaryKind: boundary.kind,
       output,
     });
-    return { state, output, boundary };
+    return { state, output, boundary, failed: false };
   }
 
   // Per-breath metrics from the current trace. setPEEP = the controller's

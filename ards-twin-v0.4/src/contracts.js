@@ -11,6 +11,18 @@ const assertFinite = (v, name) => {
   }
 };
 
+// v0.4.3: forward elastic law helper (used by pressure-consistent init).
+// Defined locally so contracts.js doesn't depend on compartments.js — keeps
+// the contract surface independent of the physics module. Equivalent to
+// `forwardElasticVolume` in compartments.js.
+function forwardElasticVolume(pressure, cp, availability, aop = 0) {
+  if (availability <= 0) return 0;
+  if (pressure <= aop) return 0;
+  const vmax = availability * cp.capacity;
+  const p = pressure - aop;
+  return vmax * (1 - Math.exp(-p / cp.elasticScale));
+}
+
 function makeBoundaryFlow({ flowLps, fio2 }) {
   assertFinite(flowLps, 'flowLps');
   assertFinite(fio2, 'fio2');
@@ -94,6 +106,12 @@ function makePatientParams(p) {
     compartments,
     centralAirwayResistance: p.centralAirwayResistance,
     airwayOpeningPressure: p.airwayOpeningPressure,
+    // v0.4.3: preserve preset-owned initial state through PatientParams
+    // so makeInitialState() can pick them up.
+    initialPEEP: typeof p.initialPEEP === 'number' ? p.initialPEEP : undefined,
+    initialRecruitmentState: p.initialRecruitmentState
+      && typeof p.initialRecruitmentState === 'object'
+      ? Object.freeze({ ...p.initialRecruitmentState }) : undefined,
   });
 }
 
@@ -107,107 +125,143 @@ function cloneState(state) {
   };
 }
 
-// Pressure-consistent initialization (v0.4.2).
+// Pressure-consistent initialization (v0.4.3).
 //
-// Default: from initialPEEP, using forward elastic law.
-// Closed recruitable compartments start at zero elastic volume.
+// The initializer MUST NOT invent recruitment. Presets must own either:
+//   - initialPEEP + initialRecruitmentState, or
+//   - initializationHistory (not implemented in v0.4.3).
 //
-// Backward-compat: if `initialVolume` is provided, distribute by tissue
-// fraction and validate against capacity (rejecting infeasible volumes).
+// For each compartment, the initial volume and pressure follow the
+// constitutive law:
+//
+//   Vmax_i  = availability_i * capacity_i
+//   p_el_i  = -K_i * ln(1 - V_i / Vmax_i)   for 0 <= V_i < Vmax_i
+//   P_alv_i = AOP + p_el_i
+//
+// Lower-bound regime (PEEP <= AOP or compartment closed):
+//   - V_i = 0
+//   - never permit negative volume
+//   - P_alv_i = AOP (do not force P_alv = PEEP, that would require V < 0)
+//
+// Closed-compartment invariant (Vmax = 0):
+//   - V_i = 0
+//   - branch conductance = 0
+//   - flow = 0
 function makeInitialState(params, options = {}) {
+  // v0.4.3: presets own the initial state when used. The caller must
+  // supply either options.initialPEEP + options.initialRecruitmentState,
+  // or rely on params.initialPEEP + params.initialRecruitmentState
+  // (preset-owned contract).
+  //
+  // If neither path provides recruitment, we default to the explicit
+  // closed state:
+  //   { normal: 1, recruitable: 0, consolidated: 0 }
+  // This is NOT a guess about the equilibrium — it is the absence of any
+  // recruitment, which is a meaningful initial condition.
+  //
+  // Simulation() always passes preset-owned recruitment explicitly.
+
+  function pickRecState() {
+    if (options.initialRecruitmentState) return options.initialRecruitmentState;
+    if (params.initialRecruitmentState &&
+        typeof params.initialRecruitmentState === 'object') {
+      return params.initialRecruitmentState;
+    }
+    return { normal: 1, recruitable: 0, consolidated: 0 };
+  }
+
+  function pickPEEP() {
+    if (typeof options.initialPEEP === 'number') return options.initialPEEP;
+    if (typeof params.initialPEEP === 'number') return params.initialPEEP;
+    return null;
+  }
+
+  const peep = pickPEEP();
+  if (peep === null) {
+    throw new Error(
+      'makeInitialState: initialPEEP is required (preset or options must ' +
+      'provide it). The initializer does not guess initial PEEP.');
+  }
+
   const aop = params.airwayOpeningPressure;
+  const recState = pickRecState();
 
-  // Determine per-compartment availability.
-  const recruitmentState = options.recruitmentState;
-  const recruitmentDefaults = {
-    normal: 1.0,
-    recruitable: 0.0,
-    consolidated: 0.0,
-  };
-
-  if (typeof options.initialPEEP === 'number') {
-    // Pressure-consistent init from PEEP.
-    const peep = options.initialPEEP;
-    const compartments = params.compartments.map((cp) => {
-      const a = (recruitmentState && typeof recruitmentState[cp.id] === 'number')
-        ? clamp01(recruitmentState[cp.id])
-        : recruitmentDefaults[cp.id];
-      const vmax = a * cp.capacity;
-      let volume = 0;
-      if (a > 0 && peep > aop) {
-        volume = cp.capacity * (1 - Math.exp(-(peep - aop) / cp.elasticScale))
-                 * a;
-      }
-      // Validate against finite-capacity domain.
-      if (volume >= vmax && vmax > 0) {
-        throw new Error(`initial volume ${volume} exceeds capacity ${vmax} for ${cp.id}`);
-      }
-      return {
-        id: cp.id,
-        volume,
-        flow: 0,
-        alveolarPressure: a + aop > 0 ? peep : aop,
-        recruitment: a,
-      };
-    });
-    return {
-      t: 0,
-      compartments,
-      airwayPressure: peep,
-      totalFlow: 0,
-      totalVolume: compartments.reduce((s, c) => s + c.volume, 0),
-    };
-  }
-
-  if (typeof options.initialVolume === 'number') {
-    // Legacy fraction-distributed init, validated against capacity.
-    const initialVolume = options.initialVolume;
-    const compartments = params.compartments.map((c) => {
-      const v = initialVolume * c.fraction;
-      const a = (recruitmentState && typeof recruitmentState[c.id] === 'number')
-        ? clamp01(recruitmentState[c.id])
-        : recruitmentDefaults[c.id];
-      const vmax = a * c.capacity;
-      if (vmax > 0 && v >= vmax) {
+  // Determine per-compartment availability from preset-owned recruitment.
+  function availabilityFor(cp) {
+    // Validate all three preset values even if some compartments are
+    // structurally closed (capacity=0). Preset values must be finite
+    // numbers or undefined; otherwise reject explicitly.
+    function validateNumeric(name, expected) {
+      if (recState[name] === undefined) return;
+      if (typeof recState[name] !== 'number' || !Number.isFinite(recState[name])) {
         throw new Error(
-          `initial volume ${v} exceeds compartment capacity ${vmax} for ${c.id}`);
+          `makeInitialState: initialRecruitmentState.${name} must be finite number, got ${recState[name]}`);
       }
-      return {
-        id: c.id,
-        volume: v,
-        flow: 0,
-        alveolarPressure: 0,
-        recruitment: a,
-      };
-    });
-    return {
-      t: 0,
-      compartments,
-      airwayPressure: params.airwayOpeningPressure,
-      totalFlow: 0,
-      totalVolume: initialVolume,
-    };
+      if (expected !== undefined && recState[name] !== expected) {
+        throw new Error(
+          `makeInitialState: initialRecruitmentState.${name} must be ${expected} (preset said ${recState[name]})`);
+      }
+    }
+
+    if (cp.id === 'normal') {
+      validateNumeric('normal', 1);
+      return 1.0;
+    }
+    if (cp.id === 'consolidated') {
+      validateNumeric('consolidated', 0);
+      return 0.0;
+    }
+    if (cp.id === 'recruitable') {
+      validateNumeric('recruitable', undefined);
+      return Math.max(0, Math.min(1, recState.recruitable ?? 0));
+    }
+    throw new Error(`unknown compartment id: ${cp.id}`);
   }
 
-  // Default: zero-volume init from AOP.
   const compartments = params.compartments.map((cp) => {
-    const a = (recruitmentState && typeof recruitmentState[cp.id] === 'number')
-      ? clamp01(recruitmentState[cp.id])
-      : recruitmentDefaults[cp.id];
+    const a = availabilityFor(cp);
+    const vmax = a * cp.capacity;
+
+    let volume;
+    if (vmax <= 0) {
+      volume = 0;
+    } else if (peep > aop) {
+      volume = forwardElasticVolume(peep, { ...cp, capacity: vmax }, a, aop);
+    } else {
+      volume = 0;  // lower-bound regime
+    }
+
+    if (vmax <= 0 && Math.abs(volume) > 1e-15) {
+      throw new Error(
+        `initial volume ${volume} > 0 in closed compartment ${cp.id} (Vmax=0)`);
+    }
+    if (vmax > 0 && volume >= vmax) {
+      throw new Error(
+        `initial volume ${volume} exceeds capacity ${vmax} for ${cp.id}`);
+    }
+    if (volume < 0) {
+      throw new Error(
+        `initial volume ${volume} is negative for ${cp.id} ` +
+        `(lower-bound regime violated)`);
+    }
+
+    const alveolarPressure = (a > 0 && peep > aop) ? peep : aop;
+
     return {
       id: cp.id,
-      volume: 0,
+      volume,
       flow: 0,
-      alveolarPressure: aop,
+      alveolarPressure,
       recruitment: a,
     };
   });
+
   return {
     t: 0,
     compartments,
-    airwayPressure: aop,
+    airwayPressure: peep,
     totalFlow: 0,
-    totalVolume: 0,
+    totalVolume: compartments.reduce((s, c) => s + c.volume, 0),
   };
 }
 

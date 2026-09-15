@@ -29,7 +29,8 @@ test('Initial state is finite', () => {
     assert(Number.isFinite(c.alveolarPressure), 'finite alveolarP');
     assert(c.recruitment >= 0 && c.recruitment <= 1, 'r in [0,1]');
   }
-  assert(state.airwayPressure === 0, 'baseline pressure');
+  // v0.4.3: pressure-consistent init at preset's initialPEEP (5 for Baseline).
+  assert(state.airwayPressure === 5, 'airwayPressure equals preset initialPEEP');
   assert(state.totalVolume >= 0, 'non-negative initial volume');
 });
 

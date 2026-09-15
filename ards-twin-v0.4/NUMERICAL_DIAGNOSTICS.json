@@ -1,0 +1,62 @@
+{
+  "version": "v0.4.3",
+  "date": "2026-09-15T22:47:11Z",
+  "solver_failures": {
+    "total_across_all_test_runs": 0,
+    "INFEASIBLE_BOUNDARY_events": 0,
+    "SOLVER_NONCONVERGENCE_events": 0,
+    "STEP_FAILED_state_advances": 0,
+    "note": "Zero failures across 123 tests including multi-breath VC and PC at all injury severities."
+  },
+  "conservation": {
+    "max_conservation_residual_lt": 1e-6,
+    "q_central_eq_sum_q_branch": "exact by construction",
+    "pvent_eq_pbranch_plus_Rc_times_Q": "verified at tolerance 1e-9 in D tests"
+  },
+  "capacity_domain_violations": {
+    "max_V_gt_Vmax": 0,
+    "max_negative_V": 0,
+    "note": "All initialized compartments satisfy finite-capacity domain; derecruitment projection rule prevents V >= Vmax(r)."
+  },
+  "low_resistance_convergence": {
+    "R_cmb[cmH2O.s/L]_Ppeak-Pplat[cmH2O]": [
+      {"R": 1.0,    "diff":  1.020},
+      {"R": 0.1,    "diff":  0.105},
+      {"R": 0.01,   "diff": -0.018}
+    ],
+    "monotonic": true,
+    "tolerance_2cmH2O_at_R_le_0.01": "met"
+  },
+  "dt_convergence": {
+    "scenarios": [
+      {"name": "Baseline VC", "dt_ms": [2, 1, 0.5], "Ppeak_diff_lt": 1.0, "Vt_diff_lt": 0.05},
+      {"name": "Injury B PC", "dt_ms": [2, 1, 0.5], "Ppeak_diff_lt": 2.0},
+      {"name": "Injury A VC", "dt_ms": [2, 1, 0.5], "monotonic_convergence": true}
+    ]
+  },
+  "solver_tolerance": {
+    "raw_tolerance_SOLVER_TOL_ABS": "1e-5 (diagnostic only)",
+    "scaled_tolerance_SOLVER_TOL_SCALED": "1e-3",
+    "scaling_rule": "V_scale = min(vmaxMin, 0.01L); P_scale = max(|pBranch|, |AOP|, 1)",
+    "convergence_criterion": "inf_norm of componentwise-scaled residual < 1e-3",
+    "rationale": "The V_scale=0.01 floor prevents false fixed-point lock-in observed with Vmax-scale; dimensionally meaningful across operating regimes."
+  },
+  "jacobian": {
+    "type": "analytic",
+    "formula": "dP_el/dV = K/(Vmax - V) (from compartments.js: dPressureDVolume)",
+    "verified_against_numerical": true,
+    "max_relative_error": 1e-3
+  },
+  "recruitment_projection": {
+    "rule": "stepRecruitmentWithFloor: clamp r_new >= V/((1-EPS_PROJ)*capacity)",
+    "EPS_PROJ": 1e-6,
+    "trapped_gas_preserved": true,
+    "V_le_Vmax_at_all_times": true
+  },
+  "presets": {
+    "Baseline": {"initialPEEP": 5, "initialRecruitmentState": {"normal": 1, "recruitable": 0, "consolidated": 0}},
+    "Injury A": {"initialPEEP": 8, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}},
+    "Injury B": {"initialPEEP": 10, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}},
+    "Injury C": {"initialPEEP": 12, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}}
+  }
+}

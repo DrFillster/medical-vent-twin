@@ -1,128 +1,47 @@
 {
-  "version": "v0.4.2",
-  "timestamp": "2026-09-15T16:41:28.573816Z",
-  "tests": [
-    {
-      "name": "conservation",
-      "passed": 8,
-      "failed": 0,
-      "summary": "Tests: passed=8 failed=0",
-      "failing": []
-    },
-    {
-      "name": "d_low_resistance",
-      "passed": 2,
-      "failed": 0,
-      "summary": "Tests: passed=2 failed=0",
-      "failing": []
-    },
-    {
-      "name": "deterministic",
-      "passed": 6,
-      "failed": 0,
-      "summary": "Tests: passed=6 failed=0",
-      "failing": []
-    },
-    {
-      "name": "p0_central_airway",
-      "passed": 7,
-      "failed": 0,
-      "summary": "Tests: passed=7 failed=0",
-      "failing": []
-    },
-    {
-      "name": "p0_single_compartment",
-      "passed": 9,
-      "failed": 0,
-      "summary": "Tests: passed=9 failed=0",
-      "failing": []
-    },
-    {
-      "name": "p1_gas_toggle",
-      "passed": 4,
-      "failed": 0,
-      "summary": "Tests: passed=4 failed=0",
-      "failing": []
-    },
-    {
-      "name": "p2_metrics",
-      "passed": 10,
-      "failed": 0,
-      "summary": "Tests: passed=10 failed=0",
-      "failing": []
-    },
-    {
-      "name": "p3_pc_ac",
-      "passed": 6,
-      "failed": 0,
-      "summary": "Tests: passed=6 failed=0",
-      "failing": []
-    },
-    {
-      "name": "p4_recruitment",
-      "passed": 7,
-      "failed": 0,
-      "summary": "Tests: passed=7 failed=0",
-      "failing": []
-    },
-    {
-      "name": "p5_gas_exchange",
-      "passed": 11,
-      "failed": 0,
-      "summary": "Tests: passed=11 failed=0",
-      "failing": []
-    },
-    {
-      "name": "single_rc",
-      "passed": 5,
-      "failed": 0,
-      "summary": "Tests: passed=5 failed=0",
-      "failing": []
-    },
-    {
-      "name": "strict_vc_ac",
-      "passed": 8,
-      "failed": 0,
-      "summary": "Tests: passed=8 failed=0",
-      "failing": []
-    },
-    {
-      "name": "vc_ac",
-      "passed": 6,
-      "failed": 0,
-      "summary": "Tests: passed=6 failed=0",
-      "failing": []
-    }
-  ],
-  "totals": {
-    "files": 13,
-    "passed": 89,
-    "failed": 0
+  "version": "v0.4.3",
+  "date": "2026-09-15T22:46:55Z",
+  "commit": "v0.4.3-numerical-rigor-rewrite",
+  "summary": {
+    "total_pass": 123,
+    "total_fail": 0,
+    "test_suites": [
+      {"name": "a_initialization.test", "pass": 11, "fail": 0},
+      {"name": "b_jacobian.test", "pass": 3, "fail": 0},
+      {"name": "c_small_signal.test", "pass": 1, "fail": 0},
+      {"name": "conservation.test", "pass": 8, "fail": 0},
+      {"name": "d_low_resistance.test", "pass": 2, "fail": 0},
+      {"name": "deterministic.test", "pass": 6, "fail": 0},
+      {"name": "f_recruitment.test", "pass": 4, "fail": 0},
+      {"name": "g_multi_breath.test", "pass": 5, "fail": 0},
+      {"name": "h_dt_convergence.test", "pass": 3, "fail": 0},
+      {"name": "i_failure_semantics.test", "pass": 4, "fail": 0},
+      {"name": "j_instrumentation.test", "pass": 3, "fail": 0},
+      {"name": "p0_central_airway.test", "pass": 7, "fail": 0},
+      {"name": "p0_single_compartment.test", "pass": 9, "fail": 0},
+      {"name": "p1_gas_toggle.test", "pass": 4, "fail": 0},
+      {"name": "p2_metrics.test", "pass": 10, "fail": 0},
+      {"name": "p3_pc_ac.test", "pass": 6, "fail": 0},
+      {"name": "p4_recruitment.test", "pass": 7, "fail": 0},
+      {"name": "p5_gas_exchange.test", "pass": 11, "fail": 0},
+      {"name": "single_rc.test", "pass": 5, "fail": 0},
+      {"name": "strict_vc_ac.test", "pass": 8, "fail": 0},
+      {"name": "vc_ac.test", "pass": 6, "fail": 0}
+    ]
   },
-  "low_resistance_convergence": {
-    "table": [
-      {
-        "Rc": 10,
-        "Rb": 10,
-        "Ppeak-Pplat": 9.889
-      },
-      {
-        "Rc": 1,
-        "Rb": 1,
-        "Ppeak-Pplat": 0.968
-      },
-      {
-        "Rc": 0.1,
-        "Rb": 0.1,
-        "Ppeak-Pplat": 0.072
-      },
-      {
-        "Rc": 0.01,
-        "Rb": 0.01,
-        "Ppeak-Pplat": -0.018
-      }
-    ],
-    "target": "< 0.5 cmH2O at lowest R; achieved -0.018"
+  "acceptance_gate": {
+    "A_initialization": "11/11 — pressure-consistent init, lower-bound regime, preset ownership",
+    "B_jacobian": "3/3 — analytic K/(Vmax-V) verified against numerical derivative",
+    "C_small_signal": "1/1 — tau ≈ R*C_tan within 30% at single-compartment equilibrium",
+    "D_conservation": "8/8 — flow conservation, central resistance, plateau invariance",
+    "E_low_resistance": "2/2 — Ppeak-Pplat → 0 across 3 decades of resistance",
+    "F_recruitment": "4/4 — closed-compartment invariants + derecruitment projection rule",
+    "G_multi_breath": "5/5 — zero solver failures across VC and PC, all injury severities",
+    "H_dt_convergence": "3/3 — monotone convergence at 2/1/0.5 ms",
+    "I_failure_semantics": "4/4 — STEP_FAILED contract, INFEASIBLE_BOUNDARY vs SOLVER_NONCONVERGENCE",
+    "J_instrumentation": "3/3 — machine-readable per-step solver work counters"
   },
-  "dt_convergence_note": "Implicit Euler with Newton-Raphson at dt=0.001s gives convergence to SOLVER_TOL_ABS=1e-5 cmH2O in 1-3 iterations per step. With dt subdivision, the solver degrades gracefully for stiff regimes. dt convergence was not formally tabulated; recommendation is to run at dt=0.001s for clinical simulation."
+  "v0.4.2_baseline_passing_tests": 89,
+  "v0.4.3_new_tests": 34,
+  "v0.4.3_total": 123
 }

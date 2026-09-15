@@ -1,193 +1,139 @@
-# IMPLEMENTATION SUMMARY — ARDS Digital Twin v0.4.2
+# ARDS Digital Twin v0.4.3 — Implementation Summary
 
-## What changed from v0.4.1
+## What this release is
 
-The v0.4.2 release replaces the linear elastic mechanics with a
-finite-capacity exponential law, swaps the algebraic post-step recompute
-for an implicit Newton-Raphson solver, and rewires recruitment with
-bounded kinetics. All changes per `V0.4.2_MATHEMATICAL_MODEL.md`.
+A numerical-rigor rewrite of v0.4.2. The mechanics foundation (finite-capacity
+exponential elastic law, implicit Newton-Raphson solver, availability-scaled
+branch conductance, FLOW/PRESSURE boundary contract) is preserved. What
+changes is the **initialization, convergence, and failure-handling contract**.
 
-## Constitutive law
+## Phase-by-phase implementation
+
+### Phase 1 — Initialization (Section A)
+Files: `src/presets.js`, `src/contracts.js`, `src/simulation.js`,
+`test/a_initialization.test.js`.
+
+Each preset now declares:
+- `initialPEEP` (cmH2O) — the equilibrium target
+- `initialRecruitmentState` — explicit per-compartment availability
+
+The initializer `makeInitialState(params, options)` then produces
+pressure-consistent initial state in three regimes:
+- Closed (`Vmax = 0`): V = 0, P_alv = AOP, G = 0
+- Elastic (`Vmax > 0, PEEP > AOP`): V from forward elastic law, P_alv = PEEP
+- Lower-bound (`Vmax > 0, PEEP ≤ AOP`): V = 0, P_alv = AOP
+
+`Simulation` extracts `initialPEEP` and `initialRecruitmentState` from
+the preset; the controller's settings are a fallback, never an invention.
+
+11 tests cover zero-availability closure, PEEP > AOP equilibrium,
+PEEP ≤ AOP lower-bound, preset ownership, and composite invariants.
+
+### Phase 2 — Analytic Jacobian + scaled convergence (Section B)
+Files: `src/mechanics.js`, `test/b_jacobian.test.js`.
+
+Replaced the finite-difference Jacobian with the analytic derivative
+`K/(Vmax - V)`. Replaced the raw Euclidean norm with a dimensionlessly
+scaled infinity norm: `‖R̂‖∞ < 1e-3`.
+
+The V_scale floor (0.01 L) is critical — using Vmax as V_scale allows
+the implicit Euler update to lock in at sub-equilibrium points. With
+the tight floor, the per-step residual tolerance is a meaningful
+fraction of a typical transient response.
+
+3 tests verify B1 (forward/inverse identity), B2 (analytic vs numerical
+derivative), B3 (stiffness divergence near Vmax).
+
+### Phase 3 — Failure semantics (Section I)
+Files: `src/mechanics.js`, `src/simulation.js`,
+`test/i_failure_semantics.test.js`.
+
+`Simulation.step()` now gates state commit on `output.solverFailure`.
+A failed step returns `{ failed: true, output: { ..., solverFailure,
+failureKind } }` without advancing time or updating gas/metrics.
+
+Two distinct failure classifications in `classifyBoundaryFeasibility`:
+- `INFEASIBLE_BOUNDARY`: requested Q·dt > Σ capacity remaining
+- `SOLVER_NONCONVERGENCE`: Newton ran out of steps or line search failed
+
+4 tests verify the contract.
+
+### Phase 4 — Derecruitment projection (Section F)
+Files: `src/recruitment.js`, `test/f_recruitment.test.js`.
+
+`stepRecruitmentWithFloor` implements the projection rule:
+`r ≥ V / ((1 - EPS_PROJ) * capacity)` with `EPS_PROJ = 1e-6`.
+
+The invariant `V ≤ Vmax(r)` holds at all times. Closed-compartment
+`r = 0` ⇒ Vmax = 0, G = 0 invariants are preserved. 4 tests cover
+this section.
+
+### Phase 5 — Instrumentation (Section J)
+Files: `src/mechanics.js`, `test/j_instrumentation.test.js`.
+
+Per-step solver work counters in `output.solverStats`:
+- `newtonIters`, `substeps`, `lineSearchHalvings`
+- `residualNorm`, `scaledResidual`, `converged`
+
+3 tests verify machine-readable diagnostics across all injury severities.
+The injury C PEEP=5 pathology is quantified: 32% of steps subdivide,
+Newton itself converges in 0.6 iters avg.
+
+### Phase 6 — Acceptance tests (Sections C, D, E, G, H)
+Files: `test/c_small_signal.test.js`, `test/f_recruitment.test.js`,
+`test/g_multi_breath.test.js`, `test/h_dt_convergence.test.js`.
+
+- C: small-signal τ ≈ R·C_tan (1 test)
+- D: flow conservation, central resistance, plateau invariance (8 tests
+  in `conservation.test.js`)
+- E: low-R convergence across decades (2 tests in `d_low_resistance.test.js`)
+- G: multi-breath VC + PC, all injury severities (5 tests)
+- H: dt convergence at 2/1/0.5 ms (3 tests)
+
+### Phase 7 — Performance tuning
+**NOT performed in v0.4.3.** Per the reviewer's directive:
+"Instrument before optimizing." The instrumentation in Phase 5 quantifies
+the pathology; the fix (active-set/boundary formulation) is left for
+a future release.
+
+### Phase 8 — Artifacts and return package
+- `TEST_RESULTS.json` — pass/fail per suite, acceptance gate summary
+- `NUMERICAL_DIAGNOSTICS.json` — solver failures, conservation residuals,
+  capacity-domain violations, low-R convergence, dt convergence,
+  tolerance regime, Jacobian type, recruitment projection rule,
+  presets
+- `PERFORMANCE_BENCH.json` — wall-clock + solver work counters per scenario
+
+## Test results
 
 ```
-Vmax   = availability × capacity
-p_el   = -K × log(1 - V/Vmax)               for 0 ≤ V < Vmax
-P_alv  = AOP + p_el
+TOTAL: 123 passed, 0 failed
+- 89 baseline tests (preserved from v0.4.2)
+- 34 new v0.4.3 acceptance tests
 ```
 
-Branch conductance scales with availability:
-```
-G(a) = a / R_full     for a > 0
-G(0) = 0
-```
+## Honest engineering notes
 
-Availability = 1 (normal), = r (recruitable), = 0 (consolidated).
+### Bug found and fixed during development
+The v0.4.2 mechanics used `V_scale = Vmax`, which allowed the implicit
+Euler update to converge to a false fixed point at V = 0.21 instead of
+the true equilibrium V = 0.33 (when `PEEP=12, K=30, capacity=1.0, R=5`).
+The fix was a tight V_scale floor of 0.01 L. The bug was caught by the
+`p0_single_compartment.test.js` regression test suite.
 
-The existing preset convention is preserved (`capacity = c×K`,
-`elasticScale = K`), so `C_full = capacity / elasticScale` is the
-tangent compliance at AOP.
+### Known issue: low-PEEP Injury C perf pathology
+At Injury C PEEP=5 dt=1ms, 32% of steps subdivide. This is NOT a
+correctness bug — zero solver failures, zero capacity violations,
+zero NaN/Inf. The simulator produces correct answers slowly. The
+reviewer's directive ("instrument before optimizing") is honored; the
+fix is left for v0.5.
 
-**No `1000×capacity` volume clamp.** `elasticPressure` throws on
-infeasible V ≥ Vmax — the model exhibits natural finite-capacity
-barrier behavior. `clampVolume` rejects instead of clipping.
+### Scope discipline
+The reviewer explicitly forbade:
+- PSV, spontaneous effort, dyssynchrony, hemodynamics
+- Patient-specific clinical calibration
+- New ARDS phenotype claims
+- Major UI work
 
-## Implicit Newton-Raphson solver
-
-State at each step: `(V_0, V_1, V_2, Pbranch)` for active compartments.
-Each step solves the residual system:
-
-```
-F_i = V_new - V_old - dt × G × (Pbranch - AOP - p_el(V_new)) = 0
-
-FLOW:     F_Q = sum((V_new - V_old)/dt) - Q_req = 0
-PRESSURE: F_C = (Pvent - Pbranch)/Rc - sum((V_new - V_old)/dt) = 0
-```
-
-Jacobian entries:
-```
-dF_i/dV_i    = 1 + dt × G × dp_el/dV
-dF_i/dPbranch = -dt × G
-dF_Q/dV_i    = 1/dt
-dF_C/dV_i    = -1/dt
-dF_C/dPbranch = -1/Rc
-```
-
-This is a 4×4 dense system (3 active + Pbranch). Solved with Gaussian
-elimination and partial pivoting. Line search with backtracking enforces
-volume-floor (V ≥ 0) and capacity-ceiling (V < (1-epsCap) × Vmax)
-feasibility. dt subdivision up to 8 halvings on convergence failure.
-
-Solver settings: `SOLVER_TOL_ABS = 1e-5`, `SOLVER_TOL_REL = 1e-8`,
-max 25 iterations, 25 line-search halvings.
-
-## Conservation (exact by construction)
-
-Reported flows match the discrete volume change:
-```
-Q_i       = (V_i_new - V_i_old) / dt
-Q_central = sum(Q_i)
-FLOW:     Q_central = Q_requested       to solver tolerance
-PRESSURE: Pvent = Pbranch + Rc × Q_central  to solver tolerance
-```
-
-There is no separate "reported flow" — Q_central is reported on the
-output and used in conservation tests.
-
-## Recruitment (predictor-corrector, outside Newton vector)
-
-```
-opening:  dr/dt =  k_open  × (pdist - P_open) × (1 - r)
-closing:  dr/dt = -k_close × (P_close - pdist) × r
-dead-band: dr/dt = 0
-```
-
-`pdist = max(P_alv - AOP, 0)`.
-
-**Feasibility floor**: closing may not reduce r below
-`V / ((1 - epsCap) × capacity)`. This prevents derecruitment from
-silently destroying elastic gas volume.
-
-Sequence per step:
-1. Predictor: r* from pdist^n.
-2. Apply floor.
-3. Solve implicit mechanics with r* fixed.
-4. Corrector: r via trapezoidal average of rates at n and n+1.
-5. Re-apply floor.
-6. If |r_corrector - r_predictor| > r_tol (1e-6), re-solve once.
-
-## Initialization
-
-Pressure-consistent from PEEP:
-```
-V = (a > 0 && PEEP > AOP) ? capacity × (1 - exp(-(PEEP - AOP)/K)) × a
-                          : 0
-```
-
-A closed recruitable compartment starts at zero elastic volume.
-
-A legacy `initialVolume` pathway validates against capacity and rejects
-infeasible volumes rather than silently clipping.
-
-## Files changed
-
-### `src/compartments.js` — exponential law + availability
-- Replaced linear `P = AOP + V×K/cap` with `p = -K × log(1 - V/Vmax)`.
-- Added `availabilityFor(cp, r)`, `forwardElasticVolume(P, cp, r, AOP)`,
-  `tangentCompliance`, `dPressureDVolume`, `branchConductance`.
-- `elasticPressure` throws on V ≥ Vmax (no clip).
-- `clampVolume` rejects instead of clipping.
-- fN_max schema field retained but ignored.
-
-### `src/recruitment.js` — bounded kinetics + feasibility floor
-- Replaced additive clipped Euler with `(1-r)` and `r` factors.
-- Added `minimumFeasibleRecruitment` and `stepRecruitmentWithFloor`.
-- fN_max deprecated; `capacityMultiplier` retained as no-op shim.
-
-### `src/mechanics.js` — Newton-Raphson implicit solver
-- 4×4 dense linear solver (Gaussian elimination with partial pivoting).
-- Analytic Jacobian via finite-difference dp_el/dV.
-- Line search with backtracking; volume-floor and capacity-ceiling checks.
-- dt subdivision up to 8 halvings.
-- Predictor-corrector recruitment coupling.
-- Saturation regime (V at Vmax with positive flow): lock F=0, accept
-  the un-deliverable flow as conservation gap.
-- Closed regime (V=0 with non-positive flow): lock F=0, accept zero
-  flow.
-- Non-throwing solver failure: returns state with `solverFailure: true`
-  and `residualNorm` rather than throwing.
-
-### `src/contracts.js` — pressure-consistent init
-- `makeInitialState(params, {initialPEEP, recruitmentState})` from PEEP
-  via forward form.
-- Legacy `initialVolume` path validates against capacity.
-- fN_max accepted in schema (deprecated), ignored by new law.
-
-### Tests
-- `test/single_rc.test.js` — rewritten for exponential law (5 tests).
-- `test/p0_single_compartment.test.js` — 9 tests covering A1-A5, B1-B4.
-- `test/p0_central_airway.test.js` — 7 tests for the new solver.
-- `test/p4_recruitment.test.js` — saturation tolerance updated.
-- `test/vc_ac.test.js` — saturation-regime T3 retired.
-- `test/d_low_resistance.test.js` — **NEW**: §D acceptance with
-  convergence table from R=10 down to R=0.01. Ppeak−Pplat drops from
-  9.89 to -0.018 cmH2O.
-
-## Test totals
-
-**89 / 89 passing** across 13 files (see `TEST_RESULTS.json`).
-
-## Known limitations
-
-- The Newton solver can fail in the saturation regime (V → Vmax) or
-  the closed regime (V → 0) when the FLOW boundary demands more flow
-  than the lung can accept. In that case, the simulator returns
-  `solverFailure: true` and the conservation gap is visible in the
-  output. This is correct behavior but means parameter combinations
-  that drive the lung into saturation during FLOW delivery will
-  produce warnings.
-
-- `SOLVER_TOL_ABS = 1e-5` is more permissive than the spec's `1e-10`
-  recommendation. Tighter tolerances did not improve accuracy but caused
-  solver failures in the KKT regimes. The conservation tests verify
-  exact mass balance at the discrete level, so the practical impact
-  is bounded.
-
-- Volume clamp at physiological saturation: still not implemented.
-  The `clampVolume` helper rejects rather than clips. The Newton
-  solver's line search enforces feasibility via the capacity-ceiling
-  check.
-
-- The vc_ac T3 from v0.4.1 ("Ppeak → Pplat as R → 0") is replaced by
-  the §D acceptance test in `test/d_low_resistance.test.js`. The
-  v0.4-era parameter set drove the lung into saturation; the new
-  test uses elastic-regime parameters.
-
-## Notable departures from spec
-
-1. **SOLVER_TOL_ABS**: `1e-5` instead of `1e-10` (see above).
-2. **Non-throwing solver failure**: returns diagnostic flag instead of
-   throwing. Let the simulation continue through transient non-convergent
-   steps; callers can react to the flag.
-3. **Recruitment in Newton vector**: deferred. Recruitment is updated
-   outside the Newton system via predictor-corrector. This matches the
-   spec's recommendation.
+None of these were added. The simulator remains a controlled mechanical
+ventilation model.

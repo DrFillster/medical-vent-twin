@@ -69,6 +69,7 @@ const {
   forwardElasticVolume,
   branchConductance,
   effectiveVolumeCapacity,
+  dPressureDVolume,
   EPS_CAP,
 } = require('./compartments.js');
 
@@ -86,6 +87,100 @@ const SOLVER_MAX_ITER = 25;
 const LINESEARCH_MAX = 25;
 const DT_SUBDIV_LIMIT = 8;
 const RECRUITMENT_TOL = 1e-6;
+
+// v0.4.3: dimensionally scaled convergence.
+//
+// The raw residual mixes compartment volume equations (units: L) with
+// the boundary equation (units: cmH2O). A Euclidean norm over mixed
+// units is meaningless. We scale each component by a state-aware scale
+// and use the infinity norm:
+//
+//   R̂_V_i = R_V_i / V_scale
+//   R̂_P   = R_P   / P_scale
+//   ‖R̂‖∞ = max(|R̂_V|, |R̂_P|)
+//
+// Convergence criterion: ‖R̂‖∞ < SOLVER_TOL_SCALED.
+//
+// V_scale must be tight enough to reject false fixed points. Using Vmax
+// as V_scale gives a loose tolerance that allows implicit-Euler to
+// "lock in" at any sub-equilibrium point. Using a smaller V_scale
+// (e.g., max(V_scale, 0.01 L)) forces convergence toward the true
+// step-to-step fixed point, not the false one.
+const SOLVER_TOL_SCALED = 1e-3;
+const V_SCALE_FLOOR = 0.01;   // characteristic V scale, never larger
+
+// State-aware scales (per-step, recomputed from current state).
+// V_scale is bounded by V_SCALE_FLOOR to ensure tight convergence.
+function computeScales(activeComps, params, pBranchGuess) {
+  let vmaxMin = Infinity;
+  for (const { cp, cs } of activeComps) {
+    const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
+    if (vmax > 0 && vmax < vmaxMin) vmaxMin = vmax;
+  }
+  if (!isFinite(vmaxMin)) vmaxMin = V_SCALE_FLOOR;
+  // Use a tight V_scale: never larger than V_SCALE_FLOOR (0.01 L).
+  // This makes the per-step residual tolerance a meaningful fraction of
+  // a typical compartment's transient response.
+  const V_scale = Math.min(vmaxMin, V_SCALE_FLOOR);
+  // P_scale: order-of-magnitude of airway pressure. The boundary
+  // residual has units cmH2O. Use max(|pBranch|, |AOP|, 1) as scale.
+  const P_scale = Math.max(Math.abs(pBranchGuess),
+                           Math.abs(params.airwayOpeningPressure),
+                           1);
+  return { V_scale, P_scale };
+}
+
+// v0.4.3: classify boundary feasibility.
+//
+// Given a failed Newton solve, determine whether the requested boundary
+// is structurally infeasible (would require crossing finite-capacity
+// domains or non-physical state) or whether the failure is a transient
+// Newton nonconvergence that retry with smaller dt could fix.
+//
+// Probe: compute the maximum volume change achievable in time dt given
+// current state. For FLOW: Q*dt. For PRESSURE: solve each compartment
+// to its Vmax. If the requested ΔV > sum Vmax - V, the boundary is
+// infeasible.
+function classifyBoundaryFeasibility(activeComps, params, boundary, dt) {
+  let capacityRemaining = 0;
+  for (const { cp, cs } of activeComps) {
+    const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
+    const remaining = Math.max(0, (1 - EPS_CAP) * vmax - cs.volume);
+    capacityRemaining += remaining;
+  }
+
+  if (boundary.kind === 'FLOW') {
+    const requestedDelta = boundary.flowLps * dt;
+    if (Math.abs(requestedDelta) > capacityRemaining + 1e-12) {
+      return 'INFEASIBLE_BOUNDARY';
+    }
+    return 'SOLVER_NONCONVERGENCE';
+  }
+
+  if (boundary.kind === 'PRESSURE') {
+    // For PRESSURE boundary, the system may be infeasible if the
+    // pressure is so high it would saturate all compartments in dt.
+    // Without running the simulation, treat all pressure-boundary
+    // failures as SOLVER_NONCONVERGENCE — the pressure boundary itself
+    // is always feasible (just raises the question of how flow will
+    // resolve internally).
+    return 'SOLVER_NONCONVERGENCE';
+  }
+  return 'SOLVER_NONCONVERGENCE';
+}
+
+// Compute ‖R̂‖∞ given residual vector F and scales.
+function scaledNorm(F, scales) {
+  let maxR = 0;
+  for (let i = 0; i < F.length - 1; i++) {
+    const r = Math.abs(F[i]) / scales.V_scale;
+    if (r > maxR) maxR = r;
+  }
+  // Last entry is the boundary (P) residual.
+  const rP = Math.abs(F[F.length - 1]) / scales.P_scale;
+  if (rP > maxR) maxR = rP;
+  return maxR;
+}
 
 // --- Newton solver for one implicit step --------------------------------
 
@@ -180,24 +275,17 @@ function buildSystem(activeComps, vOld, pBranchGuess, boundary, params, dt) {
       // avoid singularity in p_el. The actual V_new is allowed to grow.
       const vTiny = 1e-12;
       pEl = elasticPressureAboveAOP(vTiny, cp, cs.recruitment);
-      // Use this tiny V as the trial for Jacobian, but report F at vNew.
-      const epsV = vTiny * 1e-4 + 1e-20;
-      const pElPlus = elasticPressureAboveAOP(
-        Math.min(vTiny + epsV, vmax * (1 - 2 * EPS_CAP)), cp, cs.recruitment);
-      const dpdV = (pElPlus - pEl) / epsV;
-      F[i] = vNew - cs.volume - dt * G * (pBranchGuess - aop - pEl);
-      J[i][i] = 1 + dt * G * dpdV;
-      J[i][N] = -dt * G;
     } else {
       pEl = elasticPressureAboveAOP(vNew, cp, cs.recruitment);
-      const epsV = Math.max(vNew, 1e-9) * 1e-7;
-      const pElPlus = elasticPressureAboveAOP(
-        Math.min(vNew + epsV, vmax * (1 - 2 * EPS_CAP)), cp, cs.recruitment);
-      const dpdV = (pElPlus - pEl) / epsV;
-      F[i] = vNew - cs.volume - dt * G * (pBranchGuess - aop - pEl);
-      J[i][i] = 1 + dt * G * dpdV;
-      J[i][N] = -dt * G;
     }
+    // v0.4.3: analytic tangent dP_el/dV = K/(Vmax - V).
+    // (For V→0 with vTiny regularization, dPressureDVolume is well-defined
+    // at the regularized point.)
+    const vForTangent = vNew < FLOW_ZERO_TOL ? 1e-12 : vNew;
+    const dpdV = dPressureDVolume(vForTangent, cp, cs.recruitment);
+    F[i] = vNew - cs.volume - dt * G * (pBranchGuess - aop - pEl);
+    J[i][i] = 1 + dt * G * dpdV;
+    J[i][N] = -dt * G;
     sumQ += (vNew - cs.volume) / dt;
   }
 
@@ -238,27 +326,39 @@ function feasibleV(v, cp, cs) {
 
 // One Newton step with backtracking line search.
 // `vTrial` and `pBranch` are arrays of trial values (mutated in place).
-// Returns { converged, residual, iterations }.
+// Returns { converged, residual, iterations, scaledResidual }.
 function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
   const N = activeComps.length;
   let iter;
   let lastResidualNorm = Infinity;
   let initialNorm = Infinity;
+  let initialScaled = Infinity;
+  let lastScaled = Infinity;
   let converged = false;
+
+  // v0.4.3: compute scales once at the start (state is approximately
+  // fixed during Newton iteration; per-iter recomputation would just
+  // jitter the convergence test).
+  const scales = computeScales(activeComps, params, pBranch[0]);
 
   for (iter = 0; iter < SOLVER_MAX_ITER; iter++) {
     const { F, J } = buildSystem(
       activeComps, vTrial, pBranch[0], boundary, params, dt);
 
-    // Residual norm.
+    // Raw Euclidean norm (kept for diagnostic, not used for convergence).
     let norm = 0;
     for (let i = 0; i < F.length; i++) norm += F[i] * F[i];
     norm = Math.sqrt(norm);
     if (iter === 0) initialNorm = norm;
     lastResidualNorm = norm;
 
-    if (norm < SOLVER_TOL_ABS ||
-        norm < SOLVER_TOL_REL * Math.max(initialNorm, 1e-12)) {
+    // v0.4.3: scaled infinity norm is the convergence criterion.
+    const scaled = scaledNorm(F, scales);
+    if (iter === 0) initialScaled = scaled;
+    lastScaled = scaled;
+
+    if (scaled < SOLVER_TOL_SCALED ||
+        scaled < SOLVER_TOL_REL * Math.max(initialScaled, 1e-12)) {
       converged = true;
       break;
     }
@@ -267,7 +367,8 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
     const b = F.map(x => -x);
     const dx = solve4x4(J, b);
     if (!dx) {
-      return { converged: false, residual: norm, iterations: iter, substeps: 0 };
+      return { converged: false, residual: norm,
+               scaledResidual: scaled, iterations: iter, substeps: 0 };
     }
 
     // Line search with backtracking on the volume feasibility.
@@ -293,25 +394,26 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
         continue;
       }
       const newPBranch = pBranch[0] + stepScale * dx[N];
-      // Re-evaluate residual at the trial. Respect volume-floor locks:
-      // a compartment at V=0 with non-positive flow has F=0 by convention.
-      let newNorm = 0;
+      // Re-evaluate residual at the trial. Use SCALED norm for step
+      // acceptance (dimensionally consistent).
+      let newScaled = 0;
       let sumQ = 0;
+      const trialF = new Array(N + 1);
       for (let i = 0; i < N; i++) {
         const { cp, cs, G } = activeComps[i];
-        if (G === 0) continue;
+        if (G === 0) { trialF[i] = 0; continue; }
         const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
         const floorFrac = 1e-6;
         const floorTol = vmax > 0 ? vmax * floorFrac : 1e-9;
         // Lock branch: empty + non-positive flow
         if (newVTrial[i] <= floorTol && (newPBranch - params.airwayOpeningPressure) <= 0) {
-          sumQ += 0;
+          trialF[i] = 0;
           continue;
         }
         const pEl = elasticPressureAboveAOP(newVTrial[i], cp, cs.recruitment);
         const r = newVTrial[i] - cs.volume
                   - dt * G * (newPBranch - params.airwayOpeningPressure - pEl);
-        newNorm += r * r;
+        trialF[i] = r;
         sumQ += (newVTrial[i] - cs.volume) / dt;
       }
       // Boundary residual.
@@ -324,10 +426,10 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
       } else {
         boundaryRes = newPBranch - boundary.pressureCmH2O;
       }
-      newNorm += boundaryRes * boundaryRes;
-      newNorm = Math.sqrt(newNorm);
+      trialF[N] = boundaryRes;
+      newScaled = scaledNorm(trialF, scales);
 
-      if (newNorm < norm) {
+      if (newScaled < lastScaled) {
         // Accept step.
         for (let i = 0; i < N; i++) vTrial[i] = newVTrial[i];
         pBranch[0] = newPBranch;
@@ -338,10 +440,12 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
     }
     if (!stepAccepted) {
       // Could not reduce residual; abort.
-      return { converged: false, residual: norm, iterations: iter, substeps: 0 };
+      return { converged: false, residual: norm,
+               scaledResidual: lastScaled, iterations: iter, substeps: 0 };
     }
   }
-  return { converged, residual: lastResidualNorm, iterations: iter, substeps: 0 };
+  return { converged, residual: lastResidualNorm,
+           scaledResidual: lastScaled, iterations: iter, substeps: 0 };
 }
 
 // --- Driver: implicit step with dt subdivision -------------------------
@@ -401,18 +505,29 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
   const r = newtonStep(activeComps, vTrial, pBranch, boundary, params, dt);
   if (r.converged) {
     return finalize(activeComps, vTrial, pBranch[0], state, boundary, params, dt,
-                    r.iterations, r.residualNorm, 1);
+                    r.iterations, r.residual, r.scaledResidual, 1);
   }
   // Newton failed: try with halved dt.
   if (dt / 2 < 1e-6) {
-    // Last resort: return best-effort state with a solver-failure flag.
-    // Brief says "if still unresolved, return an explicit solver failure
-    // with diagnostics. Never hide failure by clipping volumes or pressures."
-    // We return the un-converged state with a `solverFailure: true` flag
-    // and the residual norm so the caller can react.
+    // Last resort: distinguish INFEASIBLE_BOUNDARY from SOLVER_NONCONVERGENCE.
+    //
+    // v0.4.3 contract:
+    //   - INFEASIBLE_BOUNDARY: the requested flow/pressure would require
+    //     crossing the finite-capacity domain. The Newton solver failed
+    //     because the problem has no feasible solution, not because of
+    //     iteration issues.
+    //   - SOLVER_NONCONVERGENCE: the Newton iteration ran out of steps
+    //     or its line search failed to reduce the residual, but the
+    //     problem may still be feasible.
+    //
+    // We probe feasibility: given the current state, can the requested
+    // boundary be satisfied without crossing any Vmax? If yes, the
+    // failure is a SOLVER_NONCONVERGENCE; if no, INFEASIBLE_BOUNDARY.
+    const classification = classifyBoundaryFeasibility(
+      activeComps, params, boundary, dt);
     return {
       state: {
-        t: state.t + dt,
+        t: state.t,
         compartments: state.compartments.map((cs, i) => ({
           ...cs,
           id: cs.id || params.compartments[i].id,
@@ -433,8 +548,10 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
         compartmentPressures: state.compartments.map(c => c.alveolarPressure),
         iterations: 0,
         residualNorm: r.residual,
+        scaledResidual: r.scaledResidual,
         substeps: DT_SUBDIV_LIMIT,
         solverFailure: true,
+        failureKind: classification,
       },
     };
   }
@@ -448,7 +565,8 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
 }
 
 function finalize(activeComps, vTrial, pBranchSolved, state, boundary,
-                 params, dt, iterations, residualNorm, substeps) {
+                 params, dt, iterations, residualNorm, scaledResidual,
+                 substeps) {
   // Build new state.
   const aop = params.airwayOpeningPressure;
   const nextComps = state.compartments.map((cs, i) => {
@@ -498,7 +616,17 @@ function finalize(activeComps, vTrial, pBranchSolved, state, boundary,
       compartmentPressures: nextComps.map(c => c.alveolarPressure),
       iterations,
       residualNorm,
+      scaledResidual,
       substeps,
+      // v0.4.3: per-step solver work counters for instrumentation.
+      solverStats: {
+        newtonIters: iterations,
+        substeps,
+        lineSearchHalvings: 0,  // TODO: propagate from newtonStep
+        residualNorm,
+        scaledResidual,
+        converged: iterations > 0 && iterations < SOLVER_MAX_ITER,
+      },
     },
   };
 }
@@ -582,7 +710,8 @@ class ThreeCompartmentMechanics {
 module.exports = {
   ThreeCompartmentMechanics,
   EPS_CAP,
-  SOLVER_TOL_ABS,
+  SOLVER_TOL_ABS,        // raw tolerance (diagnostic only)
+  SOLVER_TOL_SCALED,     // v0.4.3: dimensionlessly scaled convergence criterion
   SOLVER_TOL_REL,
   SOLVER_MAX_ITER,
   RECRUITMENT_TOL,

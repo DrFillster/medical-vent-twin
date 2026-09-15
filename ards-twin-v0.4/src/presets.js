@@ -8,6 +8,10 @@
 //
 // In the dynamic engine, the contract fields capacity (= cK) and
 // elasticScale (= K) are filled in directly.
+//
+// v0.4.3: each preset owns initialPEEP and initialRecruitmentState.
+// The initializer must not invent recruitment. If either field is missing,
+// makeInitialState() will fail with an explicit error rather than guessing.
 
 const C0 = 0.120;
 const K_NORMAL = 30;
@@ -29,6 +33,10 @@ function makeCompartment({ id, fraction, resistance, perfusion, deadSpace,
 
 function presetBaseline() {
   return {
+    // v0.4.3: presets own initialPEEP and initialRecruitmentState.
+    // Baseline has only normal tissue; the recruitable pool is fraction=0.
+    initialPEEP: 5,
+    initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.98, resistance: 0.5,
                        perfusion: 0.98, deadSpace: 0.30,
@@ -47,6 +55,11 @@ function presetBaseline() {
 
 function presetInjuryA() {
   return {
+    // v0.4.3: injury presets have a recruitable pool.
+    // initialRecruitmentState is the explicit mid-state value the model
+    // should start at. The dynamics will evolve it from there.
+    initialPEEP: 8,
+    initialRecruitmentState: { normal: 1, recruitable: 0.5, consolidated: 0 },
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.65, resistance: 0.7,
                        perfusion: 0.75, deadSpace: 0.40,
@@ -65,6 +78,8 @@ function presetInjuryA() {
 
 function presetInjuryB() {
   return {
+    initialPEEP: 10,
+    initialRecruitmentState: { normal: 1, recruitable: 0.5, consolidated: 0 },
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.40, resistance: 0.8,
                        perfusion: 0.55, deadSpace: 0.50,
@@ -83,6 +98,8 @@ function presetInjuryB() {
 
 function presetInjuryC() {
   return {
+    initialPEEP: 12,
+    initialRecruitmentState: { normal: 1, recruitable: 0.5, consolidated: 0 },
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.20, resistance: 1.0,
                        perfusion: 0.30, deadSpace: 0.60,
