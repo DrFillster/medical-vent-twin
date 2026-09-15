@@ -1,60 +1,110 @@
 // recruitment.js — stateful dynamic recruitment/derecruitment with hysteresis.
 //
-// Each recruitable compartment tracks a recruitment state in [0, 1].
-// Two thresholds (cmH2O):
-//   P_open  — pressure above which opening accelerates
-//   P_close — pressure below which closing accelerates (P_close < P_open)
+// v0.4.2 kinetics (bounded opening/closing, finite-capacity-feasible):
 //
-// Opening/closing dynamics (deterministic, no stochastic noise):
-//   rate = (P_alv - P_open) * k_open   if P_alv > P_open  (open)
-//   rate = (P_close - P_alv) * k_close if P_alv < P_close (close)
-//   rate = 0                             otherwise (hysteresis dead-band)
+// Driver:  pdist = max(P_alv - AOP, 0)        pressure above AOP, clamped to ≥0
 //
-// dt integration via forward Euler, clipped to [0, 1].
-// Recruitment affects capacity multiplicatively: effective_capacity =
-// capacity * (1 + (fN_max - 1) * recruitment) where fN_max is a per-
-// compartment scaling cap. This matches the rc1 reference convention.
+// Opening:  dr/dt =  k_open * (pdist - P_open) * (1 - r)   if pdist >  P_open
+// Closing:  dr/dt = -k_close * (P_close - pdist) * r       if pdist <  P_close
+// Dead-band: dr/dt = 0                                      otherwise
 //
-// Recruitment state evolves independently per compartment; no cross-
-// compartment coupling. The model is intentionally inspectable — every
-// parameter has a name.
+// Required:  P_close < P_open.
+//
+// The factors (1-r) and r make [0,1] invariant for ordinary steps without
+// hard clipping.
+//
+// Derecruitment feasibility:
+//   A decrease in availability decreases Vmax. The model must never
+//   silently destroy elastic gas volume by clipping V to the new capacity.
+//   For a recruitable compartment, the minimum feasible r is:
+//     r_min = V / ((1 - epsCap) * capacity)
+//   A closing update is clamped to r_min (so closing pauses until enough
+//   gas has actually left through modeled flow).
+//
+// fN_max (the v0.4 multiplicative capacity scaling) is deprecated; the
+// new model uses linear availability scaling instead.
 
-const OPEN_DEFAULT = 25;       // cmH2O
-const CLOSE_DEFAULT = 10;      // cmH2O
+const EPS_CAP = 1e-9;
+
+const OPEN_DEFAULT = 25;       // cmH2O above AOP
+const CLOSE_DEFAULT = 10;      // cmH2O above AOP
 const K_OPEN_DEFAULT = 0.02;   // 1/(cmH2O·s)
 const K_CLOSE_DEFAULT = 0.05;  // 1/(cmH2O·s)
 
-function stepRecruitment(recruitment, PAlv, dt, params = {}) {
+function distendingPressure(pAlv, aop) {
+  return Math.max(0, pAlv - aop);
+}
+
+// Bounded opening/closing rate. Returns dr/dt in 1/s.
+// Caller must enforce P_close < P_open; we throw here if not.
+function recruitmentRate(recruitment, pDist, params = {}) {
   const Popen = params.P_open ?? OPEN_DEFAULT;
   const Pclose = params.P_close ?? CLOSE_DEFAULT;
   const kopen = params.k_open ?? K_OPEN_DEFAULT;
   const kclose = params.k_close ?? K_CLOSE_DEFAULT;
-
-  let r = recruitment;
-  if (PAlv > Popen) {
-    // Above opening threshold: open (recruitment increases).
-    r = r + (PAlv - Popen) * kopen * dt;
-  } else if (PAlv < Pclose) {
-    // Below closing threshold: close (recruitment decreases).
-    r = r - (Pclose - PAlv) * kclose * dt;
+  if (!(Pclose < Popen)) {
+    throw new Error(`P_close (${Pclose}) must be < P_open (${Popen})`);
   }
-  if (r < 0) r = 0;
-  if (r > 1) r = 1;
-  return r;
+  const r = clamp(recruitment, 0, 1);
+  if (pDist > Popen) return kopen * (pDist - Popen) * (1 - r);
+  if (pDist < Pclose) return -kclose * (Pclose - pDist) * r;
+  return 0;
 }
 
-// Compute the effective capacity multiplier for a recruitable compartment.
-// recruitment=0 → multiplier 1 (collapsed/atelectatic tissue contributes
-// nothing extra). recruitment=1 → multiplier = fN_max.
-function capacityMultiplier(recruitment, fN_max = 2.0) {
-  return 1 + (fN_max - 1) * recruitment;
+// Forward-Euler step. Returns the new r in [0,1].
+function stepRecruitment(recruitment, PAlv, dt, params = {}, aop = 0) {
+  const pdist = distendingPressure(PAlv, aop);
+  const rate = recruitmentRate(recruitment, pdist, params);
+  return clamp(recruitment + rate * dt, 0, 1);
+}
+
+// Minimum feasible recruitment given an existing elastic volume.
+// A closing update may not move below this floor.
+// For non-recruitable compartments this returns the constant availability.
+function minimumFeasibleRecruitment(volume, cp, epsCap = EPS_CAP) {
+  if (cp.id !== 'recruitable') {
+    // Normal: availability is 1; consolidated: 0.
+    if (cp.id === 'normal') return 1;
+    if (cp.id === 'consolidated') return 0;
+    throw new Error(`unknown compartment id ${cp.id}`);
+  }
+  if (cp.capacity <= 0) return 0;
+  return clamp(volume / ((1 - epsCap) * cp.capacity), 0, 1);
+}
+
+// Step with feasibility floor. r_candidate is the rate-based update; if
+// it tries to close below the feasible floor (because gas is still in
+// the compartment), it stalls at the floor.
+function stepRecruitmentWithFloor(recruitment, PAlv, dt, volume, cp, aop = 0) {
+  const rCandidate = stepRecruitment(recruitment, PAlv, dt, cp, aop);
+  const rFloor = minimumFeasibleRecruitment(volume, cp);
+  return Math.max(rCandidate, rFloor);
+}
+
+function clamp(x, lo, hi) {
+  if (x < lo) return lo;
+  if (x > hi) return hi;
+  return x;
 }
 
 module.exports = {
-  stepRecruitment,
-  capacityMultiplier,
+  EPS_CAP,
   OPEN_DEFAULT,
   CLOSE_DEFAULT,
   K_OPEN_DEFAULT,
   K_CLOSE_DEFAULT,
+  distendingPressure,
+  recruitmentRate,
+  stepRecruitment,
+  minimumFeasibleRecruitment,
+  stepRecruitmentWithFloor,
+  clamp,
+  // Deprecated (v0.4): kept as a no-op shim for legacy callers. The new law
+  // uses availability-based capacity scaling, not the old capMult * capacity.
+  capacityMultiplier(recruitment, _fN_max) {
+    if (typeof recruitment !== 'number') return 1;
+    if (recruitment < 0) return 1;
+    if (recruitment > 1) return 1;
+    return 1;  // No scaling; the new law scales via availability instead.
+  },
 };

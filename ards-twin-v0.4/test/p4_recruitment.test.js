@@ -39,21 +39,22 @@ test('stepRecruitment: dead-band between P_close and P_open holds r', () => {
     `r ${r.toFixed(6)} should remain at 0.4 in dead-band`);
 });
 
-// ---- T4: recruitment stays in [0, 1] ----
+// ---- T4: recruitment stays in [0, 1] (within floating-point tolerance) ----
 test('stepRecruitment: bounds preserved under saturation', () => {
   let r = 0;
   for (let i = 0; i < 100000; i++) r = stepRecruitment(r, 100, 0.01);
-  assert(r === 1, `r should saturate at 1, got ${r}`);
+  assert(Math.abs(r - 1) < 1e-12, `r should saturate at 1, got ${r}`);
   r = 1;
   for (let i = 0; i < 100000; i++) r = stepRecruitment(r, 0, 0.01);
-  assert(r === 0, `r should saturate at 0, got ${r}`);
+  assert(Math.abs(r) < 1e-12, `r should saturate at 0, got ${r}`);
 });
 
-// ---- T5: capacityMultiplier scales between 1 and fN_max ----
-test('capacityMultiplier: scales 1× at r=0, fN_max× at r=1', () => {
+// ---- T5: capacityMultiplier deprecated (returns 1 in v0.4.2) ----
+test('capacityMultiplier: deprecated — returns 1 (no scaling)', () => {
+  // v0.4.2: fN_max scaling removed. The new law uses linear availability.
   assert(capacityMultiplier(0) === 1);
-  assert(capacityMultiplier(1) === 2);
-  assert(capacityMultiplier(0.5, 4) === 2.5);
+  assert(capacityMultiplier(1) === 1);
+  assert(capacityMultiplier(0.5, 4) === 1);
 });
 
 // ---- T6: in simulation, sustained higher PEEP increases recruited fraction ----

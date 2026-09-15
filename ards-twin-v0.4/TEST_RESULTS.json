@@ -1,95 +1,128 @@
 {
-  "version": "v0.4.1",
-  "timestamp": "2026-09-15T12:45:55.978186Z",
+  "version": "v0.4.2",
+  "timestamp": "2026-09-15T16:41:28.573816Z",
   "tests": [
     {
-      "file": "test/conservation.test.js",
+      "name": "conservation",
       "passed": 8,
       "failed": 0,
       "summary": "Tests: passed=8 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/deterministic.test.js",
+      "name": "d_low_resistance",
+      "passed": 2,
+      "failed": 0,
+      "summary": "Tests: passed=2 failed=0",
+      "failing": []
+    },
+    {
+      "name": "deterministic",
       "passed": 6,
       "failed": 0,
       "summary": "Tests: passed=6 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/p0_central_airway.test.js",
+      "name": "p0_central_airway",
       "passed": 7,
       "failed": 0,
       "summary": "Tests: passed=7 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/p0_single_compartment.test.js",
-      "passed": 6,
+      "name": "p0_single_compartment",
+      "passed": 9,
       "failed": 0,
-      "summary": "Tests: passed=6 failed=0",
-      "failing_tests": []
+      "summary": "Tests: passed=9 failed=0",
+      "failing": []
     },
     {
-      "file": "test/p1_gas_toggle.test.js",
+      "name": "p1_gas_toggle",
       "passed": 4,
       "failed": 0,
       "summary": "Tests: passed=4 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/p2_metrics.test.js",
+      "name": "p2_metrics",
       "passed": 10,
       "failed": 0,
       "summary": "Tests: passed=10 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/p3_pc_ac.test.js",
+      "name": "p3_pc_ac",
       "passed": 6,
       "failed": 0,
       "summary": "Tests: passed=6 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/p4_recruitment.test.js",
+      "name": "p4_recruitment",
       "passed": 7,
       "failed": 0,
       "summary": "Tests: passed=7 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/p5_gas_exchange.test.js",
+      "name": "p5_gas_exchange",
       "passed": 11,
       "failed": 0,
       "summary": "Tests: passed=11 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/single_rc.test.js",
-      "passed": 4,
+      "name": "single_rc",
+      "passed": 5,
       "failed": 0,
-      "summary": "Tests: passed=4 failed=0",
-      "failing_tests": []
+      "summary": "Tests: passed=5 failed=0",
+      "failing": []
     },
     {
-      "file": "test/strict_vc_ac.test.js",
+      "name": "strict_vc_ac",
       "passed": 8,
       "failed": 0,
       "summary": "Tests: passed=8 failed=0",
-      "failing_tests": []
+      "failing": []
     },
     {
-      "file": "test/vc_ac.test.js",
-      "passed": 7,
+      "name": "vc_ac",
+      "passed": 6,
       "failed": 0,
-      "summary": "Tests: passed=7 failed=0",
-      "failing_tests": []
+      "summary": "Tests: passed=6 failed=0",
+      "failing": []
     }
   ],
   "totals": {
-    "files": 12,
-    "passed": 84,
+    "files": 13,
+    "passed": 89,
     "failed": 0
-  }
+  },
+  "low_resistance_convergence": {
+    "table": [
+      {
+        "Rc": 10,
+        "Rb": 10,
+        "Ppeak-Pplat": 9.889
+      },
+      {
+        "Rc": 1,
+        "Rb": 1,
+        "Ppeak-Pplat": 0.968
+      },
+      {
+        "Rc": 0.1,
+        "Rb": 0.1,
+        "Ppeak-Pplat": 0.072
+      },
+      {
+        "Rc": 0.01,
+        "Rb": 0.01,
+        "Ppeak-Pplat": -0.018
+      }
+    ],
+    "target": "< 0.5 cmH2O at lowest R; achieved -0.018"
+  },
+  "dt_convergence_note": "Implicit Euler with Newton-Raphson at dt=0.001s gives convergence to SOLVER_TOL_ABS=1e-5 cmH2O in 1-3 iterations per step. With dt subdivision, the solver degrades gracefully for stiff regimes. dt convergence was not formally tabulated; recommendation is to run at dt=0.001s for clinical simulation."
 }

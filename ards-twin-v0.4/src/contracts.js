@@ -48,6 +48,8 @@ function makeCompartmentParams(p) {
     P_close: typeof reco.P_close === 'number' ? reco.P_close : undefined,
     k_open: typeof reco.k_open === 'number' ? reco.k_open : undefined,
     k_close: typeof reco.k_close === 'number' ? reco.k_close : undefined,
+    // v0.4.2: fN_max is deprecated; the new model uses linear availability
+    // scaling. Accepted for schema-compat but ignored by the new law.
     fN_max: typeof reco.fN_max === 'number' ? reco.fN_max : undefined,
   });
 }
@@ -105,22 +107,114 @@ function cloneState(state) {
   };
 }
 
-function makeInitialState(params, { initialVolume = 0.5 } = {}) {
-  // Distribute initialVolume by tissue fraction as a starting operating point.
-  const compartments = params.compartments.map(c => ({
-    id: c.id,
-    volume: initialVolume * c.fraction,
-    flow: 0,
-    alveolarPressure: 0,
-    recruitment: 0,
-  }));
+// Pressure-consistent initialization (v0.4.2).
+//
+// Default: from initialPEEP, using forward elastic law.
+// Closed recruitable compartments start at zero elastic volume.
+//
+// Backward-compat: if `initialVolume` is provided, distribute by tissue
+// fraction and validate against capacity (rejecting infeasible volumes).
+function makeInitialState(params, options = {}) {
+  const aop = params.airwayOpeningPressure;
+
+  // Determine per-compartment availability.
+  const recruitmentState = options.recruitmentState;
+  const recruitmentDefaults = {
+    normal: 1.0,
+    recruitable: 0.0,
+    consolidated: 0.0,
+  };
+
+  if (typeof options.initialPEEP === 'number') {
+    // Pressure-consistent init from PEEP.
+    const peep = options.initialPEEP;
+    const compartments = params.compartments.map((cp) => {
+      const a = (recruitmentState && typeof recruitmentState[cp.id] === 'number')
+        ? clamp01(recruitmentState[cp.id])
+        : recruitmentDefaults[cp.id];
+      const vmax = a * cp.capacity;
+      let volume = 0;
+      if (a > 0 && peep > aop) {
+        volume = cp.capacity * (1 - Math.exp(-(peep - aop) / cp.elasticScale))
+                 * a;
+      }
+      // Validate against finite-capacity domain.
+      if (volume >= vmax && vmax > 0) {
+        throw new Error(`initial volume ${volume} exceeds capacity ${vmax} for ${cp.id}`);
+      }
+      return {
+        id: cp.id,
+        volume,
+        flow: 0,
+        alveolarPressure: a + aop > 0 ? peep : aop,
+        recruitment: a,
+      };
+    });
+    return {
+      t: 0,
+      compartments,
+      airwayPressure: peep,
+      totalFlow: 0,
+      totalVolume: compartments.reduce((s, c) => s + c.volume, 0),
+    };
+  }
+
+  if (typeof options.initialVolume === 'number') {
+    // Legacy fraction-distributed init, validated against capacity.
+    const initialVolume = options.initialVolume;
+    const compartments = params.compartments.map((c) => {
+      const v = initialVolume * c.fraction;
+      const a = (recruitmentState && typeof recruitmentState[c.id] === 'number')
+        ? clamp01(recruitmentState[c.id])
+        : recruitmentDefaults[c.id];
+      const vmax = a * c.capacity;
+      if (vmax > 0 && v >= vmax) {
+        throw new Error(
+          `initial volume ${v} exceeds compartment capacity ${vmax} for ${c.id}`);
+      }
+      return {
+        id: c.id,
+        volume: v,
+        flow: 0,
+        alveolarPressure: 0,
+        recruitment: a,
+      };
+    });
+    return {
+      t: 0,
+      compartments,
+      airwayPressure: params.airwayOpeningPressure,
+      totalFlow: 0,
+      totalVolume: initialVolume,
+    };
+  }
+
+  // Default: zero-volume init from AOP.
+  const compartments = params.compartments.map((cp) => {
+    const a = (recruitmentState && typeof recruitmentState[cp.id] === 'number')
+      ? clamp01(recruitmentState[cp.id])
+      : recruitmentDefaults[cp.id];
+    return {
+      id: cp.id,
+      volume: 0,
+      flow: 0,
+      alveolarPressure: aop,
+      recruitment: a,
+    };
+  });
   return {
     t: 0,
     compartments,
-    airwayPressure: params.airwayOpeningPressure,
+    airwayPressure: aop,
     totalFlow: 0,
-    totalVolume: initialVolume,
+    totalVolume: 0,
   };
+}
+
+function clamp01(x) {
+  if (x < 0) return 0;
+  if (x > 1) return 1;
+  return x;
 }
 
 module.exports = {

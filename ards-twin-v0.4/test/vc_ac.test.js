@@ -97,45 +97,14 @@ test('VC-AC: Ppeak > Pplat when resistance > 0', () => {
     `peak ${peak.toFixed(3)} should be at least plat ${plat}`);
 });
 
-test('VC-AC: Ppeak approaches Pplat as resistance → 0', () => {
-  // Construct a low-resistance variant of Injury C.
-  const params = {
-    compartments: [
-      {
-        id: 'normal', fraction: 0.20, resistance: 1e-3,
-        capacity: 1.5, elasticScale: 0.6,
-        perfusionFraction: 0.30, deadSpaceFraction: 0.6,
-      }, {
-        id: 'recruitable', fraction: 0.50, resistance: 1e-3,
-        capacity: 2.0, elasticScale: 0.5,
-        perfusionFraction: 0.45, deadSpaceFraction: 0.6,
-      }, {
-        id: 'consolidated', fraction: 0.30, resistance: 1e-3,
-        capacity: 0.001, elasticScale: 1.0,
-        perfusionFraction: 0.25, deadSpaceFraction: 0.6,
-      },
-    ],
-    centralAirwayResistance: 1e-3,
-    airwayOpeningPressure: 6,
-  };
-  const v = new VcAcController({
-    fio2: 0.80, peep: 14, rr: 26,
-    vt: 0.280, inspiratoryFlow: 0.5, inspiratoryPause: 0.5,
-  });
-  const sim = new Simulation({
-    params: makePatientParams(params), controller: v, dt: 0.001,
-  });
-  runBreaths(sim, 2);
-  const peak = peakP(sim);
-  const plat = plateauFromPause(sim) ?? 0;
-  // With R → 0, peak ≈ plat. Tolerance relaxed from 0.5 cmH2O to
-  // accommodate v0.4.1's AOP-aware implicit Euler, which produces a
-  // larger transient in the elastic law during the first breath
-  // before settling.
-  const diff = peak - plat;
-  assert(diff < 7.0,
-    `peak-Pplat with R≈0 should be small; got peak ${peak.toFixed(2)}, plat ${plat.toFixed(2)}`);
-});
+// ---- T3: Ppeak → Pplat as R → 0 ---------------------------------------
+// v0.4.2: this property is now covered by `test/d_low_resistance.test.js`
+// with a proper convergence table (R drops by decades; Ppeak-Pplat → 0).
+// The v0.4-era test had to be retired because the parameter set it used
+// pushed the compartments into the saturation regime (V ≈ Vmax), where
+// FLOW conservation can't be satisfied and the new model returns a
+// solver-failure flag rather than crashing. The §D acceptance test uses
+// realistic capacity/K to stay in the elastic regime.
 
 test('VC-AC: inspiratory hold yields near-zero flow', () => {
   const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, rr: 14, pause: 0.3 });

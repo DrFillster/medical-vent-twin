@@ -20,6 +20,8 @@ const mkParams = PRESETS.Baseline;
 
 test('Initial state is finite', () => {
   const params = makePatientParams(mkParams());
+  // v0.4.2: pressure-consistent init from AOP — zero volume since AOP=0
+  // and distending pressure is zero.
   const state = makeInitialState(params);
   for (const c of state.compartments) {
     assert(Number.isFinite(c.volume), 'finite volume');
@@ -28,7 +30,7 @@ test('Initial state is finite', () => {
     assert(c.recruitment >= 0 && c.recruitment <= 1, 'r in [0,1]');
   }
   assert(state.airwayPressure === 0, 'baseline pressure');
-  assert(state.totalVolume > 0, 'has initial volume');
+  assert(state.totalVolume >= 0, 'non-negative initial volume');
 });
 
 test('Single step produces finite values', () => {
