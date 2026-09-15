@@ -1,0 +1,95 @@
+{
+  "version": "v0.4.1",
+  "timestamp": "2026-09-15T12:45:55.978186Z",
+  "tests": [
+    {
+      "file": "test/conservation.test.js",
+      "passed": 8,
+      "failed": 0,
+      "summary": "Tests: passed=8 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/deterministic.test.js",
+      "passed": 6,
+      "failed": 0,
+      "summary": "Tests: passed=6 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/p0_central_airway.test.js",
+      "passed": 7,
+      "failed": 0,
+      "summary": "Tests: passed=7 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/p0_single_compartment.test.js",
+      "passed": 6,
+      "failed": 0,
+      "summary": "Tests: passed=6 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/p1_gas_toggle.test.js",
+      "passed": 4,
+      "failed": 0,
+      "summary": "Tests: passed=4 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/p2_metrics.test.js",
+      "passed": 10,
+      "failed": 0,
+      "summary": "Tests: passed=10 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/p3_pc_ac.test.js",
+      "passed": 6,
+      "failed": 0,
+      "summary": "Tests: passed=6 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/p4_recruitment.test.js",
+      "passed": 7,
+      "failed": 0,
+      "summary": "Tests: passed=7 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/p5_gas_exchange.test.js",
+      "passed": 11,
+      "failed": 0,
+      "summary": "Tests: passed=11 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/single_rc.test.js",
+      "passed": 4,
+      "failed": 0,
+      "summary": "Tests: passed=4 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/strict_vc_ac.test.js",
+      "passed": 8,
+      "failed": 0,
+      "summary": "Tests: passed=8 failed=0",
+      "failing_tests": []
+    },
+    {
+      "file": "test/vc_ac.test.js",
+      "passed": 7,
+      "failed": 0,
+      "summary": "Tests: passed=7 failed=0",
+      "failing_tests": []
+    }
+  ],
+  "totals": {
+    "files": 12,
+    "passed": 84,
+    "failed": 0
+  }
+}

@@ -1,15 +1,29 @@
 // mechanics.js — ThreeCompartmentMechanics implementing the DynamicMechanics
 // interface from mechanics.spec.ts.
 //
-// Model: central airway node at P_airway drives three parallel compartments
-// (each with R_i, C_i, recruitment state r_i ∈ [0,1]).
+// Model: Pvent --[Rcentral]-- Pbranch --[Ri || Ci(r)]--> x 3 compartments
+//
+// Where:
+//   Pvent  = ventilator/circuit pressure (the sensor/measured point)
+//   Rcentral = central (endotracheal tube, circuit) resistance
+//   Pbranch = distal branching-node pressure (drives the compartments)
+//   Ri, Ci(r) = branch resistance and recruitment-scaled elastance
+//   compartment i alveolar pressure P_alv_i = f(V_i, r_i)
+//
+// Elastic law (linear, recruitment-dependent effective capacity):
+//   P_alv_i = V_i × K_i / (capacity_i × capMult(r_i)) + AOP
+//   capMult(r) = 1 + r × (fN_max − 1), in [1, fN_max]
+//   K_i = elasticScale (cmH2O per unit V fraction)
+//   Units: V in L, P in cmH2O.
 //
 // Per-step update:
-//   1. Compute P_alv_i from each compartment's elastic law at current V, r.
-//   2. Solve Paw given boundary (PRESSURE or FLOW).
-//   3. For each compartment: implicit-Euler V update using effective capacity
-//      (= capacity × capMult(recruitment)).
+//   1. Compute P_alv_i from elastic law at current V, r.
+//   2. Solve Pbranch from boundary (PRESSURE or FLOW) given Rcentral.
+//   3. For each compartment: implicit-Euler V update using effective capacity.
 //   4. Update recruitment state via opening/closing hysteresis.
+//   5. Report Pvent (sensor) as output.airwayPressure; Pbranch drives V updates.
+//
+// Limiting case: Rcentral = 0 reduces to the legacy parallel-RC solution.
 
 const { elasticPressure, clampVolume, effectiveCapacity } = require('./compartments.js');
 const { stepRecruitment } = require('./recruitment.js');
@@ -17,10 +31,11 @@ const { stepRecruitment } = require('./recruitment.js');
 const MAX_ITER = 50;
 const TOL = 1e-9;
 
-function solveAirwayForFlow(boundary, params, compartments) {
-  // Linear solve: sum_i (P_airway − P_alv_i) / R_i = Q_aw, no clamp.
-  // Bi-directional flow is allowed — expiration is a passive recoil.
-  // Compartment with capacity ≈ 0 is a placeholder; it does not participate.
+function solveBranchForFlow(boundary, params, compartments) {
+  // For FLOW boundary: Q = Q_requested. Solve Pbranch such that
+  //   Σ_i (Pbranch − P_alv_i) / R_i = Q
+  // => Pbranch = (Q + Σ P_alv_i/R_i) / Σ 1/R_i
+  // Pvent is then Pbranch + Q × Rcentral.
   let sumInvR = 0, sumPoverR = 0;
   for (let i = 0; i < compartments.length; i++) {
     const cp = params.compartments[i];
@@ -32,10 +47,35 @@ function solveAirwayForFlow(boundary, params, compartments) {
     sumInvR += 1 / cp.resistance;
     sumPoverR += pAlv / cp.resistance;
   }
-  if (sumInvR === 0) return { pAirway: 0, delivered: 0,
-                              requested: boundary.flowLps };
-  const pAirway = (boundary.flowLps + sumPoverR) / sumInvR;
-  let delivered = 0;
+  const Q = boundary.flowLps;
+  const Rc = params.centralAirwayResistance;
+  let pBranch, deliveredBranch;
+  if (sumInvR === 0) {
+    pBranch = 0;
+    deliveredBranch = 0;
+  } else {
+    pBranch = (Q + sumPoverR) / sumInvR;
+    deliveredBranch = 0;
+    for (let i = 0; i < compartments.length; i++) {
+      const cp = params.compartments[i];
+      if (cp.resistance <= 0) continue;
+      if (cp.capacity <= 1e-12) continue;
+      const cs = compartments[i];
+      const pAlv = elasticPressure(cs.volume, cp, cs.recruitment,
+                                    params.airwayOpeningPressure);
+      deliveredBranch += (pBranch - pAlv) / cp.resistance;
+    }
+  }
+  // Q traverses Rcentral: Pvent = Pbranch + Q × Rcentral.
+  const pVent = pBranch + Q * Rc;
+  return { pBranch, pVent, delivered: deliveredBranch, requested: Q };
+}
+
+function solveBranchForPressure(boundary, params, compartments) {
+  // For PRESSURE boundary: Pvent is imposed. Solve Pbranch from
+  //   (Pvent − Pbranch) / Rcentral = Σ (Pbranch − P_alv_i) / R_i
+  // => Pbranch × (Σ 1/R_i + 1/Rcentral) = Pvent/Rcentral + Σ P_alv_i/R_i
+  let sumInvR = 0, sumPoverR = 0;
   for (let i = 0; i < compartments.length; i++) {
     const cp = params.compartments[i];
     if (cp.resistance <= 0) continue;
@@ -43,9 +83,37 @@ function solveAirwayForFlow(boundary, params, compartments) {
     const cs = compartments[i];
     const pAlv = elasticPressure(cs.volume, cp, cs.recruitment,
                                   params.airwayOpeningPressure);
-    delivered += (pAirway - pAlv) / cp.resistance;
+    sumInvR += 1 / cp.resistance;
+    sumPoverR += pAlv / cp.resistance;
   }
-  return { pAirway, delivered, requested: boundary.flowLps };
+  const Rc = params.centralAirwayResistance;
+  const pVent = boundary.pressureCmH2O;
+  let pBranch, deliveredCentral;
+  if (Rc <= 0) {
+    // Rcentral = 0 → Pbranch = Pvent (legacy parallel-RC solution).
+    pBranch = pVent;
+    // Central flow = sum of branch flows (no drop across Rcentral).
+    deliveredCentral = 0;
+    if (sumInvR > 0) {
+      for (let i = 0; i < compartments.length; i++) {
+        const cp = params.compartments[i];
+        if (cp.resistance <= 0) continue;
+        if (cp.capacity <= 1e-12) continue;
+        const cs = compartments[i];
+        const pAlv = elasticPressure(cs.volume, cp, cs.recruitment,
+                                      params.airwayOpeningPressure);
+        deliveredCentral += (pBranch - pAlv) / cp.resistance;
+      }
+    }
+  } else if (sumInvR === 0) {
+    // No branches — central flow = 0, Pbranch = Pvent.
+    pBranch = pVent;
+    deliveredCentral = 0;
+  } else {
+    pBranch = (pVent / Rc + sumPoverR) / (sumInvR + 1 / Rc);
+    deliveredCentral = (pVent - pBranch) / Rc;
+  }
+  return { pBranch, pVent, delivered: deliveredCentral, requested: null };
 }
 
 function compartmentFlow(pAirway, pAlv, R) {
@@ -61,13 +129,18 @@ class ThreeCompartmentMechanics {
     }
     const compartments = state.compartments;
 
-    let pAirway, requestedFlow = null;
+    let pBranch, pVent, requestedFlow = null, deliveredCentral = 0;
     if (boundary.kind === 'PRESSURE') {
-      pAirway = boundary.pressureCmH2O;
+      const r = solveBranchForPressure(boundary, params, compartments);
+      pBranch = r.pBranch;
+      pVent = r.pVent;
+      deliveredCentral = r.delivered;
     } else {
-      const r = solveAirwayForFlow(boundary, params, compartments);
-      pAirway = r.pAirway;
+      const r = solveBranchForFlow(boundary, params, compartments);
+      pBranch = r.pBranch;
+      pVent = r.pVent;
       requestedFlow = r.requested;
+      deliveredCentral = r.delivered;
     }
 
     const nextComps = [];
@@ -86,15 +159,19 @@ class ThreeCompartmentMechanics {
       const capEff = effectiveCapacity(cp, cs.recruitment);
       const pAlv = elasticPressure(cs.volume, cp, cs.recruitment,
                                     params.airwayOpeningPressure);
-      const q = compartmentFlow(pAirway, pAlv, cp.resistance);
+      // Compartments connect to Pbranch (distal of Rcentral).
+      const q = compartmentFlow(pBranch, pAlv, cp.resistance);
 
       // Implicit-Euler update for V with effective (recruitment-scaled) capacity.
+      // ODE: dV/dt = (Pbranch − P_alv) / R = (Pbranch − AOP − V·K/capEff) / R.
+      // => V_new × (1 + K·dt / (R·capEff)) = V_old + (Pbranch − AOP)·dt / R
       const K = cp.elasticScale;
       const R = cp.resistance;
       let vNew;
       if (R > 0) {
         const denom = 1 + (K * dt) / (R * capEff);
-        vNew = (cs.volume + (pAirway * dt) / R) / denom;
+        const aop = params.airwayOpeningPressure;
+        vNew = (cs.volume + ((pBranch - aop) * dt) / R) / denom;
       } else {
         vNew = cs.volume;
       }
@@ -106,7 +183,7 @@ class ThreeCompartmentMechanics {
       // Recompute q and P_alv at the new state for output fidelity.
       const pAlvNew = elasticPressure(cs.volume, cp, cs.recruitment,
                                        params.airwayOpeningPressure);
-      const qNew = compartmentFlow(pAirway, pAlvNew, R);
+      const qNew = compartmentFlow(pBranch, pAlvNew, R);
       cs.flow = qNew;
       cs.alveolarPressure = pAlvNew;
       nextComps.push(cs);
@@ -116,18 +193,45 @@ class ThreeCompartmentMechanics {
     let vTotal = 0;
     for (const c of nextComps) vTotal += c.volume;
 
+    // Re-solve Pbranch and Q_central at the NEW state for honest
+    // conservation reporting. With implicit Euler, the pre-step solve
+    // is consistent at OLD state; the post-step sum of branch flows
+    // can drift; recomputing at NEW state restores identity.
+    const newCompsForSolve = nextComps;
+    let pBranchNew, deliveredCentralNew;
+    if (boundary.kind === 'PRESSURE') {
+      const r = solveBranchForPressure(
+        { kind: 'PRESSURE', pressureCmH2O: pVent, fio2: boundary.fio2 },
+        params, newCompsForSolve);
+      pBranchNew = r.pBranch;
+      deliveredCentralNew = r.delivered;
+    } else {
+      const r = solveBranchForFlow(
+        { kind: 'FLOW', flowLps: requestedFlow, fio2: boundary.fio2 },
+        params, newCompsForSolve);
+      pBranchNew = r.pBranch;
+      // For FLOW, solveBranchForFlow returns deliveredBranch = ΣQ_branch
+      // at the NEW state, which by construction equals Q_requested.
+      // Use that as Q_central (not (Pvent - pBranch)/Rc).
+      deliveredCentralNew = r.delivered;
+    }
+
     const newState = {
       t: state.t + dt,
       compartments: nextComps,
-      airwayPressure: pAirway,
+      airwayPressure: pVent,
       totalFlow: qTotal,
       totalVolume: vTotal,
     };
 
     const reportedFlow = (vTotal - state.totalVolume) / dt;
     const output = {
-      airwayPressure: pAirway,
+      // Pvent is the sensor/measured airway pressure; Pbranch is the
+      // distal pressure driving the compartments.
+      airwayPressure: pVent,
+      branchPressure: pBranchNew,
       airwayFlow: reportedFlow,
+      centralFlow: deliveredCentralNew,
       deliveredVolume: vTotal,
       totalVolume: vTotal,
       compartmentVolumes: nextComps.map(c => c.volume),
@@ -136,7 +240,7 @@ class ThreeCompartmentMechanics {
     };
 
     if (requestedFlow !== null) {
-      const gap = requestedFlow - qTotal;
+      const gap = requestedFlow - deliveredCentralNew;
       if (Math.abs(gap) > 0.01) {
         output.requestedFlow = requestedFlow;
         output.deliveryGap = gap;
@@ -147,4 +251,8 @@ class ThreeCompartmentMechanics {
   }
 }
 
-module.exports = { ThreeCompartmentMechanics, solveAirwayForFlow };
+module.exports = {
+  ThreeCompartmentMechanics,
+  solveBranchForFlow,
+  solveBranchForPressure,
+};
