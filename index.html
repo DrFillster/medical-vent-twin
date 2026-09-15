@@ -13,13 +13,18 @@
 
 <h2>Releases</h2>
 <ul>
-  <li><strong><a href="ards-twin-v0.3/">ARDS virtual-patient v0.3</a></strong> &mdash; dynamic three-compartment engine with VC-AC ventilator controller. Node test suite: 25/25 acceptance tests passing (deterministic, conservation, single-RC, VC-AC). Source: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.3">GitHub</a>.</li>
+  <li><strong><a href="ards-twin-v0.4/HANDOFF_README.md">ARDS virtual-patient v0.4.2</a></strong> &mdash; nonlinear mechanics (finite-capacity exponential elastic law, Newton-Raphson implicit solver with conservation by construction, bounded recruitment kinetics with feasibility floor). 89/89 tests passing across 13 files. Low-resistance convergence verified: Ppeak&minus;Pplat drops 9.89 &rarr; -0.018 cmH2O as R &rarr; 0.01. Source: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4">GitHub</a>.</li>
+  <li><strong><a href="ards-twin-v0.3/HANDOFF_README.md">ARDS virtual-patient v0.3</a></strong> &mdash; dynamic three-compartment engine with VC-AC ventilator controller. Node test suite: 25/25 acceptance tests passing (deterministic, conservation, single-RC, VC-AC). Source: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.3">GitHub</a>.</li>
   <li><strong><a href="lung-reference/">Lung simulator v0.2.0-rc1</a></strong> &mdash; static reference implementation with browser UI, manuscript, and cross-language verification (Python + JS, 24/24 tests, 1e-6 tolerance).</li>
   <li><strong><a href="_previous-draft/index.html">v0.1 single-file simulator</a></strong> &mdash; previous draft preserved for archival reference.</li>
 </ul>
 
 <h2>Specs &amp; docs</h2>
 <ul>
+  <li><a href="ards-twin-v0.4/HANDOFF_README.md">v0.4 architecture handoff</a> &mdash; mechanics, solver, recruitment, conservation contract.</li>
+  <li><a href="ards-twin-v0.4/REVIEW_NOTES.md">v0.4 review notes</a> &mdash; solver tolerance choices, KKT regime handling, departure rationale.</li>
+  <li><a href="ards-twin-v0.4/CHANGELOG.md">v0.4 changelog</a> &mdash; per-version correction history.</li>
+  <li><a href="ards-twin-v0.4/TEST_RESULTS.json">v0.4.2 test results</a> &mdash; machine-readable pass/fail with low-R convergence table.</li>
   <li><a href="ards-twin-v0.3/HANDOFF_README.md">v0.3 architecture handoff</a> &mdash; the spec that v0.3 implements.</li>
   <li><a href="lung-reference/paper.html">Manuscript draft</a> &mdash; rewritten per v0.3 handoff brief.</li>
 </ul>
