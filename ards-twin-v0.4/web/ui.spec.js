@@ -1,11 +1,11 @@
-// ui.spec.js — End-to-end smoke tests for the ARDS v0.4.2 browser UI.
+// ui.spec.js — End-to-end smoke tests for the Mechanistic Lung Simulator v0.4.4.1 browser UI.
 //
 // Validates:
 //   - Page loads and the bundle responds 200.
 //   - Default auto-run populates all metric tiles with finite numbers.
 //   - SVG waveform paths render (Paw + Volume).
 //   - Recruitment bars are drawn for all three compartments.
-//   - Preset switch (Baseline → phenotype_high_recruitability) changes the metrics.
+//   - Preset switch (phenotype_baseline → phenotype_high_recruitability) changes the metrics.
 //   - Run button toggles disabled state and re-runs cleanly.
 //   - Solver diagnostics show zero failures on a healthy run.
 
@@ -18,7 +18,7 @@ const URL = /\/(ards-twin-v0\.4\/web|web)\/?$/.test(BASE)
   ? BASE.replace(/\/?$/, '/')
   : `${BASE.replace(/\/$/, '')}/ards-twin-v0.4/web/`;
 
-test.describe('ARDS v0.4.2 browser UI', () => {
+test.describe('Mechanistic Lung Simulator v0.4.4.1 browser UI', () => {
   test('page loads with bundle and CSS', async ({ page }) => {
     const resp = await page.goto(URL);
     expect(resp?.status(), 'page should return 200').toBe(200);
@@ -26,8 +26,8 @@ test.describe('ARDS v0.4.2 browser UI', () => {
     const bundle = await page.request.get(URL + 'ards-v042.bundle.js');
     expect(bundle.status(), 'bundle should return 200').toBe(200);
     // Title and headline.
-    await expect(page).toHaveTitle(/ARDS Digital Twin v0\.4\.2/);
-    await expect(page.locator('header h1')).toContainText('ARDS Digital Twin v0.4.2');
+    await expect(page).toHaveTitle(/Mechanistic Lung Simulator v0\.4\.4\.1/);
+    await expect(page.locator('header h1')).toContainText('Mechanistic Lung Simulator v0.4.4.1');
   });
 
   test('default auto-run populates metric tiles', async ({ page }) => {
@@ -48,7 +48,7 @@ test.describe('ARDS v0.4.2 browser UI', () => {
       expect(Number.isFinite(parsed), `${id} should be finite, got "${txt}"`)
         .toBe(true);
     }
-    // Clinically plausible ranges for Baseline default (PEEP=5, Vt=0.480).
+    // Clinically plausible ranges for the Reference phenotype default (PEEP=5, Vt=0.480).
     const ppeak = parseFloat(await page.locator('#m-ppeak').textContent());
     expect(ppeak).toBeGreaterThan(5);    // at least PEEP
     expect(ppeak).toBeLessThan(40);      // not absurd
@@ -135,7 +135,7 @@ test.describe('ARDS v0.4.2 browser UI', () => {
     expect(Number.isFinite(ppeak)).toBe(true);
   });
 
-  test('solver diagnostics show step count and zero failures on Baseline',
+  test('solver diagnostics show step count and zero failures on the Reference phenotype',
     async ({ page }) => {
     await page.goto(URL);
     await expect(page.locator('#run')).toBeEnabled({ timeout: 15_000 });
@@ -143,7 +143,7 @@ test.describe('ARDS v0.4.2 browser UI', () => {
     await page.locator('details summary:has-text("Solver diagnostics")').click();
     const diag = await page.locator('#diag').textContent();
     expect(diag, 'diag should mention step count').toMatch(/Steps:\s+\d+/);
-    expect(diag, 'Baseline should have zero solver failures')
+    expect(diag, 'Reference phenotype should have zero solver failures')
       .toMatch(/Solver failures:\s+0/);
     // Newton iters should be a small average (implicit solver converges fast).
     expect(diag).toMatch(/Newton iters:\s+avg=\d+\.\d{2}/);

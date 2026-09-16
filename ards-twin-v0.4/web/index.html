@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>ARDS Digital Twin v0.4.2</title>
+<title>Mechanistic Lung Simulator v0.4.4.1</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow">
 <style>
@@ -129,7 +129,7 @@
 </head>
 <body>
 <header>
-  <h1>ARDS Digital Twin v0.4.2</h1>
+  <h1>Mechanistic Lung Simulator v0.4.4.1</h1>
   <p>Three-compartment mechanical ventilation simulator &mdash; Newton-Raphson implicit solver, finite-capacity exponential elastic law, bounded recruitment. JS port; runs entirely in the browser.</p>
 </header>
 <main>
@@ -137,10 +137,10 @@
     <h2 style="margin-top:0;font-size:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Patient</h2>
     <label for="preset">Preset</label>
     <select id="preset">
-      <option value="phenotype_baseline">Baseline (healthy)</option>
-      <option value="phenotype_low_recruitability">phenotype_low_recruitability — mild</option>
-      <option value="phenotype_moderate_recruitability">phenotype_moderate_recruitability — moderate</option>
-      <option value="phenotype_high_recruitability">phenotype_high_recruitability — severe</option>
+      <option value="phenotype_baseline">Reference phenotype (healthy)</option>
+      <option value="phenotype_low_recruitability">Low-recruitability phenotype (mechanical construct)</option>
+      <option value="phenotype_moderate_recruitability">Moderate-recruitability phenotype (mechanical construct)</option>
+      <option value="phenotype_high_recruitability">High-recruitability phenotype (mechanical construct)</option>
     </select>
 
     <h2 style="margin-top:1.5em;font-size:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">VC-A/C settings</h2>
@@ -168,8 +168,8 @@
 
     <details>
       <summary>About this simulator</summary>
-      <p class="ver">v0.4.2 mechanics: finite-capacity exponential elastic law (`p = -K·log(1-V/Vmax)`), Newton-Raphson implicit solver, conservation exact by construction, bounded recruitment kinetics with feasibility floor.</p>
-      <p class="ver">89/89 tests pass server-side; this UI runs the same simulator in the browser at your chosen dt. Larger dt is faster but less accurate.</p>
+      <p class="ver">v0.4.4.1 mechanics: finite-capacity exponential elastic law (`p = -K·log(1-V/Vmax)`), Newton-Raphson implicit solver, conservation exact by construction, bounded recruitment kinetics with feasibility floor.</p>
+      <p class="ver">127/127 tests pass server-side; this UI runs the same simulator in the browser at your chosen dt. Larger dt is faster but less accurate. Phenotypes are mechanical-construct labels (Reference / Low-, Moderate-, High-recruitability), not validated ARDS severity grades.</p>
     </details>
   </aside>
 
@@ -210,7 +210,7 @@
   </section>
 </main>
 <footer class="footer">
-  <span class="ver">vent.defying-logic.com/ards-twin-v0.4/web/ &middot; <a href="../ards-twin-v0.4/HANDOFF_README.md" style="color:var(--accent)">v0.4.2 handoff README</a> &middot; <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4" style="color:var(--accent)">GitHub source</a></span>
+  <span class="ver">vent-twin-v0.4.4.1 &middot; <a href="../ards-twin-v0.4/HANDOFF_README.md" style="color:var(--accent)">v0.4.4.1 handoff README</a> &middot; <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4" style="color:var(--accent)">GitHub source</a></span>
 </footer>
 <script type="module" src="./app.js"></script>
 </body>

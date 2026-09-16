@@ -1,4 +1,4 @@
-// playwright.config.js — ARDS v0.4.2 browser UI smoke tests.
+// playwright.config.js — Mechanistic Lung Simulator v0.4.4.1 browser UI smoke tests.
 // Runs against the deployed site at vent.defying-logic.com.
 // Override the base URL with `BASE_URL=... npx playwright test`.
 

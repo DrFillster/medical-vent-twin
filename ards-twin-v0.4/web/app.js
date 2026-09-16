@@ -1,4 +1,4 @@
-// app.js — ARDS Digital Twin v0.4.4.1 browser UI
+// app.js — Mechanistic Lung Simulator v0.4.4.1 browser UI
 // Loads the simulator bundle, runs VC-A/C breaths, displays metrics + waveform.
 
 import {

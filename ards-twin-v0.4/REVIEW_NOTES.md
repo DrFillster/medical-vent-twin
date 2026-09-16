@@ -1,4 +1,4 @@
-# ARDS Digital Twin v0.4.4.1 — Review Notes
+# Mechanistic Lung Simulator v0.4.4.1 — Review Notes
 
 > **v0.4.4.1 (this release)** is a phenotype-rename release. Mechanical parameters, solver, and numerical behavior are unchanged from v0.4.4. The previous v0.4.4 review notes are preserved below for historical context.
 

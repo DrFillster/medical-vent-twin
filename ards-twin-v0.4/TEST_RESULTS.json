@@ -1,8 +1,8 @@
 {
   "version": "v0.4.4.1",
-  "date": "2026-09-16T19:50:51Z",
+  "date": "2026-09-16T20:54:26Z",
   "host": "macOS Apple Silicon (M-series), Node v26.8.2",
-  "note": "v0.4.4.1 final sync: phenotype rename only, package metadata aligned to v0.4.4.1. Mechanical parameters and solver unchanged from v0.4.4.",
+  "note": "v0.4.4.1 final label cleanup. Mechanics, solver, and phenotype parameters unchanged from v0.4.4.",
   "test_counts": {
     "total_pass": 127,
     "total_fail": 0,
