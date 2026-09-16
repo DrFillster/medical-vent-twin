@@ -292,26 +292,10 @@ This work is **not peer reviewed**. The artifact is an **educational exploration
 
 ## 7. Availability
 
-### On the website (vent.defying-logic.com)
-
-- Simulator: https://vent.defying-logic.com/ards-twin-v0.4/web/ — runs in the browser, all four presets, VC-A/C and PC-A/C modes, ~1 ms default dt.
-- This manuscript: https://vent.defying-logic.com/ards-twin-v0.4/MANUSCRIPT.md
-- Manuscript bundle (final, with changelog and review notes):
-  - `MANUSCRIPT_FINAL.md` — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL.md
-  - `MANUSCRIPT_CHANGELOG.md` — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md
-  - `MANUSCRIPT_REVIEW_NOTES.md` — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md
-  - `SHA256SUMS.txt` — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/SHA256SUMS.txt
-
-### In the source repository (this file's source of truth)
-
-- Source: https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4
-- Source tree: `ards-twin-v0.4/src/` (CommonJS), `ards-twin-v0.4/test/` (21 files, 127 assertions)
-- Run: `npm test` from the project root after `unzip vent-twin-v0.4.4.1-final-clean.zip`
-
-### In Drive (ZIP archives)
-
-- `vent-twin-v0.4.4.1-final-clean.zip` — full runnable simulator package + `FINAL_CLEANUP_CHANGELOG.md` + `FINAL_CLEANUP_VERIFICATION.md`
-- `vent-manuscript-v0.4.4.1-final.zip` — manuscript + changelog + review notes + SHA256SUMS
+- Source: `ards-twin-v0.4.1/src/`
+- Tests: `ards-twin-v0.4.1/test/` (21 files, 127 assertions)
+- Run: `npm test` from the project root after `unzip vent-twin-v0.4.4.1-final.zip`
+- Documentation: `MANUSCRIPT_FINAL.md` (this file), `MANUSCRIPT_CHANGELOG.md`, `MANUSCRIPT_REVIEW_NOTES.md` are bundled in `vent-manuscript-v0.4.4.1-final.zip`
 
 ## 8. Reproducibility commands
 
