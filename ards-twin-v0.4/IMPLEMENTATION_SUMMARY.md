@@ -101,6 +101,7 @@ This breaks down as:
 - TEST_RESULTS.json (127/0)
 - NUMERICAL_DIAGNOSTICS.json (127/0)
 - PERFORMANCE_BENCH.json (4 scenarios)
+- MANUSCRIPT.md (publication-style report)
 - CHANGELOG.md
 - REVIEW_NOTES.md
 - IMPLEMENTATION_SUMMARY.md (this file)

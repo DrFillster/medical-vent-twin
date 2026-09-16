@@ -15,17 +15,21 @@ Expected output: `TOTAL: 127 passed, 0 failed`.
 ```
 vent-twin-v0.4/
 ├── package.json              # npm test runs test/runner.js
-├── src/                      # Source code
+├── MANUSCRIPT.md             # v0.4.4 publication-style report (computational verification)
+├── src/                      # Source code (CommonJS)
 │   ├── contracts.js          # makeInitialState, makePatientParams, …
 │   ├── presets.js            # Phenotypes (mechanics only, no initial state)
 │   ├── mechanics.js          # ThreeCompartmentMechanics, direction-aware classifyBoundaryFeasibility
 │   ├── recruitment.js        # stepRecruitment, capacityMultiplier
 │   ├── simulation.js         # Simulation requires initialPEEP + initialRecruitmentState
+│   ├── compartments.js       # forwardElasticVolume, dPressureDVolume
 │   ├── ventilator/           # VC/PC controllers
 │   ├── gas_exchange.js
-│   └── metrics.js
+│   ├── clock.js              # SimulationClock
+│   ├── metrics.js
+│   └── reference_adapter.js
 ├── test/                     # 21 .test.js files + runner.js
-├── web/                      # Browser harness (index.html, app.js)
+├── web/                      # Browser harness (index.html, app.js, ards-v044.bundle.js)
 ├── TEST_RESULTS.json         # 127/0 totals
 ├── NUMERICAL_DIAGNOSTICS.json # Solver failures, conservation residuals
 ├── PERFORMANCE_BENCH.json    # Wall-clock vs mechanics_steps
@@ -34,6 +38,10 @@ vent-twin-v0.4/
 ├── IMPLEMENTATION_SUMMARY.md
 └── HANDOFF_README.md (this file)
 ```
+
+## Manuscript
+
+`MANUSCRIPT.md` is the publication-style report for v0.4.4. It describes the phenotype / scenario separation, the analytic Jacobian, scaled convergence, direction-aware feasibility, and the 127-test acceptance battery. Use that document for a single-pass read; the four MDs in this directory cover narrower topics (CHANGELOG, REVIEW_NOTES, IMPLEMENTATION_SUMMARY, HANDOFF_README).
 
 ## v0.4.4 contract (phenotype vs scenario)
 
