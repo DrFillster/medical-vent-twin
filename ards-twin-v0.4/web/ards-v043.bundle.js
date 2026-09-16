@@ -1,3 +1,4 @@
+// HISTORICAL v0.4.3 bundle — preserved for reference. The current release bundle is ards-v044.bundle.js (v0.4.4.1, mechanical-construct preset labels).
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1822,9 +1823,9 @@ var require_presets = __commonJS({
     }
     var PRESETS2 = Object.freeze({
       Baseline: presetBaseline,
-      "Injury A": presetInjuryA,
-      "Injury B": presetInjuryB,
-      "Injury C": presetInjuryC
+      "phenotype_low_recruitability": presetInjuryA,
+      "phenotype_moderate_recruitability": presetInjuryB,
+      "phenotype_high_recruitability": presetInjuryC
     });
     module.exports = { PRESETS: PRESETS2 };
   }

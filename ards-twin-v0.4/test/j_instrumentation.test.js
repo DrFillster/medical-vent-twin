@@ -60,21 +60,21 @@ function collectDiagnostics(presetName, controllerFactory) {
 test('J1: solver diagnostics are machine-readable per preset', () => {
   const mk = () => new VcAcController({ fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
-  const diag = collectDiagnostics('Baseline', mk);
+  const diag = collectDiagnostics('phenotype_baseline', mk);
   assert(diag.mechanicsSteps > 0, 'mechanicsSteps recorded');
   assert(typeof diag.newtonIterMean === 'number', 'mean iters computed');
-  assert(diag.solverFailures === 0, 'no solver failures on Baseline');
+  assert(diag.solverFailures === 0, 'no solver failures on phenotype_baseline');
   assert(diag.activeSetTransitionsPresent,
     'solverStats.activeSetTransitions must be present on every step');
   assert(typeof diag.lineSearchHalvingsMean === 'number',
     'solverStats.lineSearchHalvings must be a number');
 });
 
-test('J2: low-PEEP Injury C shows quantified solver work (no failures)', () => {
+test('J2: low-PEEP phenotype_high_recruitability shows quantified solver work (no failures)', () => {
   const mk = () => new VcAcController({ fio2: 0.4, peep: 5, rr: 26, vt: 0.280,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
-  const diag = collectDiagnostics('Injury C', mk);
-  console.log(`   Injury C PEEP=5: ${diag.newtonIterMean.toFixed(2)} avg iters, ` +
+  const diag = collectDiagnostics('phenotype_high_recruitability', mk);
+  console.log(`   phenotype_high_recruitability PEEP=5: ${diag.newtonIterMean.toFixed(2)} avg iters, ` +
     `${diag.percentSubdivided.toFixed(1)}% subdivided, ` +
     `${diag.lineSearchHalvingsMean.toFixed(2)} mean halvings, ` +
     `${diag.activeSetTransitionsTotal} active-set transitions, ` +
@@ -86,7 +86,7 @@ test('J2: low-PEEP Injury C shows quantified solver work (no failures)', () => {
 test('J3: scaled residual is finite and converges', () => {
   const mk = () => new VcAcController({ fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
-  const diag = collectDiagnostics('Baseline', mk);
+  const diag = collectDiagnostics('phenotype_baseline', mk);
   assert(Number.isFinite(diag.meanScaledResidual),
     `meanScaledResidual must be finite, got ${diag.meanScaledResidual}`);
   assert(diag.maxScaledResidual < 1.0,
@@ -94,10 +94,11 @@ test('J3: scaled residual is finite and converges', () => {
 });
 
 test('J4: active-set transitions are tracked and machine-readable', () => {
-  // The Injury C PEEP=5 scenario is known to cross closure boundaries
-  // many times per second. We require at least one active-set transition
-  // somewhere in the run, demonstrating the counter is wired up.
-  const params = makePatientParams(PRESETS['Injury C']());
+  // The phenotype_high_recruitability PEEP=5 scenario crosses the closure boundary a small
+  // number of times per breath (3 across 6924 steps observed in v0.4.4).
+  // We verify the counter is wired by checking it is present, numeric,
+  // and non-negative on every step. We do NOT require a specific count.
+  const params = makePatientParams(PRESETS['phenotype_high_recruitability']());
   const controller = new VcAcController({ fio2: 0.4, peep: 5, rr: 26, vt: 0.280,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
   const sim = new Simulation({ params, controller, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , trackGas: false });
@@ -111,8 +112,10 @@ test('J4: active-set transitions are tracked and machine-readable', () => {
     totalTransitions += n;
   }
   console.log(`   Total active-set transitions: ${totalTransitions}`);
-  // We don't require a specific count — only that the counter is wired.
-  assert(totalTransitions >= 0, 'active-set counter is wired');
+  // Tightened from >= 0 to >= 1 in OQ-1 (v0.4.4 observed 3 transitions).
+  // If this assertion ever fails, the active-set counter has been
+  // disconnected or the scenario has changed; investigate before relaxing.
+  assert(totalTransitions >= 1, 'active-set counter is wired and observed at least one transition');
 });
 
 console.log(`\nTests: passed=${passed} failed=${failed}`);

@@ -68,7 +68,7 @@ test('Simulation: high PEEP raises time-averaged alveolar pressure above P_open'
   // claim that P_alv[1] rises with PEEP, not the long-term recruitment
   // settling time (which is a v0.5 question).
   function meanPAlvRecruitable(peep) {
-    const p = PRESETS['Injury C']();
+    const p = PRESETS['phenotype_high_recruitability']();
     const v = new VcAcController({
       fio2: 0.4, peep, rr: 14, vt: 0.480, inspiratoryFlow: 0.5,
       inspiratoryPause: 0.3,
@@ -95,7 +95,7 @@ test('Simulation: high PEEP raises time-averaged alveolar pressure above P_open'
 
 // ---- T7: recruitment does not violate conservation ----
 test('Recruitment: total volume change respects ∫Q dt within tolerance', () => {
-  const p = PRESETS['Injury C']();
+  const p = PRESETS['phenotype_high_recruitability']();
   const v = new VcAcController({
     fio2: 0.4, peep: 8, rr: 14, vt: 0.480, inspiratoryFlow: 0.5,
     inspiratoryPause: 0.3,

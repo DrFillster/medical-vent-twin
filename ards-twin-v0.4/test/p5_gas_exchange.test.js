@@ -41,7 +41,7 @@ test('spo2FromPo2: bounded [0,1]', () => {
 
 // ---- T3: makeInitialGasState uses FiO2 correctly ----
 test('makeInitialGasState: inspired PO2 scales with FiO2', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const g21 = makeInitialGasState(params, 0.21);
   const g50 = makeInitialGasState(params, 0.50);
   const g100 = makeInitialGasState(params, 1.0);
@@ -56,7 +56,7 @@ test('makeInitialGasState: inspired PO2 scales with FiO2', () => {
 
 // ---- T4: shunt fraction is in [0,1] ----
 test('shuntFraction: returns in [0, 1]', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const gas = makeInitialGasState(params);
   const s = shuntFraction(gas, params);
   assert(s >= 0 && s <= 1, `shunt ${s}`);
@@ -64,7 +64,7 @@ test('shuntFraction: returns in [0, 1]', () => {
 
 // ---- T5: shunt fraction decreases with higher ventilation ----
 test('shuntFraction: lower with more ventilation per compartment', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const gasLo = makeInitialGasState(params);
   const gasHi = makeInitialGasState(params);
   // Increase va_ratio of all compartments.
@@ -76,7 +76,7 @@ test('shuntFraction: lower with more ventilation per compartment', () => {
 
 // ---- T6: deadSpaceFraction is in [0,1] ----
 test('deadSpaceFraction: returns in [0, 1]', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const gas = makeInitialGasState(params);
   const ds = deadSpaceFraction(gas, params);
   assert(ds >= 0 && ds <= 1, `deadSpace ${ds}`);
@@ -84,7 +84,7 @@ test('deadSpaceFraction: returns in [0, 1]', () => {
 
 // ---- T7: deadSpaceFraction increases with high va_ratio ----
 test('deadSpaceFraction: higher with high V/Q', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const gasLo = makeInitialGasState(params);
   const gasHi = makeInitialGasState(params);
   for (const c of gasHi.compartments) c.va_ratio *= 10;
@@ -95,7 +95,7 @@ test('deadSpaceFraction: higher with high V/Q', () => {
 
 // ---- T8: mixedArterialPo2 is perfusion-weighted ----
 test('mixedArterialPo2: weighted average across compartments', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const gas = makeInitialGasState(params);
   gas.compartments[0].po2 = 100;
   gas.compartments[1].po2 = 50;
@@ -107,7 +107,7 @@ test('mixedArterialPo2: weighted average across compartments', () => {
 
 // ---- T9: stepGasState evolves PO2 toward equilibrium ----
 test('stepGasState: PO2 relaxes toward alveolar equilibrium', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const gas = makeInitialGasState(params, 1.0);
   // Set all PO2 to 0; they should rise toward ~150 mmHg over many steps.
   for (const c of gas.compartments) c.po2 = 0;
@@ -126,7 +126,7 @@ test('stepGasState: PO2 relaxes toward alveolar equilibrium', () => {
 
 // ---- T10: stepGasState is deterministic ----
 test('stepGasState: deterministic — same input → same output', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const gas = makeInitialGasState(params, 0.5);
   const compartments = params.compartments.map((cp, i) => ({
     volume: 0.1, flow: 0.1, alveolarPressure: 10, recruitment: i === 0 ? 1 : 0.5,
@@ -141,7 +141,7 @@ test('stepGasState: deterministic — same input → same output', () => {
 
 // ---- T11: recruitment affects V/Q ratio indirectly via flow proxy ----
 test('stepGasState: higher recruitment → higher va_ratio', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const compartments = params.compartments.map((cp, i) => ({
     volume: 0.1, flow: 0.1, alveolarPressure: 10, recruitment: 0,
   }));

@@ -10,7 +10,7 @@ instrumentation) is preserved.
 
 ## Required corrections applied (8 of 8)
 
-1. **No arbitrary recruitment fraction in Injury A/B/C**
+1. **No arbitrary recruitment fraction in phenotype_low/moderate/high_recruitability**
    - Removed `initialRecruitmentState: { ..., recruitable: 0.5, ... }`
      from all three injury phenotypes in `src/presets.js`.
    - The phenotype now ships only mechanics. Recruitment state is a
@@ -72,7 +72,7 @@ instrumentation) is preserved.
 
 ## Pathologies explicitly NOT fixed
 
-- **Injury C PEEP=5 32% step subdivision.** Measured in
+- **phenotype_high_recruitability PEEP=5 32% step subdivision.** Measured in
   PERFORMANCE_BENCH.json (~1.5 s wall for 10 s simulated). The
   underlying mechanism (active-set transitions near closure
   boundary) is captured by `solverStats.activeSetTransitions`.

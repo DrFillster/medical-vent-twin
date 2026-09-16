@@ -186,7 +186,7 @@ test('A4: missing initialPEEP fails explicitly', () => {
 });
 
 test('A4: missing initialRecruitmentState fails explicitly (no guess)', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   // Under v0.4.4, missing recruitment MUST throw rather than default.
   let threw = false;
   try {
@@ -221,10 +221,10 @@ test('A4: invalid recruitment value is rejected', () => {
 // not arbitrary; they are explicit test fixtures).
 // -------------------------------------------------------------------------
 const TEST_SCENARIO_PEEP = {
-  Baseline: 5,
-  'Injury A': 8,
-  'Injury B': 10,
-  'Injury C': 12,
+  phenotype_baseline: 5,
+  phenotype_low_recruitability: 8,
+  phenotype_moderate_recruitability: 10,
+  phenotype_high_recruitability: 12,
 };
 
 test('Composite: every preset initializes within finite-capacity domain', () => {

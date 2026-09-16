@@ -16,7 +16,7 @@ function test(name, fn) {
 }
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
 
-const mkParams = PRESETS.Baseline;
+const mkParams = PRESETS.phenotype_baseline;
 
 test('Initial state is finite', () => {
   const params = makePatientParams(mkParams());
@@ -29,7 +29,7 @@ test('Initial state is finite', () => {
     assert(Number.isFinite(c.alveolarPressure), 'finite alveolarP');
     assert(c.recruitment >= 0 && c.recruitment <= 1, 'r in [0,1]');
   }
-  // v0.4.3: pressure-consistent init at preset's initialPEEP (5 for Baseline).
+  // v0.4.3: pressure-consistent init at preset's initialPEEP (5 for phenotype_baseline).
   assert(state.airwayPressure === 5, 'airwayPressure equals preset initialPEEP');
   assert(state.totalVolume >= 0, 'non-negative initial volume');
 });
@@ -63,7 +63,7 @@ test('Flow conservation per step', () => {
 
 test('Volume change equals integrated flow', () => {
   // ΔV_total = Σ Q_i × dt within tolerance.
-  const params = makePatientParams(PRESETS['Injury B']());
+  const params = makePatientParams(PRESETS['phenotype_moderate_recruitability']());
   const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   const dt = 0.005;
@@ -88,7 +88,7 @@ test('Pressure boundary type is honoured', () => {
 
 test('Volume cannot go negative under passive recoil', () => {
   // Sustained Paw = AOP (zero driving pressure with relaxed compartments).
-  const params = makePatientParams(PRESETS['Injury C']());
+  const params = makePatientParams(PRESETS['phenotype_high_recruitability']());
   const state = makeInitialState(params, { initialPEEP: 0, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   const boundary = makeBoundaryPressure({ pressureCmH2O: 0, fio2: 0.5 });
@@ -99,7 +99,7 @@ test('Volume cannot go negative under passive recoil', () => {
 });
 
 test('Recruitment bounds are preserved', () => {
-  const params = makePatientParams(PRESETS['Injury C']());
+  const params = makePatientParams(PRESETS['phenotype_high_recruitability']());
   const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   // v0.4: recruitment evolves via opening/closing dynamics. The test now
   // verifies that the state stays within [0, 1] regardless of starting value

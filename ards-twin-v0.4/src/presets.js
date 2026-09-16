@@ -1,6 +1,20 @@
-// presets.js — Four ARDS phenotypes (mechanics only).
+// presets.js — Four mechanical-construct phenotypes (mechanics only).
 //
-// v0.4.4 separation of concerns:
+// v0.4.4.1 rename (from v0.4.4 "phenotype_low_recruitability/B/C" naming to mechanical-construct
+// labels):
+//
+//   v0.4.4 keys           v0.4.4.1 keys
+//   ---------             ------------
+//   Baseline           → phenotype_baseline
+//   phenotype_low_recruitability (mild)    → phenotype_low_recruitability
+//   phenotype_moderate_recruitability (moderate)→ phenotype_moderate_recruitability
+//   phenotype_high_recruitability (severe)  → phenotype_high_recruitability
+//
+// The mechanical parameters are unchanged from v0.4.4. Only the
+// externally-exposed labels changed. The labels are mechanical-construct
+// descriptors (recruitable pool size), NOT clinical ARDS severity grades.
+//
+// v0.4.4 separation of concerns (unchanged):
 //
 //   Phenotype owns ONLY mechanics:
 //     - compartment fractions, resistances, capacities, K
@@ -56,8 +70,8 @@ function presetBaseline() {
   };
 }
 
-function presetInjuryA() {
-  // Mild ARDS: small recruitable pool, modest AOP shift.
+function presetPhenotypeLowRecruitability() {
+  // Mechanical construct: small recruitable pool (25%), modest AOP shift.
   return {
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.65, resistance: 0.7,
@@ -75,8 +89,8 @@ function presetInjuryA() {
   };
 }
 
-function presetInjuryB() {
-  // Moderate ARDS: 40% recruitable pool, AOP=4.
+function presetPhenotypeModerateRecruitability() {
+  // Mechanical construct: 40% recruitable pool, AOP=4.
   return {
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.40, resistance: 0.8,
@@ -94,8 +108,8 @@ function presetInjuryB() {
   };
 }
 
-function presetInjuryC() {
-  // Severe ARDS: 50% recruitable pool, AOP=6 (worse edema/collapse).
+function presetPhenotypeHighRecruitability() {
+  // Mechanical construct: 50% recruitable pool, AOP=6.
   return {
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.20, resistance: 1.0,
@@ -114,10 +128,10 @@ function presetInjuryC() {
 }
 
 const PRESETS = Object.freeze({
-  Baseline: presetBaseline,
-  'Injury A': presetInjuryA,
-  'Injury B': presetInjuryB,
-  'Injury C': presetInjuryC,
+  phenotype_baseline: presetBaseline,
+  phenotype_low_recruitability: presetPhenotypeLowRecruitability,
+  phenotype_moderate_recruitability: presetPhenotypeModerateRecruitability,
+  phenotype_high_recruitability: presetPhenotypeHighRecruitability,
 });
 
 module.exports = { PRESETS };

@@ -28,7 +28,7 @@ function test(name, fn) {
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
 
 function makePresetParams(rc) {
-  const p = PRESETS.Baseline();
+  const p = PRESETS.phenotype_baseline();
   p.centralAirwayResistance = rc;
   return makePatientParams(p);
 }
@@ -131,7 +131,7 @@ test('T6: paired-resistance — central R slows filling under FLOW', () => {
   // same total effect but different timing dynamics. We just verify the
   // total-resistive-load property: doubling total R increases Ppeak.
   function peakPaw(central, branch) {
-    const p = PRESETS.Baseline();
+    const p = PRESETS.phenotype_baseline();
     p.centralAirwayResistance = central;
     p.compartments.forEach(c => c.resistance = branch);
     const params = makePatientParams(p);

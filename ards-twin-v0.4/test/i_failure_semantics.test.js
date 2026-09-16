@@ -59,7 +59,7 @@ test('I1: STEP_FAILED contract — state unchanged on solver failure', () => {
 });
 
 test('I2: STEP_FAILED preserves trace integrity (no failed-step entry in trace)', () => {
-  const params = makePatientParams(PRESETS.Baseline());
+  const params = makePatientParams(PRESETS.phenotype_baseline());
   const controller = new VcAcController({ fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
   const sim = new Simulation({ params, controller, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , trackGas: false });
@@ -114,7 +114,7 @@ test('I3: INFEASIBLE_BOUNDARY is distinct from SOLVER_NONCONVERGENCE', () => {
 
 test('I4: failed step returns structured diagnostic', () => {
   // We construct a deliberately-failed scenario.
-  const params = makePatientParams(PRESETS['Injury C']());
+  const params = makePatientParams(PRESETS['phenotype_high_recruitability']());
   const m = new ThreeCompartmentMechanics();
   // Construct a state with all compartments at zero, then push a FLOW
   // that requires negative volume impossible. The simulator will report

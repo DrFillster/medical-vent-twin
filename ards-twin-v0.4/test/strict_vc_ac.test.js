@@ -53,7 +53,7 @@ test('Strict Vt: |Vt - target| < 5% (relative) within 30 mL absolute', () => {
   // leaks ~3-4% of delivered flow back out during inspiration. The
   // delivered Vt is therefore slightly below the FLOW×Ti ideal of
   // 0.48 L. Tolerance: 5% relative or 30 mL absolute.
-  const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, pause: 0.5 });
+  const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, pause: 0.5 });
   runNBreaths(sim, 5);
   // Drop first 2 breaths (transient) and last (partial breath at run end).
   const ms = sim.metrics().slice(2, -1);
@@ -71,7 +71,7 @@ test('Strict Vt: |Vt - target| < 5% (relative) within 30 mL absolute', () => {
 // ---- T2: settled-breath repeatability ------------------------------------
 test('Settled-breath repeatability: identical inputs → identical metrics', () => {
   function run() {
-    const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, pause: 0.5 });
+    const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, pause: 0.5 });
     runNBreaths(sim, 5);
     return sim.metrics().slice(2).map(m => ({
       Vt: m.VtInspired, Ppeak: m.Ppeak, Pplat: m.Pplat, PEEP: m.PEEP,
@@ -92,9 +92,9 @@ test('Settled-breath repeatability: identical inputs → identical metrics', () 
 // ---- T3: paired-resistance: Ppeak grows substantially more than Pplat ----
 test('Paired-resistance: doubling R at fixed Vt/flow/PEEP raises Ppeak ≫ Pplat', () => {
   const baseOpts = { vt: 0.480, flow: 0.5, peep: 5, pause: 0.5 };
-  // Use Injury C and override compartment R values to a controllable range.
+  // Use phenotype_high_recruitability and override compartment R values to a controllable range.
   function simWithR(R) {
-    const p = PRESETS.Baseline();
+    const p = PRESETS.phenotype_baseline();
     for (const c of p.compartments) c.resistance = R;
     const sim = newSim(() => p, baseOpts);
     runNBreaths(sim, 5);
@@ -114,7 +114,7 @@ test('Paired-resistance: doubling R at fixed Vt/flow/PEEP raises Ppeak ≫ Pplat
 // ---- T4: paired-compliance: lower C raises Pplat -------------------------
 test('Paired-compliance: lower compliance raises Pplat at fixed Vt/PEEP', () => {
   function simWithStiffness(K) {
-    const p = PRESETS.Baseline();
+    const p = PRESETS.phenotype_baseline();
     for (const c of p.compartments) {
       // Capacity = c × K (compliance C = c). To halve compliance, halve capacity.
       c.capacity = c.capacity * (30 / K);   // K_N=30 baseline; smaller K = stiffer
@@ -133,7 +133,7 @@ test('Paired-compliance: lower compliance raises Pplat at fixed Vt/PEEP', () => 
 
 // ---- T5: plateau measured during true zero-flow hold ----------------------
 test('Plateau measurement uses the late half of PAUSE rows with |Q|<0.05', () => {
-  const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, pause: 1.0 });
+  const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, pause: 1.0 });
   runNBreaths(sim, 4);
   const ms = sim.metrics().slice(2, -1);
   for (const m of ms) {
@@ -151,7 +151,7 @@ test('Plateau measurement uses the late half of PAUSE rows with |Q|<0.05', () =>
 
 // ---- T6: per-breath conservation: |V_inspired - V_expired| < small -------
 test('Per-breath volume conservation: |Vt_inspired - Vt_expired| < 5% of Vt', () => {
-  const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, pause: 0.5 });
+  const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, pause: 0.5 });
   runNBreaths(sim, 5);
   const ms = sim.metrics().slice(2, -1);
   for (const m of ms) {
@@ -165,7 +165,7 @@ test('Per-breath volume conservation: |Vt_inspired - Vt_expired| < 5% of Vt', ()
 // ---- T7: deterministic across reruns (already covered but tightened) -----
 test('Deterministic trace replay: identical metrics across two runs', () => {
   function trace() {
-    const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, pause: 0.3 });
+    const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, pause: 0.3 });
     runNBreaths(sim, 4);
     return sim.trace.map(p => ({
       t: p.t,
@@ -188,7 +188,7 @@ test('Ppeak > Pplat when resistance > 0 (strict > 0.2 cmH2O)', () => {
   // resistive component is 0.5×0.5=0.25 cmH2O — within the test
   // tolerance of 0.2 cmH2O. Pplat is the end-inspiratory Paw at
   // zero-flow, Ppeak is the max Paw during flow.
-  const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, pause: 0.5 });
+  const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, pause: 0.5 });
   runNBreaths(sim, 5);
   const ms = sim.metrics().slice(2, -1);
   for (const m of ms) {

@@ -45,29 +45,29 @@ function checkStability(sim) {
     `PEEP drift: final=${finalPEEP}`);
 }
 
-test('G1: VC multi-breath on Baseline - stable', () => {
-  const sim = runBreaths('Baseline', () =>
+test('G1: VC multi-breath on phenotype_baseline - stable', () => {
+  const sim = runBreaths('phenotype_baseline', () =>
     new VcAcController({ fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
                          inspiratoryFlow: 0.5, inspiratoryPause: 0.3 }), 5);
   checkStability(sim);
 });
 
-test('G2: VC multi-breath on Injury C - stable', () => {
-  const sim = runBreaths('Injury C', () =>
+test('G2: VC multi-breath on phenotype_high_recruitability - stable', () => {
+  const sim = runBreaths('phenotype_high_recruitability', () =>
     new VcAcController({ fio2: 0.4, peep: 12, rr: 20, vt: 0.420,
                          inspiratoryFlow: 0.5, inspiratoryPause: 0.3 }), 3);
   checkStability(sim);
 });
 
-test('G3: PC multi-breath on Baseline - stable', () => {
-  const sim = runBreaths('Baseline', () =>
+test('G3: PC multi-breath on phenotype_baseline - stable', () => {
+  const sim = runBreaths('phenotype_baseline', () =>
     new PcAcController({ fio2: 0.4, peep: 5, rr: 14,
                          pinsp: 18, inspiratoryTime: 1.0 }), 5);
   checkStability(sim);
 });
 
-test('G4: PC multi-breath on Injury C - stable', () => {
-  const sim = runBreaths('Injury C', () =>
+test('G4: PC multi-breath on phenotype_high_recruitability - stable', () => {
+  const sim = runBreaths('phenotype_high_recruitability', () =>
     new PcAcController({ fio2: 0.4, peep: 12, rr: 20,
                          pinsp: 30, inspiratoryTime: 1.0 }), 3);
   checkStability(sim);
@@ -76,15 +76,15 @@ test('G4: PC multi-breath on Injury C - stable', () => {
 test('G: zero solver failures across all multi-breath runs', () => {
   let totalFailures = 0;
   const configs = [
-    ['Baseline', () => new VcAcController({ fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
+    ['phenotype_baseline', () => new VcAcController({ fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
        inspiratoryFlow: 0.5, inspiratoryPause: 0.3 })],
-    ['Injury A', () => new VcAcController({ fio2: 0.4, peep: 8, rr: 18, vt: 0.420,
+    ['phenotype_low_recruitability', () => new VcAcController({ fio2: 0.4, peep: 8, rr: 18, vt: 0.420,
        inspiratoryFlow: 0.5, inspiratoryPause: 0.3 })],
-    ['Injury B', () => new VcAcController({ fio2: 0.4, peep: 10, rr: 22, vt: 0.350,
+    ['phenotype_moderate_recruitability', () => new VcAcController({ fio2: 0.4, peep: 10, rr: 22, vt: 0.350,
        inspiratoryFlow: 0.5, inspiratoryPause: 0.3 })],
-    ['Injury C', () => new VcAcController({ fio2: 0.4, peep: 12, rr: 26, vt: 0.280,
+    ['phenotype_high_recruitability', () => new VcAcController({ fio2: 0.4, peep: 12, rr: 26, vt: 0.280,
        inspiratoryFlow: 0.5, inspiratoryPause: 0.3 })],
-    ['Injury C', () => new PcAcController({ fio2: 0.4, peep: 12, rr: 26,
+    ['phenotype_high_recruitability', () => new PcAcController({ fio2: 0.4, peep: 12, rr: 26,
        pinsp: 35, inspiratoryTime: 1.0 })],
   ];
   for (const [preset, mk] of configs) {

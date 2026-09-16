@@ -1,6 +1,6 @@
 {
-  "version": "v0.4.4",
-  "date": "2026-09-16T00:13:41Z",
+  "version": "v0.4.4.1",
+  "date": "2026-09-16T19:25:37Z",
   "solver_failures": {
     "total_across_all_test_runs": 0,
     "INFEASIBLE_BOUNDARY_events_in_normal_runs": 0,
@@ -20,11 +20,11 @@
     }
   },
   "flow_feasibility_global": {
-    "implementation": "classifyBoundaryFeasibility is direction-aware: positive/inspiratory flow uses remaining capacity (Σ max(0, Vmax - V)); negative/expiratory flow uses removable volume (Σ max(0, V)).",
+    "implementation": "classifyBoundaryFeasibility is direction-aware: positive/inspiratory flow uses remaining capacity (\u03a3 max(0, Vmax - V)); negative/expiratory flow uses removable volume (\u03a3 max(0, V)).",
     "verified_in_tests": "I1 (positive flow forced INFEASIBLE_BOUNDARY); I6 (negative flow forced INFEASIBLE_BOUNDARY); I7 (small negative flow on populated compartment does NOT trigger INFEASIBLE_BOUNDARY)"
   },
   "conservation": {
-    "max_conservation_residual_lt": 1e-6,
+    "max_conservation_residual_lt": 1e-06,
     "q_central_eq_sum_q_branch": "exact by construction",
     "pvent_eq_pbranch_plus_Rc_times_Q": "verified at tolerance 1e-9 in D tests"
   },
@@ -41,18 +41,52 @@
   },
   "low_resistance_convergence": {
     "R_cmb[cmH2O.s/L]_Ppeak-Pplat[cmH2O]": [
-      {"R": 1.0,    "diff":  1.020},
-      {"R": 0.1,    "diff":  0.105},
-      {"R": 0.01,   "diff": -0.018}
+      {
+        "R": 1.0,
+        "diff": 1.02
+      },
+      {
+        "R": 0.1,
+        "diff": 0.105
+      },
+      {
+        "R": 0.01,
+        "diff": -0.018
+      }
     ],
     "monotonic": true,
     "tolerance_2cmH2O_at_R_le_0.01": "met"
   },
   "dt_convergence": {
     "scenarios": [
-      {"name": "Baseline VC", "dt_ms": [2, 1, 0.5], "Ppeak_diff_lt": 1.0, "Vt_diff_lt": 0.05},
-      {"name": "Injury B PC", "dt_ms": [2, 1, 0.5], "Ppeak_diff_lt": 2.0},
-      {"name": "Injury A VC", "dt_ms": [2, 1, 0.5], "monotonic_convergence": true}
+      {
+        "name": "Baseline VC",
+        "dt_ms": [
+          2,
+          1,
+          0.5
+        ],
+        "Ppeak_diff_lt": 1.0,
+        "Vt_diff_lt": 0.05
+      },
+      {
+        "name": "phenotype_moderate_recruitability PC",
+        "dt_ms": [
+          2,
+          1,
+          0.5
+        ],
+        "Ppeak_diff_lt": 2.0
+      },
+      {
+        "name": "phenotype_low_recruitability VC",
+        "dt_ms": [
+          2,
+          1,
+          0.5
+        ],
+        "monotonic_convergence": true
+      }
     ]
   },
   "solver_tolerance": {
@@ -65,11 +99,11 @@
     "type": "analytic",
     "formula": "dP_el/dV = K/(Vmax - V) (from compartments.js: dPressureDVolume)",
     "verified_against_numerical": true,
-    "max_relative_error": 1e-3
+    "max_relative_error": 0.001
   },
   "recruitment_projection": {
     "rule": "stepRecruitmentWithFloor: clamp r_new >= V/((1-EPS_PROJ)*capacity)",
-    "EPS_PROJ": 1e-6,
+    "EPS_PROJ": 1e-06,
     "trapped_gas_preserved": true,
     "V_le_Vmax_at_all_times": true
   },
@@ -90,5 +124,6 @@
     "v0.4.4_new_tests": 2,
     "v0.4.4_total": 127,
     "note": "Match TEST_RESULTS.json"
-  }
+  },
+  "note": "v0.4.4.1: preset rename only \u2014 no solver/mechanical changes."
 }

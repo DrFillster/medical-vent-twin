@@ -1,61 +1,117 @@
 {
-  "version": "v0.4.4",
-  "date": "2026-09-16T00:13:41Z",
-  "commit": "v0.4.4-cleanup-return",
-  "summary": {
+  "version": "v0.4.4.1",
+  "date": "2026-09-16T19:26:54Z",
+  "host": "macOS Apple Silicon (M-series), Node v26.8.2",
+  "note": "v0.4.4.1 preset rename: Baseline->phenotype_baseline, Injury A->phenotype_low_recruitability, Injury B->phenotype_moderate_recruitability, Injury C->phenotype_high_recruitability. Mechanical parameters unchanged.",
+  "test_counts": {
     "total_pass": 127,
     "total_fail": 0,
-    "test_suites": [
-      {"name": "a_initialization.test.js", "pass": 11, "fail": 0},
-      {"name": "b_jacobian.test.js", "pass": 3, "fail": 0},
-      {"name": "c_small_signal.test.js", "pass": 1, "fail": 0},
-      {"name": "conservation.test.js", "pass": 8, "fail": 0},
-      {"name": "d_low_resistance.test.js", "pass": 2, "fail": 0},
-      {"name": "deterministic.test.js", "pass": 6, "fail": 0},
-      {"name": "f_recruitment.test.js", "pass": 4, "fail": 0},
-      {"name": "g_multi_breath.test.js", "pass": 5, "fail": 0},
-      {"name": "h_dt_convergence.test.js", "pass": 3, "fail": 0},
-      {"name": "i_failure_semantics.test.js", "pass": 7, "fail": 0},
-      {"name": "j_instrumentation.test.js", "pass": 4, "fail": 0},
-      {"name": "p0_central_airway.test.js", "pass": 7, "fail": 0},
-      {"name": "p0_single_compartment.test.js", "pass": 9, "fail": 0},
-      {"name": "p1_gas_toggle.test.js", "pass": 4, "fail": 0},
-      {"name": "p2_metrics.test.js", "pass": 10, "fail": 0},
-      {"name": "p3_pc_ac.test.js", "pass": 6, "fail": 0},
-      {"name": "p4_recruitment.test.js", "pass": 7, "fail": 0},
-      {"name": "p5_gas_exchange.test.js", "pass": 11, "fail": 0},
-      {"name": "single_rc.test.js", "pass": 5, "fail": 0},
-      {"name": "strict_vc_ac.test.js", "pass": 8, "fail": 0},
-      {"name": "vc_ac.test.js", "pass": 6, "fail": 0}
+    "files": [
+      {
+        "file": "a_initialization.test.js",
+        "passed": 11,
+        "failed": 0
+      },
+      {
+        "file": "b_jacobian.test.js",
+        "passed": 3,
+        "failed": 0
+      },
+      {
+        "file": "c_small_signal.test.js",
+        "passed": 1,
+        "failed": 0
+      },
+      {
+        "file": "conservation.test.js",
+        "passed": 8,
+        "failed": 0
+      },
+      {
+        "file": "d_low_resistance.test.js",
+        "passed": 2,
+        "failed": 0
+      },
+      {
+        "file": "deterministic.test.js",
+        "passed": 6,
+        "failed": 0
+      },
+      {
+        "file": "f_recruitment.test.js",
+        "passed": 4,
+        "failed": 0
+      },
+      {
+        "file": "g_multi_breath.test.js",
+        "passed": 5,
+        "failed": 0
+      },
+      {
+        "file": "h_dt_convergence.test.js",
+        "passed": 3,
+        "failed": 0
+      },
+      {
+        "file": "i_failure_semantics.test.js",
+        "passed": 7,
+        "failed": 0
+      },
+      {
+        "file": "j_instrumentation.test.js",
+        "passed": 4,
+        "failed": 0
+      },
+      {
+        "file": "p0_central_airway.test.js",
+        "passed": 7,
+        "failed": 0
+      },
+      {
+        "file": "p0_single_compartment.test.js",
+        "passed": 9,
+        "failed": 0
+      },
+      {
+        "file": "p1_gas_toggle.test.js",
+        "passed": 4,
+        "failed": 0
+      },
+      {
+        "file": "p2_metrics.test.js",
+        "passed": 10,
+        "failed": 0
+      },
+      {
+        "file": "p3_pc_ac.test.js",
+        "passed": 6,
+        "failed": 0
+      },
+      {
+        "file": "p4_recruitment.test.js",
+        "passed": 7,
+        "failed": 0
+      },
+      {
+        "file": "p5_gas_exchange.test.js",
+        "passed": 11,
+        "failed": 0
+      },
+      {
+        "file": "single_rc.test.js",
+        "passed": 5,
+        "failed": 0
+      },
+      {
+        "file": "strict_vc_ac.test.js",
+        "passed": 8,
+        "failed": 0
+      },
+      {
+        "file": "vc_ac.test.js",
+        "passed": 6,
+        "failed": 0
+      }
     ]
-  },
-  "acceptance_gate": {
-    "A_initialization": "11/11 — pressure-consistent init, lower-bound regime, missing-recruitment throws explicitly",
-    "B_jacobian": "3/3 — analytic K/(Vmax-V) verified against numerical derivative",
-    "C_small_signal": "1/1 — tau ≈ R*C_tan within 30% at single-compartment equilibrium",
-    "D_conservation": "8/8 — flow conservation, central resistance, plateau invariance",
-    "E_low_resistance": "2/2 — Ppeak-Pplat → 0 across 3 decades of resistance",
-    "F_recruitment": "4/4 — closed-compartment invariants + derecruitment projection rule",
-    "G_multi_breath": "5/5 — zero solver failures across VC and PC, all injury severities",
-    "H_dt_convergence": "3/3 — monotone convergence at 2/1/0.5 ms",
-    "I_failure_semantics": "7/7 — STEP_FAILED contract, direction-aware INFEASIBLE_BOUNDARY (positive and negative FLOW), SOLVER_NONCONVERGENCE",
-    "J_instrumentation": "4/4 — machine-readable per-step solver work counters including active-set transitions",
-    "additional": {
-      "conservation": "8 (separate file)",
-      "deterministic": "6 (SimulationClock determinism)",
-      "p0_central_airway": "7 (R_central behavior)",
-      "p0_single_compartment": "9 (single compartment sanity)",
-      "p1_gas_toggle": "4 (gas exchange toggle)",
-      "p2_metrics": "10 (analysis outputs)",
-      "p3_pc_ac": "6 (pressure-control)",
-      "p4_recruitment": "7 (recruitment dynamics)",
-      "p5_gas_exchange": "11 (full O2/CO2 exchange)",
-      "single_rc": "5 (single-compartment RC)",
-      "strict_vc_ac": "8 (VC strict mode)",
-      "vc_ac": "6 (VC modes)"
-    }
-  },
-  "v0.4.3_baseline_passing_tests": 125,
-  "v0.4.4_new_tests": 2,
-  "v0.4.4_total": 127
+  }
 }

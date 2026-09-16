@@ -53,7 +53,7 @@ This breaks down as:
 | Criterion | Status |
 |-----------|--------|
 | Return filename exactly `vent-twin-v0.4.4-return.zip` | ✓ |
-| No arbitrary recruitment fraction in Injury A/B/C | ✓ |
+| No arbitrary recruitment fraction in phenotype_low/moderate/high_recruitability | ✓ |
 | Phenotype presets do not own initial PEEP | ✓ |
 | Simulation scenario provides starting PEEP | ✓ |
 | Missing recruitment initialization is never silently guessed | ✓ |

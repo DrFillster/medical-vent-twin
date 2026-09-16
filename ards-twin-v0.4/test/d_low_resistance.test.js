@@ -15,7 +15,7 @@ function test(name, fn) {
 }
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
 
-// Build a low-resistance variant of a Baseline-like lung.
+// Build a low-resistance variant of a phenotype_baseline-like lung.
 function makeParams(rc, rb) {
   return makePatientParams({
     compartments: [

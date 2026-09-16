@@ -14,7 +14,7 @@ Author, affiliation, correspondence and ORCID: pending owner completion before j
 
 **Methods.** The model comprises three quasi-static tissue compartments with finite-capacity exponential elastic laws (`V(P,r) = c · K · (1 − exp(−(P − AOP)/K))`), one lumped central airway resistance plus per-compartment branch resistance, and discrete recruitment relays with pressure-history-projected feasibility constraints. The Newton solver uses an analytic Jacobian (`dP/dV = K/(Vmax − V)`) and dimensionlessly scaled convergence (`‖R̂‖∞ < 1e-3`). Boundary feasibility classification is direction-aware: positive/inspiratory flow is bounded by remaining available capacity (`Σ max(0, Vmax − V)`); negative/expiratory flow is bounded by removable gas volume (`Σ max(0, V)`). The phenotype owns only tissue mechanics, central airway resistance, and airway opening pressure (AOP). The simulation scenario owns initial PEEP, initial recruitment state, and ventilator settings. Missing recruitment state is rejected explicitly rather than guessed.
 
-**Results.** 127 acceptance assertions passed, 0 failed, across 21 test files under Node v26.8.2 in CommonJS mode. Acceptance sections covered (A) initialization with rejected-on-missing-state contract; (B) analytic Jacobian vs numerical derivative; (C) single-compartment small-signal `τ ≈ R · C_tan`; (D) flow and pressure conservation across the central + branch topology; (E) low-resistance limit `Ppeak − Pplat → 0` across three decades; (F) closed-compartment invariants and derecruitment feasibility projection; (G) multi-breath VC and PC simulation stability with zero solver failures across all injury severity tiers; (H) monotone timestep convergence at 2 ms / 1 ms / 0.5 ms; (I) STEP_FAILED contract preserving time and state on solver failure, distinct INFEASIBLE_BOUNDARY vs SOLVER_NONCONVERGENCE classifications, separate positive and negative direction-aware feasibility tests; (J) machine-readable per-step solver instrumentation including Newton iteration count, subdivision depth, line-search halvings, and active-set transitions. Performance benchmark: Injury C PEEP = 5 cmH₂O at dt = 1 ms completes 10 s of simulated time in 1.5 s wall-clock with zero solver failures and 32 % of steps subdivision-bounded; the bottleneck is documented but not removed. All reported numbers are model outputs in the tested domain, not cohort fits, clinical realism claims, or diagnostic classifications.
+**Results.** 127 acceptance assertions passed, 0 failed, across 21 test files under Node v26.8.2 in CommonJS mode. Acceptance sections covered (A) initialization with rejected-on-missing-state contract; (B) analytic Jacobian vs numerical derivative; (C) single-compartment small-signal `τ ≈ R · C_tan`; (D) flow and pressure conservation across the central + branch topology; (E) low-resistance limit `Ppeak − Pplat → 0` across three decades; (F) closed-compartment invariants and derecruitment feasibility projection; (G) multi-breath VC and PC simulation stability with zero solver failures across all mechanical-construct phenotypes; (H) monotone timestep convergence at 2 ms / 1 ms / 0.5 ms; (I) STEP_FAILED contract preserving time and state on solver failure, distinct INFEASIBLE_BOUNDARY vs SOLVER_NONCONVERGENCE classifications, separate positive and negative direction-aware feasibility tests; (J) machine-readable per-step solver instrumentation including Newton iteration count, subdivision depth, line-search halvings, and active-set transitions. Performance benchmark: phenotype_high_recruitability PEEP = 5 cmH₂O at dt = 1 ms completes 10 s of simulated time in 1.5 s wall-clock with zero solver failures and 32 % of steps subdivision-bounded; the bottleneck is documented but not removed. All reported numbers are model outputs in the tested domain, not cohort fits, clinical realism claims, or diagnostic classifications.
 
 **Conclusions.** This artifact provides an executable, inspectable simulator and reproducible evidence of computational consistency within its tested domain. The phenotype/scenario separation prevents one of the recurring failure modes of educational simulators (silent defaulting of clinical decisions). Direction-aware feasibility classification gives a model consumer an interpretable basis for distinguishing structurally impossible boundaries from transient non-convergence. The artifact is an educational exploration prototype, not a clinical decision tool. Neither software verification nor matching selected outputs establishes physiological validity for clinical use.
 
@@ -185,12 +185,12 @@ across 21 test files in CommonJS mode under Node v26.8.2.
 
 | Scenario | dt | Sim / wall-clock | Newton iters total | Active-set transitions | Subdivided steps | Solver failures |
 |----------|-----|------------------|---------------------:|--------------------:|----------------:|---------------:|
-| Injury C PEEP = 5 cmH₂O | 1 ms | 10 s / ~1.5 s | 5 859 | 0 | 32 % | 0 |
-| Injury C PEEP = 10 cmH₂O | 1 ms | 10 s / (measured) | (measured) | (measured) | (measured) | 0 |
-| Injury C PEEP = 15 cmH₂O | 1 ms | 22 s / (measured) | (measured) | (measured) | (measured) | 0 |
-| Baseline PEEP = 5 cmH₂O | 1 ms | 10 s / ~2.2 s | 6 692 | 0 | 45 % | 0 |
+| phenotype_high_recruitability PEEP = 5 cmH₂O | 1 ms | 10 s / ~1.5 s | 5 859 | 0 | 32 % | 0 |
+| phenotype_high_recruitability PEEP = 10 cmH₂O | 1 ms | 10 s / (measured) | (measured) | (measured) | (measured) | 0 |
+| phenotype_high_recruitability PEEP = 15 cmH₂O | 1 ms | 22 s / (measured) | (measured) | (measured) | (measured) | 0 |
+| phenotype_baseline PEEP = 5 cmH₂O | 1 ms | 10 s / ~2.2 s | 6 692 | 0 | 45 % | 0 |
 
-The bottleneck at low PEEP is dt-subdivision near the closure boundary of recruitable compartments. The proposed active-set / boundary formulation is reserved for v0.5; `output.solverStats.activeSetTransitions` quantifies the regime crossings that the future formulation would track.
+The bottleneck at low PEEP is dt-subdivision near the closure boundary of recruitable compartments. `output.solverStats.activeSetTransitions` quantifies the regime crossings for downstream analysis.
 
 Wall-clock time is a benchmark, not a correctness gate. Solver failure counts and conservation residuals (`NUMERICAL_DIAGNOSTICS.json`) are the correctness signals.
 
@@ -215,12 +215,12 @@ A model can be made internally consistent: the same elastic law, the same Jacobi
 Three things:
 
 1. **Phenotype / scenario separation.** Look at `src/presets.js`. Each phenotype should ship only `compartments`, `centralAirwayResistance`, and `airwayOpeningPressure`. If a phenotype ships `initialPEEP` or `initialRecruitmentState`, that is a regression to be flagged.
-2. **Failure semantics on `INFEASIBLE_BOUNDARY`.** I6 forces a negative-flow failure (V = 0, asked to remove 100 L·s⁻¹) and verifies `failureKind = INFEASIBLE_BOUNDARY` with `state.t` unchanged. Reviewers can re-run `node test/i_failure_semantics.test.js` after `npm install` of nothing.
-3. **`output.solverStats` per step.** J-4 verifies that `solverStats.activeSetTransitions` is present and nonzero for the Injury C PEEP = 5 scenario. This is the data future work would need for an active-set solver formulation.
+2. **Failure semantics on `INFEASIBLE_BOUNDARY`.** I6 forces a negative-flow failure (V = 0, asked to remove 100 L·s⁻¹) and verifies `failureKind = INFEASIBLE_BOUNDARY` with `state.t` unchanged. Reviewers can re-run `node test/i_failure_semantics.test.js` to confirm.
+3. **`output.solverStats` per step.** J-4 verifies that `solverStats.activeSetTransitions` is present and nonzero for the phenotype_high_recruitability PEEP = 5 scenario, and that the cumulative total is reported.
 
 ### 4.4 Limitations and explicit pathology
 
-- **Low-PEEP performance.** Injury C PEEP = 5 has ~32 % of steps subdivided (1 → 2 substeps). Wall-clock cost is ~150 ms per simulated second. Correct answer, slow.
+- **Low-PEEP performance.** phenotype_high_recruitability PEEP = 5 has ~32 % of steps subdivided (1 → 2 substeps). Wall-clock cost is ~150 ms per simulated second. Correct answer, slow.
 - **No active-set formulation.** The solver treats each compartment in INTERIOR regime each step. A v0.5 release will use `solverStats.activeSetTransitions` to drive regime-cached Jacobians.
 - **No `initializationHistory` recovery.** Caller-supplied `initializationHistory` (an array of past pressures) is currently rejected with a "reserved for future release" error. The contract for it is defined but not implemented.
 
@@ -299,5 +299,5 @@ console.log(result.output.failureKind, result.output.solverFailure);
 ---
 
 [Manuscript id: ards-twin-v0.4.4-ms-001]
-[Compiled: 2026-09-16]
-[Bundled at: vent-twin-v0.4.4-return.zip / MANUSCRIPT.md]
+[Compiled: 2026-09-16 13:18:06 UTC]
+[Bundled at: vent-twin-v0.4.4-return.zip / MANUSCRIPT.md, 2026-09-16 13:18:06 UTC]

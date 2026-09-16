@@ -48,7 +48,7 @@ test('PC-AC: rejects invalid settings', () => {
 
 // ---- T2: airway pressure tracks commanded pressure + PEEP ----
 test('PC-AC: Paw tracks PEEP + pinsp during INSPIRATION', () => {
-  const sim = newSim(PRESETS.Baseline, { peep: 5, pinsp: 15, ti: 1.0 });
+  const sim = newSim(PRESETS.phenotype_baseline, { peep: 5, pinsp: 15, ti: 1.0 });
   sim.runFor(2 * 60 / 14);
   // Sample an INSPIRATION row from the middle of a breath
   const inspStart = sim.trace.findIndex(p => p.phase === 'INSPIRATION' && p.t > 4);
@@ -63,7 +63,7 @@ test('PC-AC: Paw tracks PEEP + pinsp during INSPIRATION', () => {
 
 // ---- T3: Paw = PEEP during EXPIRATION ----
 test('PC-AC: Paw returns to PEEP during EXPIRATION', () => {
-  const sim = newSim(PRESETS.Baseline, { peep: 5, pinsp: 15, ti: 1.0 });
+  const sim = newSim(PRESETS.phenotype_baseline, { peep: 5, pinsp: 15, ti: 1.0 });
   sim.runFor(4 * 60 / 14);
   const expirRows = sim.trace.filter(p => p.phase === 'EXPIRATION' && p.t > 10);
   assert(expirRows.length > 100);
@@ -76,7 +76,7 @@ test('PC-AC: Paw returns to PEEP during EXPIRATION', () => {
 
 // ---- T4: inspiratory flow is decelerating in a passive RC lung ----
 test('PC-AC: inspiratory flow is decelerating (passive RC)', () => {
-  const sim = newSim(PRESETS.Baseline, { peep: 5, pinsp: 15, ti: 1.0 });
+  const sim = newSim(PRESETS.phenotype_baseline, { peep: 5, pinsp: 15, ti: 1.0 });
   sim.runFor(2 * 60 / 14);
   // Sample INSPIRATION flow trajectory
   const inspStart = sim.trace.findIndex(p => p.phase === 'INSPIRATION' && p.t > 4);
@@ -93,7 +93,7 @@ test('PC-AC: inspiratory flow is decelerating (passive RC)', () => {
 // ---- T5: Vt emerges from mechanics, lower compliance → lower Vt ----
 test('PC-AC: lower compliance reduces Vt at identical pressure', () => {
   function vWithK(K) {
-    const p = PRESETS.Baseline();
+    const p = PRESETS.phenotype_baseline();
     for (const c of p.compartments) {
       c.capacity = c.capacity * (30 / K);
       c.elasticScale = K;
@@ -116,7 +116,7 @@ test('PC-AC: lower compliance reduces Vt at identical pressure', () => {
 // ---- T6: deterministic traces ----
 test('PC-AC: deterministic — same inputs → identical traces', () => {
   function trace() {
-    const sim = newSim(PRESETS.Baseline, { peep: 5, pinsp: 15, ti: 1.0 });
+    const sim = newSim(PRESETS.phenotype_baseline, { peep: 5, pinsp: 15, ti: 1.0 });
     sim.runFor(2 * 60 / 14);
     return sim.trace.map(p => ({
       t: p.t, V: p.output.totalVolume, Paw: p.output.airwayPressure,

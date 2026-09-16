@@ -11,7 +11,7 @@ function test(name, fn) {
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
 
 function newSim(trackGas) {
-  const params = PRESETS.Baseline();
+  const params = PRESETS.phenotype_baseline();
   const v = new VcAcController({
     fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.5,

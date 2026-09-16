@@ -1,6 +1,21 @@
 # ARDS Digital Twin — Changelog
 
-## v0.4.4 (2026-09-15) — Cleanup release for v0.4.4 acceptance
+## v0.4.4.1 (2026-09-16 14:25 UTC) — Preset rename (mechanical-construct labels)
+
+Mechanical parameters unchanged from v0.4.4. Only the externally-exposed labels changed.
+
+- `Baseline` → `phenotype_baseline`
+- `phenotype_low_recruitability` (mild ARDS) → `phenotype_low_recruitability`
+- `phenotype_moderate_recruitability` (moderate ARDS) → `phenotype_moderate_recruitability`
+- `phenotype_high_recruitability` (severe ARDS) → `phenotype_high_recruitability`
+
+Rationale: the labels are mechanical-construct descriptors (recruitable pool size), not clinical ARDS severity grades. The new labels make that distinction explicit.
+
+Tests: 127/127 passed across 21 test files.
+
+Cascaded changes: `src/presets.js`, 8 test files, `web/ui.spec.js`, `web/index.html`, `web/ards-v044.bundle.js`, `MANUSCRIPT.md`, `CHANGELOG.md`, `REVIEW_NOTES.md`, `IMPLEMENTATION_SUMMARY.md`, `TEST_RESULTS.json`, `NUMERICAL_DIAGNOSTICS.json`, `PERFORMANCE_BENCH.json`.
+
+## v0.4.4 (2026-09-16 13:18:06 UTC) — Cleanup release for v0.4.4 acceptance
 
 Addresses the v0.4.4 rejection/correction directive. The mechanical/numerical
 foundation is preserved; only the explicitly listed cleanup defects were fixed.
@@ -11,7 +26,7 @@ foundation is preserved; only the explicitly listed cleanup defects were fixed.
   scenario. `Simulation` constructor requires `initialPEEP` (or falls
   back to `controller.settings.peep`); the phenotype does not imply
   a ventilator setting.
-- **No `recruitable: 0.5` guessing in presets.** Injury A/B/C
+- **No `recruitable: 0.5` guessing in presets.** phenotype_low/moderate/high_recruitability
   phenotypes are pure mechanics; they no longer ship with an invented
   initial recruitment fraction.
 - **`initialRecruitmentState` is required.** `makeInitialState` and

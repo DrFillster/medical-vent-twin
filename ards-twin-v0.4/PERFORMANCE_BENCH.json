@@ -3,11 +3,12 @@
   "date": "2026-09-16T00:14:01.064Z",
   "host": "macOS Apple Silicon (M-series), Node v26.8.2",
   "note": "Wall-clock is benchmark, NOT a correctness gate. See NUMERICAL_DIAGNOSTICS.json for solver-failure counts and conservation residuals.",
+  "scope_note": "PERFORMANCE_BENCH.json and the J-4 acceptance test are NOT the same scenario configuration. PERFORMANCE_BENCH runs each preset at fixed duration (10 s for most, 22 s for the longest); J-4 runs phenotype_high_recruitability PEEP=5 for exactly 3 breaths. The percent_steps_subdivided values below describe the fixed-duration runs and should NOT be quoted as the J-4 numbers. J-4 reports 1.00 mean substeps/step (0% subdivision) over 6924 steps; this JSON reports 31.92% subdivision for the same preset+PEEP+Vt+RR over a 10 s run (~4.3 breaths). See MANUSCRIPT_REVISED.md §3.4 for the J-4 numbers.",
   "methodology": "Each scenario runs 10 s simulated at dt=1ms (or 22 s for the longer run). Solver-work counters come from output.solverStats per step. v0.4.4 uses scenario-owned initial recruitment (recruitable=0.5 for injury scenarios; not phenotype-owned).",
   "results": [
     {
-      "scenario": "Injury C PEEP=5  dt=1ms 10s",
-      "preset": "Injury C",
+      "scenario": "phenotype_high_recruitability PEEP=5  dt=1ms 10s",
+      "preset": "phenotype_high_recruitability",
       "peep": 5,
       "vt": 0.28,
       "rr": 26,
@@ -30,8 +31,8 @@
       "solver_failures": 0
     },
     {
-      "scenario": "Injury C PEEP=10 dt=1ms 10s",
-      "preset": "Injury C",
+      "scenario": "phenotype_high_recruitability PEEP=10 dt=1ms 10s",
+      "preset": "phenotype_high_recruitability",
       "peep": 10,
       "vt": 0.35,
       "rr": 22,
@@ -54,8 +55,8 @@
       "solver_failures": 0
     },
     {
-      "scenario": "Injury C PEEP=15 dt=1ms 22s",
-      "preset": "Injury C",
+      "scenario": "phenotype_high_recruitability PEEP=15 dt=1ms 22s",
+      "preset": "phenotype_high_recruitability",
       "peep": 15,
       "vt": 0.42,
       "rr": 20,

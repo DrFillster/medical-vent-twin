@@ -5,7 +5,7 @@
 //   - Default auto-run populates all metric tiles with finite numbers.
 //   - SVG waveform paths render (Paw + Volume).
 //   - Recruitment bars are drawn for all three compartments.
-//   - Preset switch (Baseline → Injury C) changes the metrics.
+//   - Preset switch (Baseline → phenotype_high_recruitability) changes the metrics.
 //   - Run button toggles disabled state and re-runs cleanly.
 //   - Solver diagnostics show zero failures on a healthy run.
 
@@ -92,14 +92,14 @@ test.describe('ARDS v0.4.2 browser UI', () => {
     expect(labels.some(l => l.includes('consolidated'))).toBe(true);
   });
 
-  test('switching to Injury C produces different metrics', async ({ page }) => {
+  test('switching to phenotype_high_recruitability produces different metrics', async ({ page }) => {
     await page.goto(URL);
     await expect(page.locator('#run')).toBeEnabled({ timeout: 15_000 });
     const baselinePpeak = parseFloat(await page.locator('#m-ppeak').textContent());
     const baselineVti = parseFloat(await page.locator('#m-vti').textContent());
 
-    // Switch to Injury C and re-run.
-    await page.locator('#preset').selectOption('Injury C');
+    // Switch to phenotype_high_recruitability and re-run.
+    await page.locator('#preset').selectOption('phenotype_high_recruitability');
     await page.locator('#peep').fill('14');
     await page.locator('#vt').fill('0.280');
     await page.locator('#rr').fill('26');
@@ -110,7 +110,7 @@ test.describe('ARDS v0.4.2 browser UI', () => {
     const injCPpeak = parseFloat(await page.locator('#m-ppeak').textContent());
     const injCVti = parseFloat(await page.locator('#m-vti').textContent());
 
-    // Injury C at PEEP=14, Vt=0.280 should produce a different (likely
+    // phenotype_high_recruitability at PEEP=14, Vt=0.280 should produce a different (likely
     // higher) Ppeak than Baseline at PEEP=5, Vt=0.480 — the comparison
     // is qualitative.
     expect(injCPpeak).not.toBe(baselinePpeak);

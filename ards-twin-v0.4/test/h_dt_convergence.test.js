@@ -40,12 +40,12 @@ function diff(a, b) {
   };
 }
 
-test('H1: VC dt convergence on Baseline', () => {
+test('H1: VC dt convergence on phenotype_baseline', () => {
   const mk = () => new VcAcController({ fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
-  const r2 = runOne('Baseline', mk, 0.002);
-  const r1 = runOne('Baseline', mk, 0.001);
-  const r05 = runOne('Baseline', mk, 0.0005);
+  const r2 = runOne('phenotype_baseline', mk, 0.002);
+  const r1 = runOne('phenotype_baseline', mk, 0.001);
+  const r05 = runOne('phenotype_baseline', mk, 0.0005);
   const d12 = diff(r1, r2);
   const d105 = diff(r05, r1);
   // dt=2ms and dt=1ms should be closer than dt=1ms and dt=0.5ms.
@@ -56,11 +56,11 @@ test('H1: VC dt convergence on Baseline', () => {
   assert(d12.Vt < 0.05, `Vt within 50 mL across dt steps`);
 });
 
-test('H2: PC dt convergence on Injury B', () => {
+test('H2: PC dt convergence on phenotype_moderate_recruitability', () => {
   const mk = () => new PcAcController({ fio2: 0.4, peep: 10, rr: 22,
     pinsp: 30, inspiratoryTime: 0.8 });
-  const r2 = runOne('Injury B', mk, 0.002);
-  const r1 = runOne('Injury B', mk, 0.001);
+  const r2 = runOne('phenotype_moderate_recruitability', mk, 0.002);
+  const r1 = runOne('phenotype_moderate_recruitability', mk, 0.001);
   const d12 = diff(r1, r2);
   console.log(`   dt=2→1ms: Ppeak=${d12.Ppeak.toFixed(3)}, Vt=${d12.Vt.toExponential(2)}`);
   assert(d12.Ppeak < 2.0, `Ppeak within 2 cmH2O across dt steps`);
@@ -70,9 +70,9 @@ test('H: dt convergence table is monotonic', () => {
   // As dt shrinks, outputs should converge (smaller diff at smaller dt).
   const mk = () => new VcAcController({ fio2: 0.4, peep: 8, rr: 18, vt: 0.420,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
-  const r2 = runOne('Injury A', mk, 0.002);
-  const r1 = runOne('Injury A', mk, 0.001);
-  const r05 = runOne('Injury A', mk, 0.0005);
+  const r2 = runOne('phenotype_low_recruitability', mk, 0.002);
+  const r1 = runOne('phenotype_low_recruitability', mk, 0.001);
+  const r05 = runOne('phenotype_low_recruitability', mk, 0.0005);
   const d12 = diff(r1, r2);
   const d105 = diff(r05, r1);
   // Convergence: |d105| < |d12| for at least one of the metrics.

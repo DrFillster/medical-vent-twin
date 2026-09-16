@@ -50,7 +50,7 @@ function plateauFromPause(sim) {
 }
 
 test('VC-AC: target Vt delivered within ~10% in valid passive case', () => {
-  const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, rr: 14 });
+  const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, rr: 14 });
   runBreaths(sim, 3);
   // Per-breath delivered Vt is Vmax - Vmin within one breath cycle, where
   // Vmin is at start of inspiration (end of expiration) and Vmax is at
@@ -79,7 +79,7 @@ test('VC-AC: target Vt delivered within ~10% in valid passive case', () => {
 });
 
 test('VC-AC: Ppeak > Pplat when resistance > 0', () => {
-  const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, rr: 14, pause: 0.5 });
+  const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, rr: 14, pause: 0.5 });
   runBreaths(sim, 2);
   const peak = peakP(sim);
   // Plateau is approximated by the median PAUSE-pressure.
@@ -107,7 +107,7 @@ test('VC-AC: Ppeak > Pplat when resistance > 0', () => {
 // realistic capacity/K to stay in the elastic regime.
 
 test('VC-AC: inspiratory hold yields near-zero flow', () => {
-  const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, rr: 14, pause: 0.3 });
+  const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, rr: 14, pause: 0.3 });
   runBreaths(sim, 2);
   const holds = sim.trace.filter(p => p.phase === 'PAUSE');
   // Sample Pmean flow in PAUSE rows; should be much smaller than during
@@ -142,8 +142,8 @@ test('VC-AC: inspiratory hold yields near-zero flow', () => {
 test('VC-AC: PEEP shifts end-expiratory operating point', () => {
   // Two runs at different PEEP; the second run should have higher
   // end-expiratory volume at the same DT.
-  const lowPeep = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, rr: 14, peep: 5 });
-  const highPeep = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, rr: 14, peep: 10 });
+  const lowPeep = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, rr: 14, peep: 5 });
+  const highPeep = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, rr: 14, peep: 10 });
   runBreaths(lowPeep, 4);
   runBreaths(highPeep, 4);
   // End-expiratory volume = V at the end of the last EXPIRATION phase,
@@ -174,7 +174,7 @@ test('VC-AC: PEEP shifts end-expiratory operating point', () => {
 
 test('VC-AC: deterministic — same inputs produce identical traces', () => {
   function trace() {
-    const sim = newSim(PRESETS.Baseline, { vt: 0.480, flow: 0.5, rr: 14, pause: 0.2 });
+    const sim = newSim(PRESETS.phenotype_baseline, { vt: 0.480, flow: 0.5, rr: 14, pause: 0.2 });
     runBreaths(sim, 1);
     return sim.trace.map(p => ({
       t: p.t, p: p.output.airwayPressure,
