@@ -308,10 +308,11 @@ This work is **not peer reviewed**. The artifact is an **educational exploration
 - Source tree: `ards-twin-v0.4/src/` (CommonJS), `ards-twin-v0.4/test/` (21 files, 127 assertions)
 - Run: `npm test` from the project root after `unzip vent-twin-v0.4.4.1-final-clean.zip`
 
-### In Drive (ZIP archives)
+### On GitHub Releases (versioned archives)
 
-- `vent-twin-v0.4.4.1-final-clean.zip` — full runnable simulator package + `FINAL_CLEANUP_CHANGELOG.md` + `FINAL_CLEANUP_VERIFICATION.md`
-- `vent-manuscript-v0.4.4.1-final.zip` — manuscript + changelog + review notes + SHA256SUMS
+- v0.4.4.1 release page: https://github.com/DrFillster/medical-vent-twin/releases/tag/v0.4.4.1
+  - `vent-twin-v0.4.4.1-final-clean.zip` — full runnable simulator package + `FINAL_CLEANUP_CHANGELOG.md` + `FINAL_CLEANUP_VERIFICATION.md`
+  - `vent-manuscript-v0.4.4.1-final.zip` — manuscript + changelog + review notes + SHA256SUMS
 
 ## 8. Reproducibility commands
 

@@ -23,7 +23,7 @@ test.describe('Mechanistic Lung Simulator v0.4.4.1 browser UI', () => {
     const resp = await page.goto(URL);
     expect(resp?.status(), 'page should return 200').toBe(200);
     // Bundle must be reachable.
-    const bundle = await page.request.get(URL + 'ards-v042.bundle.js');
+    const bundle = await page.request.get(URL + 'ards-v044.bundle.js');
     expect(bundle.status(), 'bundle should return 200').toBe(200);
     // Title and headline.
     await expect(page).toHaveTitle(/Mechanistic Lung Simulator v0\.4\.4\.1/);
