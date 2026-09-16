@@ -1,26 +1,32 @@
-// presets.js — Four ARDS phenotypes.
-// Derived from the rc1 reference model parameters for the elastic law
-//   V(P, r) = c*K*(1 − exp(−(P − AOP)/K))
-// where (c, K) per compartment is
-//   c_N = fN × C0,  K_N = 30 cmH2O
-//   c_R = fR × r × C0,  K_R = 22 cmH2O
-//   c_C = fC × C0,  K_C (stiff chosen)
+// presets.js — Four ARDS phenotypes (mechanics only).
 //
-// In the dynamic engine, the contract fields capacity (= cK) and
-// elasticScale (= K) are filled in directly.
+// v0.4.4 separation of concerns:
 //
-// v0.4.3: each preset owns initialPEEP and initialRecruitmentState.
-// The initializer must not invent recruitment. If either field is missing,
-// makeInitialState() will fail with an explicit error rather than guessing.
+//   Phenotype owns ONLY mechanics:
+//     - compartment fractions, resistances, capacities, K
+//     - perfusion/deadSpace fractions
+//     - central airway resistance
+//     - airway opening pressure (AOP) — this is an intrinsic tissue property,
+//       NOT a ventilator setting, so it stays on the phenotype
+//
+//   Phenotype does NOT own:
+//     - initialPEEP (ventilator scenario owns this)
+//     - initialRecruitmentState (no guessed fraction; either supplied by
+//       caller as initialRecruitmentState, or built from an explicit
+//       initializationHistory)
+//
+// The dynamic engine (contracts.js makeInitialState) requires the caller
+// to supply either initialRecruitmentState or initializationHistory.
+// If neither is given, the call fails explicitly rather than guessing.
 
 const C0 = 0.120;
 const K_NORMAL = 30;
 const K_RECRUITABLE = 22;
-const K_CONSOLIDATED = 35;   // stiffer than normal; small contribution
+const K_CONSOLIDATED = 35;
 
 function makeCompartment({ id, fraction, resistance, perfusion, deadSpace,
                            elasticScale = K_NORMAL }) {
-  const c = fraction * C0;        // L/cmH2O of effective spring stiffness
+  const c = fraction * C0;        // L/cmH2O effective spring stiffness
   return {
     id, fraction,
     resistance,
@@ -33,10 +39,7 @@ function makeCompartment({ id, fraction, resistance, perfusion, deadSpace,
 
 function presetBaseline() {
   return {
-    // v0.4.3: presets own initialPEEP and initialRecruitmentState.
-    // Baseline has only normal tissue; the recruitable pool is fraction=0.
-    initialPEEP: 5,
-    initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
+    // Baseline: healthy lung, no recruitable pool, normal AOP=0.
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.98, resistance: 0.5,
                        perfusion: 0.98, deadSpace: 0.30,
@@ -54,12 +57,8 @@ function presetBaseline() {
 }
 
 function presetInjuryA() {
+  // Mild ARDS: small recruitable pool, modest AOP shift.
   return {
-    // v0.4.3: injury presets have a recruitable pool.
-    // initialRecruitmentState is the explicit mid-state value the model
-    // should start at. The dynamics will evolve it from there.
-    initialPEEP: 8,
-    initialRecruitmentState: { normal: 1, recruitable: 0.5, consolidated: 0 },
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.65, resistance: 0.7,
                        perfusion: 0.75, deadSpace: 0.40,
@@ -77,9 +76,8 @@ function presetInjuryA() {
 }
 
 function presetInjuryB() {
+  // Moderate ARDS: 40% recruitable pool, AOP=4.
   return {
-    initialPEEP: 10,
-    initialRecruitmentState: { normal: 1, recruitable: 0.5, consolidated: 0 },
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.40, resistance: 0.8,
                        perfusion: 0.55, deadSpace: 0.50,
@@ -97,9 +95,8 @@ function presetInjuryB() {
 }
 
 function presetInjuryC() {
+  // Severe ARDS: 50% recruitable pool, AOP=6 (worse edema/collapse).
   return {
-    initialPEEP: 12,
-    initialRecruitmentState: { normal: 1, recruitable: 0.5, consolidated: 0 },
     compartments: [
       makeCompartment({ id: 'normal', fraction: 0.20, resistance: 1.0,
                        perfusion: 0.30, deadSpace: 0.60,

@@ -62,7 +62,7 @@ test('I2: STEP_FAILED preserves trace integrity (no failed-step entry in trace)'
   const params = makePatientParams(PRESETS.Baseline());
   const controller = new VcAcController({ fio2: 0.4, peep: 5, rr: 14, vt: 0.480,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
-  const sim = new Simulation({ params, controller, dt: 0.001, trackGas: false });
+  const sim = new Simulation({ params, controller, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , trackGas: false });
   sim.runFor(60 / controller.settings.rr);
   // Trace should contain only successful steps.
   for (let i = 0; i < sim.trace.length; i++) {
@@ -188,6 +188,92 @@ test('I5: SOLVER_NONCONVERGENCE is distinct from INFEASIBLE_BOUNDARY', () => {
     assert(result.state.totalVolume >= 0,
       `V must be ≥ 0, got ${result.state.totalVolume}`);
   }
+});
+
+// -------------------------------------------------------------------------
+// I6: NEGATIVE/EXPIRATORY flow infeasibility uses removable volume.
+// Force the system to have ~zero gas (a closed compartment) and ask for
+// large expiratory flow. The classifier must report INFEASIBLE_BOUNDARY
+// because there is no gas to remove.
+// -------------------------------------------------------------------------
+test('I6: negative-flow infeasibility uses removable volume', () => {
+  // A single very-low-capacity compartment is essentially empty.
+  const params = makePatientParams({
+    compartments: [
+      { id: 'normal', fraction: 1.0, resistance: 5, capacity: 1e-6,
+        elasticScale: 30, perfusionFraction: 1.0, deadSpaceFraction: 0.3 },
+      { id: 'recruitable', fraction: 0, resistance: 1, capacity: 1e-6,
+        elasticScale: 1, perfusionFraction: 0, deadSpaceFraction: 0.3 },
+      { id: 'consolidated', fraction: 0, resistance: 1, capacity: 1e-6,
+        elasticScale: 1, perfusionFraction: 0, deadSpaceFraction: 0.3 },
+    ],
+    centralAirwayResistance: 0,
+    airwayOpeningPressure: 0,
+  });
+  const m = new ThreeCompartmentMechanics();
+  const state = makeInitialState(params, {
+    initialPEEP: 5,
+    initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
+  });
+  // 100 L/s *negative* (expiratory) flow on a 1e-6 L compartment —
+  // there is no gas to remove, so direction-aware bound rejects.
+  const boundary = makeBoundaryFlow({ flowLps: -100.0, fio2: 0.5 });
+  const tBefore = state.t;
+  const vBefore = state.totalVolume;
+  const result = m.step(params, state, boundary, 0.001);
+  // Must be classified INFEASIBLE_BOUNDARY — and not silently advance state.
+  assert(result.output.solverFailure === true,
+    `solver should fail for -100 L/s with V=0; residual=${result.output.residualNorm}`);
+  assert(result.output.failureKind === 'INFEASIBLE_BOUNDARY',
+    `failureKind should be INFEASIBLE_BOUNDARY, got ${result.output.failureKind}`);
+  assert(result.state.t === tBefore,
+    `time must not advance on failure: was ${tBefore}, now ${result.state.t}`);
+  assert(result.state.totalVolume === vBefore,
+    `volume must not advance on failure`);
+});
+
+// -------------------------------------------------------------------------
+// I7: SMALL NEGATIVE flow on a populated compartment does NOT trigger
+// INFEASIBLE_BOUNDARY — the gas is removable, the system can expire.
+// -------------------------------------------------------------------------
+test('I7: small negative flow on populated compartment is feasible', () => {
+  // 1 L capacity at 0 PEEP, fully recruited — should hold ~0.6 L at AOP=0.
+  const params = makePatientParams({
+    compartments: [
+      { id: 'normal', fraction: 1.0, resistance: 5, capacity: 1.0,
+        elasticScale: 30, perfusionFraction: 1.0, deadSpaceFraction: 0.3 },
+      { id: 'recruitable', fraction: 0, resistance: 1, capacity: 1e-6,
+        elasticScale: 1, perfusionFraction: 0, deadSpaceFraction: 0.3 },
+      { id: 'consolidated', fraction: 0, resistance: 1, capacity: 1e-6,
+        elasticScale: 1, perfusionFraction: 0, deadSpaceFraction: 0.3 },
+    ],
+    centralAirwayResistance: 1,
+    airwayOpeningPressure: 0,
+  });
+  const m = new ThreeCompartmentMechanics();
+  const state = makeInitialState(params, {
+    initialPEEP: 0,
+    initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
+  });
+  // Equilibrate first with a small positive flow to populate V > 0.
+  const fillBoundary = makeBoundaryFlow({ flowLps: 0.5, fio2: 0.5 });
+  const filled = m.step(params, state, fillBoundary, 0.001);
+  // Now ask for -0.5 L/s expiration. If V is sufficiently positive,
+  // this is feasible.
+  const expireBoundary = makeBoundaryFlow({ flowLps: -0.3, fio2: 0.5 });
+  const result = m.step(params, filled.state, expireBoundary, 0.001);
+  // Must not classify as infeasible if there is gas to remove. Solver may
+  // still report failure (structural constraints), but if it does, it must
+  // NOT be INFEASIBLE_BOUNDARY — expiration with V > |Q|*dt is feasible.
+  if (result.output.solverFailure) {
+    assert(result.output.failureKind !== 'INFEASIBLE_BOUNDARY',
+      `failureKind should not be INFEASIBLE_BOUNDARY for feasible expiration, ` +
+      `got ${result.output.failureKind}. V=${filled.state.totalVolume}, ` +
+      `Q*dt=${0.3 * 0.001}`);
+  }
+  // Volume must stay >= 0.
+  assert(result.state.totalVolume >= -1e-12,
+    `V must stay >= 0, got ${result.state.totalVolume}`);
 });
 
 console.log(`\nTests: passed=${passed} failed=${failed}`);

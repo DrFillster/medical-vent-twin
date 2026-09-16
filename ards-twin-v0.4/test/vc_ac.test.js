@@ -25,7 +25,7 @@ function newSim(presetFn, opts = {}) {
     vt: opts.vt || 0.480, inspiratoryFlow: opts.flow || 0.5,
     inspiratoryPause: opts.pause || 0,
   });
-  const sim = new Simulation({ params, controller: vent, dt: 0.001 });
+  const sim = new Simulation({ params, controller: vent, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   return sim;
 }
 

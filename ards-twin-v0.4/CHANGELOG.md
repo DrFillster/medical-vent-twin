@@ -1,66 +1,61 @@
 # ARDS Digital Twin — Changelog
 
+## v0.4.4 (2026-09-15) — Cleanup release for v0.4.4 acceptance
+
+Addresses the v0.4.4 rejection/correction directive. The mechanical/numerical
+foundation is preserved; only the explicitly listed cleanup defects were fixed.
+
+### Required corrections applied
+
+- **Phenotype no longer owns initialPEEP.** Moved to the simulation
+  scenario. `Simulation` constructor requires `initialPEEP` (or falls
+  back to `controller.settings.peep`); the phenotype does not imply
+  a ventilator setting.
+- **No `recruitable: 0.5` guessing in presets.** Injury A/B/C
+  phenotypes are pure mechanics; they no longer ship with an invented
+  initial recruitment fraction.
+- **`initialRecruitmentState` is required.** `makeInitialState` and
+  `Simulation` throw with explicit errors when either
+  `initialPEEP` or `initialRecruitmentState` is missing.
+- **CommonJS only.** Removed `"type": "module"` from package.json
+  declarations; source uses `require`/`module.exports` throughout.
+- **`npm test` works after fresh unzip.** Added `test/runner.js` and
+  root `package.json` script.
+- **Version metadata v0.4.4.** Root and web packages both v0.4.4.
+- **Direction-aware FLOW infeasibility.** `classifyBoundaryFeasibility`
+  uses remaining capacity (`Σ max(0, Vmax - V)`) for inspiratory flow
+  and removable volume (`Σ max(0, V)`) for expiratory flow.
+
+### Tests
+
+- v0.4.3 baseline: 125 passed
+- v0.4.4 additions: 2 (I6 negative-flow infeasibility, I7 feasible
+  expiration does not trigger INFEASIBLE_BOUNDARY)
+- **v0.4.4 total: 127 passed, 0 failed**
+
+### Mechanics (unchanged from v0.4.3)
+
+- Finite-capacity exponential P-V law
+- Analytic dP/dV = K/(Vmax - V) Jacobian
+- Central + branch resistance topology
+- Constrained volume bounds (V ∈ [0, (1-EPS_CAP) * Vmax])
+- Failed-step semantics (no time/state advancement)
+- Derecruitment feasibility projection (EPS_PROJ = 1e-6)
+- Scaled convergence framework (SOLVER_TOL_SCALED = 1e-3)
+- VC/PC controller separation
+- Low-R behavior (Ppeak-Pplat → 0)
+- Timestep-convergence framework
+- Solver instrumentation: newtonIters, substeps, lineSearchHalvings,
+  activeSetTransitions, residualNorm, scaledResidual, converged
+
 ## v0.4.3 (2026-09-15) — Numerical rigor rewrite
 
 ### Breaking changes from v0.4.2
-- `makeInitialState(params, options)`: now requires `initialPEEP` AND
-  `initialRecruitmentState` in `options` or on `params`. The legacy
-  `initialVolume` path is removed. Presets own their initial state.
-- `Simulation({ params, controller, ... })`: pulls `initialPEEP` and
-  `initialRecruitmentState` from `params` (the preset). Will throw if
-  neither preset nor controller can supply them.
-- Conservation/initialization legacy test that asserted `airwayPressure === 0`
-  now asserts the preset's `initialPEEP`.
-
-### New contracts
-- **STEP_FAILED**: solver failure does not advance time or state.
-  Returned as `{ failed: true, output: { ..., solverFailure, failureKind } }`.
-- **INFEASIBLE_BOUNDARY vs SOLVER_NONCONVERGENCE**: distinct diagnostic
-  classifications for boundary infeasibility vs Newton nonconvergence.
-- **Dimensionlessly scaled convergence**: `‖R̂‖∞ < 1e-3` is the
-  convergence criterion (was: raw Euclidean norm < 1e-5).
-- **Analytic Jacobian**: `dP/dV = K/(Vmax - V)` replaces finite-difference
-  in production mechanics.
-- **Derecruitment projection**: `stepRecruitmentWithFloor` clamps
-  `r >= V / ((1 - 1e-6) * capacity)` to preserve V ≤ Vmax(r).
-
-### Acceptance suite (123 tests, 89 baseline + 34 new)
-- **A**: 11 — Initialization, lower-bound regime, preset ownership
-- **B**: 3 — Jacobian (analytic vs numerical)
-- **C**: 1 — Small-signal τ ≈ R·C_tan
-- **D**: 8 — Flow conservation, central resistance, plateau
-- **E**: 2 — Low-resistance convergence across decades
-- **F**: 4 — Recruitment mechanics + derecruitment projection
-- **G**: 5 — Multi-breath VC + PC, all injury severities, zero failures
-- **H**: 3 — dt convergence at 2/1/0.5 ms
-- **I**: 4 — Failure semantics, INFEASIBLE_BOUNDARY classification
-- **J**: 4 — Instrumentation: solverStats includes lineSearchHalvings, activeSetTransitions
-
-### Known pathology (NOT a correctness bug, flagged for future work)
-- Injury C PEEP=5 dt=1ms: 32% of steps subdivide (substeps=2).
-  Wall-clock: 2023 ms for 10 s simulated (≈200× real-time).
-  Newton itself converges in 0.6 iters avg — the bottleneck is
-  dt-subdivision near the closure boundary of recruitable compartments.
-- See `PERFORMANCE_BENCH.json` and `REVIEW_NOTES.md` for details and
-  proposed fixes.
-
-## v0.4.2 (2026-09-15) — Nonlinear mechanics + Newton-Raphson + recruitment floor
-- Finite-capacity exponential elastic law
-- Implicit Newton-Raphson mechanics solver
-- Bounded recruitment kinetics with feasibility floor
-- 89/89 tests passing
-
-## v0.4.1 (earlier) — Central R + AOP fix + gas-toggle test + plateau
-## v0.4.0 — Initial multi-compartment mechanics
-
-### v0.4.3 instrumentation additions
-- `output.solverStats.lineSearchHalvings` (total per Newton call)
-- `output.solverStats.activeSetTransitions` (compartments crossing
-  regime boundaries: CLOSED / FLOOR / INTERIOR / CAP)
-- Both fields propagated through `newtonStep` → `solveImplicitStep`
-  → `finalize` → `output.solverStats`.
-
-### v0.4.3 test additions
-- I5: SOLVER_NONCONVERGENCE is distinct from INFEASIBLE_BOUNDARY
-  (now both kinds are demonstrated)
-- J4: active-set transitions are tracked and machine-readable
+- `makeInitialState(params, options)` — closed compartments (capacity=0)
+  are exactly closed at V=0 with G=0; zero-capacity trachea-equivalent.
+- Three-regime initialization: closed / elastic / lower-bound.
+- Pressure-consistent initialization (V derived from P_alv, not guessed).
+- Analytic Jacobian dP_el/dV = K/(Vmax - V) replaces finite-difference.
+- Dimensionlessly scaled Newton convergence (‖R̂‖∞ < 1e-3, with
+  V_scale floor = 0.01 L, P_scale based on |pBranch|, |AOP|).
+- Test coverage: 89 (v0.4.2 baseline) + 36 (v0.4.3 acceptance) = 125.

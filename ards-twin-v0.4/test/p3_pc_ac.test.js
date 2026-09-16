@@ -20,7 +20,7 @@ function newSim(presetFn, opts = {}) {
     inspiratoryTime: opts.ti || 1.0,
     inspiratoryPause: opts.pause || 0,
   });
-  return new Simulation({ params, controller: vent, dt: 0.001, fio2: opts.fio2 || 0.4 });
+  return new Simulation({ params, controller: vent, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , fio2: opts.fio2 || 0.4 });
 }
 
 // ---- T1: rejection of invalid settings ----

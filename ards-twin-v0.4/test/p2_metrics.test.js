@@ -17,7 +17,7 @@ function newVC() {
     vt: 0.480, inspiratoryFlow: 0.5, inspiratoryPause: 0.5,
   });
   return new Simulation({
-    params: PRESETS.Baseline(), controller: v, dt: 0.001, fio2: 0.4,
+    params: PRESETS.Baseline(), controller: v, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , fio2: 0.4,
   });
 }
 

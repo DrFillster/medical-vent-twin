@@ -46,8 +46,7 @@ test('T1: increasing Rcentral raises Ppeak during VC inspiration', () => {
   function peakPaw(rc) {
     const sim = new Simulation({
       params: makePresetParams(rc),
-      controller: newVcController(),
-      dt: 0.001, fio2: 0.4, trackGas: false,
+      controller: newVcController(), dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , fio2: 0.4, trackGas: false,
     });
     sim.runFor(3 * 60 / 14);
     return sim.metrics()[1].Ppeak;
@@ -64,8 +63,7 @@ test('T2: zero-flow hold — central resistive drop vanishes', () => {
   function plateauPaw(rc) {
     const sim = new Simulation({
       params: makePresetParams(rc),
-      controller: newVcController(),
-      dt: 0.001, fio2: 0.4, trackGas: false,
+      controller: newVcController(), dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , fio2: 0.4, trackGas: false,
     });
     sim.runFor(3 * 60 / 14);
     return sim.metrics()[1].Pplat;
@@ -84,8 +82,7 @@ test('T3: Rcentral = 0 — Ppeak matches small-Rcentral limit', () => {
   function peakPaw(rc) {
     const sim = new Simulation({
       params: makePresetParams(rc),
-      controller: newVcController(),
-      dt: 0.001, fio2: 0.4, trackGas: false,
+      controller: newVcController(), dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , fio2: 0.4, trackGas: false,
     });
     sim.runFor(3 * 60 / 14);
     return sim.metrics()[1].Ppeak;
@@ -101,7 +98,7 @@ test('T3: Rcentral = 0 — Ppeak matches small-Rcentral limit', () => {
 test('T4: FLOW conservation — Q_requested = Q_central = Σ Q_branch', () => {
   const params = makePresetParams(2.0);
   // Init from PEEP=5 so we start at the equilibrium volume.
-  const state = makeInitialState(params, { initialPEEP: 5 });
+  const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   const { state: ns, output } = m.step(params, state,
     makeBoundaryFlow({ flowLps: 0.5, fio2: 0.4 }), 0.001);
@@ -117,7 +114,7 @@ test('T4: FLOW conservation — Q_requested = Q_central = Σ Q_branch', () => {
 // ---- T5: PRESSURE conservation -----------------------------------------
 test('T5: PRESSURE conservation — Q_central = Σ Q_branch', () => {
   const params = makePresetParams(2.0);
-  const state = makeInitialState(params, { initialPEEP: 5 });
+  const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   const { output } = m.step(params, state,
     makeBoundaryPressure({ pressureCmH2O: 20, fio2: 0.4 }), 0.001);
@@ -139,7 +136,7 @@ test('T6: paired-resistance — central R slows filling under FLOW', () => {
     p.compartments.forEach(c => c.resistance = branch);
     const params = makePatientParams(p);
     const sim = new (require('../src/simulation.js').Simulation)({
-      params, controller: newVcController(), dt: 0.001, fio2: 0.4, trackGas: false,
+      params, controller: newVcController(), dt: 0.001, fio2: 0.4, trackGas: false, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
     });
     sim.runFor(3 * 60 / 14);
     return sim.metrics()[1].Ppeak;
@@ -156,7 +153,7 @@ test('T6: paired-resistance — central R slows filling under FLOW', () => {
 test('T7: identity — Pvent = Pbranch + Q_central × Rcentral', () => {
   for (const rc of [0.5, 2.0, 5.0]) {
     const params = makePresetParams(rc);
-    const state = makeInitialState(params, { initialPEEP: 5 });
+    const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
     const m = new ThreeCompartmentMechanics();
     const { output } = m.step(params, state,
       makeBoundaryFlow({ flowLps: 0.5, fio2: 0.4 }), 0.001);

@@ -22,7 +22,7 @@ test('Initial state is finite', () => {
   const params = makePatientParams(mkParams());
   // v0.4.2: pressure-consistent init from AOP — zero volume since AOP=0
   // and distending pressure is zero.
-  const state = makeInitialState(params);
+  const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   for (const c of state.compartments) {
     assert(Number.isFinite(c.volume), 'finite volume');
     assert(Number.isFinite(c.flow), 'finite flow');
@@ -36,7 +36,7 @@ test('Initial state is finite', () => {
 
 test('Single step produces finite values', () => {
   const params = makePatientParams(mkParams());
-  const state = makeInitialState(params);
+  const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const boundary = makeBoundaryFlow({ flowLps: 0.4, fio2: 0.5 });
   const m = new ThreeCompartmentMechanics();
   const { state: ns, output } = m.step(params, state, boundary, 0.001);
@@ -52,7 +52,7 @@ test('Single step produces finite values', () => {
 test('Flow conservation per step', () => {
   // Total flow = sum of compartment flows within tolerance.
   const params = makePatientParams(mkParams());
-  const state = makeInitialState(params);
+  const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   const boundary = makeBoundaryFlow({ flowLps: 0.5, fio2: 0.5 });
   const { output } = m.step(params, state, boundary, 0.001);
@@ -64,7 +64,7 @@ test('Flow conservation per step', () => {
 test('Volume change equals integrated flow', () => {
   // ΔV_total = Σ Q_i × dt within tolerance.
   const params = makePatientParams(PRESETS['Injury B']());
-  const state = makeInitialState(params);
+  const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   const dt = 0.005;
   const boundary = makeBoundaryFlow({ flowLps: 0.4, fio2: 0.5 });
@@ -78,7 +78,7 @@ test('Volume change equals integrated flow', () => {
 
 test('Pressure boundary type is honoured', () => {
   const params = makePatientParams(mkParams());
-  const state = makeInitialState(params);
+  const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   const boundary = makeBoundaryPressure({ pressureCmH2O: 10, fio2: 0.5 });
   const { state: ns } = m.step(params, state, boundary, 0.001);
@@ -89,7 +89,7 @@ test('Pressure boundary type is honoured', () => {
 test('Volume cannot go negative under passive recoil', () => {
   // Sustained Paw = AOP (zero driving pressure with relaxed compartments).
   const params = makePatientParams(PRESETS['Injury C']());
-  const state = makeInitialState(params, { initialVolume: 0.0 });
+  const state = makeInitialState(params, { initialPEEP: 0, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   const boundary = makeBoundaryPressure({ pressureCmH2O: 0, fio2: 0.5 });
   const { state: ns } = m.step(params, state, boundary, 0.01);
@@ -100,7 +100,7 @@ test('Volume cannot go negative under passive recoil', () => {
 
 test('Recruitment bounds are preserved', () => {
   const params = makePatientParams(PRESETS['Injury C']());
-  const state = makeInitialState(params);
+  const state = makeInitialState(params, { initialPEEP: 5, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   // v0.4: recruitment evolves via opening/closing dynamics. The test now
   // verifies that the state stays within [0, 1] regardless of starting value
   // and that opening/closing behavior is monotone (no spontaneous jumps).

@@ -185,17 +185,18 @@ test('A4: missing initialPEEP fails explicitly', () => {
     `error message should mention initialPEEP, got: ${msg}`);
 });
 
-test('A4: missing initialRecruitmentState defaults to closed (no guess)', () => {
+test('A4: missing initialRecruitmentState fails explicitly (no guess)', () => {
   const params = makePatientParams(PRESETS.Baseline());
-  delete params.initialRecruitmentState;
-  const state = makeInitialState(params, { initialPEEP: 5 });
-  // The closed default is the explicit absence of recruitment, not a guess.
-  assert(state.compartments.find(c => c.id === 'normal').recruitment === 1,
-    'normal must default to 1');
-  assert(state.compartments.find(c => c.id === 'recruitable').recruitment === 0,
-    'recruitable must default to 0 (closed)');
-  assert(state.compartments.find(c => c.id === 'consolidated').recruitment === 0,
-    'consolidated must default to 0');
+  // Under v0.4.4, missing recruitment MUST throw rather than default.
+  let threw = false;
+  try {
+    makeInitialState(params, { initialPEEP: 5 });
+  } catch (e) {
+    threw = true;
+    assert(/initialRecruitmentState/.test(e.message),
+      `error must mention initialRecruitmentState, got: ${e.message}`);
+  }
+  assert(threw, 'missing initialRecruitmentState must fail explicitly');
 });
 
 test('A4: invalid recruitment value is rejected', () => {
@@ -215,12 +216,24 @@ test('A4: invalid recruitment value is rejected', () => {
 });
 
 // -------------------------------------------------------------------------
-// Composite: invariants across all presets.
+// Composite: invariants across all presets (each preset is a scenario with
+// a documented initial PEEP + the closed/no-recruitment state — these are
+// not arbitrary; they are explicit test fixtures).
 // -------------------------------------------------------------------------
+const TEST_SCENARIO_PEEP = {
+  Baseline: 5,
+  'Injury A': 8,
+  'Injury B': 10,
+  'Injury C': 12,
+};
+
 test('Composite: every preset initializes within finite-capacity domain', () => {
   for (const name of Object.keys(PRESETS)) {
     const params = makePatientParams(PRESETS[name]());
-    const state = makeInitialState(params);
+    const state = makeInitialState(params, {
+      initialPEEP: TEST_SCENARIO_PEEP[name],
+      initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
+    });
     for (const c of state.compartments) {
       const cp = params.compartments.find(p => p.id === c.id);
       const vmax = effectiveVolumeCapacity(cp, c.recruitment);
@@ -240,20 +253,26 @@ test('Composite: every preset initializes within finite-capacity domain', () => 
   }
 });
 
-test('Composite: initial airwayPressure equals preset PEEP', () => {
+test('Composite: initial airwayPressure equals scenario PEEP', () => {
   for (const name of Object.keys(PRESETS)) {
     const params = makePatientParams(PRESETS[name]());
-    const state = makeInitialState(params);
-    assert(state.airwayPressure === params.initialPEEP,
+    const state = makeInitialState(params, {
+      initialPEEP: TEST_SCENARIO_PEEP[name],
+      initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
+    });
+    assert(state.airwayPressure === TEST_SCENARIO_PEEP[name],
       `${name}: airwayPressure ${state.airwayPressure} != ` +
-      `preset PEEP ${params.initialPEEP}`);
+      `scenario PEEP ${TEST_SCENARIO_PEEP[name]}`);
   }
 });
 
 test('Composite: totalFlow = 0 at init', () => {
   for (const name of Object.keys(PRESETS)) {
     const params = makePatientParams(PRESETS[name]());
-    const state = makeInitialState(params);
+    const state = makeInitialState(params, {
+      initialPEEP: TEST_SCENARIO_PEEP[name],
+      initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
+    });
     assert(state.totalFlow === 0,
       `${name}: initial totalFlow must be 0`);
   }

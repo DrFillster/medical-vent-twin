@@ -18,7 +18,7 @@ function test(name, fn) {
 function runOne(presetName, controllerFactory, dt) {
   const params = makePatientParams(PRESETS[presetName]());
   const controller = controllerFactory();
-  const sim = new Simulation({ params, controller, dt, trackGas: false });
+  const sim = new Simulation({ params, controller, dt, trackGas: false, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const breathDuration = 60 / controller.settings.rr;
   sim.runFor(breathDuration * 2);   // 2 breaths
   const metrics = sim.metrics();

@@ -23,33 +23,54 @@ const {
 const { analyzeAll } = require('./metrics.js');
 
 class Simulation {
-  constructor({ params, controller, dt = 0.001, fio2 = 0.4, trackGas = true }) {
+  constructor({
+    params, controller, dt = 0.001, fio2 = 0.4, trackGas = true,
+    // v0.4.4: scenario-owned initial state. The phenotype (PatientParams)
+    // does NOT own initialPEEP or initialRecruitmentState. The simulation
+    // caller must supply them explicitly, or pass initializationHistory
+    // from which the recruitment state can be derived.
+    initialPEEP, initialRecruitmentState, initializationHistory,
+  }) {
     this.params = params;
     this.controller = controller;
     this.clock = new SimulationClock(dt);
-    // v0.4.3: pressure-consistent initialization.
-    //
-    // Presets MUST own initialPEEP and initialRecruitmentState. makeInitialState
-    // pulls them from `params` (the preset). The controller's PEEP is the
-    // operating target, not the initializer's input — but if the preset is
-    // silent, fall back to controller.settings.peep (legacy compat for tests
-    // that don't use presets). The fallback is documented and explicit.
-    //
-    // If neither preset nor controller can supply initialPEEP, the
-    // initializer throws rather than guessing.
-    const presetRecState = params.initialRecruitmentState
-      && typeof params.initialRecruitmentState === 'object'
-      ? params.initialRecruitmentState : null;
-    const presetPEEP = typeof params.initialPEEP === 'number'
-      ? params.initialPEEP : null;
-    const ctrlPEEP = controller.settings
-      && typeof controller.settings.peep === 'number'
-      ? controller.settings.peep : null;
-    const finalPEEP = presetPEEP !== null ? presetPEEP : ctrlPEEP;
+
+    // Resolve initialPEEP: prefer caller-supplied scenario value; fall
+    // back to controller.settings.peep for tests that wire only one
+    // side. We do NOT guess from the phenotype.
+    let resolvedPEEP;
+    if (typeof initialPEEP === 'number') {
+      resolvedPEEP = initialPEEP;
+    } else if (controller.settings && typeof controller.settings.peep === 'number') {
+      resolvedPEEP = controller.settings.peep;
+    } else {
+      throw new Error(
+        'Simulation: scenario must provide initialPEEP (or controller.settings.peep)');
+    }
+
+    // Resolve initial recruitment state.
+    //   - If caller supplied initialRecruitmentState, use it.
+    //   - If caller supplied initializationHistory, run the recovery
+    //     protocol (FE march over the history) — not yet implemented for
+    //     full physics, so we reject and ask the caller to provide
+    //     initialRecruitmentState explicitly.
+    //   - Otherwise, fail explicitly (no guessing).
+    let resolvedRecState;
+    if (initialRecruitmentState) {
+      resolvedRecState = initialRecruitmentState;
+    } else if (initializationHistory) {
+      throw new Error(
+        'Simulation: initializationHistory recovery is reserved for a future ' +
+        'release; pass initialRecruitmentState explicitly.');
+    } else {
+      throw new Error(
+        'Simulation: scenario must provide initialRecruitmentState ' +
+        '(or initializationHistory). The phenotype does not own recruitment.');
+    }
+
     this.state = makeInitialState(params, {
-      initialPEEP: finalPEEP,
-      initialRecruitmentState: presetRecState
-        || { normal: 1, recruitable: 0, consolidated: 0 },
+      initialPEEP: resolvedPEEP,
+      initialRecruitmentState: resolvedRecState,
     });
     this.mechanics = new ThreeCompartmentMechanics();
     this.trace = [];

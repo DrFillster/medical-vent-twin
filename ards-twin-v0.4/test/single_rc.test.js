@@ -48,7 +48,7 @@ function makeRcParams({ R = 5, capacity = 1.0, elasticScale = 30.0 }) {
 
 function runToSteadyState(params, boundaryFn, dt, maxSteps = 50000) {
   // Pressure-consistent init from AOP (zero volume).
-  const state = makeInitialState(params, { initialPEEP: 0 });
+  const state = makeInitialState(params, { initialPEEP: 0, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   let s = state;
   for (let i = 0; i < maxSteps; i++) {
@@ -91,7 +91,7 @@ test('Single RC: higher resistance → slower mid-time filling', () => {
 
   function fill(R, steps) {
     const params = makeParams(R);
-    let s = makeInitialState(params, { initialPEEP: 0 });
+    let s = makeInitialState(params, { initialPEEP: 0, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
     const m = new ThreeCompartmentMechanics();
     for (let i = 0; i < steps; i++) {
       s = m.step(params, s,

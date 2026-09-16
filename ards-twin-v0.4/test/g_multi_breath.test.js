@@ -19,7 +19,7 @@ function test(name, fn) {
 function runBreaths(presetName, controllerFactory, breaths = 5) {
   const params = makePatientParams(PRESETS[presetName]());
   const controller = controllerFactory();
-  const sim = new Simulation({ params, controller, dt: 0.001, trackGas: false });
+  const sim = new Simulation({ params, controller, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , trackGas: false });
   const breathDuration = 60 / controller.settings.rr;
   sim.runFor(breathDuration * breaths);
   return sim;
@@ -90,7 +90,7 @@ test('G: zero solver failures across all multi-breath runs', () => {
   for (const [preset, mk] of configs) {
     const params = makePatientParams(PRESETS[preset]());
     const ctrl = mk();
-    const sim = new Simulation({ params, controller: ctrl, dt: 0.001, trackGas: false });
+    const sim = new Simulation({ params, controller: ctrl, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , trackGas: false });
     sim.runFor(60 / ctrl.settings.rr * 3);
     for (const t of sim.trace) {
       if (t.output.solverFailure) totalFailures++;

@@ -106,12 +106,6 @@ function makePatientParams(p) {
     compartments,
     centralAirwayResistance: p.centralAirwayResistance,
     airwayOpeningPressure: p.airwayOpeningPressure,
-    // v0.4.3: preserve preset-owned initial state through PatientParams
-    // so makeInitialState() can pick them up.
-    initialPEEP: typeof p.initialPEEP === 'number' ? p.initialPEEP : undefined,
-    initialRecruitmentState: p.initialRecruitmentState
-      && typeof p.initialRecruitmentState === 'object'
-      ? Object.freeze({ ...p.initialRecruitmentState }) : undefined,
   });
 }
 
@@ -148,18 +142,21 @@ function cloneState(state) {
 //   - branch conductance = 0
 //   - flow = 0
 function makeInitialState(params, options = {}) {
-  // v0.4.3: presets own the initial state when used. The caller must
-  // supply either options.initialPEEP + options.initialRecruitmentState,
-  // or rely on params.initialPEEP + params.initialRecruitmentState
-  // (preset-owned contract).
+  // v0.4.4: pressure-consistent initialization. The phenotype does NOT
+  // own initialPEEP or initialRecruitmentState. The caller must supply both
+  // via `options`. The initializer never guesses recruitment state.
   //
-  // If neither path provides recruitment, we default to the explicit
-  // closed state:
-  //   { normal: 1, recruitable: 0, consolidated: 0 }
-  // This is NOT a guess about the equilibrium — it is the absence of any
-  // recruitment, which is a meaningful initial condition.
+  // Acceptable caller-provided recruitment values:
+  //   - { normal: 1, recruitable: r, consolidated: 0 } where 0 ≤ r ≤ 1
+  //     is an explicitly justified value (not 0.37 / 0.5 by convention).
+  //   - For tests that exercise the lower-bound regime, `recruitable: 0`
+  //     is the explicit "closed/no-recruitment" state — that is a
+  //     documented initial condition, not a guess.
   //
-  // Simulation() always passes preset-owned recruitment explicitly.
+  // If the phenotype contains `params.initialRecruitmentState` (legacy
+  // caller-side convenience), we honor it but only when the caller did
+  // not also supply `options.initialRecruitmentState`. We do NOT default
+  // to a closed state silently.
 
   function pickRecState() {
     if (options.initialRecruitmentState) return options.initialRecruitmentState;
@@ -167,7 +164,10 @@ function makeInitialState(params, options = {}) {
         typeof params.initialRecruitmentState === 'object') {
       return params.initialRecruitmentState;
     }
-    return { normal: 1, recruitable: 0, consolidated: 0 };
+    // Fail explicitly — never silently guess.
+    throw new Error(
+      'makeInitialState: initialRecruitmentState is required (caller must ' +
+      'pass it via options or as part of the phenotype contract).');
   }
 
   function pickPEEP() {
@@ -179,7 +179,7 @@ function makeInitialState(params, options = {}) {
   const peep = pickPEEP();
   if (peep === null) {
     throw new Error(
-      'makeInitialState: initialPEEP is required (preset or options must ' +
+      'makeInitialState: initialPEEP is required (caller or controller must ' +
       'provide it). The initializer does not guess initial PEEP.');
   }
 

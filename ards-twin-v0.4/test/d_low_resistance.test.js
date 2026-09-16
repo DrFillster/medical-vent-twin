@@ -41,7 +41,7 @@ function runBreath(params) {
     vt: 0.480, inspiratoryFlow: 0.5, inspiratoryPause: 0.3,
   });
   const sim = new Simulation({
-    params, controller: v, dt: 0.001, fio2: 0.4, trackGas: false,
+    params, controller: v, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , fio2: 0.4, trackGas: false,
   });
   sim.runFor(3 * 60 / 14);
   return sim.metrics()[1];

@@ -17,7 +17,7 @@ function test(name, fn) {
 function collectDiagnostics(presetName, controllerFactory) {
   const params = makePatientParams(PRESETS[presetName]());
   const controller = controllerFactory();
-  const sim = new Simulation({ params, controller, dt: 0.001, trackGas: false });
+  const sim = new Simulation({ params, controller, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , trackGas: false });
   const breathDuration = 60 / controller.settings.rr;
   sim.runFor(breathDuration * 3);
 
@@ -100,7 +100,7 @@ test('J4: active-set transitions are tracked and machine-readable', () => {
   const params = makePatientParams(PRESETS['Injury C']());
   const controller = new VcAcController({ fio2: 0.4, peep: 5, rr: 26, vt: 0.280,
     inspiratoryFlow: 0.5, inspiratoryPause: 0.3 });
-  const sim = new Simulation({ params, controller, dt: 0.001, trackGas: false });
+  const sim = new Simulation({ params, controller, dt: 0.001, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } , trackGas: false });
   sim.runFor(60 / controller.settings.rr * 3);
   let totalTransitions = 0;
   for (const t of sim.trace) {

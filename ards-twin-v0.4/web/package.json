@@ -1,12 +1,5 @@
 {
-  "name": "ards-v042-web",
-  "version": "0.4.2",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test": "playwright test"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.49.0"
-  }
+  "name": "ards-v044-web",
+  "version": "0.4.4",
+  "private": true
 }

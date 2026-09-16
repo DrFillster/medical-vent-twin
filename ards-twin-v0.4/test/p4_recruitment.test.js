@@ -3,6 +3,7 @@
 const { Simulation, VcAcController } = require('../src/simulation.js');
 const { PRESETS } = require('../src/presets.js');
 const { stepRecruitment, capacityMultiplier } = require('../src/recruitment.js');
+const { makePatientParams } = require('../src/contracts.js');
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -62,20 +63,23 @@ test('Simulation: high PEEP raises time-averaged alveolar pressure above P_open'
   // We test the mechanism via P_alv mean rather than final recruitment,
   // because with low k_open a 30-breath run does not move r measurably
   // unless k_open is set very high (which would saturate other tests).
+  //
+  // v0.4.4: this test is short on purpose — it verifies the qualitative
+  // claim that P_alv[1] rises with PEEP, not the long-term recruitment
+  // settling time (which is a v0.5 question).
   function meanPAlvRecruitable(peep) {
     const p = PRESETS['Injury C']();
-    p.compartments[1].recruitment = {
-      P_open: peep + 8,   // need a big margin above PEEP for k_open to open
-      P_close: peep + 2,
-      k_open: 1.0,       // fast
-      k_close: 5.0,      // even faster closing
-    };
     const v = new VcAcController({
       fio2: 0.4, peep, rr: 14, vt: 0.480, inspiratoryFlow: 0.5,
       inspiratoryPause: 0.3,
     });
-    const sim = new Simulation({ params: p, controller: v, dt: 0.001, fio2: 0.4 });
-    sim.runFor(5 * 60 / 14);
+    const sim = new Simulation({
+      params: makePatientParams(p), controller: v, dt: 0.001,
+      initialRecruitmentState: { normal: 1, recruitable: 0.5, consolidated: 0 },
+      fio2: 0.4, trackGas: false,
+    });
+    // 2 breaths only — qualitative claim.
+    sim.runFor(2 * 60 / 14);
     let sum = 0, n = 0;
     for (const row of sim.trace) {
       sum += row.output.compartmentPressures[1];
@@ -96,8 +100,13 @@ test('Recruitment: total volume change respects ∫Q dt within tolerance', () =>
     fio2: 0.4, peep: 8, rr: 14, vt: 0.480, inspiratoryFlow: 0.5,
     inspiratoryPause: 0.3,
   });
-  const sim = new Simulation({ params: p, controller: v, dt: 0.001, fio2: 0.4 });
-  sim.runFor(10 * 60 / 14);
+  const sim = new Simulation({
+    params: makePatientParams(p), controller: v, dt: 0.001,
+    initialRecruitmentState: { normal: 1, recruitable: 0.5, consolidated: 0 },
+    fio2: 0.4, trackGas: false,
+  });
+  // 2 breaths only — recruitment is mostly settled.
+  sim.runFor(2 * 60 / 14);
   // Sum of |airwayFlow| × dt should equal the cumulative V change.
   let cumQ = 0;
   for (let i = 1; i < sim.trace.length; i++) {

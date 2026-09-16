@@ -4,7 +4,7 @@
 import {
   Simulation, VcAcController, PRESETS,
   makePatientParams,
-} from './ards-v042.bundle.js';
+} from './ards-v044.bundle.js';
 
 const $ = (id) => document.getElementById(id);
 

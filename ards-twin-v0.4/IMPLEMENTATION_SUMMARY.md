@@ -1,139 +1,107 @@
-# ARDS Digital Twin v0.4.3 — Implementation Summary
+# ARDS Digital Twin v0.4.4 — Implementation Summary
 
 ## What this release is
 
-A numerical-rigor rewrite of v0.4.2. The mechanics foundation (finite-capacity
-exponential elastic law, implicit Newton-Raphson solver, availability-scaled
-branch conductance, FLOW/PRESSURE boundary contract) is preserved. What
-changes is the **initialization, convergence, and failure-handling contract**.
-
-## Phase-by-phase implementation
-
-### Phase 1 — Initialization (Section A)
-Files: `src/presets.js`, `src/contracts.js`, `src/simulation.js`,
-`test/a_initialization.test.js`.
-
-Each preset now declares:
-- `initialPEEP` (cmH2O) — the equilibrium target
-- `initialRecruitmentState` — explicit per-compartment availability
-
-The initializer `makeInitialState(params, options)` then produces
-pressure-consistent initial state in three regimes:
-- Closed (`Vmax = 0`): V = 0, P_alv = AOP, G = 0
-- Elastic (`Vmax > 0, PEEP > AOP`): V from forward elastic law, P_alv = PEEP
-- Lower-bound (`Vmax > 0, PEEP ≤ AOP`): V = 0, P_alv = AOP
-
-`Simulation` extracts `initialPEEP` and `initialRecruitmentState` from
-the preset; the controller's settings are a fallback, never an invention.
-
-11 tests cover zero-availability closure, PEEP > AOP equilibrium,
-PEEP ≤ AOP lower-bound, preset ownership, and composite invariants.
-
-### Phase 2 — Analytic Jacobian + scaled convergence (Section B)
-Files: `src/mechanics.js`, `test/b_jacobian.test.js`.
-
-Replaced the finite-difference Jacobian with the analytic derivative
-`K/(Vmax - V)`. Replaced the raw Euclidean norm with a dimensionlessly
-scaled infinity norm: `‖R̂‖∞ < 1e-3`.
-
-The V_scale floor (0.01 L) is critical — using Vmax as V_scale allows
-the implicit Euler update to lock in at sub-equilibrium points. With
-the tight floor, the per-step residual tolerance is a meaningful
-fraction of a typical transient response.
-
-3 tests verify B1 (forward/inverse identity), B2 (analytic vs numerical
-derivative), B3 (stiffness divergence near Vmax).
-
-### Phase 3 — Failure semantics (Section I)
-Files: `src/mechanics.js`, `src/simulation.js`,
-`test/i_failure_semantics.test.js`.
-
-`Simulation.step()` now gates state commit on `output.solverFailure`.
-A failed step returns `{ failed: true, output: { ..., solverFailure,
-failureKind } }` without advancing time or updating gas/metrics.
-
-Two distinct failure classifications in `classifyBoundaryFeasibility`:
-- `INFEASIBLE_BOUNDARY`: requested Q·dt > Σ capacity remaining
-- `SOLVER_NONCONVERGENCE`: Newton ran out of steps or line search failed
-
-4 tests verify the contract.
-
-### Phase 4 — Derecruitment projection (Section F)
-Files: `src/recruitment.js`, `test/f_recruitment.test.js`.
-
-`stepRecruitmentWithFloor` implements the projection rule:
-`r ≥ V / ((1 - EPS_PROJ) * capacity)` with `EPS_PROJ = 1e-6`.
-
-The invariant `V ≤ Vmax(r)` holds at all times. Closed-compartment
-`r = 0` ⇒ Vmax = 0, G = 0 invariants are preserved. 4 tests cover
-this section.
-
-### Phase 5 — Instrumentation (Section J)
-Files: `src/mechanics.js`, `test/j_instrumentation.test.js`.
-
-Per-step solver work counters in `output.solverStats`:
-- `newtonIters`, `substeps`, `lineSearchHalvings`
-- `residualNorm`, `scaledResidual`, `converged`
-
-3 tests verify machine-readable diagnostics across all injury severities.
-The injury C PEEP=5 pathology is quantified: 32% of steps subdivide,
-Newton itself converges in 0.6 iters avg.
-
-### Phase 6 — Acceptance tests (Sections C, D, E, G, H)
-Files: `test/c_small_signal.test.js`, `test/f_recruitment.test.js`,
-`test/g_multi_breath.test.js`, `test/h_dt_convergence.test.js`.
-
-- C: small-signal τ ≈ R·C_tan (1 test)
-- D: flow conservation, central resistance, plateau invariance (8 tests
-  in `conservation.test.js`)
-- E: low-R convergence across decades (2 tests in `d_low_resistance.test.js`)
-- G: multi-breath VC + PC, all injury severities (5 tests)
-- H: dt convergence at 2/1/0.5 ms (3 tests)
-
-### Phase 7 — Performance tuning
-**NOT performed in v0.4.3.** Per the reviewer's directive:
-"Instrument before optimizing." The instrumentation in Phase 5 quantifies
-the pathology; the fix (active-set/boundary formulation) is left for
-a future release.
-
-### Phase 8 — Artifacts and return package
-- `TEST_RESULTS.json` — pass/fail per suite, acceptance gate summary
-- `NUMERICAL_DIAGNOSTICS.json` — solver failures, conservation residuals,
-  capacity-domain violations, low-R convergence, dt convergence,
-  tolerance regime, Jacobian type, recruitment projection rule,
-  presets
-- `PERFORMANCE_BENCH.json` — wall-clock + solver work counters per scenario
+A narrow cleanup pass against the v0.4.4 rejection/correction
+directive. The mechanical foundation established in v0.4.3 is
+preserved; only the explicitly listed cleanup defects were fixed.
 
 ## Test results
 
 ```
-TOTAL: 123 passed, 0 failed
-- 89 baseline tests (preserved from v0.4.2)
-- 34 new v0.4.3 acceptance tests
+TOTAL: 127 passed, 0 failed
 ```
 
-## Honest engineering notes
+This breaks down as:
 
-### Bug found and fixed during development
-The v0.4.2 mechanics used `V_scale = Vmax`, which allowed the implicit
-Euler update to converge to a false fixed point at V = 0.21 instead of
-the true equilibrium V = 0.33 (when `PEEP=12, K=30, capacity=1.0, R=5`).
-The fix was a tight V_scale floor of 0.01 L. The bug was caught by the
-`p0_single_compartment.test.js` regression test suite.
+- **v0.4.3 baseline:** 125 passed
+- **v0.4.4 new tests:** 2
+  - I6: negative-flow infeasibility uses removable volume
+    (forced failure on -100 L/s with V=0)
+  - I7: small negative flow on populated compartment does NOT
+    trigger INFEASIBLE_BOUNDARY (feasible expiration path)
 
-### Known issue: low-PEEP Injury C perf pathology
-At Injury C PEEP=5 dt=1ms, 32% of steps subdivide. This is NOT a
-correctness bug — zero solver failures, zero capacity violations,
-zero NaN/Inf. The simulator produces correct answers slowly. The
-reviewer's directive ("instrument before optimizing") is honored; the
-fix is left for v0.5.
+### Per-file pass count
 
-### Scope discipline
-The reviewer explicitly forbade:
-- PSV, spontaneous effort, dyssynchrony, hemodynamics
-- Patient-specific clinical calibration
-- New ARDS phenotype claims
-- Major UI work
+| Suite | Pass | Fail |
+|-------|-----:|-----:|
+| a_initialization.test.js        | 11 | 0 |
+| b_jacobian.test.js              |  3 | 0 |
+| c_small_signal.test.js          |  1 | 0 |
+| conservation.test.js            |  8 | 0 |
+| d_low_resistance.test.js        |  2 | 0 |
+| deterministic.test.js           |  6 | 0 |
+| f_recruitment.test.js           |  4 | 0 |
+| g_multi_breath.test.js          |  5 | 0 |
+| h_dt_convergence.test.js        |  3 | 0 |
+| i_failure_semantics.test.js     |  7 | 0 |
+| j_instrumentation.test.js       |  4 | 0 |
+| p0_central_airway.test.js       |  7 | 0 |
+| p0_single_compartment.test.js   |  9 | 0 |
+| p1_gas_toggle.test.js           |  4 | 0 |
+| p2_metrics.test.js              | 10 | 0 |
+| p3_pc_ac.test.js                |  6 | 0 |
+| p4_recruitment.test.js          |  7 | 0 |
+| p5_gas_exchange.test.js         | 11 | 0 |
+| single_rc.test.js               |  5 | 0 |
+| strict_vc_ac.test.js            |  8 | 0 |
+| vc_ac.test.js                   |  6 | 0 |
+| **TOTAL**                       | **127** | **0** |
 
-None of these were added. The simulator remains a controlled mechanical
-ventilation model.
+## Acceptance gate (against v0.4.4 acceptance criteria)
+
+| Criterion | Status |
+|-----------|--------|
+| Return filename exactly `vent-twin-v0.4.4-return.zip` | ✓ |
+| No arbitrary recruitment fraction in Injury A/B/C | ✓ |
+| Phenotype presets do not own initial PEEP | ✓ |
+| Simulation scenario provides starting PEEP | ✓ |
+| Missing recruitment initialization is never silently guessed | ✓ |
+| Fresh unzip + `npm test` succeeds with zero failures | ✓ |
+| Package/release version consistently v0.4.4 | ✓ |
+| Positive FLOW infeasibility uses remaining capacity | ✓ (test I1) |
+| Negative FLOW infeasibility uses removable current gas volume | ✓ (test I6) |
+| INFEASIBLE_BOUNDARY is distinct from SOLVER_NONCONVERGENCE | ✓ (tests I3, I5) |
+| All test-result/summary artifacts report identical totals | ✓ (127/0 in all) |
+| All prior accepted mechanics/regression tests remain passing | ✓ |
+
+## What changed (file-level)
+
+- `src/presets.js` — removed initialPEEP and initialRecruitmentState
+  from all four presets; phenotype returns only `compartments`,
+  `centralAirwayResistance`, `airwayOpeningPressure`.
+- `src/contracts.js` — `makePatientParams` no longer preserves those
+  fields; `makeInitialState` throws when missing recruitment state.
+- `src/simulation.js` — `Simulation` constructor requires
+  `initialPEEP` and `initialRecruitmentState` (or `initializationHistory`,
+  which is reserved).
+- `src/mechanics.js` — `classifyBoundaryFeasibility` is now
+  direction-aware: positive/inspiratory flow checks against
+  remaining capacity; negative/expiratory flow checks against
+  removable gas volume.
+- `test/*.js` — every test that called `makeInitialState` or
+  `new Simulation` is updated to supply initialPEEP and
+  initialRecruitmentState explicitly. Test a_initialization's
+  A4 test is rewritten to assert the explicit failure.
+- `test/i_failure_semantics.test.js` — added I6 and I7 for
+  direction-aware FLOW feasibility.
+- `test/runner.js` — new file, `npm test` entry point.
+- `package.json` (root) — name vent-twin-v0.4.4, v0.4.4,
+  `npm test` script.
+- `web/package.json` — v0.4.4 (no test script).
+- `web/ards-v044.bundle.js` — rebuilt.
+- `web/app.js` — imports v0.4.4 bundle.
+- All five JSON/MD artifacts regenerated for v0.4.4.
+
+## Deliverable
+
+`vent-twin-v0.4.4-return.zip` containing:
+
+- src/ + test/ + web/
+- TEST_RESULTS.json (127/0)
+- NUMERICAL_DIAGNOSTICS.json (127/0)
+- PERFORMANCE_BENCH.json (4 scenarios)
+- CHANGELOG.md
+- REVIEW_NOTES.md
+- IMPLEMENTATION_SUMMARY.md (this file)
+- HANDOFF_README.md

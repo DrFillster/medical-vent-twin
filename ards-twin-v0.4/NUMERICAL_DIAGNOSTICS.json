@@ -1,17 +1,27 @@
 {
-  "version": "v0.4.3",
-  "date": "2026-09-15T23:09:30Z",
+  "version": "v0.4.4",
+  "date": "2026-09-16T00:13:41Z",
   "solver_failures": {
     "total_across_all_test_runs": 0,
     "INFEASIBLE_BOUNDARY_events_in_normal_runs": 0,
     "SOLVER_NONCONVERGENCE_events_in_normal_runs": 0,
     "STEP_FAILED_state_advances": 0,
-    "I_test_forced_INFEASIBLE_BOUNDARY": {
-      "scenario": "100 L/s into 1e-6 L compartment (capacity=1e-6, PEEP=5, dt=1ms)",
+    "I_test_forced_INFEASIBLE_BOUNDARY_positive_flow": {
+      "scenario": "100 L/s into 1e-6 L compartment (V=0, capacity=1e-6, PEEP=5, dt=1ms)",
       "expected_failureKind": "INFEASIBLE_BOUNDARY",
-      "expected_behavior": "Solver reports failure; state unchanged; time unchanged",
+      "rationale": "Q_cmd*dt > remaining_capacity (positive flow direction)",
+      "verified": true
+    },
+    "I_test_forced_INFEASIBLE_BOUNDARY_negative_flow": {
+      "scenario": "-100 L/s flow with V=0 (capacity=1e-6, PEEP=5, dt=1ms)",
+      "expected_failureKind": "INFEASIBLE_BOUNDARY",
+      "rationale": "|Q_cmd|*dt > removable_volume (negative flow direction)",
       "verified": true
     }
+  },
+  "flow_feasibility_global": {
+    "implementation": "classifyBoundaryFeasibility is direction-aware: positive/inspiratory flow uses remaining capacity (Σ max(0, Vmax - V)); negative/expiratory flow uses removable volume (Σ max(0, V)).",
+    "verified_in_tests": "I1 (positive flow forced INFEASIBLE_BOUNDARY); I6 (negative flow forced INFEASIBLE_BOUNDARY); I7 (small negative flow on populated compartment does NOT trigger INFEASIBLE_BOUNDARY)"
   },
   "conservation": {
     "max_conservation_residual_lt": 1e-6,
@@ -22,6 +32,12 @@
     "max_V_gt_Vmax": 0,
     "max_negative_V": 0,
     "note": "All initialized compartments satisfy finite-capacity domain; derecruitment projection rule prevents V >= Vmax(r)."
+  },
+  "scenario_ownership": {
+    "phenotype_owns": "compartments, central airway resistance, AOP",
+    "phenotype_does_NOT_own": "initialPEEP, initialRecruitmentState",
+    "scenario_owns": "initialPEEP, initialRecruitmentState, ventilator settings",
+    "missing_recruitment_state": "fail explicitly, do not default"
   },
   "low_resistance_convergence": {
     "R_cmb[cmH2O.s/L]_Ppeak-Pplat[cmH2O]": [
@@ -43,8 +59,7 @@
     "raw_tolerance_SOLVER_TOL_ABS": "1e-5 (diagnostic only)",
     "scaled_tolerance_SOLVER_TOL_SCALED": "1e-3",
     "scaling_rule": "V_scale = min(vmaxMin, 0.01L); P_scale = max(|pBranch|, |AOP|, 1)",
-    "convergence_criterion": "inf_norm of componentwise-scaled residual < 1e-3",
-    "rationale": "The V_scale=0.01 floor prevents false fixed-point lock-in observed with Vmax-scale; dimensionally meaningful across operating regimes."
+    "convergence_criterion": "inf_norm of componentwise-scaled residual < 1e-3"
   },
   "jacobian": {
     "type": "analytic",
@@ -58,17 +73,6 @@
     "trapped_gas_preserved": true,
     "V_le_Vmax_at_all_times": true
   },
-  "flow_feasibility_global": {
-    "implementation": "Newton system has global flow row: F[N] = sum_i (V_new - V_old)/dt - Q_requested. Jacobian row J[N][i] = 1/dt couples all compartments to the boundary.",
-    "classification": "INFEASIBLE_BOUNDARY returned when |Q_requested * dt| > Σ capacity remaining",
-    "verified_in_test": "I1, I3 (forced 100 L/s into 1e-6 L compartment)"
-  },
-  "presets": {
-    "Baseline": {"initialPEEP": 5, "initialRecruitmentState": {"normal": 1, "recruitable": 0, "consolidated": 0}},
-    "Injury A": {"initialPEEP": 8, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}},
-    "Injury B": {"initialPEEP": 10, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}},
-    "Injury C": {"initialPEEP": 12, "initialRecruitmentState": {"normal": 1, "recruitable": 0.5, "consolidated": 0}}
-  },
   "instrumentation_fields": {
     "per_step_output_solverStats": [
       "newtonIters",
@@ -80,5 +84,11 @@
       "converged"
     ],
     "verified_present_in_test": "J1, J2, J4 (solverStats.activeSetTransitions and .lineSearchHalvings must be present)"
+  },
+  "test_counts": {
+    "v0.4.3_baseline": 125,
+    "v0.4.4_new_tests": 2,
+    "v0.4.4_total": 127,
+    "note": "Match TEST_RESULTS.json"
   }
 }

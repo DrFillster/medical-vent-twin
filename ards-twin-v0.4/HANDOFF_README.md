@@ -1,97 +1,74 @@
-# ARDS Digital Twin v0.4.3 — Handoff README
+# ARDS Digital Twin v0.4.4 — Handoff README
 
-## What's in this package
+## Quick start
+
+```bash
+unzip vent-twin-v0.4.4-return.zip
+cd vent-twin-v0.4
+npm test
+```
+
+Expected output: `TOTAL: 127 passed, 0 failed`.
+
+## What's in the package
 
 ```
-ards-twin-v0.4/
-├── src/                    # Source code
-│   ├── compartments.js     # Elastic law, Vmax, conductance, Jacobian
-│   ├── contracts.js        # makeInitialState (v0.4.3 contract)
-│   ├── mechanics.js        # ThreeCompartmentMechanics, scaled convergence
-│   ├── recruitment.js      # stepRecruitmentWithFloor + projection rule
-│   ├── simulation.js       # STEP_FAILED contract
-│   ├── ventilator/         # VC-A/C and PC-A/C controllers
+vent-twin-v0.4/
+├── package.json              # npm test runs test/runner.js
+├── src/                      # Source code
+│   ├── contracts.js          # makeInitialState, makePatientParams, …
+│   ├── presets.js            # Phenotypes (mechanics only, no initial state)
+│   ├── mechanics.js          # ThreeCompartmentMechanics, direction-aware classifyBoundaryFeasibility
+│   ├── recruitment.js        # stepRecruitment, capacityMultiplier
+│   ├── simulation.js         # Simulation requires initialPEEP + initialRecruitmentState
+│   ├── ventilator/           # VC/PC controllers
 │   ├── gas_exchange.js
-│   ├── metrics.js
-│   └── ...
-├── test/                   # 123 tests, 21 files
-│   ├── a_initialization.test.js     # Section A (11)
-│   ├── b_jacobian.test.js           # Section B (3)
-│   ├── c_small_signal.test.js       # Section C (1)
-│   ├── d_low_resistance.test.js     # Section E (2)
-│   ├── conservation.test.js         # Section D (8)
-│   ├── f_recruitment.test.js        # Section F (4)
-│   ├── g_multi_breath.test.js       # Section G (5)
-│   ├── h_dt_convergence.test.js     # Section H (3)
-│   ├── i_failure_semantics.test.js  # Section I (4)
-│   ├── j_instrumentation.test.js    # Section J (3)
-│   ├── p0_*.test.js ...             # Section D details
-│   ├── p1_*.test.js ...
-│   └── ...
-├── web/                    # Browser UI bundle
-│   ├── app.js              # Updated import: ./ards-v043.bundle.js
-│   ├── index.html
-│   ├── package.json
-│   ├── playwright.config.js
-│   ├── ui.spec.js          # Playwright tests (browser-level)
-│   └── ards-v043.bundle.js # v0.4.3 ESM bundle
-├── TEST_RESULTS.json       # Pass/fail per suite
-├── NUMERICAL_DIAGNOSTICS.json
-├── PERFORMANCE_BENCH.json
+│   └── metrics.js
+├── test/                     # 21 .test.js files + runner.js
+├── web/                      # Browser harness (index.html, app.js)
+├── TEST_RESULTS.json         # 127/0 totals
+├── NUMERICAL_DIAGNOSTICS.json # Solver failures, conservation residuals
+├── PERFORMANCE_BENCH.json    # Wall-clock vs mechanics_steps
 ├── CHANGELOG.md
 ├── REVIEW_NOTES.md
 ├── IMPLEMENTATION_SUMMARY.md
-└── HANDOFF_README.md       # (this file)
+└── HANDOFF_README.md (this file)
 ```
 
-## How to run
+## v0.4.4 contract (phenotype vs scenario)
+
+**Phenotype (PatientParams) owns:**
+- compartment fractions, resistances, capacities, K
+- perfusion / deadSpace fractions
+- central airway resistance
+- airway opening pressure (AOP) — intrinsic tissue property
+
+**Scenario (Simulation args) owns:**
+- initialPEEP
+- initialRecruitmentState (or initializationHistory, reserved for v0.5)
+- ventilator mode + settings (FiO2, PEEP, RR, Vt, etc.)
+- control/timing parameters
+
+**Initializer:** throws explicitly when initialPEEP or
+initialRecruitmentState is missing. Never silent-defaults.
+
+## Direction-aware FLOW feasibility
+
+| Flow direction | Bound | Source |
+|----------------|-------|--------|
+| Positive (inspiratory) | `Q*dt ≤ Σ max(0, Vmax - V)` | remaining available capacity |
+| Negative (expiratory) | `|Q|*dt ≤ Σ max(0, V)` | removable current gas volume |
+
+When the requested boundary violates the bound for its direction,
+the solver classifies the failure as `INFEASIBLE_BOUNDARY`. Otherwise,
+failure is `SOLVER_NONCONVERGENCE` (the constrained nonlinear solve
+remains authoritative).
+
+## Test result (independent of npm)
 
 ```bash
-# All Node-side tests (123 total)
-cd ~/medical-vent-twin/ards-twin-v0.4
-for t in test/*.js; do node "$t" 2>&1; done
-
-# Browser UI tests (8 total)
-cd web && { python3 -m http.server 8771 --bind 127.0.0.1 & }
-PLAYWRIGHT_BROWSERS_PATH=$HOME/Library/Caches/ms-playwright \
-  BASE_URL=http://localhost:8771/web/ \
-  npx playwright test
+node test/runner.js
 ```
 
-## What changed from v0.4.2
-
-- `makeInitialState` requires preset-owned `initialPEEP` + `initialRecruitmentState`
-- Mechanics uses analytic Jacobian `K/(Vmax-V)` instead of finite-difference
-- Convergence criterion is scaled `‖R̂‖∞ < 1e-3` (was: raw `< 1e-5`)
-- Solver failure = STEP_FAILED: state not advanced, time not advanced
-- INFEASIBLE_BOUNDARY is distinct from SOLVER_NONCONVERGENCE
-- Derecruitment uses projection rule with `EPS_PROJ = 1e-6` margin
-- Each mechanics step carries machine-readable `solverStats`
-
-## What did NOT change
-
-- All 89 v0.4.2 baseline tests still pass
-- Mechanics architecture (implicit Newton, FLOW/PRESSURE boundaries,
-  availability-scaled conductance, exponential elastic law)
-- Controller API (VC-A/C and PC-A/C)
-- Browser UI bundle path
-
-## Known limitation (NOT a bug)
-
-Injury C PEEP=5 dt=1ms takes ~2 s wall-clock per 10 s simulated time.
-32% of steps subdivide (substeps=2). Zero failures, correct results.
-Fix is left for v0.5 per the reviewer's "instrument before optimizing"
-directive. See `REVIEW_NOTES.md` for details.
-
-## For the next maintainer
-
-- `TEST_RESULTS.json` is the authoritative pass/fail record
-- `NUMERICAL_DIAGNOSTICS.json` quantifies solver behavior across presets
-- `PERFORMANCE_BENCH.json` quantifies wall-clock + solver work
-- `REVIEW_NOTES.md` documents the design rationale
-- `IMPLEMENTATION_SUMMARY.md` walks through phase-by-phase
-
-If you're picking up v0.5 work, start with the active-set/boundary
-formulation in `src/mechanics.js` to address the Injury C PEEP=5
-pathology. The instrumentation in `output.solverStats` will tell you
-whether your fix helps.
+Produces per-suite pass counts aggregated to a single TOTAL.
+127 passed, 0 failed at the time of this writing.

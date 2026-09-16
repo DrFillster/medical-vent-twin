@@ -130,29 +130,47 @@ function computeScales(activeComps, params, pBranchGuess) {
   return { V_scale, P_scale };
 }
 
-// v0.4.3: classify boundary feasibility.
+// v0.4.3 → v0.4.4: classify boundary feasibility with direction awareness.
 //
 // Given a failed Newton solve, determine whether the requested boundary
 // is structurally infeasible (would require crossing finite-capacity
 // domains or non-physical state) or whether the failure is a transient
 // Newton nonconvergence that retry with smaller dt could fix.
 //
-// Probe: compute the maximum volume change achievable in time dt given
-// current state. For FLOW: Q*dt. For PRESSURE: solve each compartment
-// to its Vmax. If the requested ΔV > sum Vmax - V, the boundary is
-// infeasible.
+// v0.4.4 direction-aware bounds:
+//
+//   Positive/inspiratory flow (Q_cmd > 0):
+//     Q_cmd * dt <= sum_i(max(0, Vmax_i - V_i))
+//     Use remaining available capacity.
+//
+//   Negative/expiratory flow (Q_cmd < 0):
+//     |Q_cmd| * dt <= sum_i(max(0, V_i))
+//     Use removable current gas volume (subject to lower-bound V >= 0).
+//
+// The constrained nonlinear solve remains authoritative; this is a
+// necessary condition for fast-fail classification.
 function classifyBoundaryFeasibility(activeComps, params, boundary, dt) {
-  let capacityRemaining = 0;
+  let capacityRemaining = 0;     // for inspiration: Vmax_i - V_i
+  let removableVolume = 0;        // for expiration: V_i
   for (const { cp, cs } of activeComps) {
     const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
-    const remaining = Math.max(0, (1 - EPS_CAP) * vmax - cs.volume);
-    capacityRemaining += remaining;
+    capacityRemaining += Math.max(0, (1 - EPS_CAP) * vmax - cs.volume);
+    removableVolume += Math.max(0, cs.volume);
   }
 
   if (boundary.kind === 'FLOW') {
     const requestedDelta = boundary.flowLps * dt;
-    if (Math.abs(requestedDelta) > capacityRemaining + 1e-12) {
-      return 'INFEASIBLE_BOUNDARY';
+    if (requestedDelta >= 0) {
+      // Inspiratory: positive flow into available capacity.
+      if (requestedDelta > capacityRemaining + 1e-12) {
+        return 'INFEASIBLE_BOUNDARY';
+      }
+    } else {
+      // Expiratory: negative flow removes existing gas.
+      const removalRequested = -requestedDelta;
+      if (removalRequested > removableVolume + 1e-12) {
+        return 'INFEASIBLE_BOUNDARY';
+      }
     }
     return 'SOLVER_NONCONVERGENCE';
   }

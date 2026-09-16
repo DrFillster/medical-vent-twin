@@ -41,7 +41,7 @@ function singleParams(K, capacity, R, aop = 0) {
 
 function runToSteadyState(params, Paw, dt = 0.001, maxSteps = 60000) {
   // Pressure-consistent init from AOP (zero volume since AOP=0 unless told).
-  const state = makeInitialState(params, { initialPEEP: 0 });
+  const state = makeInitialState(params, { initialPEEP: 0, initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const m = new ThreeCompartmentMechanics();
   let s = state;
   for (let i = 0; i < maxSteps; i++) {

@@ -31,6 +31,7 @@ function singleComp(K, capacity, R, peep) {
     airwayOpeningPressure: 0,
     initialPEEP: peep,
     initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
+    initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
   });
 }
 
@@ -40,6 +41,7 @@ function stepUntilV(params, targetV, maxIter = 200000) {
   const peep = params.initialPEEP;
   let s = require('../src/contracts.js').makeInitialState(params,
     { initialPEEP: peep,
+    initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
       initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 } });
   const boundary = makeBoundaryPressure({ pressureCmH2O: peep, fio2: 0.5 });
   for (let i = 0; i < maxIter; i++) {
@@ -68,6 +70,7 @@ test('C: tau ≈ R · C_tan at single-compartment equilibrium', () => {
   const m = new ThreeCompartmentMechanics();
   const initState = require('../src/contracts.js').makeInitialState(params, {
     initialPEEP: peep,
+    initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
     initialRecruitmentState: { normal: 1, recruitable: 0, consolidated: 0 },
   });
   const boundary = makeBoundaryPressure({ pressureCmH2O: newPeep, fio2: 0.5 });
