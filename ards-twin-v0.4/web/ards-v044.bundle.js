@@ -1898,4 +1898,3 @@ var VENT = (() => {
   var import_compartments = __toESM(require_compartments());
   return __toCommonJS(bundle_entry_exports);
 })();
-// vent-twin-v0.4.4.1 web bundle — built from src/_bundle-entry.js

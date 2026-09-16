@@ -1,4 +1,6 @@
-# ARDS Digital Twin v0.4.4 — Implementation Summary
+# ARDS Digital Twin v0.4.4.1 — Implementation Summary
+
+> **v0.4.4.1 (this release)** is a phenotype-rename release. Mechanical parameters, solver, and numerical behavior are unchanged from v0.4.4. The four simulator phenotypes are now `phenotype_baseline`, `phenotype_low_recruitability`, `phenotype_moderate_recruitability`, `phenotype_high_recruitability` (display labels: Reference, Low-recruitability, Moderate-recruitability, High-recruitability). The previous v0.4.4 implementation summary is preserved below for historical context.
 
 ## What this release is
 

@@ -1,10 +1,12 @@
-# ARDS Digital Twin v0.4.4 — Handoff README
+# ARDS Digital Twin v0.4.4.1 — Handoff README
+
+> **v0.4.4.1 (this release)** is a phenotype-rename release. Mechanical parameters, solver, and numerical behavior are unchanged from v0.4.4. The previous v0.4.4 handoff README is preserved below for historical context.
 
 ## Quick start
 
 ```bash
-unzip vent-twin-v0.4.4-return.zip
-cd vent-twin-v0.4
+unzip vent-twin-v0.4.4.1-final.zip
+cd vent-twin-v0.4.1
 npm test
 ```
 

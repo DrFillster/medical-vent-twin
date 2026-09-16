@@ -1,6 +1,6 @@
 # ARDS Digital Twin — Changelog
 
-## v0.4.4.1 (2026-09-16 14:25 UTC) — Preset rename (mechanical-construct labels)
+## v0.4.4.1 (2026-09-16 14:55:00 UTC) — Preset rename (mechanical-construct labels)
 
 Mechanical parameters unchanged from v0.4.4. Only the externally-exposed labels changed.
 
