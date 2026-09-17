@@ -1,10 +1,15 @@
 """No-cache wrapper for python -m http.server, used at port 8770 to serve vent.defying-logic.com.
 
-Cloudflare's default cache-control caches responses for 4h by default. This script
-sends Cache-Control: no-store so Cloudflare re-fetches from origin on every request,
-which matches the development cadence of this site.
+Adds:
+  - Cache-Control: no-store (so Cloudflare doesn't cache stale content for 4h)
+  - 403 Forbidden on paths that start with a dot (.git, .env, .htaccess, etc.)
+    to block accidental exposure of repository metadata.
+
+Run from the directory you want to serve. Default: ~/medical-vent-twin.
 """
-import http.server, socketserver
+import http.server, socketserver, posixpath, os
+
+DENY_PREFIXES = ('/.git/', '/.env', '/.deploy/', '/.wrangler/', '/node_modules/')
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -13,7 +18,15 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Expires', '0')
         super().end_headers()
 
+    def do_GET(self):
+        path = posixpath.normpath(self.path)
+        for prefix in DENY_PREFIXES:
+            if path.startswith(prefix):
+                self.send_error(403, 'Forbidden by server policy')
+                return
+        return super().do_GET()
+
 PORT = 8770
 with socketserver.TCPServer(('127.0.0.1', PORT), NoCacheHandler) as httpd:
-    print(f'Serving with no-cache on 127.0.0.1:{PORT}', flush=True)
+    print(f'Serving with no-cache + dotfile-deny on 127.0.0.1:{PORT}', flush=True)
     httpd.serve_forever()

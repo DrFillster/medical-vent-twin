@@ -453,10 +453,10 @@ Machine-readable test results, numerical diagnostics, and the
 performance benchmark are generated with the release artifacts.
 
 Project website: https://vent.defying-logic.com/ards-twin-v0.4/
-Source repository:
-https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4
-Versioned release:
-https://github.com/DrFillster/medical-vent-twin/releases/tag/v0.4.4.1
+Source tree: served from the project website above
+Versioned artifacts: served from the dist/ and manuscript/ subdirectories
+of the project website (vent-twin-v0.4.4.1-final-clean.zip,
+vent-manuscript-v0.4.4.1-final.zip, MANUSCRIPT_FINAL_v0.4.4.1.{pdf,docx})
 
 # Disclosures
 

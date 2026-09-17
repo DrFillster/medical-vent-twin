@@ -15,19 +15,19 @@
 <ul>
   <li><strong><a href="ards-twin-v0.4/web/">Run v0.4.4.1 in browser</a></strong> &mdash; VC-A/C and PC-A/C modes, four mechanical-construct phenotype presets (Reference / Low-, Moderate-, High-recruitability), all metadata and labels aligned to the published manuscript.</li>
   <li><strong><a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.pdf">Read the manuscript as PDF (20 pp., US Letter)</a></strong> &mdash; print-ready, human-readable format. <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.md">Markdown source</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md">changelog</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md">review notes</a> &middot; <a href="ards-twin-v0.4/manuscript/SHA256SUMS.txt">SHA256SUMS</a>.</li>
-  <li><strong><a href="https://github.com/DrFillster/medical-vent-twin/releases/tag/v0.4.4.1">Download v0.4.4.1 ZIPs (GitHub Release)</a></strong> &mdash; <code>vent-twin-v0.4.4.1-final-clean.zip</code> (runnable simulator package) and <code>vent-manuscript-v0.4.4.1-final.zip</code> (manuscript bundle).</li>
+  <li><strong><a href="ards-twin-v0.4/dist/vent-twin-v0.4.4.1-final-clean.zip">Download v0.4.4.1 simulator ZIP (vent-twin-v0.4.4.1-final-clean.zip)</a> &middot; <a href="ards-twin-v0.4/dist/vent-manuscript-v0.4.4.1-final.zip">manuscript bundle ZIP</a></strong> &mdash; <code>vent-twin-v0.4.4.1-final-clean.zip</code> (runnable simulator package) and <code>vent-manuscript-v0.4.4.1-final.zip</code> (manuscript bundle).</li>
 </ul>
 
 <h2>Verification</h2>
 <ul>
   <li><strong>127 / 127 tests pass</strong> across 21 test files in CommonJS mode under Node v26.8.2 (see <a href="ards-twin-v0.4/TEST_RESULTS.json">TEST_RESULTS.json</a>, <a href="ards-twin-v0.4/NUMERICAL_DIAGNOSTICS.json">NUMERICAL_DIAGNOSTICS.json</a>, <a href="ards-twin-v0.4/PERFORMANCE_BENCH.json">PERFORMANCE_BENCH.json</a>).</li>
   <li>J-4 acceptance test (High-recruitability phenotype, PEEP = 5 cmH<sub>2</sub>O, 3 breaths at dt = 1 ms) reports 6 924 mechanics steps, 0.52 mean Newton iters/step, 1.00 mean substeps/step, 0 failures, and <strong>3 total active-set transitions</strong> &mdash; the active-set counter is wired and exercised.</li>
-  <li>Reproducibility: <code>npm test</code> from <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4">ards-twin-v0.4/</a> after extracting <code>vent-twin-v0.4.4.1-final-clean.zip</code>.</li>
+  <li>Reproducibility: <code>npm test</code> from <code>ards-twin-v0.4/</code> after extracting <code>vent-twin-v0.4.4.1-final-clean.zip</code>.</li>
 </ul>
 
 <h2>Repo</h2>
 <ul>
-  <li><a href="https://github.com/DrFillster/medical-vent-twin">github.com/DrFillster/medical-vent-twin</a> &mdash; source of truth. Tag <code>v0.4.4.1</code> points to commit <code>94ede1a</code> on <code>main</code>.</li>
+  <li>Source repository is mirrored privately on GitHub for the owner; canonical artifacts are served from this site.</li>
 </ul>
 
 <h2>Docs (served from the repo root)</h2>
