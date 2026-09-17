@@ -32,6 +32,12 @@ self.onmessage = ({ data }) => {
       return;
     }
 
+    if (type === 'requestVentilationChange') {
+      const snapshot = requireSession().requestVentilationChange(data.ventilation);
+      self.postMessage({ type: 'snapshot', action: 'requestVentilationChange', snapshot });
+      return;
+    }
+
     if (type === 'requestInspiratoryHold') {
       const snapshot = requireSession().requestInspiratoryHold(data.durationSec);
       self.postMessage({ type: 'snapshot', action: 'requestInspiratoryHold', snapshot });
