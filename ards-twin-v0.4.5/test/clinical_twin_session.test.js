@@ -105,6 +105,37 @@ test('session requires explicit ventilation and recruitment state', () => {
   assert(threwRec, 'missing recruitment state should fail');
 });
 
+test('session can derive current recruitment from an explicit prior pressure history', () => {
+  const session = createBerlinClinicalTwinSession({
+    caseId: 'berlin-moderate-moderate-aspiration',
+    humModExport: makeExport(),
+    ventilation: {
+      mode: 'VC_AC',
+      fio2: 0.6,
+      peep: 8,
+      rr: 20,
+      vtL: 0.42,
+      inspiratoryFlowLps: 0.7,
+      inspiratoryPauseSec: 0.2,
+    },
+    initializationHistory: {
+      schema: 'vent-recruitment-history/v1',
+      startingRecruitableFraction: 0.15,
+      startingStateSource: 'test fixture explicit prior state',
+      segments: [
+        { pressureCmH2O: 35, durationSec: 10 },
+        { pressureCmH2O: 8, durationSec: 10 },
+      ],
+    },
+    dt: 0.002,
+  });
+  const snap = session.initialize();
+  assert(snap.pulmonary.initialization.source === 'derived-from-explicit-initialization-history');
+  assert(snap.pulmonary.initialization.initialRecruitmentState.recruitable >= 0);
+  assert(snap.pulmonary.initialization.initialRecruitmentState.recruitable <= 1);
+  assert(snap.pulmonary.initialization.recruitmentHistoryDerivation.segmentResults.length === 2);
+});
+
 test('session initializes shared Vent and HumMod state without browser gas model', () => {
   const session = makeSession();
   const snap = session.initialize();
