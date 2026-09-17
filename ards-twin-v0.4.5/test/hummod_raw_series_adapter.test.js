@@ -84,7 +84,7 @@ test('conversion preserves literal HumMod source-symbol values', () => {
 
 test('raw adapter rejects undeclared and unverified symbols', () => {
   const raw = rawFixture();
-  raw.rows[0].Unexpected.Symbol = 1;
+  raw.rows[0]['Unexpected.Symbol'] = 1;
   let threwExtra = false;
   try { validateHumModRawSeries(raw); } catch (_) { threwExtra = true; }
   assert(threwExtra);
