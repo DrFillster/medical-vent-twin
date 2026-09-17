@@ -131,6 +131,7 @@
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
     $('clinical-session-status').textContent =
       'Session active · ' + snapshot.coupling.mode +
+      (snapshot.ventilatorChangePending ? ' · ventilator change pending next breath boundary' : '') +
       ' · HumMod replay does not synthesize systemic response to Vent interventions.';
     $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
     $('clinical-reset').disabled = false;
@@ -281,6 +282,16 @@
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
         clinicalWorker.postMessage({ type: 'setPEEP', valueCmH2O: clinicalNumber('clinical-new-peep') });
+      } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-apply-vent').addEventListener('click', () => {
+      try {
+        if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        clinicalWorker.postMessage({
+          type: 'requestVentilationChange',
+          ventilation: clinicalVentilationPayload(),
+        });
       } catch (error) { showClinicalError(error.message); }
     });
 
