@@ -130,6 +130,76 @@
     return typeof value === 'number' && Number.isFinite(value) ? String(value) : '—';
   }
 
+  function drawClinicalTrace(svgId, rows, field) {
+    const svg = $(svgId);
+    svg.replaceChildren();
+    if (!Array.isArray(rows) || rows.length < 2) {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', '50%');
+      text.setAttribute('y', '50%');
+      text.setAttribute('text-anchor', 'middle');
+      text.textContent = 'Advance the session to draw this trace';
+      svg.append(text);
+      return;
+    }
+
+    const width = Math.max(230, svg.getBoundingClientRect().width || 650);
+    const height = 160;
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+    const t0 = rows[0].t;
+    const data = rows.map(row => ({
+      t: row.t - t0,
+      y: row[field],
+    })).filter(row => Number.isFinite(row.t) && Number.isFinite(row.y));
+
+    if (data.length < 2) return;
+
+    let lo = Math.min(0, ...data.map(row => row.y));
+    let hi = Math.max(1e-9, ...data.map(row => row.y));
+    const range = Math.max(hi - lo, 1e-9);
+    const pad = range * 0.08;
+    hi += pad;
+    if (lo < 0) lo -= pad;
+
+    const left = 44;
+    const right = width - 12;
+    const top = 10;
+    const bottom = 133;
+    const tmax = Math.max(data[data.length - 1].t, 1e-9);
+    const x = t => left + t / tmax * (right - left);
+    const y = value => bottom - (value - lo) / (hi - lo) * (bottom - top);
+
+    for (let i = 0; i <= 3; i++) {
+      const value = lo + (hi - lo) * i / 3;
+      svg.append(svgNode('line', {
+        x1: left, x2: right, y1: y(value), y2: y(value), class: 'grid',
+      }));
+      svg.append(svgNode('text', {
+        x: left - 6, y: y(value) + 4, 'text-anchor': 'end',
+      }, Math.abs(value) >= 100 ? value.toFixed(0) : value.toFixed(2)));
+    }
+
+    svg.append(svgNode('line', {
+      x1: left, x2: right, y1: y(0), y2: y(0), class: 'zero',
+    }));
+
+    [0, 0.5, 1].forEach(fraction => {
+      const value = tmax * fraction;
+      svg.append(svgNode('text', {
+        x: x(value),
+        y: 154,
+        'text-anchor': fraction === 0 ? 'start' : fraction === 1 ? 'end' : 'middle',
+      }, value.toFixed(1) + ' s'));
+    });
+
+    svg.append(svgNode('path', {
+      class: 'trace',
+      d: data.map((row, index) =>
+        `${index ? 'L' : 'M'}${x(row.t).toFixed(2)},${y(row.y).toFixed(2)}`).join(' '),
+    }));
+  }
+
   function renderClinicalSnapshot(snapshot) {
     clinicalSnapshot = snapshot;
     $('clinical-live').hidden = false;
@@ -144,6 +214,10 @@
     $('clinical-total-peep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.totalPeepCmH2O);
     $('clinical-autopeep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.intrinsicPeepCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
+    const clinicalWaveform = snapshot.pulmonary?.recentWaveform || [];
+    drawClinicalTrace('clinical-pressure-chart', clinicalWaveform, 'pressureCmH2O');
+    drawClinicalTrace('clinical-flow-chart', clinicalWaveform, 'flowLps');
+    drawClinicalTrace('clinical-volume-chart', clinicalWaveform, 'volumeL');
     $('clinical-session-status').textContent =
       'Session active · ' + snapshot.coupling.mode +
       (snapshot.ventilatorChangePending ? ' · ventilator change pending next breath boundary' : '') +
