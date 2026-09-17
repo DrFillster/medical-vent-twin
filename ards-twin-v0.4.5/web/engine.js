@@ -3952,9 +3952,10 @@ module.exports = {
 // Contract between Vent and an external HumMod execution/export process.
 // It deliberately does not execute HumMod, convert System.X, or invent values.
 //
-// The runner request is expressed in Vent-facing seconds, but the external
-// runner must independently verify HumMod source-clock semantics before it may
-// emit a canonical vent-hummod-trajectory/v1 export.
+// The runner request is expressed in Vent-facing seconds. For the pinned
+// standalone revision, System.X is verified to use minutes: GoFor.DES maps
+// 0.0166666 -> 1 Sec, 1 -> 1 Min, and 1440 -> 1 Day; HumMod's schema
+// documentation independently uses 1440 as a one-day solution interval.
 
 const {
   HUMMOD_STANDALONE_UPSTREAM,
@@ -3962,6 +3963,18 @@ const {
 } = require("src/hummod_standalone_manifest.js");
 
 const HUMMOD_RUN_REQUEST_SCHEMA = 'vent-hummod-run-request/v1';
+
+const HUMMOD_SOURCE_CLOCK = Object.freeze({
+  symbol: 'System.X',
+  unit: 'minute',
+  secondsPerUnit: 60,
+  verificationStatus: 'verified-for-pinned-revision',
+  verificationSources: Object.freeze([
+    'riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1:Control/GoFor.DES',
+    'HumMod/documentation@1cd093c001ea5af72e666a20e51542dce2304b38:schema/3_control/interactive.html',
+  ]),
+  conversionToTimestampSec: 'timestampSec = System.X * 60',
+});
 
 function nonEmptyString(value, label) {
   if (typeof value !== 'string' || !value) {
@@ -4024,48 +4037,34 @@ function createHumModRunRequest({
       symbols: Object.freeze(requested),
       canonicalSchema: 'vent-hummod-trajectory/v1',
     }),
-    sourceClock: Object.freeze({
-      symbol: 'System.X',
-      unit: null,
-      verificationStatus: 'must-be-verified-by-runner-before-export',
-      conversionToTimestampSec: null,
-    }),
+    sourceClock: HUMMOD_SOURCE_CLOCK,
     scenarioId: typeof scenarioId === 'string' && scenarioId ? scenarioId : null,
     notes: typeof notes === 'string' && notes ? notes : null,
-    executable: false,
-    blocker: 'HumMod source clock unit/semantics are not yet verified',
+    executable: true,
+    blocker: null,
   });
 }
 
-function assertRunnerClockVerified(request, clockVerification) {
+function assertRunnerClockVerified(request, clockVerification = HUMMOD_SOURCE_CLOCK) {
   if (!request || request.schema !== HUMMOD_RUN_REQUEST_SCHEMA) {
     throw new Error('valid HumMod run request is required');
   }
   if (!clockVerification || typeof clockVerification !== 'object') {
     throw new Error('clockVerification is required');
   }
-  nonEmptyString(clockVerification.sourceClockUnit, 'clockVerification.sourceClockUnit');
-  nonEmptyString(clockVerification.verificationSource, 'clockVerification.verificationSource');
-  if (clockVerification.verified !== true) {
-    throw new Error('HumMod source clock must be explicitly verified');
+
+  const unit = clockVerification.unit || clockVerification.sourceClockUnit;
+  const secondsPerUnit = clockVerification.secondsPerUnit;
+  if (unit !== HUMMOD_SOURCE_CLOCK.unit || secondsPerUnit !== HUMMOD_SOURCE_CLOCK.secondsPerUnit) {
+    throw new Error('clock verification does not match the pinned HumMod System.X contract');
   }
 
-  return Object.freeze({
-    ...request,
-    sourceClock: Object.freeze({
-      symbol: 'System.X',
-      unit: clockVerification.sourceClockUnit,
-      verificationStatus: 'verified',
-      verificationSource: clockVerification.verificationSource,
-      conversionToTimestampSec: clockVerification.conversionToTimestampSec || null,
-    }),
-    executable: true,
-    blocker: null,
-  });
+  return request;
 }
 
 module.exports = {
   HUMMOD_RUN_REQUEST_SCHEMA,
+  HUMMOD_SOURCE_CLOCK,
   createHumModRunRequest,
   assertRunnerClockVerified,
 };
