@@ -63,6 +63,17 @@ const { chromium, webkit } = require('playwright');
       assert.equal((await page.locator('#clinical-hr').textContent()).trim(),'91');
       assert.equal((await page.locator('#clinical-current-mode').textContent()).trim(),'VC_AC');
 
+      await page.locator('#clinical-measure-mechanics').click();
+      await page.waitForFunction(() => {
+        const pplat = document.querySelector('#clinical-pplat').textContent.trim();
+        const peep = document.querySelector('#clinical-total-peep').textContent.trim();
+        const dp = document.querySelector('#clinical-dp').textContent.trim();
+        return pplat !== '—' && peep !== '—' && dp !== '—';
+      }, null, { timeout: 30000 });
+      assert(Number.isFinite(Number((await page.locator('#clinical-pplat').textContent()).trim())));
+      assert(Number.isFinite(Number((await page.locator('#clinical-total-peep').textContent()).trim())));
+      assert(Number.isFinite(Number((await page.locator('#clinical-dp').textContent()).trim())));
+
       await page.locator('#clinical-mode').selectOption('PC_AC');
       await page.locator('#clinical-fio2').fill('0.5');
       await page.locator('#clinical-peep').fill('10');
