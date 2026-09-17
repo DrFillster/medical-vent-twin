@@ -10,7 +10,8 @@ export { TWIN_SCHEMA_VERSION, makeTwinSnapshot,
          validateTwinProvider } from './digital_twin_contract.js';
 export { HUMMOD_NORMALIZED_TARGET_FIELDS, createHumModSnapshotMapper,
          createHumModReplayProvider } from './hummod_adapter.js';
-export { derivePassiveRespiratoryMechanics } from './bedside_measurements.js';
+export { derivePassiveRespiratoryMechanics,
+         summarizeSimulationMeasurements } from './bedside_measurements.js';
 export { makePatientParams, makeInitialState, makeBoundaryFlow,
          makeBoundaryPressure } from './contracts.js';
 export { forwardElasticVolume, dPressureDVolume,
