@@ -4639,6 +4639,16 @@ function createBerlinClinicalTwinSession({
 
   function snapshot() {
     const mechanics = summarizeSimulationMeasurements(simulation);
+    const recentWaveform = Object.freeze(
+      simulation.trace.slice(-2000).map(row => Object.freeze({
+        t: row.t,
+        pressureCmH2O: row.output.airwayPressure,
+        flowLps: row.output.airwayFlow,
+        volumeL: row.output.totalVolume,
+        phase: row.phase,
+        maneuver: row.maneuver,
+      }))
+    );
     return Object.freeze({
       sessionSchema: 'berlin-clinical-twin-session/v1',
       timeSec: simulation.state.t,
@@ -4665,6 +4675,8 @@ function createBerlinClinicalTwinSession({
           recruitment: c.recruitment,
         }))),
         measurements: mechanics,
+        recentWaveform,
+        waveformStatus: 'most-recent-2000-committed-Vent-samples',
         gasExchangeAuthority: 'disabled-in-Vent-for-composed-session',
       }),
       systemic: systemicSnapshot,
@@ -4680,6 +4692,33 @@ function createBerlinClinicalTwinSession({
         clinicalCase: 'synthetic Berlin ARDS authored case with cohort-calibrated targets',
       }),
     });
+  }
+
+  function syncSystemicToVentTime() {
+    const sys = systemicRuntime.sample(simulation.state.t);
+    systemicSnapshot = sys.systemic;
+  }
+
+  function advanceUntilMeasurement(kind, previousCount, maxAdvanceSec) {
+    positive(maxAdvanceSec, 'maxAdvanceSec');
+    const deadline = Math.min(simulation.state.t + maxAdvanceSec, trajectoryEndSec);
+    while (simulation.state.t < deadline) {
+      const result = simulation.step();
+      if (result.failed) {
+        const error = new Error(
+          'Simulation stopped during passive mechanics measurement: ' +
+          (result.output.failureKind || 'STEP_FAILED'));
+        error.diagnostics = result.output;
+        throw error;
+      }
+      const count = simulation.measurements.filter(m => m.kind === kind).length;
+      if (count > previousCount) return;
+    }
+    if (simulation.state.t >= trajectoryEndSec) {
+      throw new Error(
+        'HumMod trajectory ended before the requested passive mechanics measurement completed');
+    }
+    throw new Error('passive mechanics measurement did not complete within maxAdvanceSec');
   }
 
   return Object.freeze({
@@ -4709,8 +4748,7 @@ function createBerlinClinicalTwinSession({
           `requested session time ${target} exceeds HumMod trajectory end ${trajectoryEndSec}; fixed replay cannot extrapolate`);
       }
       simulation.runFor(seconds);
-      const sys = systemicRuntime.sample(simulation.state.t);
-      systemicSnapshot = sys.systemic;
+      syncSystemicToVentTime();
       return snapshot();
     },
 
@@ -4740,6 +4778,48 @@ function createBerlinClinicalTwinSession({
         toMode: requested.toMode,
         application: 'next-completed-breath-boundary',
         pulmonaryResponse: 'modeled-by-Vent-after-application',
+        systemicResponse: 'not-modeled-by-fixed-HumMod-replay',
+      }));
+      return snapshot();
+    },
+
+    performPassiveMechanicsMeasurement({
+      holdDurationSec = 0.5,
+      maxAdvanceSecPerHold = 90,
+    } = {}) {
+      if (!initialized) {
+        throw new Error('session must be initialized before interventions');
+      }
+      positive(holdDurationSec, 'holdDurationSec');
+      positive(maxAdvanceSecPerHold, 'maxAdvanceSecPerHold');
+      if (simulation.pendingControllerChange) {
+        throw new Error(
+          'passive mechanics measurement requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+
+      const startSec = simulation.state.t;
+      const inspiratoryCount = simulation.measurements
+        .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
+      simulation.requestInspiratoryHold(holdDurationSec);
+      advanceUntilMeasurement(
+        'INSPIRATORY_HOLD', inspiratoryCount, maxAdvanceSecPerHold);
+
+      const expiratoryCount = simulation.measurements
+        .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
+      simulation.requestExpiratoryHold(holdDurationSec);
+      advanceUntilMeasurement(
+        'EXPIRATORY_HOLD', expiratoryCount, maxAdvanceSecPerHold);
+
+      syncSystemicToVentTime();
+      sessionEvents.push(Object.freeze({
+        t: simulation.state.t,
+        kind: 'PASSIVE_MECHANICS_MEASUREMENT_COMPLETED',
+        startedAtSec: startSec,
+        completedAtSec: simulation.state.t,
+        source: 'Vent explicit zero-flow inspiratory and expiratory holds',
         systemicResponse: 'not-modeled-by-fixed-HumMod-replay',
       }));
       return snapshot();
