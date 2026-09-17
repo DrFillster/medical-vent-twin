@@ -457,3 +457,71 @@ All nine Berlin cases are exposed through the readiness API.
 The prior branch head `3f3bf7255b2061621dece81e96a2da16d00f53a4` passed GitHub Actions run `35284451153`.
 
 The newer composed-session/readiness commits were pushed after that successful run and require their own CI confirmation before merge.
+
+
+## 2026-09-17 — patient-first browser preview and generated manifest
+
+### Clinical Twin preview added
+
+The existing mechanics lab remains intact while a new patient-first clinical preview is introduced above it.
+
+The preview:
+
+- lists all nine synthetic Berlin ARDS cases
+- defaults to the moderate Berlin / intermediate-recruitability aspiration reference case
+- displays Berlin severity and recruitability as separate axes
+- displays the authored case narrative
+- shows whether the case is executable
+- shows each readiness field as ready, cohort-calibrated, required explicit input, or required external data
+- explicitly marks HumMod trajectory attachment as external data still required
+
+The preview does not fabricate missing ventilator settings, absolute VT, recruitment state, or systemic physiology.
+
+### Browser manifest generation
+
+Added `scripts/build-clinical-manifest.js`.
+
+The browser-facing `web/clinical-cases.json` is now generated from:
+
+- `src/berlin_case_catalog.js`
+- `src/clinical_case_readiness.js`
+
+Added `test/clinical_case_manifest.test.js` to fail if the browser manifest diverges from canonical source case identity, narrative, severity, recruitability, readiness status, values, provenance, or notes.
+
+The normal `npm run build` now regenerates this manifest before rebuilding `web/engine.js`.
+
+### Browser smoke expansion
+
+Browser smoke coverage now checks:
+
+- nine clinical cases load
+- the intended moderate/intermediate reference case is selected by default
+- severity/recruitability render correctly
+- the case remains explicitly non-executable while HumMod and required inputs are missing
+- switching to the severe/high-recruitability case updates the clinical summary
+- the existing mechanics lab still runs afterward
+
+### Build pipeline
+
+GitHub Actions now:
+
+1. builds the browser artifacts,
+2. runs unit/regression tests,
+3. publishes `web/engine.js` and `web/clinical-cases.json` as a workflow artifact.
+
+This gives a reproducible path to refresh generated browser assets without hand-editing bundled code.
+
+### HumMod export investigation
+
+Added `docs/HUMMOD_EXPORT_DISCOVERY.md`.
+
+Verified from the pinned upstream source:
+
+- separate solution, display, and storage intervals exist in `Control/GoFor.DES`
+- HumMod panels graph exact model symbols against `System.X`
+- the verified mapped variables appear directly in display definitions
+- no source-level CSV/JSON/export command was found in repository search
+
+The units/semantics of `System.X` remain unverified and must not be inferred from menu labels.
+
+No claim is made that the checked-in Windows executable exposes an undocumented exporter.
