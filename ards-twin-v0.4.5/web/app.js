@@ -4,7 +4,7 @@
   const form = $('settings');
   const number = id => Number($(id).value);
   let worker = null, timer = null, latest = null;
-  let clinicalWorker = null, clinicalHumModExport = null, clinicalSnapshot = null;
+  let clinicalWorker = null, clinicalHumModExport = null, clinicalRecruitmentHistory = null, clinicalSnapshot = null;
   const chartNames = ['pressure', 'flow', 'volume'];
   const metrics = ['ppeak', 'pplat', 'dp', 'vti', 'vte', 'mv'];
   function readinessLabel(status) {
@@ -114,6 +114,16 @@
       $(id).required = pc && id !== 'clinical-pc-pause';
       $(id).disabled = !pc;
     });
+  }
+
+  function syncClinicalInitializationMode() {
+    const history = $('clinical-init-mode').value === 'history';
+    $('clinical-explicit-recruitment').hidden = history;
+    $('clinical-history-recruitment').hidden = !history;
+    $('clinical-recruitment').disabled = history;
+    $('clinical-recruitment').required = !history;
+    $('clinical-recruitment-history-file').disabled = !history;
+    $('clinical-recruitment-history-file').required = history;
   }
 
   function displayClinicalValue(value) {
@@ -245,9 +255,48 @@
       ' · full validation occurs during session initialization.';
   }
 
+  async function loadRecruitmentHistoryFile(file) {
+    clinicalRecruitmentHistory = null;
+    if (!file) {
+      $('clinical-recruitment-history-status').textContent =
+        'Attach a vent-recruitment-history/v1 file containing an explicit prior state and sustained pressure segments.';
+      return;
+    }
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (!window.VENT || typeof VENT.validateRecruitmentHistory !== 'function') {
+      throw new Error('Recruitment-history validation is unavailable in this browser build');
+    }
+    VENT.validateRecruitmentHistory(parsed);
+    clinicalRecruitmentHistory = parsed;
+    $('clinical-recruitment-history-status').textContent =
+      'Loaded recruitment history · ' + parsed.segments.length +
+      ' pressure segment' + (parsed.segments.length === 1 ? '' : 's') +
+      ' · current recruitment will be derived by Vent.';
+  }
+
   function initializeClinicalSessionUi() {
     syncClinicalMode();
+    syncClinicalInitializationMode();
     $('clinical-mode').addEventListener('change', syncClinicalMode);
+    $('clinical-init-mode').addEventListener('change', () => {
+      syncClinicalInitializationMode();
+      if (clinicalWorker) {
+        stopClinicalWorker();
+        $('clinical-session-status').textContent =
+          'Recruitment initialization mode changed. Reinitialize the clinical session.';
+      }
+    });
+    $('clinical-recruitment-history-file').addEventListener('change', async event => {
+      $('clinical-session-error').hidden = true;
+      try {
+        await loadRecruitmentHistoryFile(event.target.files?.[0] || null);
+      } catch (error) {
+        clinicalRecruitmentHistory = null;
+        $('clinical-recruitment-history-status').textContent = 'Recruitment history rejected.';
+        showClinicalError(error.message);
+      }
+    });
     $('clinical-hummod-file').addEventListener('change', async event => {
       $('clinical-session-error').hidden = true;
       try {
@@ -266,20 +315,27 @@
       try {
         if (!clinicalHumModExport) throw new Error('Attach a HumMod trajectory before initialization');
         const w = startClinicalWorker();
-        const recruitable = clinicalNumber('clinical-recruitment');
+        const payload = {
+          caseId: $('clinical-case').value,
+          humModExport: clinicalHumModExport,
+          ventilation: clinicalVentilationPayload(),
+          dt: clinicalNumber('clinical-dt'),
+        };
+        if ($('clinical-init-mode').value === 'history') {
+          if (!clinicalRecruitmentHistory) {
+            throw new Error('Attach a recruitment history before initialization');
+          }
+          payload.initializationHistory = clinicalRecruitmentHistory;
+        } else {
+          payload.initialRecruitmentState = {
+            normal: 1,
+            recruitable: clinicalNumber('clinical-recruitment'),
+            consolidated: 0,
+          };
+        }
         w.postMessage({
           type: 'initialize',
-          payload: {
-            caseId: $('clinical-case').value,
-            humModExport: clinicalHumModExport,
-            ventilation: clinicalVentilationPayload(),
-            initialRecruitmentState: {
-              normal: 1,
-              recruitable,
-              consolidated: 0,
-            },
-            dt: clinicalNumber('clinical-dt'),
-          },
+          payload,
         });
         $('clinical-session-status').textContent = 'Initializing Vent + HumMod replay session…';
       } catch (error) {
