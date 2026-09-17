@@ -94,7 +94,7 @@ const { chromium, webkit } = require('playwright');
       await page.locator('#run').click();await page.locator('#error').waitFor({state:'visible'});
       assert((await page.locator('#error').textContent()).includes('Inspiration'));
       await page.locator('#example').selectOption('recruitment');
-      await page.locator('.advanced summary').click();await page.locator('#breaths').fill('10');await page.locator('#dt').selectOption('0.0005');
+      await page.locator('#settings .advanced summary').click();await page.locator('#breaths').fill('10');await page.locator('#dt').selectOption('0.0005');
       await page.locator('#run').click();await page.locator('#cancel').click();
       assert.equal(await page.locator('#status').textContent(),'Canceled.');
       assert.equal(await page.locator('#run').isEnabled(),true);
