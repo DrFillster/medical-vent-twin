@@ -622,3 +622,99 @@ The smoke test now verifies:
 The GitHub Actions workflow now includes Chromium and WebKit browser-smoke jobs after node tests.
 
 The browser matrix exercises 320, 390, 768, and 1440 px viewports. WebKit is used as an iOS-engine approximation; physical-device validation remains a separate deployment gate.
+
+
+## 2026-09-17 — raw HumMod ingestion, history-derived recruitment, and passive mechanics
+
+### Raw HumMod System.X ingestion
+
+Added `src/hummod_raw_series_adapter.js`.
+
+The adapter accepts `hummod-raw-series/v1` with:
+
+- pinned HumMod repository/revision metadata
+- verified `System.X` clock in minutes
+- exact approved HumMod source symbols
+- strictly increasing raw clock values
+
+It converts the raw series to `vent-hummod-trajectory/v1` by:
+
+- preserving the raw `System.X` value
+- normalizing the first raw sample to canonical session time zero
+- converting minutes to seconds using the verified pinned clock contract
+- preserving exact source-symbol values
+- rejecting undeclared or unverified symbols
+
+The browser upload path now accepts either canonical Vent trajectories or raw HumMod series.
+
+### Recruitment initialization history
+
+Added `src/recruitment_history.js`.
+
+A clinical session can now initialize recruitable tissue using either:
+
+1. an explicit current recruitable fraction, or
+2. `vent-recruitment-history/v1`.
+
+The history format requires:
+
+- an explicitly declared earlier recruitable fraction
+- provenance for that earlier state
+- one or more sustained pressure/duration segments
+
+Vent derives the current recruitable fraction using the same recruitment kinetics used by the mechanics engine. The history path does not infer recruitment from Berlin severity, etiology, compliance, or PEEP.
+
+The browser now exposes both initialization modes and accepts a recruitment-history JSON file.
+
+### Partial-recruitment initialization bug fixed
+
+Pressure-consistent initialization was applying recruitable availability twice when calculating starting elastic volume for a partially open recruitable compartment.
+
+The incorrect path effectively used `availability^2 * capacity`.
+
+It now uses the constitutive law as intended:
+
+`Vmax = availability * full_capacity`
+
+and applies availability exactly once.
+
+A dedicated acceptance test now covers partially recruited equilibrium initialization.
+
+### Automated passive mechanics workflow
+
+The composed clinical session now supports a one-action passive mechanics measurement sequence.
+
+The sequence:
+
+- requires stable ventilator settings
+- performs an explicit simulated end-inspiratory zero-flow hold
+- performs an explicit simulated end-expiratory zero-flow hold
+- advances the persistent Vent state only as needed
+- remains bounded by the attached HumMod replay trajectory
+- synchronizes the systemic replay snapshot to the resulting Vent time
+- returns the unified plateau, total PEEP, intrinsic PEEP, and driving-pressure summary
+
+The browser clinical panel displays these measurements and exposes a `Measure passive mechanics` action.
+
+### Full ventilator changes
+
+Ventilator controller changes are now state-preserving and queued to a completed-breath boundary.
+
+VC-AC and PC-AC settings can change without reconstructing the lung, resetting recruitment, clearing history, or restarting simulation time.
+
+The browser exposes this as `Queue full settings` and displays when a controller change is pending.
+
+### Browser verification path
+
+Browser smoke now exercises:
+
+- the nine-case Berlin catalog
+- raw HumMod `System.X` upload and conversion
+- history-derived recruitment initialization
+- persistent Vent + HumMod replay session
+- shared-time advance
+- automated passive mechanics
+- VC-AC to PC-AC transition
+- the existing mechanics lab afterward
+
+Chromium and WebKit remain required CI targets.
