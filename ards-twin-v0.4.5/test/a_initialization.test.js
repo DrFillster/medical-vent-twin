@@ -129,6 +129,31 @@ test('A2: equilibrium across multiple PEEP values', () => {
   }
 });
 
+test('A2: partially recruited compartment applies availability once', () => {
+  const params = buildParams([
+    { id: 'normal', fraction: 0.0, capacity: 0.0, elasticScale: 30 },
+    { id: 'recruitable', fraction: 1.0, capacity: 1.5, elasticScale: 22 },
+    { id: 'consolidated', fraction: 0.0, capacity: 0.0, elasticScale: 35 },
+  ], 4);
+  const recruitment = 0.4;
+  const cp = params.compartments.find(p => p.id === 'recruitable');
+  const expected = forwardElasticVolume(10, cp, recruitment, 4);
+  const state = makeInitialState(params, {
+    initialPEEP: 10,
+    initialRecruitmentState: {
+      normal: 1,
+      recruitable: recruitment,
+      consolidated: 0,
+    },
+  });
+  const rc = state.compartments.find(c => c.id === 'recruitable');
+  assert(approx(rc.volume, expected, 1e-12),
+    `partial recruitment expected V=${expected}, got ${rc.volume}`);
+  const vmax = effectiveVolumeCapacity(cp, recruitment);
+  assert(rc.volume < vmax,
+    `initialized V=${rc.volume} must remain below Vmax=${vmax}`);
+});
+
 // -------------------------------------------------------------------------
 // A3: PEEP <= AOP lower-bound initialization produces V=0.
 // -------------------------------------------------------------------------
