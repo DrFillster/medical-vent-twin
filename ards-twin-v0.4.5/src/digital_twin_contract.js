@@ -4,7 +4,7 @@
 // simulator and an external whole-body / digital-twin physiology provider.
 //
 // This contract intentionally does NOT contain HumMod-specific variable names,
-// equations, source code, or file formats.  A provider adapter may map HumMod,
+// equations, source code, or file formats. A provider adapter may map HumMod,
 // a research dataset, a bench model, or another physiology engine into this
 // schema without coupling the core ventilator simulator to that source.
 
@@ -32,11 +32,15 @@ function nonNegativeOrNull(value, path) {
   return v;
 }
 
+function stringOrNull(value) {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
 /**
  * Normalize a provider sample into the Vent digital-twin interchange schema.
  * Missing domains are represented as null rather than guessed.
  *
- * No clinical inference is performed here.  This is only a typed data boundary.
+ * No clinical inference is performed here. This is only a typed data boundary.
  */
 function makeTwinSnapshot(input = {}) {
   const respiratory = input.respiratory || {};
@@ -51,8 +55,9 @@ function makeTwinSnapshot(input = {}) {
     schemaVersion: TWIN_SCHEMA_VERSION,
     source: Object.freeze({
       provider: typeof input.provider === 'string' ? input.provider : 'unknown',
-      subjectId: typeof input.subjectId === 'string' ? input.subjectId : null,
-      runId: typeof input.runId === 'string' ? input.runId : null,
+      modelVersion: stringOrNull(input.modelVersion),
+      subjectId: stringOrNull(input.subjectId),
+      runId: stringOrNull(input.runId),
     }),
     timestampSec,
     respiratory: Object.freeze({
