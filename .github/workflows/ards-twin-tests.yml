@@ -30,3 +30,10 @@ jobs:
         run: npm run build
       - name: Run unit and regression tests
         run: npm test
+      - name: Upload browser build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ards-twin-browser-build
+          path: |
+            ards-twin-v0.4.5/web/engine.js
+            ards-twin-v0.4.5/web/clinical-cases.json
