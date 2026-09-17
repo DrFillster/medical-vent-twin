@@ -77,7 +77,14 @@
         ? preferred
         : select.options[0]?.value || '';
       if (select.value) renderClinicalCase(select.value);
-      select.addEventListener('change', () => renderClinicalCase(select.value));
+      select.addEventListener('change', () => {
+        renderClinicalCase(select.value);
+        if (clinicalWorker) {
+          stopClinicalWorker();
+          $('clinical-session-status').textContent =
+            'Case changed. Reinitialize the clinical session for the selected case.';
+        }
+      });
     } catch (error) {
       $('clinical-summary').textContent =
         'Clinical case catalog could not be loaded. The mechanics lab remains available.';
