@@ -162,6 +162,16 @@ function createBerlinClinicalTwinSession({
 
   function snapshot() {
     const mechanics = summarizeSimulationMeasurements(simulation);
+    const recentWaveform = Object.freeze(
+      simulation.trace.slice(-2000).map(row => Object.freeze({
+        t: row.t,
+        pressureCmH2O: row.output.airwayPressure,
+        flowLps: row.output.airwayFlow,
+        volumeL: row.output.totalVolume,
+        phase: row.phase,
+        maneuver: row.maneuver,
+      }))
+    );
     return Object.freeze({
       sessionSchema: 'berlin-clinical-twin-session/v1',
       timeSec: simulation.state.t,
@@ -188,6 +198,8 @@ function createBerlinClinicalTwinSession({
           recruitment: c.recruitment,
         }))),
         measurements: mechanics,
+        recentWaveform,
+        waveformStatus: 'most-recent-2000-committed-Vent-samples',
         gasExchangeAuthority: 'disabled-in-Vent-for-composed-session',
       }),
       systemic: systemicSnapshot,
