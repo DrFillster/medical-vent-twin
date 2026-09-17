@@ -167,6 +167,15 @@ test('session can perform a complete passive mechanics hold sequence', () => {
   assert(Number.isFinite(snap.pulmonary.measurements.totalPeepCmH2O));
   assert(Number.isFinite(snap.pulmonary.measurements.drivingPressureCmH2O));
   assert(snap.pulmonary.measurements.status === 'derived-from-explicit-zero-flow-holds');
+  assert(Array.isArray(snap.pulmonary.recentWaveform));
+  assert(snap.pulmonary.recentWaveform.length > 0);
+  assert(snap.pulmonary.recentWaveform.length <= 2000);
+  assert(snap.pulmonary.recentWaveform.some(row => row.maneuver === 'INSPIRATORY_HOLD'));
+  assert(snap.pulmonary.recentWaveform.some(row => row.maneuver === 'EXPIRATORY_HOLD'));
+  const sample = snap.pulmonary.recentWaveform[snap.pulmonary.recentWaveform.length - 1];
+  assert(Number.isFinite(sample.pressureCmH2O));
+  assert(Number.isFinite(sample.flowLps));
+  assert(Number.isFinite(sample.volumeL));
   assert(snap.events[snap.events.length - 1].kind === 'PASSIVE_MECHANICS_MEASUREMENT_COMPLETED');
 });
 
