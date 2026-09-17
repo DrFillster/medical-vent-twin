@@ -38,7 +38,7 @@
       "CardiacOutput.Flow(L/Min)": 5
     },
     {
-      "System.X": 2.08,
+      "System.X": 2.5,
       "PO2Artys.Pressure": 78,
       "CO2Artys.Pressure": 41,
       "BloodPh.ArtysPh": 7.38,
