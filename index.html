@@ -2,27 +2,44 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Mechanistic Lung Simulator v0.4.4.1</title>
+<title>Mechanistic Lung Simulator v0.4.5</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow">
 <style>body{font-family:system-ui,sans-serif;max-width:780px;margin:4em auto;padding:0 1.2em;color:#eee;background:#1c1c20;line-height:1.6}a{color:#6ad}h1{font-weight:500;letter-spacing:-0.01em}h2{font-weight:500;margin-top:2em;border-top:1px solid #333;padding-top:1em;font-size:1.1em;color:#aaa;text-transform:uppercase;letter-spacing:0.05em}.ver{font-family:ui-monospace,Menlo,monospace;font-size:0.85em;color:#888}li{margin:0.4em 0}</style>
 </head>
 <body>
-<h1>Mechanistic Lung Simulator v0.4.4.1</h1>
+<h1>Mechanistic Lung Simulator v0.4.5</h1>
 <p class="ver">Three-compartment mechanical-ventilation simulator &mdash; finite-capacity exponential elastic law, Newton-Raphson implicit solver with conservation by construction, bounded recruitment kinetics with feasibility floor. Phenotypes are mechanical constructs labeled by their recruitable pool size, not validated clinical ARDS severity grades. Educational exploration prototype; not a clinical decision tool; not a patient-specific digital twin.</p>
 
-<h2>Current release: v0.4.4.1</h2>
+<h2>Current release: v0.4.5 (mobile release candidate)</h2>
 <ul>
-  <li><strong><a href="ards-twin-v0.4/web/">Run v0.4.4.1 in browser</a></strong> &mdash; VC-A/C and PC-A/C modes, four mechanical-construct phenotype presets (Reference / Low-, Moderate-, High-recruitability), all metadata and labels aligned to the published manuscript.</li>
-  <li><strong><a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.pdf">Read the manuscript as PDF (20 pp., US Letter)</a></strong> &mdash; print-ready, human-readable format. <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.md">Markdown source</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md">changelog</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md">review notes</a> &middot; <a href="ards-twin-v0.4/manuscript/SHA256SUMS.txt">SHA256SUMS</a>.</li>
-  <li><strong><a href="ards-twin-v0.4/dist/vent-twin-v0.4.4.1-final-clean.zip">Download v0.4.4.1 simulator ZIP (vent-twin-v0.4.4.1-final-clean.zip)</a> &middot; <a href="ards-twin-v0.4/dist/vent-manuscript-v0.4.4.1-final.zip">manuscript bundle ZIP</a></strong> &mdash; <code>vent-twin-v0.4.4.1-final-clean.zip</code> (runnable simulator package) and <code>vent-manuscript-v0.4.4.1-final.zip</code> (manuscript bundle).</li>
+  <li><strong><a href="ards-twin-v0.4.5/web/">Run v0.4.5 in browser</a></strong> &mdash; mobile-responsive UI (320 / 390 / 768 / 1440 CSS px verified), cancelable worker with 2-minute watchdog, separate pressure/flow/volume plots, VC-A/C and PC-A/C modes, four mechanical-construct phenotypes, three named starting examples, mechanics-only scope (gas exchange disabled in browser).</li>
+  <li><strong><a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.pdf">Read the manuscript as PDF (8 pp., US Letter)</a></strong> &mdash; publication-rewrite format. <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.md">Markdown source</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md">changelog</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md">review notes</a> &middot; <a href="ards-twin-v0.4/manuscript/SHA256SUMS.txt">SHA256SUMS</a>. <em>Manuscript describes v0.4.4.1; amend with version-specific evidence before publication.</em></li>
+  <li><strong>Download ZIPs (served from the website)</strong> &mdash; <a href="ards-twin-v0.4/dist/vent-twin-v0.4.4.1-final-clean.zip">vent-twin-v0.4.4.1-final-clean.zip</a> (runnable v0.4.4.1 simulator) &middot; <a href="ards-twin-v0.4/dist/vent-manuscript-v0.4.4.1-final.zip">vent-manuscript-v0.4.4.1-final.zip</a> (manuscript bundle).</li>
+  <li><strong>Mobile deployment archive</strong> &mdash; <code>vent-simulator-v0.4.5-mobile-deployment.zip</code> is on Drive (id <code>1FLqd2U2VpEP2IALmclTpDs3oqJAdIqnv</code>). The deployed build above is the same content.</li>
 </ul>
 
 <h2>Verification</h2>
 <ul>
-  <li><strong>127 / 127 tests pass</strong> across 21 test files in CommonJS mode under Node v26.8.2 (see <a href="ards-twin-v0.4/TEST_RESULTS.json">TEST_RESULTS.json</a>, <a href="ards-twin-v0.4/NUMERICAL_DIAGNOSTICS.json">NUMERICAL_DIAGNOSTICS.json</a>, <a href="ards-twin-v0.4/PERFORMANCE_BENCH.json">PERFORMANCE_BENCH.json</a>).</li>
-  <li>J-4 acceptance test (High-recruitability phenotype, PEEP = 5 cmH<sub>2</sub>O, 3 breaths at dt = 1 ms) reports 6 924 mechanics steps, 0.52 mean Newton iters/step, 1.00 mean substeps/step, 0 failures, and <strong>3 total active-set transitions</strong> &mdash; the active-set counter is wired and exercised.</li>
-  <li>Reproducibility: <code>npm test</code> from <code>ards-twin-v0.4/</code> after extracting <code>vent-twin-v0.4.4.1-final-clean.zip</code>.</li>
+  <li><strong>143 / 143 Node tests pass</strong> across 22 test files in CommonJS mode under Node v24.19.0 (see <a href="ards-twin-v0.4.5/TEST_RESULTS.json">TEST_RESULTS.json</a>) &mdash; 127 existing acceptance assertions plus 16 new regression / integration assertions.</li>
+  <li><strong>Browser smoke (chromium-1228 via Playwright 1.63.0): 4 / 4 widths pass</strong> at 320 / 390 / 768 / 1440 CSS px. Each width: page loads 200, default VC run completes, three SVG traces, three recruitment rows, no horizontal overflow, touch targets &ge; 44 px, PC run withholds plateau, settings change clears stale metrics, impossible timing shows inline error, cancel + fresh run work, JSON export writes a valid v0.4.5 file. See <a href="ards-twin-v0.4.5/browser-results/report-chromium.json">browser-results/report-chromium.json</a> and screenshots <a href="ards-twin-v0.4.5/browser-results/chromium-320.png">320</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-390.png">390</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-768.png">768</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-1440.png">1440</a>.</li>
+  <li><strong>WebKit / iPhone Safari</strong>: not executed in this environment &mdash; <code>npx playwright install webkit</code> requires network access the deployment environment cannot reach. WebKit-on-iOS-Safari approximation is unverified.</li>
+  <li><strong>Physical iPhone Safari</strong>: not executed in this environment. The package was not device-verified.</li>
+  <li>J-4 acceptance test (High-recruitability phenotype, PEEP = 5 cmH<sub>2</sub>O, 3 breaths at dt = 1 ms) reports 6 924 mechanics steps, 0.52 mean Newton iters/step, 1.00 mean substeps/step, 0 failures, and 3 total active-set transitions.</li>
+  <li>Reproducibility: <code>npm test</code> from <code>ards-twin-v0.4.5/</code> after extracting the v0.4.5 mobile deployment archive.</li>
+</ul>
+
+<h2>What changed since v0.4.4.1</h2>
+<ul>
+  <li>Browser bundle contract repaired: reproducible dependency-free IIFE build replaces the mismatched IIFE/ES-module import.</li>
+  <li>Worker receives an explicit scenario (initial recruitment + PEEP), controller/tracker rollback on rejected steps, <code>runFor</code> abort on failure.</li>
+  <li>Mobile layout stacks panels below 700 CSS px; controls &ge; 46 px high, 16 px text; waveforms resize labels to panel width.</li>
+  <li>Plateau and driving pressure withheld unless a suitable settled VC pause exists; PC mode does not fabricate an occlusion plateau.</li>
+  <li>Three named starting examples; explicit, editable initial recruitment fraction per phenotype.</li>
+  <li>Settings use mL for tidal volume and L/min for flow with conversion at the UI boundary.</li>
+  <li>Gas exchange controls omitted in this UI (gas exchange code retained in source for legacy use, disabled in browser runs).</li>
+  <li>Test runner fails on crashed / timed-out / signaled / empty test processes.</li>
+  <li>Constitutive mechanics, recruitment equations, phenotype parameters &mdash; unchanged. See <code>history/v0.4.4.1/</code> for the prior bundle.</li>
 </ul>
 
 <h2>Repo</h2>
@@ -32,11 +49,14 @@
 
 <h2>Docs (served from the repo root)</h2>
 <ul>
-  <li><a href="ards-twin-v0.4/HANDOFF_README.md">HANDOFF_README.md</a> &mdash; architecture, solver, recruitment, conservation contract.</li>
-  <li><a href="ards-twin-v0.4/IMPLEMENTATION_SUMMARY.md">IMPLEMENTATION_SUMMARY.md</a> &mdash; per-release summary, deviation log.</li>
-  <li><a href="ards-twin-v0.4/REVIEW_NOTES.md">REVIEW_NOTES.md</a> &mdash; solver tolerance choices, KKT regime handling, departure rationale.</li>
-  <li><a href="ards-twin-v0.4/CHANGELOG.md">CHANGELOG.md</a> &mdash; per-version correction history.</li>
-  <li><a href="ards-twin-v0.4/MANUSCRIPT.md">MANUSCRIPT.md</a> &mdash; full manuscript (same content as <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.md">MANUSCRIPT_FINAL_v0.4.4.1.md</a> in the manuscript bundle).</li>
+  <li><a href="ards-twin-v0.4.5/README.md">v0.4.5 README</a> &mdash; quick start + what-changed summary.</li>
+  <li><a href="ards-twin-v0.4.5/CHANGELOG.md">v0.4.5 CHANGELOG</a> &mdash; repairs / interface / evidence.</li>
+  <li><a href="ards-twin-v0.4.5/DEPLOYMENT_HANDOFF.md">v0.4.5 DEPLOYMENT_HANDOFF</a> &mdash; acceptance criteria, iPhone checks, scope boundaries.</li>
+  <li><a href="ards-twin-v0.4.5/SHA256SUMS.txt">v0.4.5 SHA256SUMS</a> &mdash; manifest for the mobile deployment archive.</li>
+  <li><a href="ards-twin-v0.4/CHANGELOG.md">v0.4.4.1 CHANGELOG</a> &mdash; prior version history (preserved for rollback).</li>
+  <li><a href="ards-twin-v0.4/HANDOFF_README.md">v0.4.4.1 HANDOFF_README</a> &mdash; architecture, solver, recruitment, conservation contract.</li>
+  <li><a href="ards-twin-v0.4/REVIEW_NOTES.md">v0.4.4.1 REVIEW_NOTES</a> &mdash; solver tolerance choices, KKT regime handling, departure rationale.</li>
+  <li><a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.pdf">v0.4.4.1 manuscript PDF</a> &mdash; publication rewrite; not amended for v0.4.5.</li>
 </ul>
 </body>
 </html>

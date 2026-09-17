@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101d2a">
+<meta name="description" content="Explore pressure, flow, volume, and recruitment with an inspectable three-compartment mechanical lung model.">
+<title>Mechanistic Lung Simulator · 0.4.5</title>
+<link rel="stylesheet" href="./styles.css?v=0.4.5">
+<script src="./app.js?v=0.4.5" defer></script>
+</head>
+<body>
+<a class="skip" href="#results">Skip to results</a>
+<header class="masthead"><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">VENTILATION LAB <span>0.4.5</span></p><h1>Mechanistic Lung Simulator</h1></div></div><p class="intro">Explore how lung mechanics shape a breath.</p><p class="scope">Educational prototype · Mechanical phenotypes, not clinical ARDS grades · Not for patient care</p></header>
+<main>
+<section class="controls card" aria-labelledby="setup-title">
+<div class="section-heading"><span class="step">01</span><h2 id="setup-title">Set up a scenario</h2></div>
+<form id="settings">
+<fieldset id="fields">
+<label for="example">Starting example</label><select id="example"><option value="reference">Reference · volume control</option><option value="recruitment">Recruitable lung · volume control</option><option value="pressure">Recruitable lung · pressure control</option></select>
+<p id="example-note" class="hint">Observe the pressure rise during filling, then the pressure drop during the inspiratory pause.</p>
+<label for="preset">Mechanical phenotype</label><select id="preset"><option value="phenotype_baseline">Reference</option><option value="phenotype_low_recruitability">Low recruitable pool</option><option value="phenotype_moderate_recruitability">Moderate recruitable pool</option><option value="phenotype_high_recruitability">High recruitable pool</option></select>
+<label for="mode">Ventilation mode</label><select id="mode"><option value="VC">Volume control</option><option value="PC">Pressure control</option></select>
+<div class="field-grid"><div><label for="peep">PEEP <span>cmH₂O</span></label><input id="peep" type="number" inputmode="decimal" min="0" max="20" step="0.5" value="5" required></div><div><label for="rr">Respiratory rate <span>/min</span></label><input id="rr" type="number" inputmode="numeric" min="6" max="40" step="1" value="14" required></div></div>
+<div id="vc-fields"><div class="field-grid"><div><label for="vt">Tidal volume <span>mL</span></label><input id="vt" type="number" inputmode="numeric" min="100" max="1000" step="10" value="480" required></div><div><label for="flow">Inspiratory flow <span>L/min</span></label><input id="flow" type="number" inputmode="decimal" min="6" max="120" step="1" value="30" required></div></div><label for="pause">Inspiratory pause <span>s</span></label><input id="pause" type="number" inputmode="decimal" min="0" max="2" step="0.1" value="0.5" required></div>
+<div id="pc-fields" hidden><div class="field-grid"><div><label for="pinsp">Pressure above PEEP <span>cmH₂O</span></label><input id="pinsp" type="number" inputmode="decimal" min="1" max="40" step="0.5" value="12" required disabled></div><div><label for="ti">Inspiratory time <span>s</span></label><input id="ti" type="number" inputmode="decimal" min="0.2" max="3" step="0.1" value="0.8" required disabled></div></div></div>
+<label for="recruitment">Initially open recruitable tissue <span>%</span></label><input id="recruitment" type="number" inputmode="numeric" min="0" max="100" step="5" value="0" required disabled aria-describedby="recruitment-note">
+<p id="recruitment-note" class="hint">The reference phenotype has no recruitable pool. Normal tissue starts open; consolidated tissue starts closed.</p>
+<details class="advanced"><summary>Run settings</summary><div class="field-grid"><div><label for="breaths">Breaths</label><input id="breaths" type="number" inputmode="numeric" min="2" max="10" step="1" value="3" required></div><div><label for="dt">Timestep</label><select id="dt"><option value="0.001">1 ms · standard</option><option value="0.0005">0.5 ms · finer</option><option value="0.002">2 ms · faster</option><option value="0.005">5 ms · exploratory</option></select></div></div><p class="hint">Smaller timesteps improve numerical resolution and take longer. Gas exchange is not enabled in this interface.</p></details>
+</fieldset>
+<div class="actions"><button id="run" type="submit">Run simulation <span aria-hidden="true">→</span></button><button id="cancel" type="button" class="secondary" hidden>Cancel</button></div>
+<progress id="progress" max="100" value="0" hidden aria-label="Simulation progress"></progress>
+<p id="status" role="status" aria-live="polite">Ready. Choose your settings and run a simulation.</p>
+<p id="error" role="alert" hidden></p>
+</form>
+</section>
+<section id="results" class="results" aria-labelledby="results-title" tabindex="-1">
+<div class="section-heading"><span class="step">02</span><h2 id="results-title">Explore the response</h2></div>
+<p id="result-caption" class="hint">Run a scenario to see the most recent analyzed breath.</p>
+<div class="metrics" aria-label="Breath metrics">
+<article class="metric"><h3>Peak pressure</h3><p><span id="m-ppeak">—</span><small>cmH₂O</small></p></article>
+<article class="metric"><h3>Plateau pressure</h3><p><span id="m-pplat">—</span><small>cmH₂O</small></p></article>
+<article class="metric"><h3>Driving pressure</h3><p><span id="m-dp">—</span><small>cmH₂O</small></p></article>
+<article class="metric"><h3>Inspired volume</h3><p><span id="m-vti">—</span><small>mL</small></p></article>
+<article class="metric"><h3>Expired volume</h3><p><span id="m-vte">—</span><small>mL</small></p></article>
+<article class="metric"><h3>Minute ventilation</h3><p><span id="m-mv">—</span><small>L/min</small></p></article>
+</div>
+<p id="plateau-note" class="hint">Plateau and driving pressure are shown only when a suitable volume-control pause is available.</p>
+<div class="card waveforms"><div class="card-heading"><h2>Breath waveforms</h2><span class="pill">All simulated breaths</span></div><p class="hint">Time runs left to right. Volume is total modeled compartment volume, not absolute anatomical lung volume.</p>
+<div class="plot"><h3><i class="dot pressure"></i>Airway pressure <span>cmH₂O</span></h3><svg id="pressure-chart" role="img" aria-label="Airway pressure over time" viewBox="0 0 720 180" preserveAspectRatio="none"><text x="50%" y="50%" text-anchor="middle">Run a simulation to draw waveforms</text></svg></div>
+<div class="plot"><h3><i class="dot flow"></i>Flow <span>L/min · positive into lung</span></h3><svg id="flow-chart" role="img" aria-label="Airway flow over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>mL</span></h3><svg id="volume-chart" role="img" aria-label="Modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+</div>
+<div class="card"><div class="card-heading"><h2>Recruitment at the end of the run</h2><span class="pill">Model state</span></div><div id="recruitment-bars"><p class="hint">Compartment states will appear here.</p></div></div>
+<details class="card"><summary>Model details and run diagnostics</summary><p class="hint">These outputs describe the mathematical model. They are not measurements from a patient.</p><pre id="diag">No completed run.</pre><button id="download" class="secondary" disabled>Download run data</button></details>
+<details class="card"><summary>What can I learn here?</summary><p>In volume control, compare the filling pressure with the pressure during a low-flow pause. In pressure control, change the pressure target and observe the volume that emerges. Change one setting at a time.</p><p>For recruitment, select an injury phenotype and explicitly choose its starting open fraction. Each run restarts the scenario; changing PEEP does not continue a previous pressure history.</p><p>The three-compartment model and mechanical phenotypes are simplified teaching constructs. Gas exchange, spontaneous effort, clinical calibration, and learning outcomes are outside this release. Driving pressure here uses airway PEEP; it does not measure intrinsic PEEP.</p></details>
+</section>
+</main>
+<footer>Mechanistic Lung Simulator · v0.4.5 · <a href="https://github.com/DrFillster/medical-vent-twin">Project source</a><span>Computational prototype. Not peer reviewed.</span></footer>
+<noscript><p class="noscript">Enable JavaScript to run the simulator.</p></noscript>
+</body></html>

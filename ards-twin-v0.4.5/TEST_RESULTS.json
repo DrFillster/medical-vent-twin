@@ -1,0 +1,143 @@
+{
+  "version": "0.4.5",
+  "runtime": "v26.8.2",
+  "date": "2026-09-17T14:38:46.817Z",
+  "files": [
+    {
+      "file": "a_initialization.test.js",
+      "passed": 11,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "b_jacobian.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "c_small_signal.test.js",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "conservation.test.js",
+      "passed": 8,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "d_low_resistance.test.js",
+      "passed": 2,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "deterministic.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "f_recruitment.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "g_multi_breath.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "h_dt_convergence.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "i_failure_semantics.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "j_instrumentation.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "mobile_release.test.js",
+      "passed": 16,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p0_central_airway.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p0_single_compartment.test.js",
+      "passed": 9,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p1_gas_toggle.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p2_metrics.test.js",
+      "passed": 10,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p3_pc_ac.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p4_recruitment.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p5_gas_exchange.test.js",
+      "passed": 11,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "single_rc.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "strict_vc_ac.test.js",
+      "passed": 8,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "vc_ac.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    }
+  ],
+  "passed": 143,
+  "failed": 0,
+  "failedFiles": [],
+  "success": true
+}
