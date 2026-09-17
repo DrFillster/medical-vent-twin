@@ -23,6 +23,8 @@ export { HUMMOD_RAW_SERIES_SCHEMA, validateHumModRawSeries,
 export { createBerlinHumModReplayRuntime } from './clinical_twin_runtime.js';
 export { createBerlinClinicalTwinSession, buildController } from './clinical_twin_session.js';
 export { assessBerlinCaseReadiness, listBerlinCaseReadiness } from './clinical_case_readiness.js';
+export { RECRUITMENT_HISTORY_SCHEMA, validateRecruitmentHistory,
+         deriveRecruitmentFromHistory } from './recruitment_history.js';
 export { derivePassiveRespiratoryMechanics,
          summarizeSimulationMeasurements } from './bedside_measurements.js';
 export { makePatientParams, makeInitialState, makeBoundaryFlow,
