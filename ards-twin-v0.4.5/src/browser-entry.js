@@ -10,6 +10,7 @@ module.exports = {
   ...require('./hummod_export_contract.js'),
   ...require('./clinical_twin_runtime.js'),
   ...require('./clinical_twin_session.js'),
+  ...require('./clinical_case_readiness.js'),
   ...require('./bedside_measurements.js'),
   ...require('./contracts.js'),
   ...require('./scenario.js'),
