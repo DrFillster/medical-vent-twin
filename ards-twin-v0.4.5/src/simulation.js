@@ -1,12 +1,11 @@
 // simulation.js — top-level simulator wiring clock + mechanics + vent + gas.
 //
 // Run loop:
-//   1. clock.step(dt)
-//   2. controller.step(state, dt, deliveredSinceBreathStart)
-//   3. If phase is EXPIRATION, override boundary with PRESSURE = PEEP
-//   4. mechanics.step(params, state, boundary, dt)
-//   5. gas_exchange.step(gas, params, compartments, dt) — V/Q evolution
-//   6. monitor records raw signals.
+//   1. controller.step(dt) unless a bedside hold maneuver freezes the cycle
+//   2. apply the final airway boundary
+//   3. mechanics.step(params, state, boundary, dt)
+//   4. gas_exchange.step(...) when enabled
+//   5. monitor records raw signals and maneuver provenance
 
 const { SimulationClock } = require('./clock.js');
 const { ThreeCompartmentMechanics } = require('./mechanics.js');
@@ -14,13 +13,25 @@ const { VcAcController } = require('./ventilator/vc_ac.js');
 const { PcAcController } = require('./ventilator/pc_ac.js');
 const { BreathPhase } = require('./ventilator/controller.js');
 const {
-  makeBoundaryPressure, makeInitialState,
+  makeBoundaryFlow, makeBoundaryPressure, makeInitialState,
 } = require('./contracts.js');
 const {
   makeInitialGasState, stepGasState, mixedArterialPo2, shuntFraction,
   deadSpaceFraction,
 } = require('./gas_exchange.js');
 const { analyzeAll } = require('./metrics.js');
+
+const ManeuverKind = Object.freeze({
+  INSPIRATORY_HOLD: 'INSPIRATORY_HOLD',
+  EXPIRATORY_HOLD: 'EXPIRATORY_HOLD',
+});
+
+function median(values) {
+  if (!values || values.length === 0) return null;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 class Simulation {
   constructor({
@@ -75,6 +86,10 @@ class Simulation {
     this.mechanics = new ThreeCompartmentMechanics();
     this.trace = [];
     this.interventions = [];
+    this.measurements = [];
+    this.pendingManeuver = null;
+    this.activeManeuver = null;
+    this.lastCommittedPhase = controller.phase;
     this.deliveredSinceBreathStart = 0;
     this.peepOverrideActive = false;
     this.fio2 = fio2;
@@ -109,6 +124,150 @@ class Simulation {
     return value;
   }
 
+  _requestHold(kind, durationSec) {
+    if (!Object.values(ManeuverKind).includes(kind)) {
+      throw new Error(`unknown maneuver kind: ${kind}`);
+    }
+    if (typeof durationSec !== 'number' || !Number.isFinite(durationSec) || durationSec <= 0) {
+      throw new Error('hold duration must be a finite positive number');
+    }
+    if (this.pendingManeuver || this.activeManeuver) {
+      throw new Error('a ventilator maneuver is already pending or active');
+    }
+
+    this.pendingManeuver = {
+      kind,
+      durationSec,
+      requestedAtSec: this.state.t,
+    };
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: `REQUEST_${kind}`,
+      durationSec,
+    }));
+    return Object.freeze({ ...this.pendingManeuver });
+  }
+
+  requestInspiratoryHold(durationSec = 0.5) {
+    return this._requestHold(ManeuverKind.INSPIRATORY_HOLD, durationSec);
+  }
+
+  requestExpiratoryHold(durationSec = 0.5) {
+    return this._requestHold(ManeuverKind.EXPIRATORY_HOLD, durationSec);
+  }
+
+  _shouldActivatePendingManeuver() {
+    if (!this.pendingManeuver) return false;
+    const phase = this.controller.phase;
+
+    if (this.pendingManeuver.kind === ManeuverKind.INSPIRATORY_HOLD) {
+      // Preferred activation is the first PAUSE step. If no pause is
+      // configured, activate at the first expiration step while the lung is
+      // still at its end-inspiratory state. The controller clock is then
+      // frozen for the duration of the occlusion.
+      if (phase === BreathPhase.PAUSE) return true;
+      return phase === BreathPhase.EXPIRATION &&
+        (this.lastCommittedPhase === BreathPhase.INSPIRATION ||
+         this.lastCommittedPhase === BreathPhase.PAUSE);
+    }
+
+    if (this.pendingManeuver.kind === ManeuverKind.EXPIRATORY_HOLD) {
+      // An expiratory hold must occur at end expiration, immediately before
+      // the controller would roll into the next breath. This avoids measuring
+      // pressure prematurely during ordinary passive expiration.
+      const tracker = this.controller.tracker;
+      return phase === BreathPhase.EXPIRATION && tracker &&
+        typeof tracker.isBreathComplete === 'function' &&
+        tracker.isBreathComplete(this.controller.cycleTime);
+    }
+
+    return false;
+  }
+
+  _activatePendingManeuver() {
+    if (!this._shouldActivatePendingManeuver()) return false;
+    const pending = this.pendingManeuver;
+    this.pendingManeuver = null;
+    const currentPhase = this.controller.phase;
+    const tracePhase = pending.kind === ManeuverKind.INSPIRATORY_HOLD &&
+      currentPhase === BreathPhase.EXPIRATION
+      ? this.lastCommittedPhase
+      : currentPhase;
+
+    this.activeManeuver = {
+      ...pending,
+      startedAtSec: this.state.t,
+      remainingSec: pending.durationSec,
+      tracePhase,
+      samples: [],
+    };
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: `START_${pending.kind}`,
+      durationSec: pending.durationSec,
+    }));
+    return true;
+  }
+
+  _completeActiveManeuver() {
+    const active = this.activeManeuver;
+    if (!active) return null;
+    const samples = active.samples;
+    const lateStart = Math.floor(samples.length / 2);
+    const late = samples.slice(lateStart);
+    const pressurePool = late.length ? late : samples;
+    const measuredPressure = median(pressurePool.map(s => s.airwayPressureCmH2O));
+    const measuredFlow = median(pressurePool.map(s => s.airwayFlowLps));
+
+    const common = {
+      kind: active.kind,
+      requestedAtSec: active.requestedAtSec,
+      startedAtSec: active.startedAtSec,
+      completedAtSec: this.state.t,
+      requestedDurationSec: active.durationSec,
+      sampleCount: samples.length,
+      medianLateAirwayFlowLps: measuredFlow,
+      source: 'zero-flow airway occlusion in Vent mechanics engine',
+    };
+
+    let measurement;
+    if (active.kind === ManeuverKind.INSPIRATORY_HOLD) {
+      measurement = Object.freeze({
+        ...common,
+        plateauPressureCmH2O: measuredPressure,
+      });
+    } else {
+      measurement = Object.freeze({
+        ...common,
+        totalPeepCmH2O: measuredPressure,
+        setPeepCmH2O: this.controller.settings.peep,
+      });
+    }
+
+    this.measurements.push(measurement);
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: `COMPLETE_${active.kind}`,
+      measurementIndex: this.measurements.length - 1,
+    }));
+    this.activeManeuver = null;
+    return measurement;
+  }
+
+  measurementSummary() {
+    const latestInspiratory = [...this.measurements].reverse()
+      .find(m => m.kind === ManeuverKind.INSPIRATORY_HOLD) || null;
+    const latestExpiratory = [...this.measurements].reverse()
+      .find(m => m.kind === ManeuverKind.EXPIRATORY_HOLD) || null;
+    return Object.freeze({
+      plateauPressureCmH2O: latestInspiratory ? latestInspiratory.plateauPressureCmH2O : null,
+      totalPeepCmH2O: latestExpiratory ? latestExpiratory.totalPeepCmH2O : null,
+      setPeepAtMeasurementCmH2O: latestExpiratory ? latestExpiratory.setPeepCmH2O : null,
+      drivingPressureCmH2O: null,
+      drivingPressureStatus: 'not-derived-by-core; requires validated downstream calculation',
+    });
+  }
+
   runFor(seconds) {
     if (!Number.isFinite(seconds) || seconds < 0) throw new Error('Duration must be finite and non-negative');
     const target = this.state.t + seconds;
@@ -130,23 +289,45 @@ class Simulation {
   step() {
     const dt = this.clock.dt;
 
-    // Snapshot mutable controller state so a rejected step is transactional.
-    // Both shipped controllers own scalar fields plus a BreathTracker.
-    const controllerSnapshot = { ...this.controller };
-    const trackerSnapshot = { ...this.controller.tracker };
-    const restoreController = () => {
-      Object.assign(this.controller, controllerSnapshot);
-      Object.assign(this.controller.tracker, trackerSnapshot);
-    };
-    // 1. controller produces boundary.
-    let boundary = this.controller.step(this.state, dt, this.deliveredSinceBreathStart);
+    // Activate a queued hold only at its physiologically appropriate phase.
+    this._activatePendingManeuver();
 
-    // 2. EXPIRATION phase override: PEEP pressure clamp.
-    if (this.controller.phase === BreathPhase.EXPIRATION) {
-      boundary = makeBoundaryPressure({
-        pressureCmH2O: this.controller.settings.peep,
+    let boundary;
+    let tracePhase;
+    let controllerSnapshot = null;
+    let trackerSnapshot = null;
+    let restoreController = () => {};
+
+    if (this.activeManeuver) {
+      // Airway occlusion: zero net airway flow while allowing internal
+      // compartment pressure redistribution. The ventilator cycle clock is
+      // intentionally frozen until the maneuver is complete.
+      boundary = makeBoundaryFlow({
+        flowLps: 0,
         fio2: this.controller.settings.fio2,
       });
+      tracePhase = this.activeManeuver.tracePhase;
+    } else {
+      // Snapshot mutable controller state so a rejected step is transactional.
+      // Both shipped controllers own scalar fields plus a BreathTracker.
+      controllerSnapshot = { ...this.controller };
+      trackerSnapshot = { ...this.controller.tracker };
+      restoreController = () => {
+        Object.assign(this.controller, controllerSnapshot);
+        Object.assign(this.controller.tracker, trackerSnapshot);
+      };
+
+      // 1. controller produces boundary.
+      boundary = this.controller.step(this.state, dt, this.deliveredSinceBreathStart);
+      tracePhase = this.controller.phase;
+
+      // 2. EXPIRATION phase override: PEEP pressure clamp.
+      if (this.controller.phase === BreathPhase.EXPIRATION) {
+        boundary = makeBoundaryPressure({
+          pressureCmH2O: this.controller.settings.peep,
+          fio2: this.controller.settings.fio2,
+        });
+      }
     }
 
     // 3. Advance mechanics with the final boundary.
@@ -182,7 +363,7 @@ class Simulation {
     // over-counts because passive recoil leaks some inflow back out
     // through the airway during inspiration. ΔV is what fills the lung
     // and what Vt means clinically.
-    if (this.controller.phase === BreathPhase.INSPIRATION) {
+    if (!this.activeManeuver && this.controller.phase === BreathPhase.INSPIRATION) {
       // Reset at start of a new breath (cycleTime just rolled over to 0).
       if (this.controller.cycleTime <= dt) {
         this.deliveredSinceBreathStart = 0;
@@ -196,15 +377,34 @@ class Simulation {
     this.state = state;
     this.trace.push({
       t: state.t,
-      phase: this.controller.phase,
+      phase: tracePhase,
+      maneuver: this.activeManeuver ? this.activeManeuver.kind : null,
       boundaryKind: boundary.kind,
       output,
     });
+    this.lastCommittedPhase = tracePhase;
+
+    // 7. Record hold samples only after a successful committed mechanics step.
+    if (this.activeManeuver) {
+      this.activeManeuver.samples.push({
+        t: state.t,
+        airwayPressureCmH2O: output.airwayPressure,
+        branchPressureCmH2O: output.branchPressure,
+        airwayFlowLps: output.airwayFlow,
+        totalVolumeL: output.totalVolume,
+      });
+      this.activeManeuver.remainingSec -= dt;
+      if (this.activeManeuver.remainingSec <= Math.max(1e-12, dt * 1e-6)) {
+        this._completeActiveManeuver();
+      }
+    }
+
     return { state, output, boundary, failed: false };
   }
 
-  // Per-breath metrics from the current trace. setPEEP = the controller's
-  // set PEEP value (used to compute auto-PEEP).
+  // Per-breath metrics from the current trace. Legacy set-PEEP-derived
+  // auto-PEEP remains in metrics.js for backwards compatibility; clinically
+  // meaningful total PEEP should use an explicit expiratory hold measurement.
   metrics() {
     const setPEEP = this.controller.settings ? this.controller.settings.peep : 0;
     return analyzeAll(this.trace, setPEEP);
@@ -222,4 +422,9 @@ class Simulation {
   }
 }
 
-module.exports = { Simulation, VcAcController, PcAcController };
+module.exports = {
+  Simulation,
+  VcAcController,
+  PcAcController,
+  ManeuverKind,
+};
