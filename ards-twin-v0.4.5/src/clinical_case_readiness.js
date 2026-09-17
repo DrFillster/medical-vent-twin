@@ -61,8 +61,8 @@ function assessBerlinCaseReadiness(caseId) {
     initialRecruitmentState: field(
       init.initialRecruitmentState ? 'ready' : 'required-explicit-input',
       init.initialRecruitmentState || null,
-      'defined-history-or-explicit-scenario-state',
-      'Must not be inferred from Berlin severity.'),
+      'explicit-current-state-or-explicit-pressure-history',
+      'Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity.'),
     humModTrajectory: field(
       twin.trajectoryId ? 'ready' : 'required-external-data',
       twin.trajectoryId || null,
