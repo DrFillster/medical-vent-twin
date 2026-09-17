@@ -38,6 +38,15 @@ self.onmessage = ({ data }) => {
       return;
     }
 
+    if (type === 'performPassiveMechanics') {
+      const snapshot = requireSession().performPassiveMechanicsMeasurement({
+        holdDurationSec: data.holdDurationSec == null ? 0.5 : data.holdDurationSec,
+        maxAdvanceSecPerHold: data.maxAdvanceSecPerHold == null ? 90 : data.maxAdvanceSecPerHold,
+      });
+      self.postMessage({ type: 'snapshot', action: 'performPassiveMechanics', snapshot });
+      return;
+    }
+
     if (type === 'requestInspiratoryHold') {
       const snapshot = requireSession().requestInspiratoryHold(data.durationSec);
       self.postMessage({ type: 'snapshot', action: 'requestInspiratoryHold', snapshot });
