@@ -30,6 +30,80 @@
 <div id="clinical-readiness"></div>
 </div>
 <details class="advanced"><summary>Provenance and safeguards</summary><p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. Cohort-calibrated fields are targets, not individual truth. Vent owns pulmonary mechanics; HumMod data will supply systemic physiology when a validated trajectory is attached.</p></details>
+
+<details class="clinical-session advanced" id="clinical-session-panel">
+<summary>Prepare an executable Vent + HumMod session</summary>
+<form id="clinical-session-form">
+<p class="hint">All fields below are explicit scenario inputs. No missing value is inferred from Berlin severity or cohort medians.</p>
+<label for="clinical-hummod-file">HumMod trajectory JSON</label>
+<input id="clinical-hummod-file" type="file" accept=".json,application/json" required>
+<p id="clinical-hummod-status" class="hint">Attach a validated <code>vent-hummod-trajectory/v1</code> export.</p>
+
+<label for="clinical-mode">Ventilation mode</label>
+<select id="clinical-mode" required>
+<option value="">Choose mode…</option>
+<option value="VC_AC">VC-AC</option>
+<option value="PC_AC">PC-AC</option>
+</select>
+
+<div class="field-grid">
+<div><label for="clinical-fio2">FiO₂ <span>fraction 0–1</span></label><input id="clinical-fio2" type="number" min="0" max="1" step="0.01" required></div>
+<div><label for="clinical-peep">PEEP <span>cmH₂O</span></label><input id="clinical-peep" type="number" min="0" step="0.5" required></div>
+</div>
+<div class="field-grid">
+<div><label for="clinical-rr">Respiratory rate <span>/min</span></label><input id="clinical-rr" type="number" min="1" step="1" required></div>
+<div><label for="clinical-recruitment">Recruitable fraction open <span>0–1</span></label><input id="clinical-recruitment" type="number" min="0" max="1" step="0.01" required></div>
+</div>
+
+<div id="clinical-vc-fields" hidden>
+<div class="field-grid">
+<div><label for="clinical-vt">Tidal volume <span>L</span></label><input id="clinical-vt" type="number" min="0.01" step="0.01"></div>
+<div><label for="clinical-flow">Inspiratory flow <span>L/s</span></label><input id="clinical-flow" type="number" min="0.01" step="0.01"></div>
+</div>
+<label for="clinical-vc-pause">Inspiratory pause <span>s</span></label><input id="clinical-vc-pause" type="number" min="0" step="0.05" value="0">
+</div>
+
+<div id="clinical-pc-fields" hidden>
+<div class="field-grid">
+<div><label for="clinical-pinsp">Pressure above PEEP <span>cmH₂O</span></label><input id="clinical-pinsp" type="number" min="0.1" step="0.5"></div>
+<div><label for="clinical-ti">Inspiratory time <span>s</span></label><input id="clinical-ti" type="number" min="0.05" step="0.05"></div>
+</div>
+<label for="clinical-pc-pause">Inspiratory pause <span>s</span></label><input id="clinical-pc-pause" type="number" min="0" step="0.05" value="0">
+</div>
+
+<label for="clinical-dt">Solver timestep <span>s</span></label>
+<select id="clinical-dt"><option value="0.002">0.002</option><option value="0.001">0.001</option><option value="0.0005">0.0005</option></select>
+
+<div class="actions">
+<button id="clinical-initialize" type="submit">Initialize clinical session</button>
+<button id="clinical-reset" type="button" class="secondary" disabled>Reset</button>
+</div>
+<p id="clinical-session-status" role="status" aria-live="polite">Waiting for explicit inputs and a HumMod trajectory.</p>
+<p id="clinical-session-error" role="alert" hidden></p>
+</form>
+
+<div id="clinical-live" hidden>
+<div class="clinical-grid">
+<article><h3>Session time</h3><p><span id="clinical-time">—</span> s</p></article>
+<article><h3>HumMod PaO₂</h3><p><span id="clinical-pao2">—</span></p></article>
+<article><h3>HumMod PaCO₂</h3><p><span id="clinical-paco2">—</span></p></article>
+<article><h3>Heart rate</h3><p><span id="clinical-hr">—</span></p></article>
+<article><h3>Mean arterial pressure</h3><p><span id="clinical-map">—</span></p></article>
+<article><h3>Driving pressure</h3><p><span id="clinical-dp">—</span></p></article>
+</div>
+<div class="field-grid clinical-actions-grid">
+<div><label for="clinical-run-seconds">Advance <span>s</span></label><input id="clinical-run-seconds" type="number" min="0.1" step="0.1" value="1"></div>
+<div><label for="clinical-new-peep">New PEEP <span>cmH₂O</span></label><input id="clinical-new-peep" type="number" min="0" step="0.5"></div>
+</div>
+<div class="actions clinical-actions">
+<button id="clinical-run" type="button">Advance</button>
+<button id="clinical-set-peep" type="button" class="secondary">Set PEEP</button>
+<button id="clinical-insp-hold" type="button" class="secondary">Inspiratory hold</button>
+<button id="clinical-exp-hold" type="button" class="secondary">Expiratory hold</button>
+</div>
+<p class="hint">Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.</p>
+</div>
+</details>
 </section>
 <section class="controls card" aria-labelledby="setup-title">
 <div class="section-heading"><span class="step">01</span><h2 id="setup-title">Set up a scenario</h2></div>
