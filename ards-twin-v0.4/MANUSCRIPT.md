@@ -1,8 +1,12 @@
 # A Three-Compartment Mechanistic Lung Simulator for Mechanical Ventilation Education: Development and Computational Verification
 
-Release v0.4.4.1 | Computational development report | Not peer reviewed
-
 Author, affiliation, correspondence and ORCID: pending owner completion before journal submission.
+
+---
+
+::: author-info
+Release v0.4.4.1 | Computational development report | Not peer reviewed | Educational exploration prototype | Not a clinical decision tool | Not a patient-specific digital twin
+:::
 
 ---
 
