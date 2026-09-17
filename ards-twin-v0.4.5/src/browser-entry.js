@@ -9,6 +9,7 @@ module.exports = {
   ...require('./hummod_standalone_binding.js'),
   ...require('./hummod_export_contract.js'),
   ...require('./hummod_runner_contract.js'),
+  ...require('./hummod_raw_series_adapter.js'),
   ...require('./clinical_twin_runtime.js'),
   ...require('./clinical_twin_session.js'),
   ...require('./clinical_case_readiness.js'),
