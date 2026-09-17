@@ -112,6 +112,13 @@
 <article><h3>Intrinsic PEEP</h3><p><span id="clinical-autopeep">—</span></p></article>
 <article><h3>Driving pressure</h3><p><span id="clinical-dp">—</span></p></article>
 </div>
+<div class="card waveforms clinical-waveforms">
+<div class="card-heading"><h2>Clinical session waveforms</h2><span class="pill">Recent Vent samples</span></div>
+<p class="hint">These traces come from the persistent Vent mechanics engine. Hold maneuvers remain part of the same longitudinal lung state.</p>
+<div class="plot"><h3><i class="dot pressure"></i>Airway pressure <span>cmH₂O</span></h3><svg id="clinical-pressure-chart" role="img" aria-label="Clinical session airway pressure over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3><i class="dot flow"></i>Flow <span>L/s · positive into lung</span></h3><svg id="clinical-flow-chart" role="img" aria-label="Clinical session airway flow over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>L</span></h3><svg id="clinical-volume-chart" role="img" aria-label="Clinical session modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+</div>
 <div class="field-grid clinical-actions-grid">
 <div><label for="clinical-run-seconds">Advance <span>s</span></label><input id="clinical-run-seconds" type="number" min="0.1" step="0.1" value="1"></div>
 <div><label for="clinical-new-peep">New PEEP <span>cmH₂O</span></label><input id="clinical-new-peep" type="number" min="0" step="0.5"></div>
