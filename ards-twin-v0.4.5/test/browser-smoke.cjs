@@ -46,7 +46,10 @@ const { chromium, webkit } = require('playwright');
       await page.locator('#clinical-fio2').fill('0.6');
       await page.locator('#clinical-peep').fill('8');
       await page.locator('#clinical-rr').fill('20');
-      await page.locator('#clinical-recruitment').fill('0.35');
+      await page.locator('#clinical-init-mode').selectOption('history');
+      await page.locator('#clinical-recruitment-history-file').setInputFiles(
+        path.resolve(__dirname,'fixtures/recruitment-history-browser-fixture.json'));
+      await page.waitForFunction(()=>document.querySelector('#clinical-recruitment-history-status').textContent.startsWith('Loaded recruitment history'));
       await page.locator('#clinical-vt').fill('0.42');
       await page.locator('#clinical-flow').fill('0.7');
       await page.locator('#clinical-vc-pause').fill('0.2');
