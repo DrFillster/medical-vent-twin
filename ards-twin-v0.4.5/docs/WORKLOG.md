@@ -284,3 +284,53 @@ A new CI run for the manifest/binding commits was queued when this entry was wri
 3. Produce a real HumMod trajectory export with revision/exporter metadata.
 4. Attach that replay to the moderate Berlin + moderate recruitability reference case.
 5. Continue replacing legacy waveform heuristics with the explicit hold-based bedside-measurement layer.
+
+## 2026-09-17 — canonical HumMod trajectory serialization
+
+### Canonical export contract implemented
+
+Added `src/hummod_export_contract.js` and `test/hummod_export_contract.test.js`.
+
+The browser/runtime now has a versioned trajectory serialization boundary: `vent-hummod-trajectory/v1`.
+
+The contract requires:
+
+- the exact pinned HumMod standalone repository and revision
+- an explicit exporter version
+- a stable trajectory ID
+- an explicit list of approved HumMod source symbols
+- execution timestamps owned by the export envelope
+- strictly increasing timestamps
+- every declared source symbol to be present with a finite numeric value in every row
+
+It rejects:
+
+- revision mismatch
+- unknown or pending HumMod symbols
+- undeclared row symbols
+- missing values
+- non-finite values
+- duplicate or non-monotonic timestamps
+
+The canonical row shape preserves HumMod symbol identity directly under `values`, for example `values['PO2Artys.Pressure']`. Normalization still occurs only through the pinned standalone binding and normalized digital-twin contract.
+
+Added helpers to:
+
+- validate a canonical HumMod export
+- convert an export to normalized twin snapshots
+- create a deterministic HumMod replay provider directly from the export
+
+No physiologic trajectory was fabricated or checked into the repository. Test values are explicitly fixture data used only to verify serialization and mapping behavior.
+
+Browser and bundle APIs now export the trajectory contract.
+
+### Verification status
+
+GitHub Actions run `35280012377` was queued for branch head `88f9ebe12aa44f2dd107d60d299e0826e73be837` when this entry was written. Do not claim this newest head as verified until that run completes.
+
+### Next implementation steps
+
+1. Produce an actual export using a HumMod runner at the pinned revision and validate it against `vent-hummod-trajectory/v1`.
+2. Bind that trajectory to `berlin-moderate-moderate-aspiration` as the first end-to-end systemic replay case.
+3. Add a clinical-twin runtime that advances Vent mechanics and samples the attached systemic provider on one timeline while retaining separate solver provenance.
+4. Wire explicit hold-derived mechanics into the patient-facing runtime and retire legacy waveform auto-PEEP as a clinical-facing value.
