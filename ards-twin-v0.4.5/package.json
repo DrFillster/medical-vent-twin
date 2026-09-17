@@ -3,7 +3,7 @@
   "version": "0.4.5",
   "private": true,
   "scripts": {
-    "build": "node scripts/build.js",
+    "build": "node scripts/build-clinical-manifest.js && node scripts/build.js",
     "test": "node test/runner.js",
     "test:browser": "node test/browser-smoke.cjs",
     "serve": "node scripts/serve.js"
