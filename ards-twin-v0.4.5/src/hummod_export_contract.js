@@ -123,6 +123,26 @@ function makeCanonicalExportPaths(symbols) {
   return paths;
 }
 
+// Canonical exports intentionally preserve exact HumMod source symbols as
+// literal JSON keys (for example, "PO2Artys.Pressure"). The generic exact-path
+// mapper uses dot-separated object paths, so normalization expands those
+// literal keys into a temporary nested object. The source export itself is
+// never mutated or re-serialized into a lossy representation.
+function expandCanonicalRowForExactPathMapping(row, symbols) {
+  const expanded = { timestampSec: row.timestampSec, values: {} };
+  symbols.forEach(symbol => {
+    const parts = symbol.split('.');
+    let cursor = expanded.values;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      const part = parts[i];
+      if (!cursor[part]) cursor[part] = {};
+      cursor = cursor[part];
+    }
+    cursor[parts[parts.length - 1]] = row.values[symbol];
+  });
+  return expanded;
+}
+
 function normalizeHumModTrajectoryExport(exportObject, { subjectId = null, runId = null } = {}) {
   validateHumModTrajectoryExport(exportObject);
   const exportPaths = makeCanonicalExportPaths(exportObject.symbols);
@@ -135,7 +155,8 @@ function normalizeHumModTrajectoryExport(exportObject, { subjectId = null, runId
     subjectId,
     runId: runId || exportObject.trajectoryId,
   });
-  return Object.freeze(exportObject.rows.map(row => mapper(row)));
+  return Object.freeze(exportObject.rows.map(row =>
+    mapper(expandCanonicalRowForExactPathMapping(row, exportObject.symbols))));
 }
 
 function createReplayProviderFromHumModExport(exportObject, options = {}) {
