@@ -6,6 +6,70 @@
   let worker = null, timer = null, latest = null;
   const chartNames = ['pressure', 'flow', 'volume'];
   const metrics = ['ppeak', 'pplat', 'dp', 'vti', 'vte', 'mv'];
+  function readinessLabel(status) {
+    const labels = {
+      ready: 'Ready',
+      'cohort-calibrated': 'Cohort-calibrated',
+      'required-explicit-input': 'Required input',
+      'required-external-data': 'External data required',
+      missing: 'Missing',
+    };
+    return labels[status] || status;
+  }
+
+  function renderClinicalCase(caseId) {
+    if (!window.VENT || typeof VENT.getBerlinCase !== 'function' ||
+        typeof VENT.assessBerlinCaseReadiness !== 'function') return;
+    const c = VENT.getBerlinCase(caseId);
+    const readiness = VENT.assessBerlinCaseReadiness(caseId);
+    $('clinical-summary').textContent = c.clinical.narrative;
+    $('clinical-severity').textContent =
+      c.clinical.berlinSeverity[0].toUpperCase() + c.clinical.berlinSeverity.slice(1);
+    $('clinical-recruitability').textContent =
+      c.phenotype.recruitability[0].toUpperCase() + c.phenotype.recruitability.slice(1);
+    $('clinical-executable').textContent = readiness.executable ? 'Yes' : 'Not yet';
+    $('clinical-executable').dataset.status = readiness.executable ? 'ready' : 'blocked';
+
+    const container = $('clinical-readiness');
+    container.replaceChildren();
+    for (const [name, entry] of Object.entries(readiness.fields)) {
+      const row = document.createElement('div');
+      row.className = 'readiness-row';
+      const label = document.createElement('span');
+      label.className = 'readiness-name';
+      label.textContent = name.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+      const status = document.createElement('span');
+      status.className = 'readiness-status';
+      status.dataset.status = entry.status;
+      status.textContent = readinessLabel(entry.status);
+      row.append(label, status);
+      if (entry.note) {
+        const note = document.createElement('small');
+        note.textContent = entry.note;
+        row.append(note);
+      }
+      container.append(row);
+    }
+  }
+
+  function initializeClinicalPreview() {
+    if (!window.VENT || typeof VENT.listBerlinCases !== 'function') return;
+    const select = $('clinical-case');
+    select.replaceChildren();
+    for (const c of VENT.listBerlinCases()) {
+      const option = document.createElement('option');
+      option.value = c.id;
+      option.textContent = c.name;
+      select.append(option);
+    }
+    const preferred = 'berlin-moderate-moderate-aspiration';
+    select.value = Array.from(select.options).some(o => o.value === preferred)
+      ? preferred
+      : select.options[0]?.value || '';
+    if (select.value) renderClinicalCase(select.value);
+    select.addEventListener('change', () => renderClinicalCase(select.value));
+  }
+
   const examples = {
     reference: { preset: 'phenotype_baseline', mode: 'VC', peep: 5, rr: 14, vt: 480, flow: 30, pause: 0.5, recruitment: 0, pinsp: 12, ti: 0.8,
       note: 'Observe the pressure rise during filling, then the pressure drop during the inspiratory pause.' },
@@ -148,5 +212,6 @@
   });
   let resizeTimer;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (latest) chartNames.forEach(name => drawChart(name, latest.waveform)); }, 150); });
+  initializeClinicalPreview();
   syncControls();
 })();
