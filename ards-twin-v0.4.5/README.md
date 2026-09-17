@@ -1,4 +1,43 @@
-# Mechanistic Lung Simulator v0.4.5 — mobile release candidate
+# Mechanistic Lung Simulator v0.4.5 + v0.5 clinical-twin development
+
+This directory contains the deployed v0.4.5 mechanics simulator **and** the active
+v0.5 clinical digital-twin work on `feature/berlin-virtual-patients`.
+
+The v0.5 path is still a development milestone, not a claim of clinical validation.
+
+## v0.5 development status
+
+Implemented on the feature branch:
+
+- nine synthetic Berlin ARDS cases spanning mild/moderate/severe oxygenation severity
+  and low/intermediate/high mechanical recruitability
+- explicit separation of Berlin severity from mechanics phenotype
+- case-readiness metadata that refuses to invent missing mode, FiO2, RR, absolute VT,
+  recruitment state, or HumMod trajectory data
+- pinned HumMod standalone revision and exact verified source-symbol mappings
+- canonical HumMod trajectory serialization and deterministic replay
+- external HumMod runner request contract with source-clock verification as a hard gate
+- explicit inspiratory/expiratory holds and hold-derived respiratory mechanics
+- composed Vent + HumMod session on one shared timeline
+- persistent browser clinical worker
+- state-preserving full ventilator changes applied at completed-breath boundaries
+- browser Clinical Twin preview plus explicit executable-session setup
+- generated browser case manifest with source-parity tests
+- CI build, unit/regression testing, and Chromium/WebKit browser smoke jobs
+
+The first real HumMod-backed reference trajectory is **not yet checked in**. Test fixtures
+are clearly labeled as fixtures and must not be presented as HumMod-derived clinical data.
+
+Key development documents:
+
+- `BUILD_PLAN.md`
+- `docs/WORKLOG.md`
+- `docs/HUMMOD_INTEGRATION.md`
+- `docs/HUMMOD_VARIABLE_MAP.md`
+- `docs/HUMMOD_EXPORT_DISCOVERY.md`
+
+The sections below preserve the v0.4.5 release-candidate documentation for the existing
+mechanics lab.
 
 This package repairs the v0.4.4.1 browser integration and supplies a responsive,
 mechanics-only teaching interface. It is a release candidate for deployment
