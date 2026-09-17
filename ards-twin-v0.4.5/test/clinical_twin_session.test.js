@@ -136,6 +136,30 @@ test('PEEP changes preserve the session and declare replay coupling limitation',
   assert(event.systemicResponse === 'not-modeled-by-fixed-HumMod-replay');
 });
 
+
+test('full ventilator change is queued and applies without resetting session state', () => {
+  const session = makeSession();
+  session.initialize();
+  const requested = session.requestVentilationChange({
+    mode: 'PC_AC',
+    fio2: 0.5,
+    peep: 10,
+    rr: 18,
+    pinspCmH2O: 12,
+    inspiratoryTimeSec: 0.8,
+    inspiratoryPauseSec: 0.1,
+  });
+  assert(requested.ventilator.mode === 'VC_AC');
+  assert(requested.ventilatorChangePending === true);
+  assert(requested.events[requested.events.length - 1].kind === 'REQUEST_VENTILATION_CHANGE');
+
+  const later = session.runFor(3.2);
+  assert(later.ventilator.mode === 'PC_AC');
+  assert(later.ventilator.peepCmH2O === 10);
+  assert(later.ventilatorChangePending === false);
+  assert(later.timeSec > 3);
+});
+
 test('session refuses to extrapolate HumMod replay past source trajectory', () => {
   const session = makeSession();
   session.initialize();
