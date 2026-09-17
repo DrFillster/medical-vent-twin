@@ -1,5 +1,18 @@
 # Mechanistic Lung Simulator — Changelog
 
+## v0.4.4.1 (2026-09-17 01:20 UTC) — Manuscript publication rewrite
+
+Replaced the v0.4.4.1-final manuscript with the publication-rewrite version produced by the other LLM agent's `Mechanistic_Lung_Simulator_Publication_Rewrite.zip` (Drive id `16ruYjF8wMWV_Odpqq27xrTQqppCYpo9q`). The new manuscript:
+
+- 8-page structured publication format with structured abstract (Background / Objective / Methods / Results / Conclusions)
+- Proper authorship slots (`[Add details here]` placeholders for owner completion)
+- Disclosure sections: Ethics, Funding, Conflicts of interest, Author contributions, Data availability
+- Numbered references with DOIs
+- Project URLs to vent.defying-logic.com, GitHub source, GitHub Release v0.4.4.1
+- Available as PDF, DOCX (Word), and Markdown source
+
+Numerical behavior, simulator, tests, and phenotype parameters are unchanged. Tests still 127/127.
+
 ## v0.4.4.1 (2026-09-16 14:55 UTC) — Final label cleanup (browser UI + documentation headers)
 
 Applied the FINAL_LABEL_CLEANUP_DIRECTIVE from the other LLM agent's handoff (`vent-v0.4.4.1-final-label-cleanup-handoff.zip`, Drive id `10h02WOlTA89AfVPvXT-HbJ9wzwdIlvC0`).
