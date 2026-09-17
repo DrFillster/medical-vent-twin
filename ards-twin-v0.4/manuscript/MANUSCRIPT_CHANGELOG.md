@@ -111,3 +111,19 @@ Applied the FINAL_SYNC_DIRECTIVE from the other LLM agent's handoff (`vent-v0.4.
 - no unsupported clinical-validation language is introduced: ✓ (caveats retained)
 - all numerical results are preserved: ✓ (127/127, 32 % subdivided in 10 s scenario, 0 % in 3-breath J-4 scenario)
 - both required final ZIPs are returned: ✓ (`vent-twin-v0.4.4.1-final.zip` and `vent-manuscript-v0.4.4.1-final.zip`)
+
+
+## 9. v0.4.5 novelty rewrite (separate file)
+
+**New artifact:** `Mechanistic_Lung_Simulator_Novelty_Manuscript_v0.4.5.pdf` (and `.docx`). This is a separate, full rewrite of the manuscript, not an amendment of `MANUSCRIPT_FINAL_v0.4.4.1.md`. The v0.4.5 novelty rewrite:
+
+- Reframes the central contribution as the integration of inspectable mechanistic modeling with software-verification discipline (transparent failure semantics, machine-readable per-step solver instrumentation, automated computational verification, responsive browser deployment), rather than claiming any "first" in web-based ventilation simulation, multi-compartment modeling, or digital twins.
+- Adds an explicit prior-work table separating educational software simulators, physical/high-fidelity simulation, and patient-specific computational models, with the gap each addresses.
+- Adds §5.2 "Why this is novel without claiming 'first'" enumerating the defensible novelty features.
+- Adds §5.3 educational relevance, §5.4 explicit non-claim of the digital-twin label, §5.5 limitations (no clinical ARDS cohort mapping, no prospective validation, no face-validity study, no learner-outcome study, no formal device usability testing).
+- Updates the abstract and results to reference v0.4.5's 143 / 143 automated assertions and the unchanged constitutive mechanics / recruitment equations / phenotype parameters / gas-exchange module from the prior verified core.
+- Contains `[Verify final bibliographic details before submission]` and `[Add details here]` placeholders in the references and declarations sections.
+
+**Preserved:** `MANUSCRIPT_FINAL_v0.4.4.1.pdf` (the v0.4.4.1 publication-rewrite format) remains available; both manuscripts are bundled in `vent-manuscript-v0.4.5-novelty-final.zip`.
+
+**Why:** the v0.4.4.1 manuscript was framed around a digital-twin claim the project is not equipped to defend. The v0.4.5 novelty rewrite positions the work defensibly around the integration-of-features novelty without overstating what the broader field has already accomplished.

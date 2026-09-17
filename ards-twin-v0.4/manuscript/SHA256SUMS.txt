@@ -1,5 +1,11 @@
-ebb07d19952ef4e5aaf720fb4a8c3d12ad3ab2ef286eb70bf6ff04debd92bf7b  ./MANUSCRIPT_CHANGELOG.md
-8ba107c21993ab29bbcba5d9e820c4cc5b7bde1163382c6e275191d06b4f308c  ./MANUSCRIPT_FINAL_v0.4.4.1.docx
-5c1aff589e09c510aa98e528aefe5d1209f0bfc749d6ab8eb30321c39659005c  ./MANUSCRIPT_FINAL_v0.4.4.1.md
-8b5420482e4e847ae09182340f8116fac0079cc876c3fa49dc5f465ae8a32c9a  ./MANUSCRIPT_FINAL_v0.4.4.1.pdf
-e6a0a3f2758682efc34e58b5d6371d6f8d7a170a74653c95d10a0fee9d28b096  ./MANUSCRIPT_REVIEW_NOTES.md
+# SHA256SUMS for ards-twin-v0.4 manuscript bundle
+# Generated 2026-09-17
+# Contains both the v0.4.4.1 publication-rewrite manuscript and the v0.4.5 novelty-rewrite manuscript.
+
+c547a57466ed1d755028cea4ba62cfd1c0f23bf8956d7a7dbbf666a8d443bec3  /Users/philipbernard/medical-vent-twin/ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md
+8ba107c21993ab29bbcba5d9e820c4cc5b7bde1163382c6e275191d06b4f308c  /Users/philipbernard/medical-vent-twin/ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.docx
+14ae51a608d7f9e043bd2a114194122c2aa4a5045adc1edc44bffd4556f0ccf2  /Users/philipbernard/medical-vent-twin/ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.md
+8b5420482e4e847ae09182340f8116fac0079cc876c3fa49dc5f465ae8a32c9a  /Users/philipbernard/medical-vent-twin/ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.pdf
+e6a0a3f2758682efc34e58b5d6371d6f8d7a170a74653c95d10a0fee9d28b096  /Users/philipbernard/medical-vent-twin/ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md
+c9d8d562c2da6e36be73b0aff82d909bb1defb07ecacfbd4d797ff18b07b98a1  /Users/philipbernard/medical-vent-twin/ards-twin-v0.4/manuscript/Mechanistic_Lung_Simulator_Novelty_Manuscript_v0.4.5.docx
+f4dce6c5bb3cceae2a7644929d279243c955b5dbdd9183e1a828e47b0ff74b55  /Users/philipbernard/medical-vent-twin/ards-twin-v0.4/manuscript/Mechanistic_Lung_Simulator_Novelty_Manuscript_v0.4.5.pdf
