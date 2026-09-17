@@ -72,8 +72,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
@@ -152,8 +152,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
@@ -232,8 +232,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
@@ -312,8 +312,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
@@ -392,8 +392,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
@@ -472,8 +472,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
@@ -552,8 +552,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
@@ -632,8 +632,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
@@ -712,8 +712,8 @@
           "initialRecruitmentState": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "defined-history-or-explicit-scenario-state",
-            "note": "Must not be inferred from Berlin severity."
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
           },
           "humModTrajectory": {
             "status": "required-external-data",
