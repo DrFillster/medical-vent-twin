@@ -127,13 +127,28 @@ test('only one bedside maneuver may be pending or active at a time', () => {
   assert(threw, 'second maneuver should be rejected while first is pending');
 });
 
-test('measurementSummary does not invent driving pressure', () => {
+test('measurementSummary remains incomplete until explicit holds are available', () => {
   const sim = makeStandardSimulation();
   const summary = sim.measurementSummary();
   assert(summary.plateauPressureCmH2O === null);
   assert(summary.totalPeepCmH2O === null);
   assert(summary.drivingPressureCmH2O === null);
-  assert(summary.drivingPressureStatus.includes('requires validated downstream calculation'));
+  assert(summary.drivingPressureStatus === 'incomplete-hold-measurements');
+});
+
+test('measurementSummary derives mechanics only after explicit inspiratory and expiratory holds', () => {
+  const sim = makeStandardSimulation();
+  sim.requestInspiratoryHold(0.3);
+  sim.runFor(1.5);
+  sim.requestExpiratoryHold(0.3);
+  sim.runFor(2.5);
+
+  const summary = sim.measurementSummary();
+  assert(Number.isFinite(summary.plateauPressureCmH2O), 'plateau should be measured');
+  assert(Number.isFinite(summary.totalPeepCmH2O), 'total PEEP should be measured');
+  assert(Number.isFinite(summary.drivingPressureCmH2O), 'driving pressure should be derived from holds');
+  assert(summary.drivingPressureStatus === 'derived-from-explicit-zero-flow-holds');
+  assert(summary.provenance && summary.provenance.derivation === 'passive respiratory mechanics');
 });
 
 console.log(`\nTests: passed=${passed} failed=${failed}`);
