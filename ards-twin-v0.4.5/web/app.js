@@ -467,8 +467,15 @@
   });
   $('download').addEventListener('click', () => {
     if (!latest) return;
-    const url = URL.createObjectURL(new Blob([JSON.stringify(latest, null, 2)], { type: 'application/json' }));
-    const a = document.createElement('a'); a.href = url; a.download = `vent-run-v${latest.version}.json`; a.click();
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(latest, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vent-run-v${latest.version}.json`;
+    a.hidden = true;
+    document.body.append(a);
+    a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   let resizeTimer;
