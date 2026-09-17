@@ -62,6 +62,7 @@ const { chromium, webkit } = require('playwright');
       await page.waitForFunction(()=>document.querySelector('#clinical-time').textContent!=='0',null,{timeout:30000});
       assert.equal((await page.locator('#clinical-hr').textContent()).trim(),'91');
       assert.equal((await page.locator('#clinical-current-mode').textContent()).trim(),'VC_AC');
+      assert.equal(await page.locator('.clinical-waveforms svg path.trace').count(),3);
 
       await page.locator('#clinical-measure-mechanics').click();
       await page.waitForFunction(() => {
