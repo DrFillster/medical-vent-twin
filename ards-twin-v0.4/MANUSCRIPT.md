@@ -302,6 +302,7 @@ This work is **not peer reviewed**. The artifact is an **educational exploration
 - This manuscript: https://vent.defying-logic.com/ards-twin-v0.4/MANUSCRIPT.md
 - Manuscript bundle (final, with changelog and review notes):
   - `MANUSCRIPT_FINAL.md` — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL.md
+  - **`MANUSCRIPT_FINAL.pdf` (print-ready, 20 pp., US Letter) — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL.pdf**
   - `MANUSCRIPT_CHANGELOG.md` — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md
   - `MANUSCRIPT_REVIEW_NOTES.md` — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md
   - `SHA256SUMS.txt` — https://vent.defying-logic.com/ards-twin-v0.4/manuscript/SHA256SUMS.txt
@@ -317,6 +318,7 @@ This work is **not peer reviewed**. The artifact is an **educational exploration
 - v0.4.4.1 release page: https://github.com/DrFillster/medical-vent-twin/releases/tag/v0.4.4.1
   - `vent-twin-v0.4.4.1-final-clean.zip` — full runnable simulator package + `FINAL_CLEANUP_CHANGELOG.md` + `FINAL_CLEANUP_VERIFICATION.md`
   - `vent-manuscript-v0.4.4.1-final.zip` — manuscript + changelog + review notes + SHA256SUMS
+  - `MANUSCRIPT_FINAL.pdf` — print-ready PDF (20 pp., US Letter, human-readable)
 
 ## 8. Reproducibility commands
 
