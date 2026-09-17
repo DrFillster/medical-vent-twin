@@ -52,3 +52,38 @@ jobs:
           path: |
             ards-twin-v0.4.5/web/engine.js
             ards-twin-v0.4.5/web/clinical-cases.json
+
+  browser-smoke:
+    needs: node-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    defaults:
+      run:
+        working-directory: ards-twin-v0.4.5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser-test dependency
+        run: npm install --no-package-lock
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Build browser assets
+        run: npm run build
+      - name: Run browser smoke
+        env:
+          BROWSER: ${{ matrix.browser }}
+        run: npm run test:browser
+      - name: Upload browser smoke results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-${{ matrix.browser }}
+          path: ards-twin-v0.4.5/browser-results/
+          if-no-files-found: ignore
