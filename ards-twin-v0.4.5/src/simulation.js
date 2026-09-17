@@ -21,6 +21,7 @@ const {
 } = require('./gas_exchange.js');
 const { analyzeAll } = require('./metrics.js');
 const { summarizeSimulationMeasurements } = require('./bedside_measurements.js');
+const { deriveRecruitmentFromHistory } = require('./recruitment_history.js');
 
 const ManeuverKind = Object.freeze({
   INSPIRATORY_HOLD: 'INSPIRATORY_HOLD',
@@ -61,19 +62,24 @@ class Simulation {
     }
 
     // Resolve initial recruitment state.
-    //   - If caller supplied initialRecruitmentState, use it.
-    //   - If caller supplied initializationHistory, run the recovery
-    //     protocol (FE march over the history) — not yet implemented for
-    //     full physics, so we reject and ask the caller to provide
-    //     initialRecruitmentState explicitly.
+    //   - If caller supplied initialRecruitmentState, use it directly.
+    //   - If caller supplied initializationHistory, derive the current
+    //     recruitable fraction from the explicit prior state + sustained
+    //     pressure history using the same recruitment kinetics as Vent.
     //   - Otherwise, fail explicitly (no guessing).
     let resolvedRecState;
+    let initializationDerivation = null;
     if (initialRecruitmentState) {
       resolvedRecState = initialRecruitmentState;
     } else if (initializationHistory) {
-      throw new Error(
-        'Simulation: initializationHistory recovery is reserved for a future ' +
-        'release; pass initialRecruitmentState explicitly.');
+      const recruitableCompartment = params.compartments
+        .find(cp => cp.id === 'recruitable');
+      initializationDerivation = deriveRecruitmentFromHistory({
+        history: initializationHistory,
+        recruitableCompartmentParams: recruitableCompartment,
+        airwayOpeningPressureCmH2O: params.airwayOpeningPressure,
+      });
+      resolvedRecState = initializationDerivation.initialRecruitmentState;
     } else {
       throw new Error(
         'Simulation: scenario must provide initialRecruitmentState ' +
@@ -83,6 +89,14 @@ class Simulation {
     this.state = makeInitialState(params, {
       initialPEEP: resolvedPEEP,
       initialRecruitmentState: resolvedRecState,
+    });
+    this.initialization = Object.freeze({
+      source: initializationDerivation
+        ? 'derived-from-explicit-initialization-history'
+        : 'explicit-initial-recruitment-state',
+      initialPEEP: resolvedPEEP,
+      initialRecruitmentState: Object.freeze({ ...resolvedRecState }),
+      recruitmentHistoryDerivation: initializationDerivation,
     });
     this.mechanics = new ThreeCompartmentMechanics();
     this.trace = [];
