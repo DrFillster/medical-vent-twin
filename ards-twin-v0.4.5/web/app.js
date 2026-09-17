@@ -140,6 +140,9 @@
     $('clinical-paco2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.paco2MmHg);
     $('clinical-hr').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.heartRatePerMin);
     $('clinical-map').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
+    $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
+    $('clinical-total-peep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.totalPeepCmH2O);
+    $('clinical-autopeep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.intrinsicPeepCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
     $('clinical-session-status').textContent =
       'Session active · ' + snapshot.coupling.mode +
@@ -364,6 +367,19 @@
           type: 'requestVentilationChange',
           ventilation: clinicalVentilationPayload(),
         });
+      } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-measure-mechanics').addEventListener('click', () => {
+      try {
+        if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        clinicalWorker.postMessage({
+          type: 'performPassiveMechanics',
+          holdDurationSec: 0.5,
+          maxAdvanceSecPerHold: 90,
+        });
+        $('clinical-session-status').textContent =
+          'Measuring passive mechanics with simulated zero-flow holds…';
       } catch (error) { showClinicalError(error.message); }
     });
 
