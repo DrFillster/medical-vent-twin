@@ -124,6 +124,8 @@
     clinicalSnapshot = snapshot;
     $('clinical-live').hidden = false;
     $('clinical-time').textContent = displayClinicalValue(snapshot.timeSec);
+    $('clinical-current-mode').textContent = snapshot.ventilator?.mode || '—';
+    $('clinical-current-peep').textContent = displayClinicalValue(snapshot.ventilator?.peepCmH2O);
     $('clinical-pao2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.pao2MmHg);
     $('clinical-paco2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.paco2MmHg);
     $('clinical-hr').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.heartRatePerMin);
