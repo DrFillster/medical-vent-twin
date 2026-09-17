@@ -16,7 +16,7 @@ export { createHumModStandaloneExportMapper } from './hummod_standalone_binding.
 export { HUMMOD_EXPORT_SCHEMA, validateHumModTrajectoryExport,
          normalizeHumModTrajectoryExport,
          createReplayProviderFromHumModExport } from './hummod_export_contract.js';
-export { HUMMOD_RUN_REQUEST_SCHEMA, createHumModRunRequest,
+export { HUMMOD_RUN_REQUEST_SCHEMA, HUMMOD_SOURCE_CLOCK, createHumModRunRequest,
          assertRunnerClockVerified } from './hummod_runner_contract.js';
 export { createBerlinHumModReplayRuntime } from './clinical_twin_runtime.js';
 export { createBerlinClinicalTwinSession, buildController } from './clinical_twin_session.js';
