@@ -52,7 +52,23 @@
 </div>
 <div class="field-grid">
 <div><label for="clinical-rr">Respiratory rate <span>/min</span></label><input id="clinical-rr" type="number" min="1" step="1" required></div>
-<div><label for="clinical-recruitment">Recruitable fraction open <span>0–1</span></label><input id="clinical-recruitment" type="number" min="0" max="1" step="0.01" required></div>
+<div><label for="clinical-init-mode">Recruitment initialization</label>
+<select id="clinical-init-mode">
+<option value="explicit">Explicit current state</option>
+<option value="history">Prior pressure history</option>
+</select></div>
+</div>
+
+<div id="clinical-explicit-recruitment">
+<label for="clinical-recruitment">Recruitable fraction open <span>0–1</span></label>
+<input id="clinical-recruitment" type="number" min="0" max="1" step="0.01" required>
+<p class="hint">Current recruitable fraction is an explicit scenario state; it is not inferred from Berlin severity.</p>
+</div>
+
+<div id="clinical-history-recruitment" hidden>
+<label for="clinical-recruitment-history-file">Recruitment history JSON</label>
+<input id="clinical-recruitment-history-file" type="file" accept=".json,application/json" disabled>
+<p id="clinical-recruitment-history-status" class="hint">Attach a <code>vent-recruitment-history/v1</code> file containing an explicit prior state and sustained pressure segments.</p>
 </div>
 
 <div id="clinical-vc-fields" hidden>
