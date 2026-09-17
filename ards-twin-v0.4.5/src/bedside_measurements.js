@@ -80,4 +80,40 @@ function derivePassiveRespiratoryMechanics({
   });
 }
 
-module.exports = { derivePassiveRespiratoryMechanics };
+function latestMeasurement(measurements, kind) {
+  if (!Array.isArray(measurements)) return null;
+  for (let i = measurements.length - 1; i >= 0; i--) {
+    if (measurements[i] && measurements[i].kind === kind) return measurements[i];
+  }
+  return null;
+}
+
+function summarizeSimulationMeasurements(simulation) {
+  if (!simulation || typeof simulation !== 'object') {
+    throw new Error('simulation object is required');
+  }
+
+  const inspiratory = latestMeasurement(simulation.measurements, 'INSPIRATORY_HOLD');
+  const expiratory = latestMeasurement(simulation.measurements, 'EXPIRATORY_HOLD');
+  const aop = simulation.params
+    ? finiteOrNull(simulation.params.airwayOpeningPressure)
+    : null;
+
+  const derived = derivePassiveRespiratoryMechanics({
+    plateauPressureCmH2O: inspiratory ? inspiratory.plateauPressureCmH2O : null,
+    totalPeepCmH2O: expiratory ? expiratory.totalPeepCmH2O : null,
+    setPeepCmH2O: expiratory ? expiratory.setPeepCmH2O : null,
+    airwayOpeningPressureCmH2O: aop,
+  });
+
+  return Object.freeze({
+    ...derived,
+    inspiratoryHold: inspiratory,
+    expiratoryHold: expiratory,
+  });
+}
+
+module.exports = {
+  derivePassiveRespiratoryMechanics,
+  summarizeSimulationMeasurements,
+};
