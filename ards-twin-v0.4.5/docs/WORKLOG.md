@@ -67,3 +67,94 @@ Repository changes are committed on GitHub. A complete local `npm test` / browse
 3. Implement configurable HumMod snapshot mapping without guessed upstream variable names.
 4. Add deterministic replay provider as the first end-to-end HumMod-compatible path.
 5. Continue bedside mechanics work: inspiratory hold, expiratory hold, total PEEP, plateau pressure, and driving pressure measurement.
+
+## 2026-09-17 — first implementation pass after build-plan approval
+
+### Clinical case catalog implemented
+
+Added `src/berlin_case_catalog.js`.
+
+The catalog now contains nine explicit named synthetic cases spanning the full 3 x 3 matrix of:
+
+- Berlin severity: mild / moderate / severe
+- recruitability: low / moderate / high
+
+Each case contains:
+
+- stable case ID and display name
+- `synthetic: true`
+- an explicitly authored etiology/pattern/narrative marked as a synthetic scenario assumption
+- independent recruitability mechanics preset
+- cohort-calibrated P/F, PaCO2, PEEP, VT/PBW, plateau, driving-pressure, compliance, and resistance targets inherited from the existing evidence layer
+- explicit separation of published cohort envelopes from individual-patient truth
+- an unpopulated HumMod linkage rather than invented systemic physiology
+- provenance describing cohort, mechanics, scenario, and systemic-source status
+
+Patient-specific tidal volume in mL, FiO2, and respiratory rate remain unset rather than fabricated. Patient-specific VT in mL will require a validated PBW workflow and an explicitly authored starting ventilator state.
+
+Added `test/berlin_case_catalog.test.js` covering:
+
+- nine unique synthetic cases
+- complete 3 x 3 matrix
+- Berlin/recruitability independence
+- evidence-versus-assumption provenance
+- refusal to fabricate patient-specific calculated ventilation fields
+- explicit pending HumMod linkage
+- deterministic case lookup and unknown-case failure
+
+Updated browser and bundle exports so the clinical catalog is part of the public simulator API.
+
+### HumMod bridge foundation implemented
+
+Added `docs/HUMMOD_INTEGRATION.md` documenting:
+
+- Vent-versus-HumMod solver ownership
+- domains that require an explicit coupling decision to avoid circular authority
+- exact-path mapping requirements
+- replay-provider architecture
+- future live-provider architecture
+- source/version metadata requirements
+- first end-to-end HumMod integration target
+- licensing/distribution boundary
+
+Updated `src/digital_twin_contract.js` so normalized snapshots retain optional `modelVersion` metadata in addition to provider, subject ID, and run ID.
+
+Added `src/hummod_adapter.js` with two initial integration primitives:
+
+1. `createHumModSnapshotMapper()`
+   - requires an explicit HumMod model/source version
+   - accepts only caller-supplied exact source paths
+   - has a closed list of normalized target fields
+   - performs no fuzzy matching and no implicit unit conversion
+   - fails when required verified source fields are missing
+   - normalizes through the existing digital-twin contract
+
+2. `createHumModReplayProvider()`
+   - accepts a deterministic sequence of normalized snapshots
+   - satisfies the existing digital-twin provider interface
+   - samples state deterministically by simulation time
+   - deliberately rejects `applyIntervention()` because a fixed source trajectory cannot legitimately invent a physiologic response that was not represented in that trajectory
+
+Added `test/hummod_adapter.test.js` covering:
+
+- exact-path mapping
+- model/source version preservation
+- missing required source field failure
+- unsupported target rejection
+- deterministic replay sampling
+- explicit rejection of unsupported intervention response synthesis
+
+Updated browser and bundle exports for the HumMod adapter.
+
+### Automated verification infrastructure
+
+No GitHub Actions workflow existed for this branch. Added `.github/workflows/ards-twin-tests.yml` to run `npm test` under Node 22 on pushes to `main` and `feature/berlin-virtual-patients` and on pull requests affecting the ARDS twin.
+
+Immediately after workflow creation, the GitHub Actions API still reported zero runs for the branch. Therefore **the newly added tests are committed but not yet CI-confirmed** in this work session. This is recorded explicitly rather than claiming a passing build.
+
+### Current next steps
+
+1. Obtain/produce one real HumMod export or trajectory and document its exact upstream revision and verified variable paths.
+2. Create the first end-to-end moderate Berlin ARDS case with attached HumMod systemic replay data.
+3. Implement clinically trustworthy bedside measurements: expiratory hold/total PEEP, inspiratory hold/plateau, then driving pressure.
+4. Add a patient-first UI selector and provenance display after the measurement/runtime primitives are trustworthy.
