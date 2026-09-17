@@ -17,6 +17,7 @@ export { HUMMOD_EXPORT_SCHEMA, validateHumModTrajectoryExport,
          normalizeHumModTrajectoryExport,
          createReplayProviderFromHumModExport } from './hummod_export_contract.js';
 export { createBerlinHumModReplayRuntime } from './clinical_twin_runtime.js';
+export { createBerlinClinicalTwinSession, buildController } from './clinical_twin_session.js';
 export { derivePassiveRespiratoryMechanics,
          summarizeSimulationMeasurements } from './bedside_measurements.js';
 export { makePatientParams, makeInitialState, makeBoundaryFlow,
