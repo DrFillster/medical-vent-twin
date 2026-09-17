@@ -40,8 +40,8 @@ const { chromium, webkit } = require('playwright');
       await page.locator('#clinical-case').selectOption('berlin-moderate-moderate-aspiration');
       await page.locator('#clinical-session-panel > summary').click();
       await page.locator('#clinical-hummod-file').setInputFiles(
-        path.resolve(__dirname,'fixtures/hummod-browser-fixture.json'));
-      await page.waitForFunction(()=>document.querySelector('#clinical-hummod-status').textContent.startsWith('Loaded trajectory'));
+        path.resolve(__dirname,'fixtures/hummod-browser-raw-fixture.json'));
+      await page.waitForFunction(()=>document.querySelector('#clinical-hummod-status').textContent.includes('raw System.X series converted to canonical seconds'));
       await page.locator('#clinical-mode').selectOption('VC_AC');
       await page.locator('#clinical-fio2').fill('0.6');
       await page.locator('#clinical-peep').fill('8');
