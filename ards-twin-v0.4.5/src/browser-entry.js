@@ -7,6 +7,7 @@ module.exports = {
   ...require('./hummod_adapter.js'),
   ...require('./hummod_standalone_manifest.js'),
   ...require('./hummod_standalone_binding.js'),
+  ...require('./hummod_export_contract.js'),
   ...require('./bedside_measurements.js'),
   ...require('./contracts.js'),
   ...require('./scenario.js'),
