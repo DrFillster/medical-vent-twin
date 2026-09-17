@@ -12,6 +12,7 @@ export { HUMMOD_NORMALIZED_TARGET_FIELDS, createHumModSnapshotMapper,
          createHumModReplayProvider } from './hummod_adapter.js';
 export { HUMMOD_STANDALONE_UPSTREAM, HUMMOD_STANDALONE_SYMBOLS,
          listVerifiedDirectMappings } from './hummod_standalone_manifest.js';
+export { createHumModStandaloneExportMapper } from './hummod_standalone_binding.js';
 export { derivePassiveRespiratoryMechanics,
          summarizeSimulationMeasurements } from './bedside_measurements.js';
 export { makePatientParams, makeInitialState, makeBoundaryFlow,
