@@ -25,6 +25,11 @@
             "value": "low",
             "source": "Vent-mechanical-construct"
           },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_low_recruitability",
+            "source": "Vent-mechanical-construct"
+          },
           "peepCmH2O": {
             "status": "cohort-calibrated",
             "value": 7,
@@ -91,6 +96,11 @@
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "moderate",
+            "source": "Vent-mechanical-construct"
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_moderate_recruitability",
             "source": "Vent-mechanical-construct"
           },
           "peepCmH2O": {
@@ -161,6 +171,11 @@
             "value": "high",
             "source": "Vent-mechanical-construct"
           },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_high_recruitability",
+            "source": "Vent-mechanical-construct"
+          },
           "peepCmH2O": {
             "status": "cohort-calibrated",
             "value": 7,
@@ -227,6 +242,11 @@
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "low",
+            "source": "Vent-mechanical-construct"
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_low_recruitability",
             "source": "Vent-mechanical-construct"
           },
           "peepCmH2O": {
@@ -297,6 +317,11 @@
             "value": "moderate",
             "source": "Vent-mechanical-construct"
           },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_moderate_recruitability",
+            "source": "Vent-mechanical-construct"
+          },
           "peepCmH2O": {
             "status": "cohort-calibrated",
             "value": 8,
@@ -363,6 +388,11 @@
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "high",
+            "source": "Vent-mechanical-construct"
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_high_recruitability",
             "source": "Vent-mechanical-construct"
           },
           "peepCmH2O": {
@@ -433,6 +463,11 @@
             "value": "low",
             "source": "Vent-mechanical-construct"
           },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_low_recruitability",
+            "source": "Vent-mechanical-construct"
+          },
           "peepCmH2O": {
             "status": "cohort-calibrated",
             "value": 10,
@@ -501,6 +536,11 @@
             "value": "moderate",
             "source": "Vent-mechanical-construct"
           },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_moderate_recruitability",
+            "source": "Vent-mechanical-construct"
+          },
           "peepCmH2O": {
             "status": "cohort-calibrated",
             "value": 10,
@@ -567,6 +607,11 @@
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "high",
+            "source": "Vent-mechanical-construct"
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_high_recruitability",
             "source": "Vent-mechanical-construct"
           },
           "peepCmH2O": {
