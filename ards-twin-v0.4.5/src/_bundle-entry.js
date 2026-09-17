@@ -18,6 +18,8 @@ export { HUMMOD_EXPORT_SCHEMA, validateHumModTrajectoryExport,
          createReplayProviderFromHumModExport } from './hummod_export_contract.js';
 export { HUMMOD_RUN_REQUEST_SCHEMA, HUMMOD_SOURCE_CLOCK, createHumModRunRequest,
          assertRunnerClockVerified } from './hummod_runner_contract.js';
+export { HUMMOD_RAW_SERIES_SCHEMA, validateHumModRawSeries,
+         convertHumModRawSeries } from './hummod_raw_series_adapter.js';
 export { createBerlinHumModReplayRuntime } from './clinical_twin_runtime.js';
 export { createBerlinClinicalTwinSession, buildController } from './clinical_twin_session.js';
 export { assessBerlinCaseReadiness, listBerlinCaseReadiness } from './clinical_case_readiness.js';
