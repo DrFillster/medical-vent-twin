@@ -388,3 +388,72 @@ Browser and bundle exports now expose `createBerlinHumModReplayRuntime`.
 Latest branch head at the time of this entry: `95733933a777cf89fccaedc7319120ba7fe9972f`.
 
 GitHub Actions run `35284416884` was in progress when this entry was written. Do not mark this head as verified until that exact run completes successfully.
+
+
+## 2026-09-17 — composed Vent + HumMod clinical session
+
+### End-to-end session composition added
+
+Added `src/clinical_twin_session.js` and `test/clinical_twin_session.test.js`.
+
+The session layer now composes:
+
+- one authored synthetic Berlin ARDS case
+- Vent lung/ventilator mechanics
+- explicit initial recruitment state
+- explicit VC-AC or PC-AC ventilator settings
+- a validated canonical HumMod trajectory replay
+- one shared simulation clock
+
+Design constraints:
+
+- Vent browser gas exchange is disabled in the composed session so it does not compete with HumMod-derived gas/acid-base state.
+- Vent owns pulmonary mechanics, recruitment, waveform state, holds and ventilator interventions.
+- HumMod replay owns systemic state present in the validated trajectory.
+- Fixed replay does not synthesize systemic response to arbitrary Vent interventions.
+- The session refuses to extrapolate beyond the end of the HumMod trajectory.
+- Missing ventilator settings or recruitment state are rejected rather than guessed.
+
+The session snapshot exposes:
+
+- case identity, Berlin severity and recruitability
+- current ventilator settings
+- compartment volumes, flows, pressures and recruitment
+- explicit hold-derived respiratory mechanics
+- current HumMod systemic snapshot
+- coupling/provenance status
+- session intervention history
+
+### Unified bedside-mechanics summary
+
+Updated `Simulation.measurementSummary()` to use the existing explicit hold derivation layer.
+
+The core summary now returns plateau pressure, total PEEP, intrinsic PEEP, effective end-expiratory reference and driving pressure only when the required zero-flow hold measurements are available. Before both holds exist, the summary remains explicitly incomplete.
+
+### Clinical case readiness layer
+
+Added `src/clinical_case_readiness.js` and tests.
+
+The readiness API makes the future patient UI distinguish:
+
+- fields already authored
+- cohort-calibrated targets
+- required explicit case inputs
+- required external HumMod data
+
+It specifically prevents the UI from silently fabricating:
+
+- ventilator mode
+- FiO2
+- respiratory rate
+- absolute tidal volume
+- initial recruitment state
+- HumMod trajectory linkage
+
+All nine Berlin cases are exposed through the readiness API.
+
+### Verification status
+
+The prior branch head `3f3bf7255b2061621dece81e96a2da16d00f53a4` passed GitHub Actions run `35284451153`.
+
+The newer composed-session/readiness commits were pushed after that successful run and require their own CI confirmation before merge.
