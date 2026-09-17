@@ -5,6 +5,18 @@ const modules={"src/browser-entry.js":function(module,exports,require){
 module.exports = {
   ...require("src/simulation.js"),
   ...require("src/presets.js"),
+  ...require("src/clinical_scenarios.js"),
+  ...require("src/berlin_case_catalog.js"),
+  ...require("src/digital_twin_contract.js"),
+  ...require("src/hummod_adapter.js"),
+  ...require("src/hummod_standalone_manifest.js"),
+  ...require("src/hummod_standalone_binding.js"),
+  ...require("src/hummod_export_contract.js"),
+  ...require("src/hummod_runner_contract.js"),
+  ...require("src/clinical_twin_runtime.js"),
+  ...require("src/clinical_twin_session.js"),
+  ...require("src/clinical_case_readiness.js"),
+  ...require("src/bedside_measurements.js"),
   ...require("src/contracts.js"),
   ...require("src/scenario.js"),
 };
@@ -14,12 +26,11 @@ module.exports = {
 // simulation.js — top-level simulator wiring clock + mechanics + vent + gas.
 //
 // Run loop:
-//   1. clock.step(dt)
-//   2. controller.step(state, dt, deliveredSinceBreathStart)
-//   3. If phase is EXPIRATION, override boundary with PRESSURE = PEEP
-//   4. mechanics.step(params, state, boundary, dt)
-//   5. gas_exchange.step(gas, params, compartments, dt) — V/Q evolution
-//   6. monitor records raw signals.
+//   1. controller.step(dt) unless a bedside hold maneuver freezes the cycle
+//   2. apply the final airway boundary
+//   3. mechanics.step(params, state, boundary, dt)
+//   4. gas_exchange.step(...) when enabled
+//   5. monitor records raw signals and maneuver provenance
 
 const { SimulationClock } = require("src/clock.js");
 const { ThreeCompartmentMechanics } = require("src/mechanics.js");
@@ -27,13 +38,26 @@ const { VcAcController } = require("src/ventilator/vc_ac.js");
 const { PcAcController } = require("src/ventilator/pc_ac.js");
 const { BreathPhase } = require("src/ventilator/controller.js");
 const {
-  makeBoundaryPressure, makeInitialState,
+  makeBoundaryFlow, makeBoundaryPressure, makeInitialState,
 } = require("src/contracts.js");
 const {
   makeInitialGasState, stepGasState, mixedArterialPo2, shuntFraction,
   deadSpaceFraction,
 } = require("src/gas_exchange.js");
 const { analyzeAll } = require("src/metrics.js");
+const { summarizeSimulationMeasurements } = require("src/bedside_measurements.js");
+
+const ManeuverKind = Object.freeze({
+  INSPIRATORY_HOLD: 'INSPIRATORY_HOLD',
+  EXPIRATORY_HOLD: 'EXPIRATORY_HOLD',
+});
+
+function median(values) {
+  if (!values || values.length === 0) return null;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 class Simulation {
   constructor({
@@ -87,6 +111,11 @@ class Simulation {
     });
     this.mechanics = new ThreeCompartmentMechanics();
     this.trace = [];
+    this.interventions = [];
+    this.measurements = [];
+    this.pendingManeuver = null;
+    this.activeManeuver = null;
+    this.lastCommittedPhase = controller.phase;
     this.deliveredSinceBreathStart = 0;
     this.peepOverrideActive = false;
     this.fio2 = fio2;
@@ -94,8 +123,170 @@ class Simulation {
     this.gas = trackGas ? makeInitialGasState(params, fio2) : null;
   }
 
-  setPEEP(_value) {
-    // Reserved for future PEEP changes within a run.
+  // Change PEEP without reconstructing the patient. This is intentionally a
+  // state-preserving operation: compartment volumes, pressures, recruitment,
+  // controller phase, simulation time, and trace history remain intact. The
+  // new setting is applied by the controller / expiratory pressure boundary
+  // on subsequent solver steps.
+  setPEEP(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      throw new Error('PEEP must be a finite non-negative number');
+    }
+    if (!this.controller || !this.controller.settings ||
+        typeof this.controller.settings.peep !== 'number') {
+      throw new Error('Simulation controller does not expose a mutable PEEP setting');
+    }
+
+    const previous = this.controller.settings.peep;
+    if (value === previous) return value;
+
+    this.controller.settings.peep = value;
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: 'SET_PEEP',
+      from: previous,
+      to: value,
+    }));
+    return value;
+  }
+
+  _requestHold(kind, durationSec) {
+    if (!Object.values(ManeuverKind).includes(kind)) {
+      throw new Error(`unknown maneuver kind: ${kind}`);
+    }
+    if (typeof durationSec !== 'number' || !Number.isFinite(durationSec) || durationSec <= 0) {
+      throw new Error('hold duration must be a finite positive number');
+    }
+    if (this.pendingManeuver || this.activeManeuver) {
+      throw new Error('a ventilator maneuver is already pending or active');
+    }
+
+    this.pendingManeuver = {
+      kind,
+      durationSec,
+      requestedAtSec: this.state.t,
+    };
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: `REQUEST_${kind}`,
+      durationSec,
+    }));
+    return Object.freeze({ ...this.pendingManeuver });
+  }
+
+  requestInspiratoryHold(durationSec = 0.5) {
+    return this._requestHold(ManeuverKind.INSPIRATORY_HOLD, durationSec);
+  }
+
+  requestExpiratoryHold(durationSec = 0.5) {
+    return this._requestHold(ManeuverKind.EXPIRATORY_HOLD, durationSec);
+  }
+
+  _shouldActivatePendingManeuver() {
+    if (!this.pendingManeuver) return false;
+    const phase = this.controller.phase;
+
+    if (this.pendingManeuver.kind === ManeuverKind.INSPIRATORY_HOLD) {
+      // Preferred activation is the first PAUSE step. If no pause is
+      // configured, activate at the first expiration step while the lung is
+      // still at its end-inspiratory state. The controller clock is then
+      // frozen for the duration of the occlusion.
+      if (phase === BreathPhase.PAUSE) return true;
+      return phase === BreathPhase.EXPIRATION &&
+        (this.lastCommittedPhase === BreathPhase.INSPIRATION ||
+         this.lastCommittedPhase === BreathPhase.PAUSE);
+    }
+
+    if (this.pendingManeuver.kind === ManeuverKind.EXPIRATORY_HOLD) {
+      // An expiratory hold must occur at end expiration, immediately before
+      // the controller would roll into the next breath. This avoids measuring
+      // pressure prematurely during ordinary passive expiration.
+      const tracker = this.controller.tracker;
+      return phase === BreathPhase.EXPIRATION && tracker &&
+        typeof tracker.isBreathComplete === 'function' &&
+        tracker.isBreathComplete(this.controller.cycleTime);
+    }
+
+    return false;
+  }
+
+  _activatePendingManeuver() {
+    if (!this._shouldActivatePendingManeuver()) return false;
+    const pending = this.pendingManeuver;
+    this.pendingManeuver = null;
+    const currentPhase = this.controller.phase;
+    const tracePhase = pending.kind === ManeuverKind.INSPIRATORY_HOLD &&
+      currentPhase === BreathPhase.EXPIRATION
+      ? this.lastCommittedPhase
+      : currentPhase;
+
+    this.activeManeuver = {
+      ...pending,
+      startedAtSec: this.state.t,
+      remainingSec: pending.durationSec,
+      tracePhase,
+      samples: [],
+    };
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: `START_${pending.kind}`,
+      durationSec: pending.durationSec,
+    }));
+    return true;
+  }
+
+  _completeActiveManeuver() {
+    const active = this.activeManeuver;
+    if (!active) return null;
+    const samples = active.samples;
+    const lateStart = Math.floor(samples.length / 2);
+    const late = samples.slice(lateStart);
+    const pressurePool = late.length ? late : samples;
+    const measuredPressure = median(pressurePool.map(s => s.airwayPressureCmH2O));
+    const measuredFlow = median(pressurePool.map(s => s.airwayFlowLps));
+
+    const common = {
+      kind: active.kind,
+      requestedAtSec: active.requestedAtSec,
+      startedAtSec: active.startedAtSec,
+      completedAtSec: this.state.t,
+      requestedDurationSec: active.durationSec,
+      sampleCount: samples.length,
+      medianLateAirwayFlowLps: measuredFlow,
+      source: 'zero-flow airway occlusion in Vent mechanics engine',
+    };
+
+    let measurement;
+    if (active.kind === ManeuverKind.INSPIRATORY_HOLD) {
+      measurement = Object.freeze({
+        ...common,
+        plateauPressureCmH2O: measuredPressure,
+      });
+    } else {
+      measurement = Object.freeze({
+        ...common,
+        totalPeepCmH2O: measuredPressure,
+        setPeepCmH2O: this.controller.settings.peep,
+      });
+    }
+
+    this.measurements.push(measurement);
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: `COMPLETE_${active.kind}`,
+      measurementIndex: this.measurements.length - 1,
+    }));
+    this.activeManeuver = null;
+    return measurement;
+  }
+
+  measurementSummary() {
+    const summary = summarizeSimulationMeasurements(this);
+    return Object.freeze({
+      ...summary,
+      setPeepAtMeasurementCmH2O: summary.setPeepCmH2O,
+      drivingPressureStatus: summary.status,
+    });
   }
 
   runFor(seconds) {
@@ -119,23 +310,45 @@ class Simulation {
   step() {
     const dt = this.clock.dt;
 
-    // Snapshot mutable controller state so a rejected step is transactional.
-    // Both shipped controllers own scalar fields plus a BreathTracker.
-    const controllerSnapshot = { ...this.controller };
-    const trackerSnapshot = { ...this.controller.tracker };
-    const restoreController = () => {
-      Object.assign(this.controller, controllerSnapshot);
-      Object.assign(this.controller.tracker, trackerSnapshot);
-    };
-    // 1. controller produces boundary.
-    let boundary = this.controller.step(this.state, dt, this.deliveredSinceBreathStart);
+    // Activate a queued hold only at its physiologically appropriate phase.
+    this._activatePendingManeuver();
 
-    // 2. EXPIRATION phase override: PEEP pressure clamp.
-    if (this.controller.phase === BreathPhase.EXPIRATION) {
-      boundary = makeBoundaryPressure({
-        pressureCmH2O: this.controller.settings.peep,
+    let boundary;
+    let tracePhase;
+    let controllerSnapshot = null;
+    let trackerSnapshot = null;
+    let restoreController = () => {};
+
+    if (this.activeManeuver) {
+      // Airway occlusion: zero net airway flow while allowing internal
+      // compartment pressure redistribution. The ventilator cycle clock is
+      // intentionally frozen until the maneuver is complete.
+      boundary = makeBoundaryFlow({
+        flowLps: 0,
         fio2: this.controller.settings.fio2,
       });
+      tracePhase = this.activeManeuver.tracePhase;
+    } else {
+      // Snapshot mutable controller state so a rejected step is transactional.
+      // Both shipped controllers own scalar fields plus a BreathTracker.
+      controllerSnapshot = { ...this.controller };
+      trackerSnapshot = { ...this.controller.tracker };
+      restoreController = () => {
+        Object.assign(this.controller, controllerSnapshot);
+        Object.assign(this.controller.tracker, trackerSnapshot);
+      };
+
+      // 1. controller produces boundary.
+      boundary = this.controller.step(this.state, dt, this.deliveredSinceBreathStart);
+      tracePhase = this.controller.phase;
+
+      // 2. EXPIRATION phase override: PEEP pressure clamp.
+      if (this.controller.phase === BreathPhase.EXPIRATION) {
+        boundary = makeBoundaryPressure({
+          pressureCmH2O: this.controller.settings.peep,
+          fio2: this.controller.settings.fio2,
+        });
+      }
     }
 
     // 3. Advance mechanics with the final boundary.
@@ -171,7 +384,7 @@ class Simulation {
     // over-counts because passive recoil leaks some inflow back out
     // through the airway during inspiration. ΔV is what fills the lung
     // and what Vt means clinically.
-    if (this.controller.phase === BreathPhase.INSPIRATION) {
+    if (!this.activeManeuver && this.controller.phase === BreathPhase.INSPIRATION) {
       // Reset at start of a new breath (cycleTime just rolled over to 0).
       if (this.controller.cycleTime <= dt) {
         this.deliveredSinceBreathStart = 0;
@@ -185,15 +398,34 @@ class Simulation {
     this.state = state;
     this.trace.push({
       t: state.t,
-      phase: this.controller.phase,
+      phase: tracePhase,
+      maneuver: this.activeManeuver ? this.activeManeuver.kind : null,
       boundaryKind: boundary.kind,
       output,
     });
+    this.lastCommittedPhase = tracePhase;
+
+    // 7. Record hold samples only after a successful committed mechanics step.
+    if (this.activeManeuver) {
+      this.activeManeuver.samples.push({
+        t: state.t,
+        airwayPressureCmH2O: output.airwayPressure,
+        branchPressureCmH2O: output.branchPressure,
+        airwayFlowLps: output.airwayFlow,
+        totalVolumeL: output.totalVolume,
+      });
+      this.activeManeuver.remainingSec -= dt;
+      if (this.activeManeuver.remainingSec <= Math.max(1e-12, dt * 1e-6)) {
+        this._completeActiveManeuver();
+      }
+    }
+
     return { state, output, boundary, failed: false };
   }
 
-  // Per-breath metrics from the current trace. setPEEP = the controller's
-  // set PEEP value (used to compute auto-PEEP).
+  // Per-breath metrics from the current trace. Legacy set-PEEP-derived
+  // auto-PEEP remains in metrics.js for backwards compatibility; clinically
+  // meaningful total PEEP should use an explicit expiratory hold measurement.
   metrics() {
     const setPEEP = this.controller.settings ? this.controller.settings.peep : 0;
     return analyzeAll(this.trace, setPEEP);
@@ -211,7 +443,12 @@ class Simulation {
   }
 }
 
-module.exports = { Simulation, VcAcController, PcAcController };
+module.exports = {
+  Simulation,
+  VcAcController,
+  PcAcController,
+  ManeuverKind,
+};
 
 },
 "src/clock.js":function(module,exports,require){
@@ -2311,6 +2548,128 @@ function analyzeAll(trace, setPEEP) {
 module.exports = { analyzeAll, analyzeBreath, phaseSegments };
 
 },
+"src/bedside_measurements.js":function(module,exports,require){
+'use strict';
+
+// bedside_measurements.js
+//
+// Pure derivation layer for passive ventilator measurements. The Simulation
+// engine owns the actual inspiratory/expiratory occlusion maneuvers; this
+// module converts completed maneuver measurements into clinically named
+// respiratory-mechanics values.
+//
+// Clinical basis:
+// - Plateau pressure is obtained from a zero-flow end-inspiratory hold.
+// - Total PEEP is obtained from a zero-flow end-expiratory hold.
+// - Intrinsic PEEP is the pressure above set PEEP revealed by the expiratory
+//   hold.
+// - In a model that explicitly includes airway-opening pressure (AOP), the
+//   end-expiratory reference for airway driving pressure must not be lower
+//   than a measured total PEEP or AOP. This prevents falsely low driving
+//   pressure when set PEEP is below a closed-airway threshold.
+//
+// This is an engineering derivation for the educational/research simulator,
+// not a bedside treatment recommendation.
+
+function finiteOrNull(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function clampNonNegative(value) {
+  if (value === null) return null;
+  return value < 0 ? 0 : value;
+}
+
+function derivePassiveRespiratoryMechanics({
+  plateauPressureCmH2O,
+  totalPeepCmH2O,
+  setPeepCmH2O,
+  airwayOpeningPressureCmH2O = null,
+} = {}) {
+  const plateau = finiteOrNull(plateauPressureCmH2O);
+  const totalPeep = finiteOrNull(totalPeepCmH2O);
+  const setPeep = finiteOrNull(setPeepCmH2O);
+  const aop = finiteOrNull(airwayOpeningPressureCmH2O);
+
+  if (plateau === null || totalPeep === null || setPeep === null) {
+    return Object.freeze({
+      plateauPressureCmH2O: plateau,
+      totalPeepCmH2O: totalPeep,
+      setPeepCmH2O: setPeep,
+      airwayOpeningPressureCmH2O: aop,
+      intrinsicPeepCmH2O: null,
+      effectiveEndExpiratoryReferenceCmH2O: null,
+      drivingPressureCmH2O: null,
+      status: 'incomplete-hold-measurements',
+    });
+  }
+
+  const intrinsicPeep = clampNonNegative(totalPeep - setPeep);
+  const referenceCandidates = [setPeep, totalPeep];
+  if (aop !== null) referenceCandidates.push(aop);
+  const effectiveReference = Math.max(...referenceCandidates);
+  const drivingPressure = plateau - effectiveReference;
+
+  return Object.freeze({
+    plateauPressureCmH2O: plateau,
+    totalPeepCmH2O: totalPeep,
+    setPeepCmH2O: setPeep,
+    airwayOpeningPressureCmH2O: aop,
+    intrinsicPeepCmH2O: intrinsicPeep,
+    effectiveEndExpiratoryReferenceCmH2O: effectiveReference,
+    drivingPressureCmH2O: drivingPressure,
+    status: 'derived-from-explicit-zero-flow-holds',
+    provenance: Object.freeze({
+      plateau: 'Vent inspiratory hold measurement',
+      totalPeep: 'Vent expiratory hold measurement',
+      setPeep: 'Ventilator setting at expiratory measurement',
+      airwayOpeningPressure: aop === null
+        ? 'not supplied'
+        : 'Vent mechanical phenotype parameter',
+      derivation: 'passive respiratory mechanics',
+    }),
+  });
+}
+
+function latestMeasurement(measurements, kind) {
+  if (!Array.isArray(measurements)) return null;
+  for (let i = measurements.length - 1; i >= 0; i--) {
+    if (measurements[i] && measurements[i].kind === kind) return measurements[i];
+  }
+  return null;
+}
+
+function summarizeSimulationMeasurements(simulation) {
+  if (!simulation || typeof simulation !== 'object') {
+    throw new Error('simulation object is required');
+  }
+
+  const inspiratory = latestMeasurement(simulation.measurements, 'INSPIRATORY_HOLD');
+  const expiratory = latestMeasurement(simulation.measurements, 'EXPIRATORY_HOLD');
+  const aop = simulation.params
+    ? finiteOrNull(simulation.params.airwayOpeningPressure)
+    : null;
+
+  const derived = derivePassiveRespiratoryMechanics({
+    plateauPressureCmH2O: inspiratory ? inspiratory.plateauPressureCmH2O : null,
+    totalPeepCmH2O: expiratory ? expiratory.totalPeepCmH2O : null,
+    setPeepCmH2O: expiratory ? expiratory.setPeepCmH2O : null,
+    airwayOpeningPressureCmH2O: aop,
+  });
+
+  return Object.freeze({
+    ...derived,
+    inspiratoryHold: inspiratory,
+    expiratoryHold: expiratory,
+  });
+}
+
+module.exports = {
+  derivePassiveRespiratoryMechanics,
+  summarizeSimulationMeasurements,
+};
+
+},
 "src/presets.js":function(module,exports,require){
 // presets.js — Four mechanical-construct phenotypes (mechanics only).
 //
@@ -2449,6 +2808,1676 @@ const PRESETS = Object.freeze({
 });
 
 module.exports = { PRESETS };
+
+},
+"src/clinical_scenarios.js":function(module,exports,require){
+'use strict';
+
+// clinical_scenarios.js — evidence-backed clinical layer for virtual patients.
+//
+// IMPORTANT SEPARATION OF CONCERNS
+// --------------------------------
+// Berlin ARDS severity is an oxygenation/clinical syndrome classification.
+// It is NOT a recruitability or compliance phenotype.  This module therefore
+// keeps two independent axes:
+//   1) clinical severity: mild / moderate / severe Berlin ARDS
+//   2) mechanical construct: low / moderate / high recruitability
+//
+// The cohort envelope below is descriptive, not a treatment target and not a
+// claim that an individual patient should have the cohort median values.
+// Browser gas exchange in v0.4.5 is not validated for clinical use, so P/F and
+// PaCO2 values are exposed as calibration targets/metadata only.
+
+const { PRESETS } = require("src/presets.js");
+
+const SOURCE_CHARDS = Object.freeze({
+  id: 'CHARDS-2020',
+  citation: 'Huang X et al. Critical Care. 2020;24:515.',
+  doi: '10.1186/s13054-020-03112-0',
+  role: 'Observed ventilator/mechanics and gas-exchange envelope by Berlin severity.',
+});
+
+const SOURCE_BERLIN = Object.freeze({
+  id: 'BERLIN-2012',
+  citation: 'ARDS Definition Task Force. JAMA. 2012;307:2526-2533.',
+  doi: '10.1001/jama.2012.5669',
+  role: 'Clinical severity thresholds and syndrome definition.',
+});
+
+const SOURCE_LUNG_SAFE = Object.freeze({
+  id: 'LUNG-SAFE-2016',
+  citation: 'Bellani G et al. JAMA. 2016;315:788-800.',
+  doi: '10.1001/jama.2016.0291',
+  role: 'External real-world ARDS epidemiology and ventilation benchmark.',
+});
+
+const SOURCE_CHEN_RI = Object.freeze({
+  id: 'CHEN-RI-2020',
+  citation: 'Chen L et al. American Journal of Respiratory and Critical Care Medicine. 2020.',
+  role: 'Recruitment-to-inflation physiology demonstrating recruitability heterogeneity.',
+});
+
+function metric(median, q1, q3, unit) {
+  return Object.freeze({ median, iqr: Object.freeze([q1, q3]), unit });
+}
+
+// Observed day-1 invasive-ventilation values from CHARDS Table 3.
+// These are deliberately retained as medians/IQRs rather than converted into
+// synthetic distributions.  Future patient generation should be calibrated
+// against patient-level or otherwise justified distributional data.
+const BERLIN_COHORT_ENVELOPES = Object.freeze({
+  mild: Object.freeze({
+    berlin: Object.freeze({ pfLowerExclusive: 200, pfUpperInclusive: 300, minPeepCmH2O: 5 }),
+    observed: Object.freeze({
+      pfRatio: metric(227, 206, 270, 'mmHg'),
+      peep: metric(7, 5, 8, 'cmH2O'),
+      vtPerPbw: metric(7.0, 6.6, 7.7, 'mL/kg PBW'),
+      plateauPressure: metric(20, 15, 23, 'cmH2O'),
+      drivingPressure: metric(14, 10, 15, 'cmH2O'),
+      compliance: metric(36.4, 30.7, 43.0, 'mL/cmH2O'),
+      airwayResistance: metric(12.0, 9.7, 17.0, 'cmH2O/L/s'),
+      paco2: metric(36.2, 29.6, 39.0, 'mmHg'),
+    }),
+  }),
+  moderate: Object.freeze({
+    berlin: Object.freeze({ pfLowerExclusive: 100, pfUpperInclusive: 200, minPeepCmH2O: 5 }),
+    observed: Object.freeze({
+      pfRatio: metric(142, 115, 166, 'mmHg'),
+      peep: metric(8, 6, 10, 'cmH2O'),
+      vtPerPbw: metric(6.8, 5.9, 8.0, 'mL/kg PBW'),
+      plateauPressure: metric(20, 15, 25, 'cmH2O'),
+      drivingPressure: metric(13, 8, 16, 'cmH2O'),
+      compliance: metric(36.4, 24.0, 52.0, 'mL/cmH2O'),
+      airwayResistance: metric(11.0, 7.8, 19.0, 'cmH2O/L/s'),
+      paco2: metric(35.9, 31.0, 41.5, 'mmHg'),
+    }),
+  }),
+  severe: Object.freeze({
+    berlin: Object.freeze({ pfLowerExclusive: null, pfUpperInclusive: 100, minPeepCmH2O: 5 }),
+    observed: Object.freeze({
+      pfRatio: metric(78, 59, 96, 'mmHg'),
+      peep: metric(10, 6, 12, 'cmH2O'),
+      vtPerPbw: metric(6.8, 5.8, 7.9, 'mL/kg PBW'),
+      plateauPressure: metric(22, 18, 27, 'cmH2O'),
+      drivingPressure: metric(12, 8, 17, 'cmH2O'),
+      compliance: metric(32.0, 25.0, 42.0, 'mL/cmH2O'),
+      airwayResistance: metric(12.0, 8.0, 18.0, 'cmH2O/L/s'),
+      paco2: metric(37.2, 31.8, 45.2, 'mmHg'),
+    }),
+  }),
+});
+
+const RECRUITABILITY_PRESETS = Object.freeze({
+  low: 'phenotype_low_recruitability',
+  moderate: 'phenotype_moderate_recruitability',
+  high: 'phenotype_high_recruitability',
+});
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.freeze(value);
+  Object.values(value).forEach(deepFreeze);
+  return value;
+}
+
+/**
+ * Direct Berlin oxygenation category lookup.
+ * Returns null when the oxygenation criterion is not met or PEEP is <5.
+ * This function intentionally does not attempt to establish the full ARDS
+ * diagnosis (timing, imaging, and edema-origin criteria remain clinical data).
+ */
+function classifyBerlinOxygenation({ pfRatio, peepCmH2O }) {
+  if (typeof pfRatio !== 'number' || !Number.isFinite(pfRatio) || pfRatio <= 0) {
+    throw new Error('pfRatio must be a finite positive number');
+  }
+  if (typeof peepCmH2O !== 'number' || !Number.isFinite(peepCmH2O) || peepCmH2O < 0) {
+    throw new Error('peepCmH2O must be a finite non-negative number');
+  }
+  if (peepCmH2O < 5 || pfRatio > 300) return null;
+  if (pfRatio <= 100) return 'severe';
+  if (pfRatio <= 200) return 'moderate';
+  return 'mild';
+}
+
+/**
+ * Build a deterministic virtual-patient descriptor.
+ *
+ * This does NOT claim patient-specific digital-twin validity.  It combines an
+ * evidence-backed clinical envelope with an independently selected mechanical
+ * construct, preserving the physiologic heterogeneity needed for teaching.
+ */
+function makeBerlinVirtualPatient({
+  severity,
+  recruitability = 'moderate',
+  id,
+  etiology = 'pneumonia',
+} = {}) {
+  if (!Object.prototype.hasOwnProperty.call(BERLIN_COHORT_ENVELOPES, severity)) {
+    throw new Error(`unknown Berlin severity: ${severity}`);
+  }
+  if (!Object.prototype.hasOwnProperty.call(RECRUITABILITY_PRESETS, recruitability)) {
+    throw new Error(`unknown recruitability phenotype: ${recruitability}`);
+  }
+
+  const presetId = RECRUITABILITY_PRESETS[recruitability];
+  const params = PRESETS[presetId]();
+  const envelope = BERLIN_COHORT_ENVELOPES[severity];
+  const caseId = id || `berlin-${severity}-${recruitability}`;
+
+  return deepFreeze({
+    schemaVersion: '0.5.0-alpha.1',
+    id: caseId,
+    kind: 'cohort-calibrated-virtual-patient',
+    label: `${severity[0].toUpperCase()}${severity.slice(1)} Berlin ARDS / ${recruitability} recruitability`,
+    clinical: {
+      syndrome: 'ARDS',
+      definition: 'Berlin 2012',
+      severity,
+      etiology,
+      cohortEnvelope: deepClone(envelope),
+      diagnosisCompleteness: {
+        oxygenationCriterion: 'represented',
+        timingCriterion: 'scenario-author must supply',
+        bilateralOpacitiesCriterion: 'scenario-author must supply',
+        edemaOriginCriterion: 'scenario-author must supply',
+      },
+    },
+    mechanics: {
+      recruitability,
+      presetId,
+      params,
+      calibrationStatus: 'mechanistic construct; not fitted to Berlin grade',
+    },
+    initialization: {
+      initialPeepCmH2O: envelope.observed.peep.median,
+      initialRecruitmentState: null,
+      requiresExplicitRecruitmentHistory: true,
+      note: 'Do not guess recruitment from Berlin severity. Supply measured/defined history before simulation.',
+    },
+    gasExchange: {
+      browserModelStatus: 'not clinically validated',
+      calibrationTarget: {
+        pfRatio: deepClone(envelope.observed.pfRatio),
+        paco2: deepClone(envelope.observed.paco2),
+      },
+      useForClinicalScoring: false,
+    },
+    provenance: [SOURCE_BERLIN, SOURCE_CHARDS, SOURCE_LUNG_SAFE, SOURCE_CHEN_RI],
+  });
+}
+
+function listBerlinVirtualPatientMatrix() {
+  const rows = [];
+  for (const severity of Object.keys(BERLIN_COHORT_ENVELOPES)) {
+    for (const recruitability of Object.keys(RECRUITABILITY_PRESETS)) {
+      rows.push(makeBerlinVirtualPatient({ severity, recruitability }));
+    }
+  }
+  return Object.freeze(rows);
+}
+
+module.exports = {
+  BERLIN_COHORT_ENVELOPES,
+  RECRUITABILITY_PRESETS,
+  classifyBerlinOxygenation,
+  makeBerlinVirtualPatient,
+  listBerlinVirtualPatientMatrix,
+};
+
+},
+"src/berlin_case_catalog.js":function(module,exports,require){
+'use strict';
+
+// berlin_case_catalog.js — explicit clinical-facing synthetic ARDS cases.
+//
+// These are authored virtual patients, not deidentified real patients. Cohort-
+// calibrated fields are inherited from clinical_scenarios.js; etiology and case
+// narrative are explicit scenario assumptions. Berlin severity and mechanical
+// recruitability remain independent axes.
+
+const { makeBerlinVirtualPatient } = require("src/clinical_scenarios.js");
+
+const CASE_AUTHORING_VERSION = '0.5.0-alpha.1';
+
+const CASE_DESIGNS = Object.freeze([
+  { severity: 'mild', recruitability: 'low',
+    id: 'berlin-mild-low-focal-pneumonia', name: 'Mild ARDS — focal pneumonia / low recruitability',
+    etiology: 'pneumonia', pattern: 'focal-predominant',
+    narrative: 'Synthetic focal-pneumonia teaching case with mild Berlin oxygenation impairment and low recruitability.' },
+  { severity: 'mild', recruitability: 'moderate',
+    id: 'berlin-mild-moderate-aspiration', name: 'Mild ARDS — aspiration / intermediate recruitability',
+    etiology: 'aspiration', pattern: 'dependent-predominant',
+    narrative: 'Synthetic aspiration teaching case with mild Berlin oxygenation impairment and intermediate recruitability.' },
+  { severity: 'mild', recruitability: 'high',
+    id: 'berlin-mild-high-extrapulmonary', name: 'Mild ARDS — extrapulmonary inflammation / high recruitability',
+    etiology: 'extrapulmonary-inflammatory', pattern: 'diffuse',
+    narrative: 'Synthetic extrapulmonary inflammatory teaching case with mild Berlin oxygenation impairment and high recruitability.' },
+
+  { severity: 'moderate', recruitability: 'low',
+    id: 'berlin-moderate-low-focal-pneumonia', name: 'Moderate ARDS — focal pneumonia / low recruitability',
+    etiology: 'pneumonia', pattern: 'focal-predominant',
+    narrative: 'Synthetic focal-pneumonia teaching case with moderate Berlin oxygenation impairment and low recruitability.' },
+  { severity: 'moderate', recruitability: 'moderate',
+    id: 'berlin-moderate-moderate-aspiration', name: 'Moderate ARDS — aspiration / intermediate recruitability',
+    etiology: 'aspiration', pattern: 'dependent-predominant',
+    narrative: 'Synthetic aspiration teaching case with moderate Berlin oxygenation impairment and intermediate recruitability.' },
+  { severity: 'moderate', recruitability: 'high',
+    id: 'berlin-moderate-high-sepsis', name: 'Moderate ARDS — extrapulmonary sepsis / high recruitability',
+    etiology: 'extrapulmonary-sepsis', pattern: 'diffuse',
+    narrative: 'Synthetic extrapulmonary-sepsis teaching case with moderate Berlin oxygenation impairment and high recruitability.' },
+
+  { severity: 'severe', recruitability: 'low',
+    id: 'berlin-severe-low-focal-pneumonia', name: 'Severe ARDS — focal pneumonia / low recruitability',
+    etiology: 'pneumonia', pattern: 'focal-predominant',
+    narrative: 'Synthetic severe Berlin ARDS teaching case designed to preserve the possibility of relatively recruitability-poor focal disease.' },
+  { severity: 'severe', recruitability: 'moderate',
+    id: 'berlin-severe-moderate-aspiration', name: 'Severe ARDS — aspiration / intermediate recruitability',
+    etiology: 'aspiration', pattern: 'dependent-predominant',
+    narrative: 'Synthetic severe Berlin ARDS teaching case with an intermediate recruitability construct.' },
+  { severity: 'severe', recruitability: 'high',
+    id: 'berlin-severe-high-diffuse-inflammatory', name: 'Severe ARDS — diffuse inflammatory / high recruitability',
+    etiology: 'diffuse-inflammatory', pattern: 'diffuse',
+    narrative: 'Synthetic severe Berlin ARDS teaching case with a high-recruitability mechanical construct.' },
+]);
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.freeze(value);
+  Object.values(value).forEach(deepFreeze);
+  return value;
+}
+
+function buildCase(design) {
+  const base = makeBerlinVirtualPatient({
+    severity: design.severity,
+    recruitability: design.recruitability,
+    id: design.id,
+    etiology: design.etiology,
+  });
+  const observed = base.clinical.cohortEnvelope.observed;
+
+  return deepFreeze({
+    schemaVersion: CASE_AUTHORING_VERSION,
+    id: design.id,
+    name: design.name,
+    synthetic: true,
+    intendedUse: 'education-and-research-simulation',
+    clinical: {
+      syndrome: 'ARDS',
+      berlinSeverity: design.severity,
+      etiology: design.etiology,
+      radiographicPattern: design.pattern,
+      narrative: design.narrative,
+      authoringStatus: 'synthetic-scenario-assumption',
+      diagnosisCompleteness: clone(base.clinical.diagnosisCompleteness),
+    },
+    phenotype: {
+      recruitability: design.recruitability,
+      mechanicsPresetId: base.mechanics.presetId,
+      mechanicsParams: clone(base.mechanics.params),
+      status: 'mechanistic-construct-not-fitted-to-berlin-grade',
+    },
+    startingVentilation: {
+      mode: null,
+      peepCmH2O: observed.peep.median,
+      fio2Fraction: null,
+      respiratoryRatePerMin: null,
+      tidalVolumeMlPerKgPbw: observed.vtPerPbw.median,
+      tidalVolumeMl: null,
+      status: 'cohort-calibrated-targets-plus-unset-case-fields',
+      note: 'Patient-specific tidal volume in mL is intentionally unset until a validated PBW workflow is supplied.',
+    },
+    calibrationTargets: {
+      oxygenation: { pfRatio: clone(observed.pfRatio) },
+      ventilation: { paco2MmHg: clone(observed.paco2) },
+      mechanics: {
+        plateauPressureCmH2O: clone(observed.plateauPressure),
+        drivingPressureCmH2O: clone(observed.drivingPressure),
+        complianceMlPerCmH2O: clone(observed.compliance),
+        airwayResistanceCmH2OPerLps: clone(observed.airwayResistance),
+      },
+      status: 'published-cohort-envelope-not-individual-patient-truth',
+    },
+    initialization: clone(base.initialization),
+    systemicTwin: {
+      provider: 'HumMod',
+      status: 'mapping-pending',
+      trajectoryId: null,
+      modelVersion: null,
+      note: 'No systemic values are invented before a verified HumMod mapping or replay trajectory is attached.',
+    },
+    provenance: {
+      cohortSources: clone(base.provenance),
+      scenarioFields: 'synthetic-authoring-assumptions',
+      mechanics: 'Vent mechanistic preset; independent of Berlin severity',
+      systemic: 'HumMod mapping pending',
+    },
+  });
+}
+
+const BERLIN_CASE_CATALOG = Object.freeze(CASE_DESIGNS.map(buildCase));
+
+function listBerlinCases() {
+  return BERLIN_CASE_CATALOG;
+}
+
+function getBerlinCase(caseId) {
+  if (typeof caseId !== 'string' || !caseId) throw new Error('caseId is required');
+  const found = BERLIN_CASE_CATALOG.find(item => item.id === caseId);
+  if (!found) throw new Error(`unknown Berlin case: ${caseId}`);
+  return found;
+}
+
+module.exports = {
+  CASE_AUTHORING_VERSION,
+  BERLIN_CASE_CATALOG,
+  listBerlinCases,
+  getBerlinCase,
+};
+
+},
+"src/digital_twin_contract.js":function(module,exports,require){
+'use strict';
+
+// digital_twin_contract.js — source-neutral interface between the ventilator
+// simulator and an external whole-body / digital-twin physiology provider.
+//
+// This contract intentionally does NOT contain HumMod-specific variable names,
+// equations, source code, or file formats. A provider adapter may map HumMod,
+// a research dataset, a bench model, or another physiology engine into this
+// schema without coupling the core ventilator simulator to that source.
+
+const TWIN_SCHEMA_VERSION = '1.0.0';
+
+function finiteOrNull(value, path) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`${path} must be a finite number or null`);
+  }
+  return value;
+}
+
+function fractionOrNull(value, path) {
+  const v = finiteOrNull(value, path);
+  if (v === null) return null;
+  if (v < 0 || v > 1) throw new Error(`${path} must be in [0,1]`);
+  return v;
+}
+
+function nonNegativeOrNull(value, path) {
+  const v = finiteOrNull(value, path);
+  if (v === null) return null;
+  if (v < 0) throw new Error(`${path} must be non-negative`);
+  return v;
+}
+
+function stringOrNull(value) {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/**
+ * Normalize a provider sample into the Vent digital-twin interchange schema.
+ * Missing domains are represented as null rather than guessed.
+ *
+ * No clinical inference is performed here. This is only a typed data boundary.
+ */
+function makeTwinSnapshot(input = {}) {
+  const respiratory = input.respiratory || {};
+  const gasExchange = input.gasExchange || {};
+  const hemodynamics = input.hemodynamics || {};
+  const metabolism = input.metabolism || {};
+
+  const timestampSec = nonNegativeOrNull(input.timestampSec, 'timestampSec');
+  if (timestampSec === null) throw new Error('timestampSec is required');
+
+  return Object.freeze({
+    schemaVersion: TWIN_SCHEMA_VERSION,
+    source: Object.freeze({
+      provider: typeof input.provider === 'string' ? input.provider : 'unknown',
+      modelVersion: stringOrNull(input.modelVersion),
+      subjectId: stringOrNull(input.subjectId),
+      runId: stringOrNull(input.runId),
+    }),
+    timestampSec,
+    respiratory: Object.freeze({
+      complianceMlPerCmH2O: nonNegativeOrNull(
+        respiratory.complianceMlPerCmH2O, 'respiratory.complianceMlPerCmH2O'),
+      airwayResistanceCmH2OPerLps: nonNegativeOrNull(
+        respiratory.airwayResistanceCmH2OPerLps, 'respiratory.airwayResistanceCmH2OPerLps'),
+      shuntFraction: fractionOrNull(respiratory.shuntFraction, 'respiratory.shuntFraction'),
+      deadSpaceFraction: fractionOrNull(
+        respiratory.deadSpaceFraction, 'respiratory.deadSpaceFraction'),
+      recruitabilityIndex: fractionOrNull(
+        respiratory.recruitabilityIndex, 'respiratory.recruitabilityIndex'),
+    }),
+    gasExchange: Object.freeze({
+      pao2MmHg: nonNegativeOrNull(gasExchange.pao2MmHg, 'gasExchange.pao2MmHg'),
+      paco2MmHg: nonNegativeOrNull(gasExchange.paco2MmHg, 'gasExchange.paco2MmHg'),
+      ph: finiteOrNull(gasExchange.ph, 'gasExchange.ph'),
+      spo2Fraction: fractionOrNull(gasExchange.spo2Fraction, 'gasExchange.spo2Fraction'),
+    }),
+    hemodynamics: Object.freeze({
+      heartRatePerMin: nonNegativeOrNull(
+        hemodynamics.heartRatePerMin, 'hemodynamics.heartRatePerMin'),
+      meanArterialPressureMmHg: finiteOrNull(
+        hemodynamics.meanArterialPressureMmHg, 'hemodynamics.meanArterialPressureMmHg'),
+      cardiacOutputLPerMin: nonNegativeOrNull(
+        hemodynamics.cardiacOutputLPerMin, 'hemodynamics.cardiacOutputLPerMin'),
+      centralVenousPressureMmHg: finiteOrNull(
+        hemodynamics.centralVenousPressureMmHg, 'hemodynamics.centralVenousPressureMmHg'),
+    }),
+    metabolism: Object.freeze({
+      oxygenConsumptionMlPerMin: nonNegativeOrNull(
+        metabolism.oxygenConsumptionMlPerMin, 'metabolism.oxygenConsumptionMlPerMin'),
+      co2ProductionMlPerMin: nonNegativeOrNull(
+        metabolism.co2ProductionMlPerMin, 'metabolism.co2ProductionMlPerMin'),
+    }),
+  });
+}
+
+/**
+ * Minimal runtime contract for an external provider adapter.
+ * Providers remain responsible for their own model initialization and solver.
+ */
+function validateTwinProvider(provider) {
+  if (!provider || typeof provider !== 'object') {
+    throw new Error('digital twin provider must be an object');
+  }
+  ['initialize', 'sample', 'applyIntervention'].forEach(method => {
+    if (typeof provider[method] !== 'function') {
+      throw new Error(`digital twin provider must implement ${method}()`);
+    }
+  });
+  return true;
+}
+
+module.exports = {
+  TWIN_SCHEMA_VERSION,
+  makeTwinSnapshot,
+  validateTwinProvider,
+};
+
+},
+"src/hummod_adapter.js":function(module,exports,require){
+'use strict';
+
+// hummod_adapter.js — explicit, versioned boundary for HumMod-derived state.
+//
+// This module intentionally contains no hard-coded HumMod variable names.
+// Callers must supply verified source paths for the exact HumMod revision/export
+// being used. This prevents fuzzy/nearest-name mapping from becoming physiology.
+
+const { makeTwinSnapshot } = require("src/digital_twin_contract.js");
+
+const TARGET_FIELDS = Object.freeze([
+  'timestampSec',
+  'respiratory.complianceMlPerCmH2O',
+  'respiratory.airwayResistanceCmH2OPerLps',
+  'respiratory.shuntFraction',
+  'respiratory.deadSpaceFraction',
+  'respiratory.recruitabilityIndex',
+  'gasExchange.pao2MmHg',
+  'gasExchange.paco2MmHg',
+  'gasExchange.ph',
+  'gasExchange.spo2Fraction',
+  'hemodynamics.heartRatePerMin',
+  'hemodynamics.meanArterialPressureMmHg',
+  'hemodynamics.cardiacOutputLPerMin',
+  'hemodynamics.centralVenousPressureMmHg',
+  'metabolism.oxygenConsumptionMlPerMin',
+  'metabolism.co2ProductionMlPerMin',
+]);
+
+function getPath(source, path) {
+  if (typeof path !== 'string' || path.length === 0) return undefined;
+  return path.split('.').reduce((value, key) =>
+    value !== null && value !== undefined ? value[key] : undefined, source);
+}
+
+function setPath(target, path, value) {
+  const parts = path.split('.');
+  let cursor = target;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const key = parts[i];
+    if (!cursor[key]) cursor[key] = {};
+    cursor = cursor[key];
+  }
+  cursor[parts[parts.length - 1]] = value;
+}
+
+function validateMapping(fields) {
+  if (!fields || typeof fields !== 'object') throw new Error('fields mapping is required');
+  const allowed = new Set(TARGET_FIELDS);
+  Object.keys(fields).forEach(target => {
+    if (!allowed.has(target)) throw new Error(`unsupported normalized target field: ${target}`);
+    if (typeof fields[target] !== 'string' || !fields[target]) {
+      throw new Error(`mapping for ${target} must be a non-empty exact source path`);
+    }
+  });
+  if (!fields.timestampSec) throw new Error('mapping must include timestampSec');
+}
+
+/**
+ * Create an exact-path mapper for one verified HumMod export/schema revision.
+ * No unit conversion is performed. Source values must already use the units
+ * required by digital_twin_contract.js.
+ */
+function createHumModSnapshotMapper({
+  modelVersion,
+  fields,
+  requiredTargets = ['timestampSec'],
+  subjectId = null,
+  runId = null,
+} = {}) {
+  if (typeof modelVersion !== 'string' || !modelVersion) {
+    throw new Error('modelVersion is required for HumMod mappings');
+  }
+  validateMapping(fields);
+  if (!Array.isArray(requiredTargets)) throw new Error('requiredTargets must be an array');
+  requiredTargets.forEach(target => {
+    if (!Object.prototype.hasOwnProperty.call(fields, target)) {
+      throw new Error(`required target is not mapped: ${target}`);
+    }
+  });
+
+  return function mapHumModSnapshot(source) {
+    if (!source || typeof source !== 'object') throw new Error('HumMod source snapshot must be an object');
+    const normalized = {};
+
+    Object.entries(fields).forEach(([target, sourcePath]) => {
+      const value = getPath(source, sourcePath);
+      if (value !== undefined) setPath(normalized, target, value);
+    });
+
+    requiredTargets.forEach(target => {
+      const sourcePath = fields[target];
+      if (getPath(source, sourcePath) === undefined) {
+        throw new Error(`required HumMod source field missing: ${sourcePath} -> ${target}`);
+      }
+    });
+
+    return makeTwinSnapshot({
+      ...normalized,
+      provider: 'HumMod',
+      modelVersion,
+      subjectId,
+      runId,
+    });
+  };
+}
+
+function normalizeReplaySnapshots(snapshots) {
+  if (!Array.isArray(snapshots) || snapshots.length === 0) {
+    throw new Error('replay provider requires at least one normalized snapshot');
+  }
+  const ordered = snapshots.slice().sort((a, b) => a.timestampSec - b.timestampSec);
+  ordered.forEach((snapshot, index) => {
+    if (!snapshot || typeof snapshot.timestampSec !== 'number' || !Number.isFinite(snapshot.timestampSec)) {
+      throw new Error(`invalid replay snapshot at index ${index}`);
+    }
+    if (index > 0 && snapshot.timestampSec === ordered[index - 1].timestampSec) {
+      throw new Error(`duplicate replay timestamp: ${snapshot.timestampSec}`);
+    }
+  });
+  return Object.freeze(ordered);
+}
+
+/**
+ * Deterministic browser-compatible systemic replay provider.
+ *
+ * Interventions are rejected because a fixed trajectory cannot legitimately
+ * synthesize a physiologic response that is not present in its source data.
+ */
+function createHumModReplayProvider({ snapshots, trajectoryId = null } = {}) {
+  const ordered = normalizeReplaySnapshots(snapshots);
+  let initialized = false;
+
+  return Object.freeze({
+    provider: 'HumMod-replay',
+    trajectoryId,
+
+    initialize() {
+      initialized = true;
+      return ordered[0];
+    },
+
+    sample(timestampSec) {
+      if (!initialized) throw new Error('replay provider must be initialized before sampling');
+      if (typeof timestampSec !== 'number' || !Number.isFinite(timestampSec) || timestampSec < 0) {
+        throw new Error('timestampSec must be a finite non-negative number');
+      }
+      let selected = ordered[0];
+      for (const snapshot of ordered) {
+        if (snapshot.timestampSec > timestampSec) break;
+        selected = snapshot;
+      }
+      return selected;
+    },
+
+    applyIntervention() {
+      throw new Error('fixed HumMod replay cannot synthesize intervention responses; use an authored trajectory or live provider');
+    },
+  });
+}
+
+module.exports = {
+  HUMMOD_NORMALIZED_TARGET_FIELDS: TARGET_FIELDS,
+  createHumModSnapshotMapper,
+  createHumModReplayProvider,
+};
+
+},
+"src/hummod_standalone_manifest.js":function(module,exports,require){
+'use strict';
+
+// hummod_standalone_manifest.js
+//
+// Source-of-truth manifest for HumMod standalone symbols that have been
+// inspected directly in the pinned upstream source revision. This file does
+// NOT assume a runtime/export object shape. `symbol` is the HumMod model symbol;
+// a later exporter must explicitly bind each symbol to a concrete JSON path.
+//
+// Do not add an entry as `verified` from search results or name similarity.
+// Verify the defining .DES file in the pinned revision first.
+
+const HUMMOD_STANDALONE_UPSTREAM = Object.freeze({
+  repository: 'riliescu/hummod-standalone',
+  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  schemaFamily: 'DES V1.0 / HumMod standalone',
+});
+
+const HUMMOD_STANDALONE_SYMBOLS = Object.freeze({
+  arterialPaO2: Object.freeze({
+    normalizedTarget: 'gasExchange.pao2MmHg',
+    symbol: 'PO2Artys.Pressure',
+    sourceFile: 'Structure/O2/PO2Artys.DES',
+    normalizedUnit: 'mmHg',
+    status: 'verified-source-symbol',
+    note: 'PO2Artys copies HgbLung.pO2 into Pressure.',
+  }),
+
+  arterialO2SaturationPercent: Object.freeze({
+    normalizedTarget: 'gasExchange.spo2Fraction',
+    symbol: 'PO2Artys.Sat(%)',
+    sourceFile: 'Structure/O2/PO2Artys.DES',
+    sourceUnit: 'percent',
+    normalizedUnit: 'fraction',
+    status: 'verified-source-symbol-requires-explicit-unit-transform',
+    note: 'Do not map directly until the export adapter declares percent-to-fraction conversion.',
+  }),
+
+  arterialPaCO2: Object.freeze({
+    normalizedTarget: 'gasExchange.paco2MmHg',
+    symbol: 'CO2Artys.Pressure',
+    sourceFile: 'Structure/CO2/CO2Artys.DES',
+    normalizedUnit: 'mmHg',
+    status: 'verified-source-symbol',
+    note: 'CO2Artys obtains Pressure from Blood-BaseToGas.pCO2.',
+  }),
+
+  arterialPh: Object.freeze({
+    normalizedTarget: 'gasExchange.ph',
+    symbol: 'BloodPh.ArtysPh',
+    sourceFile: 'Structure/AcidBase/BloodPh.DES',
+    normalizedUnit: 'pH',
+    status: 'verified-source-symbol',
+    note: 'BloodPh copies PhBlood.pH into ArtysPh.',
+  }),
+
+  heartRate: Object.freeze({
+    normalizedTarget: 'hemodynamics.heartRatePerMin',
+    symbol: 'Heart-Rate.Rate',
+    sourceFile: 'Structure/Heart/Heart-Rate.DES',
+    normalizedUnit: '1/min',
+    status: 'verified-source-symbol',
+    note: 'Heart-Rate.Rate is assigned from Heart-Ventricles.Rate.',
+  }),
+
+  meanArterialPressure: Object.freeze({
+    normalizedTarget: 'hemodynamics.meanArterialPressureMmHg',
+    symbol: 'SystemicArtys.Pressure',
+    sourceFile: 'Structure/VascularCompartments/SystemicArtys.DES',
+    normalizedUnit: 'mmHg',
+    status: 'verified-source-symbol',
+    note: 'SystemicArtys uses Pressure as the mean arterial pressure and separately derives SBP/DBP; its Wrapup converts Pressure to MeanBP(kPa).',
+  }),
+
+  cardiacOutput: Object.freeze({
+    normalizedTarget: 'hemodynamics.cardiacOutputLPerMin',
+    symbol: 'CardiacOutput.Flow(L/Min)',
+    sourceFile: 'Structure/Circulation/CardiacOutput.DES',
+    normalizedUnit: 'L/min',
+    status: 'verified-source-symbol',
+    note: 'HumMod explicitly defines Flow(L/Min) = Flow / 1000.',
+  }),
+
+  rightAtrialPressure: Object.freeze({
+    normalizedTarget: null,
+    candidateNormalizedTarget: 'hemodynamics.centralVenousPressureMmHg',
+    symbol: 'RightAtrium.Pressure',
+    sourceFile: 'Structure/VascularCompartments/RightAtrium.DES',
+    normalizedUnit: 'mmHg',
+    status: 'verified-source-symbol-semantic-mapping-pending',
+    note: 'Right atrial pressure is directly modeled, but the project has not yet declared it interchangeable with normalized CVP.',
+  }),
+
+  wholeBodyO2Outflow: Object.freeze({
+    normalizedTarget: null,
+    candidateNormalizedTarget: 'metabolism.oxygenConsumptionMlPerMin',
+    symbol: 'O2Total.Outflow',
+    sourceFile: 'Structure/O2/O2Total.DES',
+    status: 'verified-source-symbol-unit-verification-pending',
+    note: 'O2Total.Outflow sums organ O2Use terms. Do not normalize until source units are verified end-to-end.',
+  }),
+
+  wholeBodyCO2Inflow: Object.freeze({
+    normalizedTarget: null,
+    candidateNormalizedTarget: 'metabolism.co2ProductionMlPerMin',
+    symbol: 'CO2Total.Inflow',
+    sourceFile: 'Structure/CO2/CO2Total.DES',
+    status: 'verified-source-symbol-unit-verification-pending',
+    note: 'CO2Total.Inflow sums organ CO2 OutflowBase terms. Do not normalize until source units are verified end-to-end.',
+  }),
+
+  timestamp: Object.freeze({
+    normalizedTarget: 'timestampSec',
+    symbol: null,
+    sourceFile: null,
+    normalizedUnit: 's',
+    status: 'export-envelope-required',
+    note: 'Timestamp is supplied by the HumMod execution/export layer; no physiological model symbol is asserted here.',
+  }),
+});
+
+function listVerifiedDirectMappings() {
+  return Object.values(HUMMOD_STANDALONE_SYMBOLS)
+    .filter(entry => entry.normalizedTarget && entry.symbol && entry.status === 'verified-source-symbol')
+    .map(entry => Object.freeze({
+      target: entry.normalizedTarget,
+      symbol: entry.symbol,
+      sourceFile: entry.sourceFile,
+      unit: entry.normalizedUnit,
+    }));
+}
+
+module.exports = {
+  HUMMOD_STANDALONE_UPSTREAM,
+  HUMMOD_STANDALONE_SYMBOLS,
+  listVerifiedDirectMappings,
+};
+
+},
+"src/hummod_standalone_binding.js":function(module,exports,require){
+'use strict';
+
+// hummod_standalone_binding.js
+//
+// Builds a normalized HumMod snapshot mapper from an explicitly declared
+// export schema while enforcing the pinned standalone source manifest.
+//
+// This module deliberately separates two identities:
+//   1. HumMod source symbol (verified from the pinned .DES source), and
+//   2. serialized export path (defined by the runtime/exporter we control).
+//
+// They are not assumed to be the same string or object shape.
+
+const { createHumModSnapshotMapper } = require("src/hummod_adapter.js");
+const {
+  HUMMOD_STANDALONE_UPSTREAM,
+  HUMMOD_STANDALONE_SYMBOLS,
+  listVerifiedDirectMappings,
+} = require("src/hummod_standalone_manifest.js");
+
+function nonEmptyString(value, label) {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+/**
+ * Create a mapper for a concrete HumMod standalone export schema.
+ *
+ * exportPaths is keyed by exact HumMod source symbol, not normalized target:
+ * {
+ *   'PO2Artys.Pressure': 'model.PO2Artys.Pressure',
+ *   ...
+ * }
+ *
+ * timestampPath is owned by the execution/export envelope because the pinned
+ * physiological source manifest does not claim a HumMod timestamp symbol.
+ */
+function createHumModStandaloneExportMapper({
+  hummodRevision,
+  exporterVersion,
+  timestampPath,
+  exportPaths,
+  requiredTargets = ['timestampSec'],
+  subjectId = null,
+  runId = null,
+} = {}) {
+  if (hummodRevision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
+    throw new Error(
+      `HumMod revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.revision}, got ${hummodRevision || 'missing'}`);
+  }
+  nonEmptyString(exporterVersion, 'exporterVersion');
+  nonEmptyString(timestampPath, 'timestampPath');
+  if (!exportPaths || typeof exportPaths !== 'object') {
+    throw new Error('exportPaths mapping is required');
+  }
+
+  const fields = { timestampSec: timestampPath };
+  for (const mapping of listVerifiedDirectMappings()) {
+    const serializedPath = exportPaths[mapping.symbol];
+    if (serializedPath !== undefined) {
+      fields[mapping.target] = nonEmptyString(
+        serializedPath,
+        `export path for ${mapping.symbol}`);
+    }
+  }
+
+  // Reject bindings for unverified or intentionally pending HumMod symbols.
+  const allowedSymbols = new Set(listVerifiedDirectMappings().map(m => m.symbol));
+  Object.keys(exportPaths).forEach(symbol => {
+    if (!allowedSymbols.has(symbol)) {
+      const knownPending = Object.values(HUMMOD_STANDALONE_SYMBOLS)
+        .some(entry => entry.symbol === symbol);
+      if (knownPending) {
+        throw new Error(`HumMod symbol is not approved for direct normalization: ${symbol}`);
+      }
+      throw new Error(`unverified HumMod source symbol: ${symbol}`);
+    }
+  });
+
+  return createHumModSnapshotMapper({
+    modelVersion: `${HUMMOD_STANDALONE_UPSTREAM.repository}@${hummodRevision}; exporter=${exporterVersion}`,
+    fields,
+    requiredTargets,
+    subjectId,
+    runId,
+  });
+}
+
+module.exports = { createHumModStandaloneExportMapper };
+
+},
+"src/hummod_export_contract.js":function(module,exports,require){
+'use strict';
+
+// hummod_export_contract.js
+//
+// Canonical serialization contract for HumMod standalone trajectory exports.
+// This file defines the JSON shape produced by a future HumMod runner/exporter
+// and consumed by the browser/runtime. It does not contain physiologic values,
+// does not execute HumMod, and does not infer source symbols.
+//
+// Design goals:
+// - pin every trajectory to one upstream HumMod revision and exporter version
+// - preserve exact HumMod source-symbol identity in every exported row
+// - keep execution time in the export envelope rather than inventing a HumMod
+//   physiological timestamp symbol
+// - reject duplicate/non-monotonic timestamps
+// - reject undeclared symbols so serialization cannot silently redefine the
+//   physiology mapping
+// - convert rows to normalized digital-twin snapshots only through the verified
+//   standalone binding layer
+
+const {
+  HUMMOD_STANDALONE_UPSTREAM,
+  listVerifiedDirectMappings,
+} = require("src/hummod_standalone_manifest.js");
+const { createHumModStandaloneExportMapper } = require("src/hummod_standalone_binding.js");
+const { createHumModReplayProvider } = require("src/hummod_adapter.js");
+
+const HUMMOD_EXPORT_SCHEMA = 'vent-hummod-trajectory/v1';
+
+function nonEmptyString(value, label) {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+function finiteNonNegative(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error(`${label} must be a finite non-negative number`);
+  }
+  return value;
+}
+
+function directSymbols() {
+  return listVerifiedDirectMappings().map(m => m.symbol);
+}
+
+function validateHumModTrajectoryExport(exportObject) {
+  if (!exportObject || typeof exportObject !== 'object' || Array.isArray(exportObject)) {
+    throw new Error('HumMod trajectory export must be an object');
+  }
+  if (exportObject.schema !== HUMMOD_EXPORT_SCHEMA) {
+    throw new Error(`unsupported HumMod export schema: ${exportObject.schema || 'missing'}`);
+  }
+
+  const source = exportObject.source;
+  if (!source || typeof source !== 'object') throw new Error('source metadata is required');
+  if (source.repository !== HUMMOD_STANDALONE_UPSTREAM.repository) {
+    throw new Error(`unexpected HumMod repository: ${source.repository || 'missing'}`);
+  }
+  if (source.revision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
+    throw new Error(
+      `HumMod revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.revision}, got ${source.revision || 'missing'}`);
+  }
+  nonEmptyString(source.exporterVersion, 'source.exporterVersion');
+  nonEmptyString(exportObject.trajectoryId, 'trajectoryId');
+
+  const declaredSymbols = exportObject.symbols;
+  if (!Array.isArray(declaredSymbols) || declaredSymbols.length === 0) {
+    throw new Error('symbols must be a non-empty array');
+  }
+  const allowed = new Set(directSymbols());
+  const seen = new Set();
+  declaredSymbols.forEach(symbol => {
+    nonEmptyString(symbol, 'symbols entry');
+    if (!allowed.has(symbol)) throw new Error(`symbol is not approved for direct export: ${symbol}`);
+    if (seen.has(symbol)) throw new Error(`duplicate declared symbol: ${symbol}`);
+    seen.add(symbol);
+  });
+
+  if (!Array.isArray(exportObject.rows) || exportObject.rows.length === 0) {
+    throw new Error('rows must contain at least one trajectory sample');
+  }
+
+  let previousTime = -Infinity;
+  exportObject.rows.forEach((row, index) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      throw new Error(`row ${index} must be an object`);
+    }
+    const t = finiteNonNegative(row.timestampSec, `row ${index} timestampSec`);
+    if (t <= previousTime) {
+      throw new Error(`trajectory timestamps must be strictly increasing at row ${index}`);
+    }
+    previousTime = t;
+    if (!row.values || typeof row.values !== 'object' || Array.isArray(row.values)) {
+      throw new Error(`row ${index} values object is required`);
+    }
+
+    Object.keys(row.values).forEach(symbol => {
+      if (!seen.has(symbol)) {
+        throw new Error(`row ${index} contains undeclared symbol: ${symbol}`);
+      }
+    });
+    declaredSymbols.forEach(symbol => {
+      if (!Object.prototype.hasOwnProperty.call(row.values, symbol)) {
+        throw new Error(`row ${index} missing declared symbol: ${symbol}`);
+      }
+      const value = row.values[symbol];
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new Error(`row ${index} symbol ${symbol} must be a finite number`);
+      }
+    });
+  });
+
+  return exportObject;
+}
+
+function makeCanonicalExportPaths(symbols) {
+  const paths = {};
+  symbols.forEach(symbol => {
+    paths[symbol] = `values.${symbol}`;
+  });
+  return paths;
+}
+
+// Canonical exports intentionally preserve exact HumMod source symbols as
+// literal JSON keys (for example, "PO2Artys.Pressure"). The generic exact-path
+// mapper uses dot-separated object paths, so normalization expands those
+// literal keys into a temporary nested object. The source export itself is
+// never mutated or re-serialized into a lossy representation.
+function expandCanonicalRowForExactPathMapping(row, symbols) {
+  const expanded = { timestampSec: row.timestampSec, values: {} };
+  symbols.forEach(symbol => {
+    const parts = symbol.split('.');
+    let cursor = expanded.values;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      const part = parts[i];
+      if (!cursor[part]) cursor[part] = {};
+      cursor = cursor[part];
+    }
+    cursor[parts[parts.length - 1]] = row.values[symbol];
+  });
+  return expanded;
+}
+
+function normalizeHumModTrajectoryExport(exportObject, { subjectId = null, runId = null } = {}) {
+  validateHumModTrajectoryExport(exportObject);
+  const exportPaths = makeCanonicalExportPaths(exportObject.symbols);
+  const mapper = createHumModStandaloneExportMapper({
+    hummodRevision: exportObject.source.revision,
+    exporterVersion: exportObject.source.exporterVersion,
+    timestampPath: 'timestampSec',
+    exportPaths,
+    requiredTargets: ['timestampSec'],
+    subjectId,
+    runId: runId || exportObject.trajectoryId,
+  });
+  return Object.freeze(exportObject.rows.map(row =>
+    mapper(expandCanonicalRowForExactPathMapping(row, exportObject.symbols))));
+}
+
+function createReplayProviderFromHumModExport(exportObject, options = {}) {
+  const snapshots = normalizeHumModTrajectoryExport(exportObject, options);
+  return createHumModReplayProvider({
+    snapshots,
+    trajectoryId: exportObject.trajectoryId,
+  });
+}
+
+module.exports = {
+  HUMMOD_EXPORT_SCHEMA,
+  validateHumModTrajectoryExport,
+  normalizeHumModTrajectoryExport,
+  createReplayProviderFromHumModExport,
+};
+
+},
+"src/hummod_runner_contract.js":function(module,exports,require){
+'use strict';
+
+// hummod_runner_contract.js
+//
+// Contract between Vent and an external HumMod execution/export process.
+// It deliberately does not execute HumMod, convert System.X, or invent values.
+//
+// The runner request is expressed in Vent-facing seconds, but the external
+// runner must independently verify HumMod source-clock semantics before it may
+// emit a canonical vent-hummod-trajectory/v1 export.
+
+const {
+  HUMMOD_STANDALONE_UPSTREAM,
+  listVerifiedDirectMappings,
+} = require("src/hummod_standalone_manifest.js");
+
+const HUMMOD_RUN_REQUEST_SCHEMA = 'vent-hummod-run-request/v1';
+
+function nonEmptyString(value, label) {
+  if (typeof value !== 'string' || !value) {
+    throw new Error(label + ' must be a non-empty string');
+  }
+  return value;
+}
+
+function positive(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    throw new Error(label + ' must be a finite positive number');
+  }
+  return value;
+}
+
+function verifiedSymbols() {
+  return listVerifiedDirectMappings().map(m => m.symbol);
+}
+
+function createHumModRunRequest({
+  trajectoryId,
+  durationSec,
+  sampleIntervalSec,
+  symbols = verifiedSymbols(),
+  scenarioId = null,
+  notes = null,
+} = {}) {
+  nonEmptyString(trajectoryId, 'trajectoryId');
+  positive(durationSec, 'durationSec');
+  positive(sampleIntervalSec, 'sampleIntervalSec');
+  if (sampleIntervalSec > durationSec) {
+    throw new Error('sampleIntervalSec must not exceed durationSec');
+  }
+  if (!Array.isArray(symbols) || symbols.length === 0) {
+    throw new Error('symbols must be a non-empty array');
+  }
+
+  const allowed = new Set(verifiedSymbols());
+  const seen = new Set();
+  const requested = symbols.map(symbol => {
+    nonEmptyString(symbol, 'symbol');
+    if (!allowed.has(symbol)) {
+      throw new Error('symbol is not verified for direct HumMod export: ' + symbol);
+    }
+    if (seen.has(symbol)) throw new Error('duplicate requested symbol: ' + symbol);
+    seen.add(symbol);
+    return symbol;
+  });
+
+  return Object.freeze({
+    schema: HUMMOD_RUN_REQUEST_SCHEMA,
+    trajectoryId,
+    source: Object.freeze({
+      repository: HUMMOD_STANDALONE_UPSTREAM.repository,
+      revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+    }),
+    requestedOutput: Object.freeze({
+      durationSec,
+      sampleIntervalSec,
+      symbols: Object.freeze(requested),
+      canonicalSchema: 'vent-hummod-trajectory/v1',
+    }),
+    sourceClock: Object.freeze({
+      symbol: 'System.X',
+      unit: null,
+      verificationStatus: 'must-be-verified-by-runner-before-export',
+      conversionToTimestampSec: null,
+    }),
+    scenarioId: typeof scenarioId === 'string' && scenarioId ? scenarioId : null,
+    notes: typeof notes === 'string' && notes ? notes : null,
+    executable: false,
+    blocker: 'HumMod source clock unit/semantics are not yet verified',
+  });
+}
+
+function assertRunnerClockVerified(request, clockVerification) {
+  if (!request || request.schema !== HUMMOD_RUN_REQUEST_SCHEMA) {
+    throw new Error('valid HumMod run request is required');
+  }
+  if (!clockVerification || typeof clockVerification !== 'object') {
+    throw new Error('clockVerification is required');
+  }
+  nonEmptyString(clockVerification.sourceClockUnit, 'clockVerification.sourceClockUnit');
+  nonEmptyString(clockVerification.verificationSource, 'clockVerification.verificationSource');
+  if (clockVerification.verified !== true) {
+    throw new Error('HumMod source clock must be explicitly verified');
+  }
+
+  return Object.freeze({
+    ...request,
+    sourceClock: Object.freeze({
+      symbol: 'System.X',
+      unit: clockVerification.sourceClockUnit,
+      verificationStatus: 'verified',
+      verificationSource: clockVerification.verificationSource,
+      conversionToTimestampSec: clockVerification.conversionToTimestampSec || null,
+    }),
+    executable: true,
+    blocker: null,
+  });
+}
+
+module.exports = {
+  HUMMOD_RUN_REQUEST_SCHEMA,
+  createHumModRunRequest,
+  assertRunnerClockVerified,
+};
+
+},
+"src/clinical_twin_runtime.js":function(module,exports,require){
+'use strict';
+
+// clinical_twin_runtime.js
+//
+// Binds one authored Berlin ARDS case to one validated HumMod replay trajectory.
+// This is deliberately a composition layer: Vent continues to own pulmonary
+// mechanics and ventilator interactions, while HumMod replay owns the systemic
+// snapshot fields present in the validated trajectory.
+//
+// A replay is not a live HumMod solver. Arbitrary Vent interventions must not be
+// forwarded to the replay provider as if the systemic trajectory could respond.
+
+const { getBerlinCase } = require("src/berlin_case_catalog.js");
+const { createReplayProviderFromHumModExport,
+        validateHumModTrajectoryExport } = require("src/hummod_export_contract.js");
+
+function requireObject(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value;
+}
+
+function createBerlinHumModReplayRuntime({ caseId, humModExport } = {}) {
+  if (typeof caseId !== 'string' || !caseId) throw new Error('caseId is required');
+  requireObject(humModExport, 'humModExport');
+
+  const clinicalCase = getBerlinCase(caseId);
+  validateHumModTrajectoryExport(humModExport);
+
+  const provider = createReplayProviderFromHumModExport(humModExport, {
+    subjectId: clinicalCase.id,
+    runId: humModExport.trajectoryId,
+  });
+
+  let initialized = false;
+  let currentSystemicSnapshot = null;
+
+  return Object.freeze({
+    kind: 'berlin-hummod-replay-runtime',
+    mode: 'deterministic-systemic-replay',
+    clinicalCase,
+    trajectoryId: humModExport.trajectoryId,
+    systemicSource: Object.freeze({
+      provider: 'HumMod-replay',
+      repository: humModExport.source.repository,
+      revision: humModExport.source.revision,
+      exporterVersion: humModExport.source.exporterVersion,
+      status: 'validated-replay-source-not-live-coupling',
+    }),
+
+    initialize() {
+      currentSystemicSnapshot = provider.initialize();
+      initialized = true;
+      return this.snapshot();
+    },
+
+    sample(timestampSec) {
+      if (!initialized) throw new Error('runtime must be initialized before sampling');
+      currentSystemicSnapshot = provider.sample(timestampSec);
+      return this.snapshot();
+    },
+
+    snapshot() {
+      return Object.freeze({
+        caseId: clinicalCase.id,
+        caseName: clinicalCase.name,
+        berlinSeverity: clinicalCase.clinical.berlinSeverity,
+        recruitability: clinicalCase.phenotype.recruitability,
+        systemic: currentSystemicSnapshot,
+        systemicStatus: initialized ? 'attached-hummod-replay' : 'not-initialized',
+        pulmonaryStatus: 'Vent runtime not instantiated by this composition object',
+        couplingStatus: 'replay-only-no-bidirectional-intervention-response',
+      });
+    },
+
+    applyVentIntervention() {
+      throw new Error(
+        'HumMod replay runtime cannot synthesize systemic response to Vent interventions; ' +
+        'use a live coupled provider or an authored trajectory containing that intervention');
+    },
+  });
+}
+
+module.exports = { createBerlinHumModReplayRuntime };
+
+},
+"src/clinical_twin_session.js":function(module,exports,require){
+'use strict';
+
+// clinical_twin_session.js
+//
+// End-to-end composition for one synthetic Berlin ARDS case.
+//
+// Ownership:
+// - Vent owns ventilator settings, lung mechanics, recruitment state,
+//   waveforms and explicit hold-derived respiratory measurements.
+// - HumMod replay owns the normalized systemic/gas-exchange snapshot fields
+//   present in the validated source trajectory.
+// - The browser gas-exchange approximation is disabled in this composition to
+//   avoid two engines simultaneously claiming authority over PaO2/PaCO2.
+//
+// This module does not infer missing ventilator settings, PBW-derived tidal
+// volume, or recruitment state. Callers must provide them explicitly.
+
+const { getBerlinCase } = require("src/berlin_case_catalog.js");
+const { makePatientParams } = require("src/contracts.js");
+const { Simulation, VcAcController, PcAcController } = require("src/simulation.js");
+const { summarizeSimulationMeasurements } = require("src/bedside_measurements.js");
+const { createBerlinHumModReplayRuntime } = require("src/clinical_twin_runtime.js");
+const { validateHumModTrajectoryExport } = require("src/hummod_export_contract.js");
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number`);
+  }
+  return value;
+}
+
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(`${label} must be > 0`);
+  return value;
+}
+
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(`${label} must be non-negative`);
+  return value;
+}
+
+function fraction(value, label) {
+  finite(value, label);
+  if (value < 0 || value > 1) throw new Error(`${label} must be in [0,1]`);
+  return value;
+}
+
+function validateRecruitmentState(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('initialRecruitmentState is required');
+  }
+  ['normal', 'recruitable', 'consolidated'].forEach(key => finite(value[key], `initialRecruitmentState.${key}`));
+  if (value.normal !== 1) throw new Error('initialRecruitmentState.normal must be 1');
+  if (value.consolidated !== 0) throw new Error('initialRecruitmentState.consolidated must be 0');
+  if (value.recruitable < 0 || value.recruitable > 1) {
+    throw new Error('initialRecruitmentState.recruitable must be in [0,1]');
+  }
+  return value;
+}
+
+function buildController(ventilation) {
+  if (!ventilation || typeof ventilation !== 'object' || Array.isArray(ventilation)) {
+    throw new Error('ventilation settings are required');
+  }
+  const mode = ventilation.mode;
+  const common = {
+    fio2: fraction(ventilation.fio2, 'ventilation.fio2'),
+    peep: nonNegative(ventilation.peep, 'ventilation.peep'),
+    rr: positive(ventilation.rr, 'ventilation.rr'),
+  };
+
+  if (mode === 'VC_AC') {
+    return new VcAcController({
+      ...common,
+      vt: positive(ventilation.vtL, 'ventilation.vtL'),
+      inspiratoryFlow: positive(ventilation.inspiratoryFlowLps, 'ventilation.inspiratoryFlowLps'),
+      inspiratoryPause: ventilation.inspiratoryPauseSec == null
+        ? 0
+        : nonNegative(ventilation.inspiratoryPauseSec, 'ventilation.inspiratoryPauseSec'),
+    });
+  }
+
+  if (mode === 'PC_AC') {
+    return new PcAcController({
+      ...common,
+      pinsp: positive(ventilation.pinspCmH2O, 'ventilation.pinspCmH2O'),
+      inspiratoryTime: positive(ventilation.inspiratoryTimeSec, 'ventilation.inspiratoryTimeSec'),
+      inspiratoryPause: ventilation.inspiratoryPauseSec == null
+        ? 0
+        : nonNegative(ventilation.inspiratoryPauseSec, 'ventilation.inspiratoryPauseSec'),
+    });
+  }
+
+  throw new Error('ventilation.mode must be VC_AC or PC_AC');
+}
+
+function createBerlinClinicalTwinSession({
+  caseId,
+  humModExport,
+  ventilation,
+  initialRecruitmentState,
+  dt = 0.002,
+} = {}) {
+  const clinicalCase = getBerlinCase(caseId);
+  validateHumModTrajectoryExport(humModExport);
+  validateRecruitmentState(initialRecruitmentState);
+  positive(dt, 'dt');
+
+  const controller = buildController(ventilation);
+  const params = makePatientParams(clinicalCase.phenotype.mechanicsParams);
+  const simulation = new Simulation({
+    params,
+    controller,
+    dt,
+    trackGas: false,
+    initialPEEP: ventilation.peep,
+    initialRecruitmentState,
+  });
+
+  const systemicRuntime = createBerlinHumModReplayRuntime({
+    caseId,
+    humModExport,
+  });
+
+  const trajectoryEndSec = humModExport.rows[humModExport.rows.length - 1].timestampSec;
+  const sessionEvents = [];
+  let initialized = false;
+  let systemicSnapshot = null;
+
+  function currentVentSettings() {
+    const s = simulation.controller.settings;
+    const base = {
+      fio2: s.fio2,
+      peepCmH2O: s.peep,
+      rrPerMin: s.rr,
+    };
+    if (simulation.controller instanceof VcAcController) {
+      return Object.freeze({
+        ...base,
+        mode: 'VC_AC',
+        vtL: s.vt,
+        inspiratoryFlowLps: s.inspiratoryFlow,
+        inspiratoryPauseSec: s.inspiratoryPause,
+      });
+    }
+    return Object.freeze({
+      ...base,
+      mode: 'PC_AC',
+      pinspCmH2O: s.pinsp,
+      inspiratoryTimeSec: s.inspiratoryTime,
+      inspiratoryPauseSec: s.inspiratoryPause,
+    });
+  }
+
+  function snapshot() {
+    const mechanics = summarizeSimulationMeasurements(simulation);
+    return Object.freeze({
+      sessionSchema: 'berlin-clinical-twin-session/v1',
+      timeSec: simulation.state.t,
+      case: Object.freeze({
+        id: clinicalCase.id,
+        name: clinicalCase.name,
+        berlinSeverity: clinicalCase.clinical.berlinSeverity,
+        recruitability: clinicalCase.phenotype.recruitability,
+        synthetic: clinicalCase.synthetic,
+      }),
+      ventilator: currentVentSettings(),
+      pulmonary: Object.freeze({
+        engine: 'Vent',
+        airwayPressureCmH2O: simulation.state.airwayPressure,
+        airwayFlowLps: simulation.state.totalFlow,
+        totalLungVolumeL: simulation.state.totalVolume,
+        compartments: Object.freeze(simulation.state.compartments.map(c => Object.freeze({
+          id: c.id,
+          volumeL: c.volume,
+          flowLps: c.flow,
+          alveolarPressureCmH2O: c.alveolarPressure,
+          recruitment: c.recruitment,
+        }))),
+        measurements: mechanics,
+        gasExchangeAuthority: 'disabled-in-Vent-for-composed-session',
+      }),
+      systemic: systemicSnapshot,
+      coupling: Object.freeze({
+        mode: 'shared-clock-replay',
+        systemicResponseToVentInterventions: 'not-modeled-by-fixed-replay',
+        trajectoryEndSec,
+      }),
+      events: Object.freeze(sessionEvents.slice()),
+      provenance: Object.freeze({
+        pulmonary: 'Vent mechanistic engine',
+        systemic: 'validated HumMod trajectory replay',
+        clinicalCase: 'synthetic Berlin ARDS authored case with cohort-calibrated targets',
+      }),
+    });
+  }
+
+  return Object.freeze({
+    kind: 'berlin-clinical-twin-session',
+    clinicalCase,
+    simulation,
+    trajectoryEndSec,
+
+    initialize() {
+      if (initialized) return snapshot();
+      const sys = systemicRuntime.initialize();
+      systemicSnapshot = sys.systemic;
+      initialized = true;
+      sessionEvents.push(Object.freeze({
+        t: simulation.state.t,
+        kind: 'SESSION_INITIALIZED',
+      }));
+      return snapshot();
+    },
+
+    runFor(seconds) {
+      if (!initialized) throw new Error('session must be initialized before runFor');
+      nonNegative(seconds, 'seconds');
+      const target = simulation.state.t + seconds;
+      if (target > trajectoryEndSec) {
+        throw new Error(
+          `requested session time ${target} exceeds HumMod trajectory end ${trajectoryEndSec}; fixed replay cannot extrapolate`);
+      }
+      simulation.runFor(seconds);
+      const sys = systemicRuntime.sample(simulation.state.t);
+      systemicSnapshot = sys.systemic;
+      return snapshot();
+    },
+
+    setPEEP(value) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      simulation.setPEEP(value);
+      sessionEvents.push(Object.freeze({
+        t: simulation.state.t,
+        kind: 'SET_PEEP',
+        valueCmH2O: value,
+        pulmonaryResponse: 'modeled-by-Vent',
+        systemicResponse: 'not-modeled-by-fixed-HumMod-replay',
+      }));
+      return snapshot();
+    },
+
+    requestInspiratoryHold(durationSec) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      simulation.requestInspiratoryHold(durationSec);
+      sessionEvents.push(Object.freeze({
+        t: simulation.state.t,
+        kind: 'REQUEST_INSPIRATORY_HOLD',
+      }));
+      return snapshot();
+    },
+
+    requestExpiratoryHold(durationSec) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      simulation.requestExpiratoryHold(durationSec);
+      sessionEvents.push(Object.freeze({
+        t: simulation.state.t,
+        kind: 'REQUEST_EXPIRATORY_HOLD',
+      }));
+      return snapshot();
+    },
+
+    snapshot,
+  });
+}
+
+module.exports = {
+  createBerlinClinicalTwinSession,
+  buildController,
+};
+
+},
+"src/clinical_case_readiness.js":function(module,exports,require){
+'use strict';
+
+// clinical_case_readiness.js
+//
+// UI/runtime-facing readiness assessment for authored Berlin ARDS cases.
+// This module does not calculate or infer missing clinical inputs. It explains
+// which fields are already evidence-calibrated and which must be supplied
+// before a case can become an executable clinical-twin session.
+
+const { getBerlinCase } = require("src/berlin_case_catalog.js");
+
+function field(status, value, source, note = null) {
+  return Object.freeze({ status, value, source, note });
+}
+
+function assessBerlinCaseReadiness(caseId) {
+  const c = getBerlinCase(caseId);
+  const v = c.startingVentilation || {};
+  const init = c.initialization || {};
+  const twin = c.systemicTwin || {};
+
+  const fields = Object.freeze({
+    berlinSeverity: field(
+      'ready',
+      c.clinical.berlinSeverity,
+      'authored-case-definition'),
+    recruitabilityPhenotype: field(
+      'ready',
+      c.phenotype.recruitability,
+      'Vent-mechanical-construct'),
+    mechanicsPreset: field(
+      'ready',
+      c.phenotype.mechanicsPresetId,
+      'Vent-mechanical-construct'),
+    peepCmH2O: field(
+      typeof v.peepCmH2O === 'number' ? 'cohort-calibrated' : 'missing',
+      v.peepCmH2O,
+      'published-cohort-envelope',
+      'Cohort target, not patient-specific truth.'),
+    tidalVolumeMlPerKgPbw: field(
+      typeof v.tidalVolumeMlPerKgPbw === 'number' ? 'cohort-calibrated' : 'missing',
+      v.tidalVolumeMlPerKgPbw,
+      'published-cohort-envelope',
+      'Requires validated PBW workflow before converting to absolute VT.'),
+    tidalVolumeMl: field(
+      typeof v.tidalVolumeMl === 'number' ? 'ready' : 'required-explicit-input',
+      v.tidalVolumeMl,
+      'case-author-or-validated-PBW-workflow'),
+    fio2Fraction: field(
+      typeof v.fio2Fraction === 'number' ? 'ready' : 'required-explicit-input',
+      v.fio2Fraction,
+      'case-author'),
+    respiratoryRatePerMin: field(
+      typeof v.respiratoryRatePerMin === 'number' ? 'ready' : 'required-explicit-input',
+      v.respiratoryRatePerMin,
+      'case-author'),
+    ventilatorMode: field(
+      typeof v.mode === 'string' && v.mode ? 'ready' : 'required-explicit-input',
+      v.mode,
+      'case-author'),
+    initialRecruitmentState: field(
+      init.initialRecruitmentState ? 'ready' : 'required-explicit-input',
+      init.initialRecruitmentState || null,
+      'defined-history-or-explicit-scenario-state',
+      'Must not be inferred from Berlin severity.'),
+    humModTrajectory: field(
+      twin.trajectoryId ? 'ready' : 'required-external-data',
+      twin.trajectoryId || null,
+      'validated-HumMod-export',
+      'A real validated HumMod trajectory is required for HumMod-backed replay.'),
+  });
+
+  const blockers = Object.entries(fields)
+    .filter(([, entry]) =>
+      entry.status === 'required-explicit-input' ||
+      entry.status === 'required-external-data')
+    .map(([name]) => name);
+
+  return Object.freeze({
+    caseId: c.id,
+    caseName: c.name,
+    executable: blockers.length === 0,
+    blockers: Object.freeze(blockers),
+    fields,
+    status: blockers.length === 0
+      ? 'ready-for-executable-session'
+      : 'authored-case-not-yet-executable',
+    note: 'Readiness is a data-completeness assessment, not clinical validation.',
+  });
+}
+
+function listBerlinCaseReadiness() {
+  const { listBerlinCases } = require("src/berlin_case_catalog.js");
+  return Object.freeze(listBerlinCases().map(c => assessBerlinCaseReadiness(c.id)));
+}
+
+module.exports = {
+  assessBerlinCaseReadiness,
+  listBerlinCaseReadiness,
+};
 
 },
 "src/scenario.js":function(module,exports,require){

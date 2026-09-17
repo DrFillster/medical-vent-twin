@@ -18,17 +18,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "mild",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "low",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_low_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -45,22 +48,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
@@ -91,17 +98,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "mild",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "moderate",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_moderate_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -118,22 +128,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
@@ -164,17 +178,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "mild",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "high",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_high_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -191,22 +208,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
@@ -237,17 +258,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "moderate",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "low",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_low_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -264,22 +288,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
@@ -310,17 +338,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "moderate",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "moderate",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_moderate_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -337,22 +368,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
@@ -383,17 +418,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "moderate",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "high",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_high_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -410,22 +448,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
@@ -456,17 +498,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "severe",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "low",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_low_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -483,22 +528,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
@@ -529,17 +578,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "severe",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "moderate",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_moderate_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -556,22 +608,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
@@ -602,17 +658,20 @@
           "berlinSeverity": {
             "status": "ready",
             "value": "severe",
-            "source": "authored-case-definition"
+            "source": "authored-case-definition",
+            "note": null
           },
           "recruitabilityPhenotype": {
             "status": "ready",
             "value": "high",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "mechanicsPreset": {
             "status": "ready",
             "value": "phenotype_high_recruitability",
-            "source": "Vent-mechanical-construct"
+            "source": "Vent-mechanical-construct",
+            "note": null
           },
           "peepCmH2O": {
             "status": "cohort-calibrated",
@@ -629,22 +688,26 @@
           "tidalVolumeMl": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author-or-validated-PBW-workflow"
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
           },
           "fio2Fraction": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "respiratoryRatePerMin": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "ventilatorMode": {
             "status": "required-explicit-input",
             "value": null,
-            "source": "case-author"
+            "source": "case-author",
+            "note": null
           },
           "initialRecruitmentState": {
             "status": "required-explicit-input",
