@@ -74,6 +74,7 @@ class Simulation {
     });
     this.mechanics = new ThreeCompartmentMechanics();
     this.trace = [];
+    this.interventions = [];
     this.deliveredSinceBreathStart = 0;
     this.peepOverrideActive = false;
     this.fio2 = fio2;
@@ -81,8 +82,31 @@ class Simulation {
     this.gas = trackGas ? makeInitialGasState(params, fio2) : null;
   }
 
-  setPEEP(_value) {
-    // Reserved for future PEEP changes within a run.
+  // Change PEEP without reconstructing the patient. This is intentionally a
+  // state-preserving operation: compartment volumes, pressures, recruitment,
+  // controller phase, simulation time, and trace history remain intact. The
+  // new setting is applied by the controller / expiratory pressure boundary
+  // on subsequent solver steps.
+  setPEEP(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      throw new Error('PEEP must be a finite non-negative number');
+    }
+    if (!this.controller || !this.controller.settings ||
+        typeof this.controller.settings.peep !== 'number') {
+      throw new Error('Simulation controller does not expose a mutable PEEP setting');
+    }
+
+    const previous = this.controller.settings.peep;
+    if (value === previous) return value;
+
+    this.controller.settings.peep = value;
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: 'SET_PEEP',
+      from: previous,
+      to: value,
+    }));
+    return value;
   }
 
   runFor(seconds) {
