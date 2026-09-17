@@ -1,6 +1,9 @@
 'use strict';
 
-const { derivePassiveRespiratoryMechanics } = require('../src/bedside_measurements.js');
+const {
+  derivePassiveRespiratoryMechanics,
+  summarizeSimulationMeasurements,
+} = require('../src/bedside_measurements.js');
 
 let passed = 0;
 let failed = 0;
@@ -80,6 +83,22 @@ test('provenance identifies measured and modeled inputs separately', () => {
   assert(result.provenance.plateau.includes('inspiratory hold'));
   assert(result.provenance.totalPeep.includes('expiratory hold'));
   assert(result.provenance.airwayOpeningPressure.includes('phenotype'));
+});
+
+test('simulation summary uses the latest hold of each type and modeled AOP', () => {
+  const simulation = {
+    params: { airwayOpeningPressure: 9 },
+    measurements: [
+      { kind: 'INSPIRATORY_HOLD', plateauPressureCmH2O: 20, startedAtSec: 1 },
+      { kind: 'EXPIRATORY_HOLD', totalPeepCmH2O: 8, setPeepCmH2O: 5, startedAtSec: 2 },
+      { kind: 'INSPIRATORY_HOLD', plateauPressureCmH2O: 23, startedAtSec: 3 },
+    ],
+  };
+  const result = summarizeSimulationMeasurements(simulation);
+  assert(result.inspiratoryHold.startedAtSec === 3, 'latest inspiratory hold should win');
+  assert(result.expiratoryHold.startedAtSec === 2, 'latest expiratory hold should win');
+  assert(nearlyEqual(result.effectiveEndExpiratoryReferenceCmH2O, 9));
+  assert(nearlyEqual(result.drivingPressureCmH2O, 14));
 });
 
 console.log(`\nTests: passed=${passed} failed=${failed}`);
