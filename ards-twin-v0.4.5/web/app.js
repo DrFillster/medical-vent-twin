@@ -17,16 +17,18 @@
     return labels[status] || status;
   }
 
+  let clinicalManifest = null;
+
   function renderClinicalCase(caseId) {
-    if (!window.VENT || typeof VENT.getBerlinCase !== 'function' ||
-        typeof VENT.assessBerlinCaseReadiness !== 'function') return;
-    const c = VENT.getBerlinCase(caseId);
-    const readiness = VENT.assessBerlinCaseReadiness(caseId);
-    $('clinical-summary').textContent = c.clinical.narrative;
+    if (!clinicalManifest) return;
+    const c = clinicalManifest.cases.find(item => item.id === caseId);
+    if (!c) return;
+    const readiness = c.readiness;
+    $('clinical-summary').textContent = c.narrative;
     $('clinical-severity').textContent =
-      c.clinical.berlinSeverity[0].toUpperCase() + c.clinical.berlinSeverity.slice(1);
+      c.severity[0].toUpperCase() + c.severity.slice(1);
     $('clinical-recruitability').textContent =
-      c.phenotype.recruitability[0].toUpperCase() + c.phenotype.recruitability.slice(1);
+      c.recruitability[0].toUpperCase() + c.recruitability.slice(1);
     $('clinical-executable').textContent = readiness.executable ? 'Yes' : 'Not yet';
     $('clinical-executable').dataset.status = readiness.executable ? 'ready' : 'blocked';
 
@@ -52,22 +54,36 @@
     }
   }
 
-  function initializeClinicalPreview() {
-    if (!window.VENT || typeof VENT.listBerlinCases !== 'function') return;
+  async function initializeClinicalPreview() {
     const select = $('clinical-case');
-    select.replaceChildren();
-    for (const c of VENT.listBerlinCases()) {
-      const option = document.createElement('option');
-      option.value = c.id;
-      option.textContent = c.name;
-      select.append(option);
+    try {
+      const response = await fetch('./clinical-cases.json?v=0.5-alpha', { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      clinicalManifest = await response.json();
+      if (!clinicalManifest || !Array.isArray(clinicalManifest.cases) ||
+          clinicalManifest.cases.length !== 9) {
+        throw new Error('clinical case manifest is invalid');
+      }
+      select.replaceChildren();
+      for (const c of clinicalManifest.cases) {
+        const option = document.createElement('option');
+        option.value = c.id;
+        option.textContent = c.name;
+        select.append(option);
+      }
+      const preferred = 'berlin-moderate-moderate-aspiration';
+      select.value = Array.from(select.options).some(o => o.value === preferred)
+        ? preferred
+        : select.options[0]?.value || '';
+      if (select.value) renderClinicalCase(select.value);
+      select.addEventListener('change', () => renderClinicalCase(select.value));
+    } catch (error) {
+      $('clinical-summary').textContent =
+        'Clinical case catalog could not be loaded. The mechanics lab remains available.';
+      $('clinical-executable').textContent = 'Unavailable';
+      $('clinical-readiness').textContent = error.message;
+      select.disabled = true;
     }
-    const preferred = 'berlin-moderate-moderate-aspiration';
-    select.value = Array.from(select.options).some(o => o.value === preferred)
-      ? preferred
-      : select.options[0]?.value || '';
-    if (select.value) renderClinicalCase(select.value);
-    select.addEventListener('change', () => renderClinicalCase(select.value));
   }
 
   const examples = {
