@@ -34,6 +34,31 @@ const { chromium, webkit } = require('playwright');
       await page.locator('#clinical-case').selectOption('berlin-severe-high-diffuse-inflammatory');
       assert.equal((await page.locator('#clinical-severity').textContent()).trim(),'Severe');
       assert.equal((await page.locator('#clinical-recruitability').textContent()).trim(),'High');
+
+      // End-to-end clinical-session smoke uses a clearly labeled test-only
+      // HumMod replay fixture. No fixture value is presented as clinical truth.
+      await page.locator('#clinical-case').selectOption('berlin-moderate-moderate-aspiration');
+      await page.locator('#clinical-session-panel > summary').click();
+      await page.locator('#clinical-hummod-file').setInputFiles(
+        path.resolve(__dirname,'fixtures/hummod-browser-fixture.json'));
+      await page.waitForFunction(()=>document.querySelector('#clinical-hummod-status').textContent.startsWith('Loaded trajectory'));
+      await page.locator('#clinical-mode').selectOption('VC_AC');
+      await page.locator('#clinical-fio2').fill('0.6');
+      await page.locator('#clinical-peep').fill('8');
+      await page.locator('#clinical-rr').fill('20');
+      await page.locator('#clinical-recruitment').fill('0.35');
+      await page.locator('#clinical-vt').fill('0.42');
+      await page.locator('#clinical-flow').fill('0.7');
+      await page.locator('#clinical-vc-pause').fill('0.2');
+      await page.locator('#clinical-initialize').click();
+      await page.waitForFunction(()=>document.querySelector('#clinical-session-status').textContent.startsWith('Session active'),null,{timeout:30000});
+      assert.equal((await page.locator('#clinical-time').textContent()).trim(),'0');
+      assert.equal((await page.locator('#clinical-hr').textContent()).trim(),'90');
+      await page.locator('#clinical-run-seconds').fill('1');
+      await page.locator('#clinical-run').click();
+      await page.waitForFunction(()=>document.querySelector('#clinical-time').textContent!=='0',null,{timeout:30000});
+      assert.equal((await page.locator('#clinical-hr').textContent()).trim(),'91');
+
       await page.locator('#run').click();
       await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Run complete'),null,{timeout:120000});
       assert(Number.isFinite(Number(await page.locator('#m-ppeak').textContent())));
