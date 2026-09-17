@@ -39,13 +39,22 @@ Repository code search for export/save/CSV/recording terminology did not identif
 
 The checked-in `HumMod.EXE` is a Windows binary. The repository connector cannot decode binary contents, so no claim is made about undocumented executable menus or export features.
 
-## Important clock/unit boundary
+## Verified clock/unit boundary
 
 Vent's canonical HumMod trajectory contract uses `timestampSec`.
 
-HumMod display definitions use `System.X`, and GoFor presets encode execution intervals. The exact unit semantics of `System.X` must be verified against HumMod runtime/documentation before any exporter converts it to seconds.
+For the pinned standalone revision, `System.X` is verified to use **minutes**:
 
-Do not infer or hard-code a time conversion from menu labels alone.
+- `Control/GoFor.DES` maps `0.0166666` to **1 Sec**
+- `Control/GoFor.DES` maps `1` to **1 Min**
+- `Control/GoFor.DES` maps `1440` to **1 Day**
+- HumMod's official schema documentation independently uses a solution interval of `1440` as **To Next Day**
+
+Therefore the pinned runner contract uses:
+
+`timestampSec = System.X * 60`
+
+This verification is revision-specific. A different HumMod model/revision must not inherit the conversion without re-verification.
 
 ## Export path decision tree
 
@@ -75,7 +84,7 @@ The runner must:
 1. pin the exact HumMod revision;
 2. request only verified source symbols;
 3. preserve raw source values;
-4. verify runtime clock semantics before producing `timestampSec`;
+4. use the pinned, verified `System.X` minutes-to-seconds conversion;
 5. record every intervention and scenario input;
 6. emit the canonical Vent export schema;
 7. fail on missing symbols rather than substituting nearest names.
@@ -100,7 +109,7 @@ No synthetic values should be labeled HumMod-derived until a real runtime export
 ## Next verification targets
 
 1. Identify any official HumMod runtime/user documentation describing stored-series export.
-2. Verify the units and reset/initialization semantics of `System.X`.
-3. Determine whether the standalone executable supports reproducible scripted/batch execution.
-4. If not, define the minimum external runner interface without vendoring HumMod assets.
+2. Verify reset/initialization semantics of `System.X`.
+3. Determine whether the standalone executable supports reproducible scripted/batch execution or native stored-series export.
+4. If not, implement the minimum external runner interface without vendoring HumMod assets.
 5. Re-check licensing/redistribution terms before distributing any HumMod runtime or modified upstream files.
