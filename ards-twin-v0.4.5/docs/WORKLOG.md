@@ -158,3 +158,60 @@ Immediately after workflow creation, the GitHub Actions API still reported zero 
 2. Create the first end-to-end moderate Berlin ARDS case with attached HumMod systemic replay data.
 3. Implement clinically trustworthy bedside measurements: expiratory hold/total PEEP, inspiratory hold/plateau, then driving pressure.
 4. Add a patient-first UI selector and provenance display after the measurement/runtime primitives are trustworthy.
+
+## 2026-09-17 — explicit bedside occlusion measurements
+
+### Inspiratory and expiratory hold mechanics implemented
+
+Updated `src/simulation.js` with explicit bedside ventilator maneuvers:
+
+- `requestInspiratoryHold(durationSec)`
+- `requestExpiratoryHold(durationSec)`
+- one-maneuver-at-a-time state management
+- zero-flow airway occlusion during the hold
+- ventilator cycle clock frozen during the occlusion
+- maneuver request/start/complete events in the intervention log
+- late-hold median pressure and flow captured as explicit measurements
+- inspiratory hold reports plateau pressure
+- expiratory hold reports total PEEP and the contemporaneous set PEEP
+- trace rows carry maneuver labels so future waveform UI can annotate the occlusion window
+
+The expiratory hold is deliberately scheduled at end expiration rather than during ordinary expiratory flow. This fixes the conceptual problem in the legacy metrics layer where airway pressure was clamped to set PEEP and could therefore hide trapped alveolar pressure.
+
+Added `test/hold_maneuvers.test.js` covering:
+
+- explicit inspiratory-hold plateau measurement
+- explicit end-expiratory total-PEEP measurement
+- zero-flow behavior during both holds
+- a high-resistance reference case that exposes pressure above set PEEP during an expiratory hold
+- maneuver concurrency rejection
+- refusal of the core summary to fabricate an unmeasured driving pressure
+
+GitHub Actions run `35276933328` for commit `b5a7190a686a9d75cb9322742040983590c744ff` completed successfully, including the new maneuver regression tests.
+
+### Passive mechanics derivation layer added
+
+Added `src/bedside_measurements.js` and `test/bedside_measurements.test.js`.
+
+This layer consumes completed hold measurements and derives:
+
+- intrinsic PEEP from total PEEP versus set PEEP
+- an explicit effective end-expiratory pressure reference
+- airway driving pressure from plateau pressure versus that reference
+
+Because the Vent mechanics model contains an explicit airway-opening pressure (AOP), the effective end-expiratory reference is not allowed to fall below set PEEP, measured total PEEP, or modeled AOP. This prevents a misleading driving-pressure value when set PEEP is below a closed-airway threshold.
+
+The derivation preserves provenance separating measured hold pressures from the mechanical phenotype's AOP parameter. It remains labeled as an educational/research simulator derivation rather than clinical validation.
+
+Browser and bundle exports now expose the hold maneuver type and passive-mechanics derivation function.
+
+### Verification status
+
+The hold-maneuver implementation passed CI. A newer CI run covering the passive-mechanics derivation and export changes was queued/in progress when this entry was written; do not claim that newer head as verified until that run completes.
+
+### Next implementation steps
+
+1. Wire the passive-mechanics derivation directly into the Simulation measurement summary and the future patient UI.
+2. Replace/deprecate the legacy waveform-based auto-PEEP metric in favor of explicit expiratory-hold measurement.
+3. Continue HumMod source mapping using exact upstream variable paths and a pinned upstream revision.
+4. Build the first moderate-Berlin end-to-end case combining Vent measurements with HumMod replay systemic state.
