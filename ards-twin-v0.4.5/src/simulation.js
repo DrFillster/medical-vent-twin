@@ -20,6 +20,7 @@ const {
   deadSpaceFraction,
 } = require('./gas_exchange.js');
 const { analyzeAll } = require('./metrics.js');
+const { summarizeSimulationMeasurements } = require('./bedside_measurements.js');
 
 const ManeuverKind = Object.freeze({
   INSPIRATORY_HOLD: 'INSPIRATORY_HOLD',
@@ -255,16 +256,11 @@ class Simulation {
   }
 
   measurementSummary() {
-    const latestInspiratory = [...this.measurements].reverse()
-      .find(m => m.kind === ManeuverKind.INSPIRATORY_HOLD) || null;
-    const latestExpiratory = [...this.measurements].reverse()
-      .find(m => m.kind === ManeuverKind.EXPIRATORY_HOLD) || null;
+    const summary = summarizeSimulationMeasurements(this);
     return Object.freeze({
-      plateauPressureCmH2O: latestInspiratory ? latestInspiratory.plateauPressureCmH2O : null,
-      totalPeepCmH2O: latestExpiratory ? latestExpiratory.totalPeepCmH2O : null,
-      setPeepAtMeasurementCmH2O: latestExpiratory ? latestExpiratory.setPeepCmH2O : null,
-      drivingPressureCmH2O: null,
-      drivingPressureStatus: 'not-derived-by-core; requires validated downstream calculation',
+      ...summary,
+      setPeepAtMeasurementCmH2O: summary.setPeepCmH2O,
+      drivingPressureStatus: summary.status,
     });
   }
 
