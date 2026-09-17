@@ -7,12 +7,31 @@
 <meta name="description" content="Explore pressure, flow, volume, and recruitment with an inspectable three-compartment mechanical lung model.">
 <title>Mechanistic Lung Simulator · 0.4.5</title>
 <link rel="stylesheet" href="./styles.css?v=0.4.5">
-<script src="./app.js?v=0.4.5" defer></script>
+<script src="./engine.js?v=0.5-alpha" defer></script>
+<script src="./app.js?v=0.5-alpha" defer></script>
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
 <header class="masthead"><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">VENTILATION LAB <span>0.4.5</span></p><h1>Mechanistic Lung Simulator</h1></div></div><p class="intro">Explore how lung mechanics shape a breath.</p><p class="scope">Educational prototype · Mechanical phenotypes, not clinical ARDS grades · Not for patient care</p></header>
 <main>
+<section class="clinical-preview card" aria-labelledby="clinical-title">
+<div class="section-heading"><span class="step">00</span><h2 id="clinical-title">Clinical Twin preview</h2></div>
+<p class="clinical-lead">Browse the synthetic Berlin ARDS case catalog and inspect what is known, assumed, or still required before a case can become an executable Vent + HumMod session.</p>
+<label for="clinical-case">Synthetic ARDS case</label>
+<select id="clinical-case" aria-describedby="clinical-case-note"></select>
+<p id="clinical-case-note" class="hint">Cases are synthetic teaching constructs calibrated to published cohort envelopes; they are not deidentified patient records.</p>
+<div id="clinical-summary" class="clinical-summary" aria-live="polite"></div>
+<div class="clinical-grid">
+<article><h3>Berlin severity</h3><p id="clinical-severity">—</p></article>
+<article><h3>Recruitability</h3><p id="clinical-recruitability">—</p></article>
+<article><h3>Executable now?</h3><p id="clinical-executable">—</p></article>
+</div>
+<div class="readiness-block">
+<h3>Session readiness</h3>
+<div id="clinical-readiness"></div>
+</div>
+<details class="advanced"><summary>Provenance and safeguards</summary><p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. Cohort-calibrated fields are targets, not individual truth. Vent owns pulmonary mechanics; HumMod data will supply systemic physiology when a validated trajectory is attached.</p></details>
+</section>
 <section class="controls card" aria-labelledby="setup-title">
 <div class="section-heading"><span class="step">01</span><h2 id="setup-title">Set up a scenario</h2></div>
 <form id="settings">
