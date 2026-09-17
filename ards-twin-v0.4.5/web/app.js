@@ -214,20 +214,34 @@
     clinicalHumModExport = null;
     if (!file) {
       $('clinical-hummod-status').textContent =
-        'Attach a validated vent-hummod-trajectory/v1 export.';
+        'Attach a canonical Vent trajectory or raw HumMod System.X series.';
       return;
     }
     const text = await file.text();
     const parsed = JSON.parse(text);
-    if (parsed.schema !== 'vent-hummod-trajectory/v1') {
-      throw new Error('HumMod file schema must be vent-hummod-trajectory/v1');
+
+    let canonical;
+    let sourceKind;
+    if (parsed.schema === 'vent-hummod-trajectory/v1') {
+      canonical = parsed;
+      sourceKind = 'canonical trajectory';
+    } else if (parsed.schema === 'hummod-raw-series/v1') {
+      if (!window.VENT || typeof VENT.convertHumModRawSeries !== 'function') {
+        throw new Error('Raw HumMod conversion is unavailable in this browser build');
+      }
+      canonical = VENT.convertHumModRawSeries(parsed);
+      sourceKind = 'raw System.X series converted to canonical seconds';
+    } else {
+      throw new Error(
+        'HumMod file schema must be vent-hummod-trajectory/v1 or hummod-raw-series/v1');
     }
-    if (!Array.isArray(parsed.rows) || parsed.rows.length === 0) {
+
+    if (!Array.isArray(canonical.rows) || canonical.rows.length === 0) {
       throw new Error('HumMod trajectory must contain at least one row');
     }
-    clinicalHumModExport = parsed;
+    clinicalHumModExport = canonical;
     $('clinical-hummod-status').textContent =
-      'Loaded trajectory ' + (parsed.trajectoryId || '(missing ID)') +
+      'Loaded ' + sourceKind + ' · ' + (canonical.trajectoryId || '(missing ID)') +
       ' · full validation occurs during session initialization.';
   }
 
