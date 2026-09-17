@@ -2,6 +2,7 @@
 
 const {
   HUMMOD_RUN_REQUEST_SCHEMA,
+  HUMMOD_SOURCE_CLOCK,
   createHumModRunRequest,
   assertRunnerClockVerified,
 } = require('../src/hummod_runner_contract.js');
@@ -29,9 +30,13 @@ test('run request pins upstream and defaults to verified direct symbols', () => 
   assert(r.source.repository === HUMMOD_STANDALONE_UPSTREAM.repository);
   assert(r.source.revision === HUMMOD_STANDALONE_UPSTREAM.revision);
   assert(r.requestedOutput.symbols.length === listVerifiedDirectMappings().length);
-  assert(r.executable === false);
+  assert(r.executable === true);
+  assert(r.blocker === null);
   assert(r.sourceClock.symbol === 'System.X');
-  assert(r.sourceClock.unit === null);
+  assert(r.sourceClock.unit === 'minute');
+  assert(r.sourceClock.secondsPerUnit === 60);
+  assert(r.sourceClock.conversionToTimestampSec === 'timestampSec = System.X * 60');
+  assert(r.sourceClock.verificationStatus === 'verified-for-pinned-revision');
 });
 
 test('run request rejects unverified symbols and invalid cadence', () => {
@@ -57,7 +62,14 @@ test('run request rejects unverified symbols and invalid cadence', () => {
   assert(threwCadence);
 });
 
-test('run request cannot become executable without explicit source-clock verification', () => {
+test('pinned System.X clock contract is verified as minutes', () => {
+  assert(HUMMOD_SOURCE_CLOCK.symbol === 'System.X');
+  assert(HUMMOD_SOURCE_CLOCK.unit === 'minute');
+  assert(HUMMOD_SOURCE_CLOCK.secondsPerUnit === 60);
+  assert(HUMMOD_SOURCE_CLOCK.verificationSources.length >= 2);
+});
+
+test('clock assertion rejects a conversion inconsistent with the pinned contract', () => {
   const r = createHumModRunRequest({
     trajectoryId: 'x',
     durationSec: 30,
@@ -66,29 +78,12 @@ test('run request cannot become executable without explicit source-clock verific
   let threw = false;
   try {
     assertRunnerClockVerified(r, {
-      verified: false,
-      sourceClockUnit: 'unknown',
-      verificationSource: 'none',
+      unit: 'second',
+      secondsPerUnit: 1,
     });
   } catch (_) { threw = true; }
   assert(threw);
-});
-
-test('verified clock receipt preserves verification provenance', () => {
-  const r = createHumModRunRequest({
-    trajectoryId: 'x',
-    durationSec: 30,
-    sampleIntervalSec: 5,
-  });
-  const ready = assertRunnerClockVerified(r, {
-    verified: true,
-    sourceClockUnit: 'verified-unit-placeholder',
-    verificationSource: 'test-fixture-only',
-  });
-  assert(ready.executable === true);
-  assert(ready.blocker === null);
-  assert(ready.sourceClock.verificationStatus === 'verified');
-  assert(ready.sourceClock.verificationSource === 'test-fixture-only');
+  assert(assertRunnerClockVerified(r) === r);
 });
 
 console.log('\nTests: passed=' + passed + ' failed=' + failed);
