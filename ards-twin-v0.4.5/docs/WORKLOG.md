@@ -334,3 +334,57 @@ GitHub Actions run `35280012377` was queued for branch head `88f9ebe12aa44f2dd10
 2. Bind that trajectory to `berlin-moderate-moderate-aspiration` as the first end-to-end systemic replay case.
 3. Add a clinical-twin runtime that advances Vent mechanics and samples the attached systemic provider on one timeline while retaining separate solver provenance.
 4. Wire explicit hold-derived mechanics into the patient-facing runtime and retire legacy waveform auto-PEEP as a clinical-facing value.
+
+
+## 2026-09-17 — canonical HumMod replay runtime and CI repair
+
+### Canonical export normalization bug fixed
+
+GitHub Actions exposed one failing assertion in `hummod_export_contract.test.js`.
+
+Root cause:
+
+- canonical HumMod trajectory rows intentionally preserve exact source symbols as literal keys, e.g. `PO2Artys.Pressure`
+- the generic HumMod mapper interprets dot-separated paths as nested object paths
+- the export contract therefore produced valid raw rows but normalized fields resolved to `null`
+
+Fix:
+
+- retain the canonical raw export format unchanged
+- expand each validated row into a temporary nested mapping object only during normalization
+- preserve exact raw HumMod symbol identity and revision/exporter provenance
+- do not introduce fuzzy matching, implicit unit conversion, or mutate the source export
+
+Commit: `43cf2e96499d1ef8900b23f7ee1879422b4f0879`.
+
+### Berlin + HumMod replay composition runtime added
+
+Added `src/clinical_twin_runtime.js`.
+
+`createBerlinHumModReplayRuntime()` now binds:
+
+- one named synthetic Berlin ARDS case from the case catalog
+- one validated canonical HumMod trajectory export
+- the pinned HumMod source revision and exporter provenance
+- deterministic systemic state sampling on the shared simulation timeline
+
+The runtime deliberately labels itself as `deterministic-systemic-replay`, not live bidirectional coupling.
+
+It explicitly refuses to synthesize a HumMod systemic response to arbitrary Vent interventions. A PEEP change or other Vent intervention can only have a systemic HumMod response when a live provider is available or when that intervention is represented by an authored HumMod trajectory.
+
+Added `test/clinical_twin_runtime.test.js` covering:
+
+- moderate Berlin / moderate recruitability case binding
+- HumMod revision provenance
+- deterministic systemic initialization and sampling
+- subject/run identity preservation
+- failure before initialization
+- refusal to fake systemic intervention response
+
+Browser and bundle exports now expose `createBerlinHumModReplayRuntime`.
+
+### Verification status
+
+Latest branch head at the time of this entry: `95733933a777cf89fccaedc7319120ba7fe9972f`.
+
+GitHub Actions run `35284416884` was in progress when this entry was written. Do not mark this head as verified until that exact run completes successfully.
