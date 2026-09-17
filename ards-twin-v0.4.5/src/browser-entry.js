@@ -5,6 +5,7 @@ module.exports = {
   ...require('./berlin_case_catalog.js'),
   ...require('./digital_twin_contract.js'),
   ...require('./hummod_adapter.js'),
+  ...require('./hummod_standalone_manifest.js'),
   ...require('./bedside_measurements.js'),
   ...require('./contracts.js'),
   ...require('./scenario.js'),
