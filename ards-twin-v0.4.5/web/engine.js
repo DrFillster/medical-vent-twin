@@ -2072,7 +2072,10 @@ function makeInitialState(params, options = {}) {
     if (vmax <= 0) {
       volume = 0;
     } else if (peep > aop) {
-      volume = forwardElasticVolume(peep, { ...cp, capacity: vmax }, a, aop);
+      // cp.capacity is the fully available asymptotic capacity. The
+      // forward helper applies availability exactly once; passing an already
+      // availability-scaled capacity here would incorrectly produce a^2.
+      volume = forwardElasticVolume(peep, cp, a, aop);
     } else {
       volume = 0;  // lower-bound regime
     }
