@@ -156,6 +156,20 @@ test('session advances Vent and samples HumMod on the same session clock', () =>
   assert(snap.systemic.timestampSec === 2, 'HumMod replay should sample the 2 second row');
 });
 
+test('session can perform a complete passive mechanics hold sequence', () => {
+  const session = makeSession();
+  session.initialize();
+  const snap = session.performPassiveMechanicsMeasurement({
+    holdDurationSec: 0.3,
+    maxAdvanceSecPerHold: 4,
+  });
+  assert(Number.isFinite(snap.pulmonary.measurements.plateauPressureCmH2O));
+  assert(Number.isFinite(snap.pulmonary.measurements.totalPeepCmH2O));
+  assert(Number.isFinite(snap.pulmonary.measurements.drivingPressureCmH2O));
+  assert(snap.pulmonary.measurements.status === 'derived-from-explicit-zero-flow-holds');
+  assert(snap.events[snap.events.length - 1].kind === 'PASSIVE_MECHANICS_MEASUREMENT_COMPLETED');
+});
+
 test('PEEP changes preserve the session and declare replay coupling limitation', () => {
   const session = makeSession();
   session.initialize();
