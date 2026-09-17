@@ -4,6 +4,7 @@
   const form = $('settings');
   const number = id => Number($(id).value);
   let worker = null, timer = null, latest = null;
+  let clinicalWorker = null, clinicalHumModExport = null, clinicalSnapshot = null;
   const chartNames = ['pressure', 'flow', 'volume'];
   const metrics = ['ppeak', 'pplat', 'dp', 'vti', 'vte', 'mv'];
   function readinessLabel(status) {
@@ -84,6 +85,216 @@
       $('clinical-readiness').textContent = error.message;
       select.disabled = true;
     }
+  }
+
+  function clinicalNumber(id) {
+    const value = Number($(id).value);
+    if (!Number.isFinite(value)) throw new Error(id + ' must be a finite number');
+    return value;
+  }
+
+  function syncClinicalMode() {
+    const mode = $('clinical-mode').value;
+    const vc = mode === 'VC_AC';
+    const pc = mode === 'PC_AC';
+    $('clinical-vc-fields').hidden = !vc;
+    $('clinical-pc-fields').hidden = !pc;
+    ['clinical-vt', 'clinical-flow', 'clinical-vc-pause'].forEach(id => {
+      $(id).required = vc && id !== 'clinical-vc-pause';
+      $(id).disabled = !vc;
+    });
+    ['clinical-pinsp', 'clinical-ti', 'clinical-pc-pause'].forEach(id => {
+      $(id).required = pc && id !== 'clinical-pc-pause';
+      $(id).disabled = !pc;
+    });
+  }
+
+  function displayClinicalValue(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? String(value) : '—';
+  }
+
+  function renderClinicalSnapshot(snapshot) {
+    clinicalSnapshot = snapshot;
+    $('clinical-live').hidden = false;
+    $('clinical-time').textContent = displayClinicalValue(snapshot.timeSec);
+    $('clinical-pao2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.pao2MmHg);
+    $('clinical-paco2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.paco2MmHg);
+    $('clinical-hr').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.heartRatePerMin);
+    $('clinical-map').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
+    $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
+    $('clinical-session-status').textContent =
+      'Session active · ' + snapshot.coupling.mode +
+      ' · HumMod replay does not synthesize systemic response to Vent interventions.';
+    $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
+    $('clinical-reset').disabled = false;
+  }
+
+  function stopClinicalWorker() {
+    if (clinicalWorker) clinicalWorker.terminate();
+    clinicalWorker = null;
+    clinicalSnapshot = null;
+    $('clinical-live').hidden = true;
+    $('clinical-reset').disabled = true;
+    $('clinical-initialize').disabled = false;
+  }
+
+  function showClinicalError(message, diagnostics) {
+    $('clinical-session-error').hidden = false;
+    $('clinical-session-error').textContent = message;
+    $('clinical-session-status').textContent = 'Clinical session not advanced.';
+    if (diagnostics) console.error('Clinical twin diagnostics', diagnostics);
+  }
+
+  function clinicalVentilationPayload() {
+    const mode = $('clinical-mode').value;
+    const payload = {
+      mode,
+      fio2: clinicalNumber('clinical-fio2'),
+      peep: clinicalNumber('clinical-peep'),
+      rr: clinicalNumber('clinical-rr'),
+    };
+    if (mode === 'VC_AC') {
+      payload.vtL = clinicalNumber('clinical-vt');
+      payload.inspiratoryFlowLps = clinicalNumber('clinical-flow');
+      payload.inspiratoryPauseSec = clinicalNumber('clinical-vc-pause');
+    } else if (mode === 'PC_AC') {
+      payload.pinspCmH2O = clinicalNumber('clinical-pinsp');
+      payload.inspiratoryTimeSec = clinicalNumber('clinical-ti');
+      payload.inspiratoryPauseSec = clinicalNumber('clinical-pc-pause');
+    } else {
+      throw new Error('Choose VC-AC or PC-AC');
+    }
+    return payload;
+  }
+
+  function startClinicalWorker() {
+    if (typeof Worker === 'undefined') {
+      throw new Error('This browser cannot run the clinical simulation worker');
+    }
+    stopClinicalWorker();
+    clinicalWorker = new Worker('./clinical-worker.js?v=0.5-alpha');
+    clinicalWorker.onerror = () => showClinicalError(
+      'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
+    clinicalWorker.onmessage = ({ data }) => {
+      if (data.type === 'error') {
+        showClinicalError(data.message, data.diagnostics);
+        $('clinical-initialize').disabled = false;
+        return;
+      }
+      if (data.type === 'initialized') {
+        $('clinical-session-error').hidden = true;
+        $('clinical-initialize').disabled = true;
+        renderClinicalSnapshot(data.snapshot);
+        return;
+      }
+      if (data.type === 'snapshot') {
+        $('clinical-session-error').hidden = true;
+        renderClinicalSnapshot(data.snapshot);
+        return;
+      }
+      if (data.type === 'reset-complete') {
+        stopClinicalWorker();
+        $('clinical-session-status').textContent = 'Session reset. Explicit inputs are preserved.';
+      }
+    };
+    return clinicalWorker;
+  }
+
+  async function loadHumModFile(file) {
+    clinicalHumModExport = null;
+    if (!file) {
+      $('clinical-hummod-status').textContent =
+        'Attach a validated vent-hummod-trajectory/v1 export.';
+      return;
+    }
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (parsed.schema !== 'vent-hummod-trajectory/v1') {
+      throw new Error('HumMod file schema must be vent-hummod-trajectory/v1');
+    }
+    if (!Array.isArray(parsed.rows) || parsed.rows.length === 0) {
+      throw new Error('HumMod trajectory must contain at least one row');
+    }
+    clinicalHumModExport = parsed;
+    $('clinical-hummod-status').textContent =
+      'Loaded trajectory ' + (parsed.trajectoryId || '(missing ID)') +
+      ' · full validation occurs during session initialization.';
+  }
+
+  function initializeClinicalSessionUi() {
+    syncClinicalMode();
+    $('clinical-mode').addEventListener('change', syncClinicalMode);
+    $('clinical-hummod-file').addEventListener('change', async event => {
+      $('clinical-session-error').hidden = true;
+      try {
+        await loadHumModFile(event.target.files?.[0] || null);
+      } catch (error) {
+        clinicalHumModExport = null;
+        $('clinical-hummod-status').textContent = 'Trajectory rejected.';
+        showClinicalError(error.message);
+      }
+    });
+
+    $('clinical-session-form').addEventListener('submit', event => {
+      event.preventDefault();
+      $('clinical-session-error').hidden = true;
+      if (!$('clinical-session-form').reportValidity()) return;
+      try {
+        if (!clinicalHumModExport) throw new Error('Attach a HumMod trajectory before initialization');
+        const w = startClinicalWorker();
+        const recruitable = clinicalNumber('clinical-recruitment');
+        w.postMessage({
+          type: 'initialize',
+          payload: {
+            caseId: $('clinical-case').value,
+            humModExport: clinicalHumModExport,
+            ventilation: clinicalVentilationPayload(),
+            initialRecruitmentState: {
+              normal: 1,
+              recruitable,
+              consolidated: 0,
+            },
+            dt: clinicalNumber('clinical-dt'),
+          },
+        });
+        $('clinical-session-status').textContent = 'Initializing Vent + HumMod replay session…';
+      } catch (error) {
+        showClinicalError(error.message);
+      }
+    });
+
+    $('clinical-run').addEventListener('click', () => {
+      try {
+        if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        clinicalWorker.postMessage({ type: 'runFor', seconds: clinicalNumber('clinical-run-seconds') });
+      } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-set-peep').addEventListener('click', () => {
+      try {
+        if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        clinicalWorker.postMessage({ type: 'setPEEP', valueCmH2O: clinicalNumber('clinical-new-peep') });
+      } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-insp-hold').addEventListener('click', () => {
+      try {
+        if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        clinicalWorker.postMessage({ type: 'requestInspiratoryHold', durationSec: 0.5 });
+      } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-exp-hold').addEventListener('click', () => {
+      try {
+        if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        clinicalWorker.postMessage({ type: 'requestExpiratoryHold', durationSec: 0.5 });
+      } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-reset').addEventListener('click', () => {
+      if (clinicalWorker) clinicalWorker.postMessage({ type: 'reset' });
+      else stopClinicalWorker();
+    });
   }
 
   const examples = {
@@ -229,5 +440,6 @@
   let resizeTimer;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (latest) chartNames.forEach(name => drawChart(name, latest.waveform)); }, 150); });
   initializeClinicalPreview();
+  initializeClinicalSessionUi();
   syncControls();
 })();
