@@ -167,6 +167,7 @@ function createBerlinClinicalTwinSession({
         synthetic: clinicalCase.synthetic,
       }),
       ventilator: currentVentSettings(),
+      ventilatorChangePending: Boolean(simulation.pendingControllerChange),
       pulmonary: Object.freeze({
         engine: 'Vent',
         airwayPressureCmH2O: simulation.state.airwayPressure,
@@ -237,6 +238,24 @@ function createBerlinClinicalTwinSession({
         kind: 'SET_PEEP',
         valueCmH2O: value,
         pulmonaryResponse: 'modeled-by-Vent',
+        systemicResponse: 'not-modeled-by-fixed-HumMod-replay',
+      }));
+      return snapshot();
+    },
+
+    requestVentilationChange(nextVentilation) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      const nextController = buildController(nextVentilation);
+      const requested = simulation.requestControllerChange(nextController, {
+        source: 'clinical-twin-session',
+      });
+      sessionEvents.push(Object.freeze({
+        t: simulation.state.t,
+        kind: 'REQUEST_VENTILATION_CHANGE',
+        fromMode: requested.fromMode,
+        toMode: requested.toMode,
+        application: 'next-completed-breath-boundary',
+        pulmonaryResponse: 'modeled-by-Vent-after-application',
         systemicResponse: 'not-modeled-by-fixed-HumMod-replay',
       }));
       return snapshot();
