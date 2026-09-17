@@ -101,11 +101,16 @@ function createBerlinClinicalTwinSession({
   humModExport,
   ventilation,
   initialRecruitmentState,
+  initializationHistory,
   dt = 0.002,
 } = {}) {
   const clinicalCase = getBerlinCase(caseId);
   validateHumModTrajectoryExport(humModExport);
-  validateRecruitmentState(initialRecruitmentState);
+  if (initialRecruitmentState) {
+    validateRecruitmentState(initialRecruitmentState);
+  } else if (!initializationHistory) {
+    throw new Error('initialRecruitmentState or initializationHistory is required');
+  }
   positive(dt, 'dt');
 
   const controller = buildController(ventilation);
@@ -117,6 +122,7 @@ function createBerlinClinicalTwinSession({
     trackGas: false,
     initialPEEP: ventilation.peep,
     initialRecruitmentState,
+    initializationHistory,
   });
 
   const systemicRuntime = createBerlinHumModReplayRuntime({
@@ -170,6 +176,7 @@ function createBerlinClinicalTwinSession({
       ventilatorChangePending: Boolean(simulation.pendingControllerChange),
       pulmonary: Object.freeze({
         engine: 'Vent',
+        initialization: simulation.initialization,
         airwayPressureCmH2O: simulation.state.airwayPressure,
         airwayFlowLps: simulation.state.totalFlow,
         totalLungVolumeL: simulation.state.totalVolume,
