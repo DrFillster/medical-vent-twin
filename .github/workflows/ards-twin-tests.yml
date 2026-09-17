@@ -1,5 +1,8 @@
 name: ARDS Twin Tests
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -30,6 +33,18 @@ jobs:
         run: npm run build
       - name: Run unit and regression tests
         run: npm test
+      - name: Commit generated browser artifacts
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/berlin-virtual-patients'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/engine.js web/clinical-cases.json
+          if git diff --cached --quiet; then
+            echo "Generated browser artifacts already current."
+          else
+            git commit -m "build: refresh generated browser artifacts [skip ci]"
+            git push origin HEAD:feature/berlin-virtual-patients
+          fi
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:
