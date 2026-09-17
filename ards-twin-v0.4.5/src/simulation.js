@@ -90,6 +90,7 @@ class Simulation {
     this.measurements = [];
     this.pendingManeuver = null;
     this.activeManeuver = null;
+    this.pendingControllerChange = null;
     this.lastCommittedPhase = controller.phase;
     this.deliveredSinceBreathStart = 0;
     this.peepOverrideActive = false;
@@ -103,6 +104,57 @@ class Simulation {
   // controller phase, simulation time, and trace history remain intact. The
   // new setting is applied by the controller / expiratory pressure boundary
   // on subsequent solver steps.
+  requestControllerChange(nextController, metadata = {}) {
+    if (!(nextController instanceof VcAcController) &&
+        !(nextController instanceof PcAcController)) {
+      throw new Error('nextController must be a VcAcController or PcAcController');
+    }
+    if (this.pendingControllerChange) {
+      throw new Error('a ventilator controller change is already pending');
+    }
+    if (this.pendingManeuver || this.activeManeuver) {
+      throw new Error('cannot queue a controller change during a pending/active hold');
+    }
+
+    const requested = Object.freeze({
+      t: this.state.t,
+      kind: 'REQUEST_CONTROLLER_CHANGE',
+      fromMode: this.controller instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      toMode: nextController instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      metadata: Object.freeze({ ...metadata }),
+    });
+    this.interventions.push(requested);
+    this.pendingControllerChange = { controller: nextController, metadata: requested.metadata };
+    return requested;
+  }
+
+  _applyPendingControllerChangeAtBreathBoundary() {
+    if (!this.pendingControllerChange) return false;
+    if (this.pendingManeuver || this.activeManeuver) return false;
+    const tracker = this.controller && this.controller.tracker;
+    if (!tracker || typeof tracker.isBreathComplete !== 'function') {
+      throw new Error('current controller does not expose a breath boundary');
+    }
+    if (!tracker.isBreathComplete(this.controller.cycleTime)) return false;
+
+    const pending = this.pendingControllerChange;
+    const previous = this.controller;
+    this.pendingControllerChange = null;
+    this.controller = pending.controller;
+    this.fio2 = this.controller.settings.fio2;
+    this.lastCommittedPhase = this.controller.phase;
+    this.deliveredSinceBreathStart = 0;
+
+    this.interventions.push(Object.freeze({
+      t: this.state.t,
+      kind: 'APPLY_CONTROLLER_CHANGE',
+      fromMode: previous instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      toMode: this.controller instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      metadata: pending.metadata,
+    }));
+    return true;
+  }
+
   setPEEP(value) {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
       throw new Error('PEEP must be a finite non-negative number');
@@ -284,6 +336,11 @@ class Simulation {
 
   step() {
     const dt = this.clock.dt;
+
+    // Full controller/settings changes are applied only at a completed-breath
+    // boundary. Lung state, recruitment, trace history and simulation time are
+    // preserved; only the ventilator controller is replaced.
+    this._applyPendingControllerChangeAtBreathBoundary();
 
     // Activate a queued hold only at its physiologically appropriate phase.
     this._activatePendingManeuver();
