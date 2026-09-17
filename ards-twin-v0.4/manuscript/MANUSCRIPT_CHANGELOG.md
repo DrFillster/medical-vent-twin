@@ -94,14 +94,14 @@ Applied the FINAL_SYNC_DIRECTIVE from the other LLM agent's handoff (`vent-v0.4.
 - **Phenotype terminology**: manuscript now uses display labels (Reference phenotype, Low-recruitability phenotype, Moderate-recruitability phenotype, High-recruitability phenotype) with a mapping table from code identifiers. The mapping is mechanical-construct descriptors (recruitable pool size), not clinical ARDS severity grades.
 - **J-4 description**: now correctly states the assertion is `totalTransitions >= 1` and the observed count is 3 in the current run. Earlier wording said "merely checks presence/non-negativity"; that wording was tightened.
 - **Benchmark labels**: "Injury C PEEP = 5" replaced with "High-recruitability phenotype, PEEP = 5 cmH2O" (and similar for other phenotypes). Numerical results preserved.
-- **Version metadata**: MANUSCRIPT_FINAL.md, package.json files, web bundle all read v0.4.4.1.
+- **Version metadata**: MANUSCRIPT_FINAL_v0.4.4.1.md, package.json files, web bundle all read v0.4.4.1.
 - **No mechanical / numerical / solver changes.**
 
 ### Acceptance gate (per FINAL_SYNC_DIRECTIVE.md §ACCEPTANCE_GATE.md)
 
 - mechanics unchanged: ✓ (no solver, tolerance, or constitutive-law edits)
 - phenotype parameter values unchanged: ✓ (compartment fractions, resistances, capacities, K, AOP identical to v0.4.4)
-- simulator version labels consistently 0.4.4.1: ✓ (package.json root, web/package.json, web/app.js header, MANUSCRIPT_FINAL.md header)
+- simulator version labels consistently 0.4.4.1: ✓ (package.json root, web/package.json, web/app.js header, MANUSCRIPT_FINAL_v0.4.4.1.md header)
 - fresh-unzip `npm test` passes: ✓ (127/127)
 - manuscript uses synchronized neutral phenotype terminology: ✓ (display labels per the directive)
 - no legacy Injury A/B/C language remains except clearly historical context: ✓ (CHANGELOG entries that mention v0.4.4 Injury naming are clearly labeled as historical)
