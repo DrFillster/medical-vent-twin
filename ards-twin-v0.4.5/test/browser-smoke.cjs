@@ -58,6 +58,22 @@ const { chromium, webkit } = require('playwright');
       await page.locator('#clinical-run').click();
       await page.waitForFunction(()=>document.querySelector('#clinical-time').textContent!=='0',null,{timeout:30000});
       assert.equal((await page.locator('#clinical-hr').textContent()).trim(),'91');
+      assert.equal((await page.locator('#clinical-current-mode').textContent()).trim(),'VC_AC');
+
+      await page.locator('#clinical-mode').selectOption('PC_AC');
+      await page.locator('#clinical-fio2').fill('0.5');
+      await page.locator('#clinical-peep').fill('10');
+      await page.locator('#clinical-rr').fill('18');
+      await page.locator('#clinical-pinsp').fill('12');
+      await page.locator('#clinical-ti').fill('0.8');
+      await page.locator('#clinical-pc-pause').fill('0.1');
+      await page.locator('#clinical-apply-vent').click();
+      await page.waitForFunction(()=>document.querySelector('#clinical-session-status').textContent.includes('pending next breath boundary'));
+      assert.equal((await page.locator('#clinical-current-mode').textContent()).trim(),'VC_AC');
+      await page.locator('#clinical-run-seconds').fill('2.2');
+      await page.locator('#clinical-run').click();
+      await page.waitForFunction(()=>document.querySelector('#clinical-current-mode').textContent.trim()==='PC_AC',null,{timeout:30000});
+      assert.equal((await page.locator('#clinical-current-peep').textContent()).trim(),'10');
 
       await page.locator('#run').click();
       await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Run complete'),null,{timeout:120000});
