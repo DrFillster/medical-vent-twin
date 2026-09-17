@@ -2,32 +2,41 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Medical Ventilation Twin</title>
+<title>Mechanistic Lung Simulator v0.4.4.1</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow">
 <style>body{font-family:system-ui,sans-serif;max-width:780px;margin:4em auto;padding:0 1.2em;color:#eee;background:#1c1c20;line-height:1.6}a{color:#6ad}h1{font-weight:500;letter-spacing:-0.01em}h2{font-weight:500;margin-top:2em;border-top:1px solid #333;padding-top:1em;font-size:1.1em;color:#aaa;text-transform:uppercase;letter-spacing:0.05em}.ver{font-family:ui-monospace,Menlo,monospace;font-size:0.85em;color:#888}li{margin:0.4em 0}</style>
 </head>
 <body>
-<h1>Medical Ventilation Twin</h1>
-<p class="ver">Three-compartment mechanical-ventilation simulator &mdash; auditable reference, JS port, manuscript draft.</p>
+<h1>Mechanistic Lung Simulator v0.4.4.1</h1>
+<p class="ver">Three-compartment mechanical-ventilation simulator &mdash; finite-capacity exponential elastic law, Newton-Raphson implicit solver with conservation by construction, bounded recruitment kinetics with feasibility floor. Phenotypes are mechanical constructs labeled by their recruitable pool size, not validated clinical ARDS severity grades. Educational exploration prototype; not a clinical decision tool; not a patient-specific digital twin.</p>
 
-<h2>Releases</h2>
+<h2>Current release: v0.4.4.1</h2>
 <ul>
-  <li><strong><a href="ards-twin-v0.4/web/">ARDS virtual-patient v0.4.2 (browser UI)</a></strong> &mdash; nonlinear mechanics (finite-capacity exponential elastic law, Newton-Raphson implicit solver with conservation by construction, bounded recruitment kinetics with feasibility floor). 89/89 tests passing. <strong>Run in browser:</strong> pick a patient preset (Baseline, Injury A/B/C), set VC-A/C controls, click Run. Source: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4">GitHub</a>.</li>
-  <li><strong><a href="ards-twin-v0.4/HANDOFF_README.md">ARDS virtual-patient v0.4.2 (handoff)</a></strong> &mdash; architecture and review notes. Low-resistance convergence verified: Ppeak&minus;Pplat drops 9.89 &rarr; -0.018 cmH2O as R &rarr; 0.01.</li>
-  <li><strong><a href="ards-twin-v0.3/HANDOFF_README.md">ARDS virtual-patient v0.3</a></strong> &mdash; dynamic three-compartment engine with VC-AC ventilator controller. Node test suite: 25/25 acceptance tests passing (deterministic, conservation, single-RC, VC-AC). Source: <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.3">GitHub</a>.</li>
-  <li><strong><a href="lung-reference/">Lung simulator v0.2.0-rc1</a></strong> &mdash; static reference implementation with browser UI, manuscript, and cross-language verification (Python + JS, 24/24 tests, 1e-6 tolerance).</li>
-  <li><strong><a href="_previous-draft/index.html">v0.1 single-file simulator</a></strong> &mdash; previous draft preserved for archival reference.</li>
+  <li><strong><a href="ards-twin-v0.4/web/">Run v0.4.4.1 in browser</a></strong> &mdash; VC-A/C and PC-A/C modes, four mechanical-construct phenotype presets (Reference / Low-, Moderate-, High-recruitability), all metadata and labels aligned to the published manuscript.</li>
+  <li><strong><a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL.md">Read the manuscript (MANUSCRIPT_FINAL.md)</a></strong> &mdash; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md">changelog</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md">review notes</a> &middot; <a href="ards-twin-v0.4/manuscript/SHA256SUMS.txt">SHA256SUMS</a>.</li>
+  <li><strong><a href="https://github.com/DrFillster/medical-vent-twin/releases/tag/v0.4.4.1">Download v0.4.4.1 ZIPs (GitHub Release)</a></strong> &mdash; <code>vent-twin-v0.4.4.1-final-clean.zip</code> (runnable simulator package) and <code>vent-manuscript-v0.4.4.1-final.zip</code> (manuscript bundle).</li>
 </ul>
 
-<h2>Specs &amp; docs</h2>
+<h2>Verification</h2>
 <ul>
-  <li><a href="ards-twin-v0.4/HANDOFF_README.md">v0.4 architecture handoff</a> &mdash; mechanics, solver, recruitment, conservation contract.</li>
-  <li><a href="ards-twin-v0.4/REVIEW_NOTES.md">v0.4 review notes</a> &mdash; solver tolerance choices, KKT regime handling, departure rationale.</li>
-  <li><a href="ards-twin-v0.4/CHANGELOG.md">v0.4 changelog</a> &mdash; per-version correction history.</li>
-  <li><a href="ards-twin-v0.4/TEST_RESULTS.json">v0.4.2 test results</a> &mdash; machine-readable pass/fail with low-R convergence table.</li>
-  <li><a href="ards-twin-v0.3/HANDOFF_README.md">v0.3 architecture handoff</a> &mdash; the spec that v0.3 implements.</li>
-  <li><a href="lung-reference/paper.html">Manuscript draft</a> &mdash; rewritten per v0.3 handoff brief.</li>
+  <li><strong>127 / 127 tests pass</strong> across 21 test files in CommonJS mode under Node v26.8.2 (see <a href="ards-twin-v0.4/TEST_RESULTS.json">TEST_RESULTS.json</a>, <a href="ards-twin-v0.4/NUMERICAL_DIAGNOSTICS.json">NUMERICAL_DIAGNOSTICS.json</a>, <a href="ards-twin-v0.4/PERFORMANCE_BENCH.json">PERFORMANCE_BENCH.json</a>).</li>
+  <li>J-4 acceptance test (High-recruitability phenotype, PEEP = 5 cmH<sub>2</sub>O, 3 breaths at dt = 1 ms) reports 6 924 mechanics steps, 0.52 mean Newton iters/step, 1.00 mean substeps/step, 0 failures, and <strong>3 total active-set transitions</strong> &mdash; the active-set counter is wired and exercised.</li>
+  <li>Reproducibility: <code>npm test</code> from <a href="https://github.com/DrFillster/medical-vent-twin/tree/main/ards-twin-v0.4">ards-twin-v0.4/</a> after extracting <code>vent-twin-v0.4.4.1-final-clean.zip</code>.</li>
+</ul>
+
+<h2>Repo</h2>
+<ul>
+  <li><a href="https://github.com/DrFillster/medical-vent-twin">github.com/DrFillster/medical-vent-twin</a> &mdash; source of truth. Tag <code>v0.4.4.1</code> points to commit <code>94ede1a</code> on <code>main</code>.</li>
+</ul>
+
+<h2>Docs (served from the repo root)</h2>
+<ul>
+  <li><a href="ards-twin-v0.4/HANDOFF_README.md">HANDOFF_README.md</a> &mdash; architecture, solver, recruitment, conservation contract.</li>
+  <li><a href="ards-twin-v0.4/IMPLEMENTATION_SUMMARY.md">IMPLEMENTATION_SUMMARY.md</a> &mdash; per-release summary, deviation log.</li>
+  <li><a href="ards-twin-v0.4/REVIEW_NOTES.md">REVIEW_NOTES.md</a> &mdash; solver tolerance choices, KKT regime handling, departure rationale.</li>
+  <li><a href="ards-twin-v0.4/CHANGELOG.md">CHANGELOG.md</a> &mdash; per-version correction history.</li>
+  <li><a href="ards-twin-v0.4/MANUSCRIPT.md">MANUSCRIPT.md</a> &mdash; full manuscript (same content as <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL.md">MANUSCRIPT_FINAL.md</a> in the manuscript bundle).</li>
 </ul>
 </body>
 </html>
