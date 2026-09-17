@@ -525,3 +525,100 @@ Verified from the pinned upstream source:
 The units/semantics of `System.X` remain unverified and must not be inferred from menu labels.
 
 No claim is made that the checked-in Windows executable exposes an undocumented exporter.
+
+
+## 2026-09-17 — executable browser session and full ventilator transition foundation
+
+### Persistent browser clinical worker
+
+Added `web/clinical-worker.js`.
+
+The worker keeps one composed clinical session alive across messages instead of rebuilding the lung for each action. Supported commands include:
+
+- initialize
+- advance session time
+- set PEEP
+- queue a full ventilator settings/mode change
+- request inspiratory hold
+- request expiratory hold
+- snapshot
+- reset
+
+This preserves Vent state, recruitment history, trace history, and session time between interventions.
+
+### Explicit executable-session UI
+
+The Clinical Twin preview now includes an executable-session setup panel.
+
+Required inputs are intentionally explicit:
+
+- HumMod trajectory JSON
+- mode
+- FiO2 fraction
+- PEEP
+- respiratory rate
+- recruitable fraction initially open
+- VC tidal volume / flow / pause or PC inspiratory pressure / inspiratory time / pause
+- solver timestep
+
+The UI does not auto-populate missing executable inputs from Berlin severity or cohort medians.
+
+HumMod files must declare `vent-hummod-trajectory/v1` before the worker accepts them for full validation.
+
+Live session output now exposes:
+
+- session time
+- applied ventilator mode
+- applied PEEP
+- HumMod PaO2 / PaCO2
+- heart rate
+- mean arterial pressure
+- hold-derived driving pressure when available
+
+### State-preserving full ventilator changes
+
+Added `Simulation.requestControllerChange()`.
+
+A new VC-AC or PC-AC controller is queued and applied only at a completed-breath boundary.
+
+Preserved across the change:
+
+- lung compartment state
+- recruitment
+- simulation time
+- trace history
+- intervention history
+
+The request is rejected while a bedside hold is pending/active.
+
+The composed clinical session exposes this as `requestVentilationChange()` and explicitly marks fixed HumMod replay as non-responsive to the Vent intervention.
+
+Regression tests cover:
+
+- request-time state preservation
+- VC -> PC transition
+- same-mode VC settings change
+- hold/concurrency rejection
+- clinical-session pending/applied status
+
+### Browser smoke expansion
+
+The browser smoke fixture is explicitly named `fixture-browser-only-not-physiology`.
+
+The smoke test now verifies:
+
+1. nine-case clinical catalog renders;
+2. a HumMod replay fixture can initialize the composed browser session;
+3. shared time advances;
+4. HumMod replay state advances;
+5. VC is initially applied;
+6. a PC settings change is queued;
+7. VC remains active until the completed-breath boundary;
+8. PC and new PEEP become active afterward;
+9. the existing mechanics lab still runs.
+
+### Browser CI
+
+The GitHub Actions workflow now includes Chromium and WebKit browser-smoke jobs after node tests.
+
+The browser matrix exercises 320, 390, 768, and 1440 px viewports. WebKit is used as an iOS-engine approximation; physical-device validation remains a separate deployment gate.
