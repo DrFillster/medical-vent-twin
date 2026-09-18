@@ -97,7 +97,22 @@ const { chromium, webkit } = require('playwright');
       assert(Number.isFinite(Number(await page.locator('#m-ppeak').textContent())));
       assert.equal(await page.locator('#results svg path.trace').count(),3);
       assert.equal(await page.locator('.recruit-row').count(),3);
-      const dimensions=await page.evaluate(()=>({page:document.documentElement.scrollWidth,viewport:innerWidth}));
+      const dimensions=await page.evaluate(()=>{
+        const viewport=innerWidth;
+        const offenders=[...document.querySelectorAll('body *')].map(el=>{
+          const r=el.getBoundingClientRect();
+          return {
+            tag:el.tagName,
+            id:el.id||null,
+            className:typeof el.className==='string'?el.className:null,
+            left:r.left,right:r.right,width:r.width,
+            scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,
+          };
+        }).filter(x=>x.right>viewport+1||x.left<-1||x.scrollWidth>x.clientWidth+1)
+          .sort((a,b)=>Math.max(b.right-viewport,b.scrollWidth-b.clientWidth)-Math.max(a.right-viewport,a.scrollWidth-a.clientWidth))
+          .slice(0,12);
+        return {page:document.documentElement.scrollWidth,viewport,offenders};
+      });
       assert(dimensions.page<=dimensions.viewport+1,`Horizontal overflow at ${width}px: ${JSON.stringify(dimensions)}`);
       for(const locator of ['#run','#mode','#peep','#preset']) {const box=await page.locator(locator).boundingBox();assert(box.height>=44);}
       await page.screenshot({path:path.join(artifactDir,`${process.env.BROWSER||'chromium'}-${width}.png`),fullPage:true});
