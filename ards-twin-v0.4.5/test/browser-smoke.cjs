@@ -116,9 +116,20 @@ const { chromium, webkit } = require('playwright');
       // A fresh run still works after worker cancellation.
       await page.locator('#example').selectOption('reference');await page.locator('#breaths').fill('3');await page.locator('#dt').selectOption('0.001');
       await page.locator('#run').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Run complete'),null,{timeout:120000});
-      const downloadPromise=page.waitForEvent('download');await page.locator('#download').click();const download=await downloadPromise;
-      const downloaded=path.join(artifactDir,`run-${width}.json`);await download.saveAs(downloaded);
-      const data=JSON.parse(fs.readFileSync(downloaded));assert.equal(data.version,'0.4.5');
+      const exportCapture=await page.evaluate(() => {
+        let captured=null;
+        const original=HTMLAnchorElement.prototype.click;
+        HTMLAnchorElement.prototype.click=function(){
+          captured={href:this.href,download:this.download};
+        };
+        try { document.querySelector('#download').click(); }
+        finally { HTMLAnchorElement.prototype.click=original; }
+        return captured;
+      });
+      assert(exportCapture && exportCapture.download.startsWith('vent-run-v'));
+      assert(exportCapture.href.startsWith('data:application/json'));
+      const encoded=exportCapture.href.slice(exportCapture.href.indexOf(',')+1);
+      const data=JSON.parse(decodeURIComponent(encoded));assert.equal(data.version,'0.4.5');
       assert.deepEqual(errors,[]);reports.push({width,status:'passed'});console.log(`PASS ${width}px: clinical catalog, run, charts, layout, PC, invalid inputs, cancellation, export`);
       await page.close();
     }
