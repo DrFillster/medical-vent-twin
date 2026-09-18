@@ -1,0 +1,20 @@
+{
+  "schema": "vent-hummod-remote-request/v1",
+  "runtimeVerified": false,
+  "runtimeVerificationStatus": "documentation-grounded-candidate-not-yet-executed-against-pinned-HumMod.EXE",
+  "outputFile": "VentHumMod-output.txt",
+  "logFile": "VentHumMod-done.log",
+  "roster": [
+    "System.X",
+    "PO2Artys.Pressure",
+    "CO2Artys.Pressure",
+    "BloodPh.ArtysPh",
+    "Heart-Rate.Rate",
+    "SystemicArtys.Pressure",
+    "CardiacOutput.Flow(L/Min)"
+  ],
+  "documentationBasis": [
+    "HumMod/documentation@1cd093c001ea5af72e666a20e51542dce2304b38:schema/3_control/remote.html",
+    "HumMod/documentation@1cd093c001ea5af72e666a20e51542dce2304b38:schema/3_control/scripted.html"
+  ]
+}
