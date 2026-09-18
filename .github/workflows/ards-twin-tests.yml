@@ -66,17 +66,16 @@ jobs:
         shell: bash
         run: |
           printf '%s\n' "${GITHUB_SHA}" > PACKAGE_COMMIT.txt
-          zip -r "vent-clinical-twin-progress-${GITHUB_SHA:0:12}.zip" \
-            ards-twin-v0.4.5 \
-            PACKAGE_COMMIT.txt \
-            -x "ards-twin-v0.4.5/node_modules/*" \
-               "ards-twin-v0.4.5/browser-results/*" \
-               "ards-twin-v0.4.5/benchmark-results/*"
+          zip -r "vent-clinical-twin-progress-${GITHUB_SHA:0:12}.zip" . \
+            -x "node_modules/*" \
+               "browser-results/*" \
+               "benchmark-results/*" \
+               "vent-clinical-twin-progress-*.zip"
       - name: Upload deployment handoff ZIP
         uses: actions/upload-artifact@v4
         with:
           name: vent-clinical-twin-progress-zip
-          path: vent-clinical-twin-progress-*.zip
+          path: ards-twin-v0.4.5/vent-clinical-twin-progress-*.zip
           if-no-files-found: error
 
   browser-smoke:
