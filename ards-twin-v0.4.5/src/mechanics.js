@@ -592,6 +592,17 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
     // failure is a SOLVER_NONCONVERGENCE; if no, INFEASIBLE_BOUNDARY.
     const classification = classifyBoundaryFeasibility(
       activeComps, params, boundary, dt);
+    const diagnosticSystem = buildSystem(
+      activeComps, vTrial, pBranch[0], boundary, params, dt);
+    const diagnosticScales = computeScales(
+      activeComps, params, pBranch[0]);
+    const diagnosticScaledResidualVector =
+      diagnosticSystem.F.map((value, i) => {
+        const scale = i < diagnosticSystem.F.length - 1
+          ? diagnosticScales.V_scales[i]
+          : diagnosticScales.P_scale;
+        return value / scale;
+      });
     return {
       state: {
         t: state.t,
@@ -616,12 +627,12 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
         iterations: 0,
         residualNorm: r.residual,
         scaledResidual: r.scaledResidual,
-        residualVector: r.residualVector || null,
-        scaledResidualVector: r.scaledResidualVector || null,
-        volumeScales: r.volumeScales || null,
-        pressureScale: r.pressureScale || null,
-        trialVolumes: r.trialVolumes || null,
-        trialBranchPressure: r.trialBranchPressure ?? null,
+        residualVector: diagnosticSystem.F,
+        scaledResidualVector: diagnosticScaledResidualVector,
+        volumeScales: diagnosticScales.V_scales,
+        pressureScale: diagnosticScales.P_scale,
+        trialVolumes: vTrial.slice(),
+        trialBranchPressure: pBranch[0],
         boundaryKind: boundary.kind,
         requestedFlowLps: boundary.kind === 'FLOW' ? boundary.flowLps : null,
         requestedPressureCmH2O:
