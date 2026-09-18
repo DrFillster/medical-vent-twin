@@ -53,6 +53,25 @@
       }
       container.append(row);
     }
+
+    const calibrationPanel = $('clinical-calibration-panel');
+    const isReference = caseId === 'berlin-moderate-moderate-aspiration';
+    calibrationPanel.hidden = !isReference;
+    if (isReference && window.VENT &&
+        typeof VENT.buildReferenceCaseCalibration === 'function') {
+      const profile = VENT.buildReferenceCaseCalibration();
+      $('clinical-calibration-envelope').textContent =
+        profile.clinicalAxis.berlinSeverity + ' Berlin / cohort-calibrated';
+      $('clinical-calibration-ri').textContent =
+        profile.mechanicalAxis.recruitmentToInflationRatioTarget == null
+          ? 'Not assigned'
+          : String(profile.mechanicalAxis.recruitmentToInflationRatioTarget);
+      $('clinical-calibration-aop').textContent =
+        profile.airwayOpeningPressure.modelValueCmH2O + ' cmH₂O · model construct';
+      $('clinical-calibration-note').textContent =
+        'The intermediate recruitability label is a Vent mechanical construct, not a clinical R/I classification. ' +
+        'R/I remains unassigned until a validated recruitability protocol is implemented and measured.';
+    }
   }
 
   async function initializeClinicalPreview() {
