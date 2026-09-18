@@ -112,22 +112,21 @@ const V_SCALE_FLOOR = 0.01;   // characteristic V scale, never larger
 // State-aware scales (per-step, recomputed from current state).
 // V_scale is bounded by V_SCALE_FLOOR to ensure tight convergence.
 function computeScales(activeComps, params, pBranchGuess) {
-  let vmaxMin = Infinity;
-  for (const { cp, cs } of activeComps) {
+  // Scale each compartment residual independently. A nearly closed
+  // recruitable compartment can have a microscopic Vmax; using that as a
+  // global scale for all volume residuals makes normally inflated
+  // compartments appear falsely unconverged.
+  const V_SCALE_MIN = 1e-9;
+  const V_scales = activeComps.map(({ cp, cs }) => {
     const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
-    if (vmax > 0 && vmax < vmaxMin) vmaxMin = vmax;
-  }
-  if (!isFinite(vmaxMin)) vmaxMin = V_SCALE_FLOOR;
-  // Use a tight V_scale: never larger than V_SCALE_FLOOR (0.01 L).
-  // This makes the per-step residual tolerance a meaningful fraction of
-  // a typical compartment's transient response.
-  const V_scale = Math.min(vmaxMin, V_SCALE_FLOOR);
-  // P_scale: order-of-magnitude of airway pressure. The boundary
-  // residual has units cmH2O. Use max(|pBranch|, |AOP|, 1) as scale.
+    if (!(vmax > 0) || !Number.isFinite(vmax)) return V_SCALE_FLOOR;
+    return Math.max(V_SCALE_MIN, Math.min(vmax, V_SCALE_FLOOR));
+  });
+
   const P_scale = Math.max(Math.abs(pBranchGuess),
                            Math.abs(params.airwayOpeningPressure),
                            1);
-  return { V_scale, P_scale };
+  return { V_scales, P_scale };
 }
 
 // v0.4.3 → v0.4.4: classify boundary feasibility with direction awareness.
@@ -191,10 +190,9 @@ function classifyBoundaryFeasibility(activeComps, params, boundary, dt) {
 function scaledNorm(F, scales) {
   let maxR = 0;
   for (let i = 0; i < F.length - 1; i++) {
-    const r = Math.abs(F[i]) / scales.V_scale;
+    const r = Math.abs(F[i]) / scales.V_scales[i];
     if (r > maxR) maxR = r;
   }
-  // Last entry is the boundary (P) residual.
   const rP = Math.abs(F[F.length - 1]) / scales.P_scale;
   if (rP > maxR) maxR = rP;
   return maxR;
