@@ -1,0 +1,28 @@
+<remoterequest>
+  <scripted>
+    <setpagerstatus>OFF</setpagerstatus>
+    <fileopencreate>VentHumMod-output.txt</fileopencreate>
+    <fileroster>
+      <variable><name>System.X</name></variable>
+      <variable><name>PO2Artys.Pressure</name></variable>
+      <variable><name>CO2Artys.Pressure</name></variable>
+      <variable><name>BloodPh.ArtysPh</name></variable>
+      <variable><name>Heart-Rate.Rate</name></variable>
+      <variable><name>SystemicArtys.Pressure</name></variable>
+      <variable><name>CardiacOutput.Flow(L/Min)</name></variable>
+    </fileroster>
+    <filewriteheader/>
+    <filestarttracking/>
+    <advancefor>
+      <solutionint>5</solutionint>
+      <displayint>0.08333333333333333</displayint>
+      <storageint>0.08333333333333333</storageint>
+    </advancefor>
+    <filestoptracking/>
+    <fileupdate/>
+    <fileclose/>
+  </scripted>
+  <remote>
+    <logfile>VentHumMod-done.log</logfile>
+  </remote>
+</remoterequest>
