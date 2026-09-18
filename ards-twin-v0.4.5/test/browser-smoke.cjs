@@ -93,7 +93,7 @@ const { chromium, webkit } = require('playwright');
       await page.locator('#run').click();
       await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Run complete'),null,{timeout:120000});
       assert(Number.isFinite(Number(await page.locator('#m-ppeak').textContent())));
-      assert.equal(await page.locator('svg path.trace').count(),3);
+      assert.equal(await page.locator('#results svg path.trace').count(),3);
       assert.equal(await page.locator('.recruit-row').count(),3);
       const dimensions=await page.evaluate(()=>({page:document.documentElement.scrollWidth,viewport:innerWidth}));
       assert(dimensions.page<=dimensions.viewport+1,`Horizontal overflow at ${width}px: ${JSON.stringify(dimensions)}`);
