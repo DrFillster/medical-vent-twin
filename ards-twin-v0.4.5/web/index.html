@@ -12,7 +12,7 @@
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
-<header class="masthead"><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">VENTILATION LAB <span>0.4.5</span></p><h1>Mechanistic Lung Simulator</h1></div></div><p class="intro">Explore how lung mechanics shape a breath.</p><p class="scope">Educational prototype · Mechanical phenotypes, not clinical ARDS grades · Not for patient care</p></header>
+<header class="masthead"><div class="dev-banner">DEVELOPMENT PREVIEW · Synthetic cases · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">VENTILATION LAB <span>v0.5 preview</span></p><h1>ARDS Clinical Twin</h1></div></div><p class="intro">Explore persistent ventilator mechanics, recruitment, bedside measurements, and systemic replay.</p><p class="scope">Research/education prototype · Berlin severity and mechanical recruitability are separate axes</p></header>
 <main>
 <section class="clinical-preview card" aria-labelledby="clinical-title">
 <div class="section-heading"><span class="step">00</span><h2 id="clinical-title">Clinical Twin preview</h2></div>
@@ -47,8 +47,9 @@
 <form id="clinical-session-form">
 <p class="hint">All fields below are explicit scenario inputs. No missing value is inferred from Berlin severity or cohort medians.</p>
 <label for="clinical-hummod-file">HumMod trajectory JSON</label>
-<input id="clinical-hummod-file" type="file" accept=".json,application/json" required>
-<p id="clinical-hummod-status" class="hint">Attach a validated <code>vent-hummod-trajectory/v1</code> export.</p>
+<input id="clinical-hummod-file" type="file" accept=".json,application/json">
+<div class="actions demo-actions"><button id="clinical-load-demo" type="button" class="secondary">Load synthetic demo inputs</button></div>
+<p id="clinical-hummod-status" class="hint">Attach a validated <code>vent-hummod-trajectory/v1</code> export, or load the clearly labeled synthetic demo dataset.</p>
 
 <label for="clinical-mode">Ventilation mode</label>
 <select id="clinical-mode" required>
