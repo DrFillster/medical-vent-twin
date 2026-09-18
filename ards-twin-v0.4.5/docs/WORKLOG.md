@@ -805,3 +805,80 @@ Two browser-only failures found by this gate were addressed:
 - narrow mobile containment and JSON export behavior were hardened for Chromium/WebKit
 
 Node/unit/regression tests have remained green through these browser-hardening passes. The full browser matrix remains the merge gate.
+
+
+## 2026-09-17 — HumMod documented remote-runner candidate
+
+### Documented remote/scripted control path identified
+
+HumMod's pinned documentation defines a file-based remote listener and scripted execution model.
+
+Relevant documented capabilities:
+
+- file listener processes a remote-request file
+- scripted runs can be non-interactive
+- `fileroster` selects exact variables
+- `filestarttracking` / `filestoptracking` track values
+- `advancefor` advances the solution with explicit intervals
+- `fileopencreate`, `filewriteheader`, `fileupdate`, and `fileclose` manage tracked output
+- `logfile` provides a documented completion signal
+
+This is now the preferred first real HumMod execution path instead of GUI scraping.
+
+### Candidate remote request generator
+
+Added `src/hummod_remote_request.js`.
+
+It generates a schema-derived candidate remote request that always includes:
+
+- `System.X`
+- all verified directly mapped HumMod source symbols
+
+It converts Vent-facing duration/sample cadence into the verified HumMod minute clock.
+
+The generator intentionally reports:
+
+`runtimeVerified: false`
+
+until a pinned HumMod executable successfully processes the request.
+
+### Windows probe workflow
+
+Added manual workflow:
+
+`.github/workflows/hummod-windows-remote-probe.yml`
+
+The workflow can:
+
+1. clone the pinned HumMod standalone revision;
+2. verify `HumMod.EXE` exists and record SHA-256;
+3. generate the candidate reference remote request;
+4. optionally launch the executable;
+5. submit the candidate listener file;
+6. poll for the documented completion logfile/output;
+7. terminate the process after a bounded timeout;
+8. upload all probe artifacts.
+
+Remote execution is opt-in because the exact listener filename/bootstrap behavior remains runtime-unverified.
+
+### Reference request artifacts
+
+Checked in under `hummod-runner/`:
+
+- `reference-run-request.json`
+- `BasicListener.candidate.DAT`
+- `remote-request-manifest.json`
+
+Target reference case:
+
+`berlin-moderate-moderate-aspiration`
+
+The request captures only synthetic/model physiology and must not be described as a real patient trajectory.
+
+### Remaining runner unknown
+
+The tracked-file delimiter/layout is not specified clearly enough in the checked HumMod documentation to implement a trustworthy parser without one real runtime output.
+
+Therefore no tracked-output parser has been guessed.
+
+The next real-data milestone is to run the manual Windows probe, retain the raw output unchanged, and implement the parser from the observed format.
