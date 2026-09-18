@@ -1,0 +1,50 @@
+{
+  "schema": "hummod-raw-series/v1",
+  "trajectoryId": "fixture-browser-raw-only-not-physiology",
+  "source": {
+    "repository": "riliescu/hummod-standalone",
+    "revision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1",
+    "exporterVersion": "browser-smoke-raw-fixture/1"
+  },
+  "clock": {
+    "symbol": "System.X",
+    "unit": "minute"
+  },
+  "symbols": [
+    "PO2Artys.Pressure",
+    "CO2Artys.Pressure",
+    "BloodPh.ArtysPh",
+    "Heart-Rate.Rate",
+    "SystemicArtys.Pressure",
+    "CardiacOutput.Flow(L/Min)"
+  ],
+  "rows": [
+    {
+      "System.X": 2,
+      "PO2Artys.Pressure": 80,
+      "CO2Artys.Pressure": 40,
+      "BloodPh.ArtysPh": 7.4,
+      "Heart-Rate.Rate": 90,
+      "SystemicArtys.Pressure": 75,
+      "CardiacOutput.Flow(L/Min)": 5
+    },
+    {
+      "System.X": 2.015,
+      "PO2Artys.Pressure": 79,
+      "CO2Artys.Pressure": 40.5,
+      "BloodPh.ArtysPh": 7.39,
+      "Heart-Rate.Rate": 91,
+      "SystemicArtys.Pressure": 74,
+      "CardiacOutput.Flow(L/Min)": 5
+    },
+    {
+      "System.X": 2.5,
+      "PO2Artys.Pressure": 78,
+      "CO2Artys.Pressure": 41,
+      "BloodPh.ArtysPh": 7.38,
+      "Heart-Rate.Rate": 92,
+      "SystemicArtys.Pressure": 73,
+      "CardiacOutput.Flow(L/Min)": 4.9
+    }
+  ]
+}

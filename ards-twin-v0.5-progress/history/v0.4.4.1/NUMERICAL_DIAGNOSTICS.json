@@ -1,0 +1,129 @@
+{
+  "version": "v0.4.4.1",
+  "date": "2026-09-16T20:54:26Z",
+  "solver_failures": {
+    "total_across_all_test_runs": 0,
+    "INFEASIBLE_BOUNDARY_events_in_normal_runs": 0,
+    "SOLVER_NONCONVERGENCE_events_in_normal_runs": 0,
+    "STEP_FAILED_state_advances": 0,
+    "I_test_forced_INFEASIBLE_BOUNDARY_positive_flow": {
+      "scenario": "100 L/s into 1e-6 L compartment (V=0, capacity=1e-6, PEEP=5, dt=1ms)",
+      "expected_failureKind": "INFEASIBLE_BOUNDARY",
+      "rationale": "Q_cmd*dt > remaining_capacity (positive flow direction)",
+      "verified": true
+    },
+    "I_test_forced_INFEASIBLE_BOUNDARY_negative_flow": {
+      "scenario": "-100 L/s flow with V=0 (capacity=1e-6, PEEP=5, dt=1ms)",
+      "expected_failureKind": "INFEASIBLE_BOUNDARY",
+      "rationale": "|Q_cmd|*dt > removable_volume (negative flow direction)",
+      "verified": true
+    }
+  },
+  "flow_feasibility_global": {
+    "implementation": "classifyBoundaryFeasibility is direction-aware: positive/inspiratory flow uses remaining capacity (\u03a3 max(0, Vmax - V)); negative/expiratory flow uses removable volume (\u03a3 max(0, V)).",
+    "verified_in_tests": "I1 (positive flow forced INFEASIBLE_BOUNDARY); I6 (negative flow forced INFEASIBLE_BOUNDARY); I7 (small negative flow on populated compartment does NOT trigger INFEASIBLE_BOUNDARY)"
+  },
+  "conservation": {
+    "max_conservation_residual_lt": 1e-06,
+    "q_central_eq_sum_q_branch": "exact by construction",
+    "pvent_eq_pbranch_plus_Rc_times_Q": "verified at tolerance 1e-9 in D tests"
+  },
+  "capacity_domain_violations": {
+    "max_V_gt_Vmax": 0,
+    "max_negative_V": 0,
+    "note": "All initialized compartments satisfy finite-capacity domain; derecruitment projection rule prevents V >= Vmax(r)."
+  },
+  "scenario_ownership": {
+    "phenotype_owns": "compartments, central airway resistance, AOP",
+    "phenotype_does_NOT_own": "initialPEEP, initialRecruitmentState",
+    "scenario_owns": "initialPEEP, initialRecruitmentState, ventilator settings",
+    "missing_recruitment_state": "fail explicitly, do not default"
+  },
+  "low_resistance_convergence": {
+    "R_cmb[cmH2O.s/L]_Ppeak-Pplat[cmH2O]": [
+      {
+        "R": 1.0,
+        "diff": 1.02
+      },
+      {
+        "R": 0.1,
+        "diff": 0.105
+      },
+      {
+        "R": 0.01,
+        "diff": -0.018
+      }
+    ],
+    "monotonic": true,
+    "tolerance_2cmH2O_at_R_le_0.01": "met"
+  },
+  "dt_convergence": {
+    "scenarios": [
+      {
+        "name": "Baseline VC",
+        "dt_ms": [
+          2,
+          1,
+          0.5
+        ],
+        "Ppeak_diff_lt": 1.0,
+        "Vt_diff_lt": 0.05
+      },
+      {
+        "name": "phenotype_moderate_recruitability PC",
+        "dt_ms": [
+          2,
+          1,
+          0.5
+        ],
+        "Ppeak_diff_lt": 2.0
+      },
+      {
+        "name": "phenotype_low_recruitability VC",
+        "dt_ms": [
+          2,
+          1,
+          0.5
+        ],
+        "monotonic_convergence": true
+      }
+    ]
+  },
+  "solver_tolerance": {
+    "raw_tolerance_SOLVER_TOL_ABS": "1e-5 (diagnostic only)",
+    "scaled_tolerance_SOLVER_TOL_SCALED": "1e-3",
+    "scaling_rule": "V_scale = min(vmaxMin, 0.01L); P_scale = max(|pBranch|, |AOP|, 1)",
+    "convergence_criterion": "inf_norm of componentwise-scaled residual < 1e-3"
+  },
+  "jacobian": {
+    "type": "analytic",
+    "formula": "dP_el/dV = K/(Vmax - V) (from compartments.js: dPressureDVolume)",
+    "verified_against_numerical": true,
+    "max_relative_error": 0.001
+  },
+  "recruitment_projection": {
+    "rule": "stepRecruitmentWithFloor: clamp r_new >= V/((1-EPS_PROJ)*capacity)",
+    "EPS_PROJ": 1e-06,
+    "trapped_gas_preserved": true,
+    "V_le_Vmax_at_all_times": true
+  },
+  "instrumentation_fields": {
+    "per_step_output_solverStats": [
+      "newtonIters",
+      "substeps",
+      "lineSearchHalvings",
+      "activeSetTransitions",
+      "residualNorm",
+      "scaledResidual",
+      "converged"
+    ],
+    "verified_present_in_test": "J1, J2, J4 (solverStats.activeSetTransitions and .lineSearchHalvings must be present)"
+  },
+  "test_counts": {
+    "v0.4.3_baseline": 125,
+    "v0.4.4_new_tests": 2,
+    "v0.4.4_total": 127,
+    "note": "Match TEST_RESULTS.json"
+  },
+  "note": "v0.4.4.1: preset rename only \u2014 no solver/mechanical changes."
+}

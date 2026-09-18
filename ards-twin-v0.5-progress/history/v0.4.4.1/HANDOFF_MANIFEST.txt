@@ -1,0 +1,4 @@
+ARDS virtual-patient v0.3 implementation handoff
+Generated 2026-09-14
+Contains specifications, code scaffolding, test plan, implementation prompt, and current project manuscript.
+Does NOT contain HumMod source code or executables.

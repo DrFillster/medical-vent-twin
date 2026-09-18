@@ -1,0 +1,884 @@
+# Implementation Work Log
+
+This file is an append-only record of substantive work on the ARDS digital-twin build. It records what changed, why, and what has or has not been verified.
+
+## 2026-09-17 — v0.5 clinical digital-twin foundation
+
+### Direction confirmed
+
+- The application will start from realistic **synthetic Berlin ARDS patients**, not generic mechanics presets presented as clinical severity.
+- Berlin severity and recruitability remain independent axes.
+- HumMod is part of the target architecture as the systemic/whole-body physiology engine.
+- The Vent project remains responsible for detailed ventilator interaction, lung mechanics, recruitment/derecruitment, waveforms, hold maneuvers, and ventilator measurements.
+- HumMod integration will occur through an explicit provider/adapter boundary rather than embedding guessed HumMod variable names into the core lung model.
+
+### Existing branch work reviewed
+
+Branch: `feature/berlin-virtual-patients`
+
+Existing work retained:
+
+- `src/clinical_scenarios.js`
+  - Berlin cohort envelopes
+  - direct Berlin oxygenation classification helper
+  - recruitability as a separate mechanical axis
+  - nine combination descriptors
+- `src/simulation.js`
+  - persistent PEEP-setting change support
+  - intervention logging foundation
+- `src/digital_twin_contract.js`
+  - normalized source-neutral systemic snapshot contract
+- browser/bundle exports for clinical scenario and digital-twin modules
+- unit tests for clinical scenarios, setting changes, and digital-twin contract
+
+### HumMod repository reconnaissance
+
+Reviewed the public HumMod standalone repository currently available at `riliescu/hummod-standalone`.
+
+Observed packaging includes:
+
+- model hierarchy directories including `Context`, `Control`, `Display`, `Docs`, and `Structure`
+- root model-description files including `HumMod.DES` and `Model.DES`
+- a Windows executable (`HumMod.EXE`)
+- documentation organized by physiologic domains, including acid-base and air-supply material
+
+Implication: direct execution inside the current static browser package is not the correct first integration target. The project will support both deterministic HumMod replay and a future live provider service through one normalized adapter contract.
+
+No HumMod source files or executable have been copied into this repository.
+
+### Documentation added
+
+- `BUILD_PLAN.md`
+  - product intent
+  - two-engine architecture
+  - non-negotiable clinical modeling rules
+  - staged HumMod integration strategy
+  - milestones and acceptance criteria
+  - verification and documentation policy
+
+### Verification status
+
+Repository changes are committed on GitHub. A complete local `npm test` / browser smoke run has **not yet been confirmed in this work session** because earlier local access to GitHub was unavailable. Do not interpret committed code as test-verified until CI or a runnable checkout confirms it.
+
+### Next implementation steps
+
+1. Create explicit nine-case clinical catalog with named synthetic patients and provenance labels.
+2. Add executable tests for that case catalog.
+3. Implement configurable HumMod snapshot mapping without guessed upstream variable names.
+4. Add deterministic replay provider as the first end-to-end HumMod-compatible path.
+5. Continue bedside mechanics work: inspiratory hold, expiratory hold, total PEEP, plateau pressure, and driving pressure measurement.
+
+## 2026-09-17 — first implementation pass after build-plan approval
+
+### Clinical case catalog implemented
+
+Added `src/berlin_case_catalog.js`.
+
+The catalog now contains nine explicit named synthetic cases spanning the full 3 x 3 matrix of:
+
+- Berlin severity: mild / moderate / severe
+- recruitability: low / moderate / high
+
+Each case contains:
+
+- stable case ID and display name
+- `synthetic: true`
+- an explicitly authored etiology/pattern/narrative marked as a synthetic scenario assumption
+- independent recruitability mechanics preset
+- cohort-calibrated P/F, PaCO2, PEEP, VT/PBW, plateau, driving-pressure, compliance, and resistance targets inherited from the existing evidence layer
+- explicit separation of published cohort envelopes from individual-patient truth
+- an unpopulated HumMod linkage rather than invented systemic physiology
+- provenance describing cohort, mechanics, scenario, and systemic-source status
+
+Patient-specific tidal volume in mL, FiO2, and respiratory rate remain unset rather than fabricated. Patient-specific VT in mL will require a validated PBW workflow and an explicitly authored starting ventilator state.
+
+Added `test/berlin_case_catalog.test.js` covering:
+
+- nine unique synthetic cases
+- complete 3 x 3 matrix
+- Berlin/recruitability independence
+- evidence-versus-assumption provenance
+- refusal to fabricate patient-specific calculated ventilation fields
+- explicit pending HumMod linkage
+- deterministic case lookup and unknown-case failure
+
+Updated browser and bundle exports so the clinical catalog is part of the public simulator API.
+
+### HumMod bridge foundation implemented
+
+Added `docs/HUMMOD_INTEGRATION.md` documenting:
+
+- Vent-versus-HumMod solver ownership
+- domains that require an explicit coupling decision to avoid circular authority
+- exact-path mapping requirements
+- replay-provider architecture
+- future live-provider architecture
+- source/version metadata requirements
+- first end-to-end HumMod integration target
+- licensing/distribution boundary
+
+Updated `src/digital_twin_contract.js` so normalized snapshots retain optional `modelVersion` metadata in addition to provider, subject ID, and run ID.
+
+Added `src/hummod_adapter.js` with two initial integration primitives:
+
+1. `createHumModSnapshotMapper()`
+   - requires an explicit HumMod model/source version
+   - accepts only caller-supplied exact source paths
+   - has a closed list of normalized target fields
+   - performs no fuzzy matching and no implicit unit conversion
+   - fails when required verified source fields are missing
+   - normalizes through the existing digital-twin contract
+
+2. `createHumModReplayProvider()`
+   - accepts a deterministic sequence of normalized snapshots
+   - satisfies the existing digital-twin provider interface
+   - samples state deterministically by simulation time
+   - deliberately rejects `applyIntervention()` because a fixed source trajectory cannot legitimately invent a physiologic response that was not represented in that trajectory
+
+Added `test/hummod_adapter.test.js` covering:
+
+- exact-path mapping
+- model/source version preservation
+- missing required source field failure
+- unsupported target rejection
+- deterministic replay sampling
+- explicit rejection of unsupported intervention response synthesis
+
+Updated browser and bundle exports for the HumMod adapter.
+
+### Automated verification infrastructure
+
+No GitHub Actions workflow existed for this branch. Added `.github/workflows/ards-twin-tests.yml` to run `npm test` under Node 22 on pushes to `main` and `feature/berlin-virtual-patients` and on pull requests affecting the ARDS twin.
+
+Immediately after workflow creation, the GitHub Actions API still reported zero runs for the branch. Therefore **the newly added tests are committed but not yet CI-confirmed** in this work session. This is recorded explicitly rather than claiming a passing build.
+
+### Current next steps
+
+1. Obtain/produce one real HumMod export or trajectory and document its exact upstream revision and verified variable paths.
+2. Create the first end-to-end moderate Berlin ARDS case with attached HumMod systemic replay data.
+3. Implement clinically trustworthy bedside measurements: expiratory hold/total PEEP, inspiratory hold/plateau, then driving pressure.
+4. Add a patient-first UI selector and provenance display after the measurement/runtime primitives are trustworthy.
+
+## 2026-09-17 — explicit bedside occlusion measurements
+
+### Inspiratory and expiratory hold mechanics implemented
+
+Updated `src/simulation.js` with explicit bedside ventilator maneuvers:
+
+- `requestInspiratoryHold(durationSec)`
+- `requestExpiratoryHold(durationSec)`
+- one-maneuver-at-a-time state management
+- zero-flow airway occlusion during the hold
+- ventilator cycle clock frozen during the occlusion
+- maneuver request/start/complete events in the intervention log
+- late-hold median pressure and flow captured as explicit measurements
+- inspiratory hold reports plateau pressure
+- expiratory hold reports total PEEP and the contemporaneous set PEEP
+- trace rows carry maneuver labels so future waveform UI can annotate the occlusion window
+
+The expiratory hold is deliberately scheduled at end expiration rather than during ordinary expiratory flow. This fixes the conceptual problem in the legacy metrics layer where airway pressure was clamped to set PEEP and could therefore hide trapped alveolar pressure.
+
+Added `test/hold_maneuvers.test.js` covering:
+
+- explicit inspiratory-hold plateau measurement
+- explicit end-expiratory total-PEEP measurement
+- zero-flow behavior during both holds
+- a high-resistance reference case that exposes pressure above set PEEP during an expiratory hold
+- maneuver concurrency rejection
+- refusal of the core summary to fabricate an unmeasured driving pressure
+
+GitHub Actions run `35276933328` for commit `b5a7190a686a9d75cb9322742040983590c744ff` completed successfully, including the new maneuver regression tests.
+
+### Passive mechanics derivation layer added
+
+Added `src/bedside_measurements.js` and `test/bedside_measurements.test.js`.
+
+This layer consumes completed hold measurements and derives:
+
+- intrinsic PEEP from total PEEP versus set PEEP
+- an explicit effective end-expiratory pressure reference
+- airway driving pressure from plateau pressure versus that reference
+
+Because the Vent mechanics model contains an explicit airway-opening pressure (AOP), the effective end-expiratory reference is not allowed to fall below set PEEP, measured total PEEP, or modeled AOP. This prevents a misleading driving-pressure value when set PEEP is below a closed-airway threshold.
+
+The derivation preserves provenance separating measured hold pressures from the mechanical phenotype's AOP parameter. It remains labeled as an educational/research simulator derivation rather than clinical validation.
+
+Browser and bundle exports now expose the hold maneuver type and passive-mechanics derivation function.
+
+### Verification status
+
+The hold-maneuver implementation passed CI. A newer CI run covering the passive-mechanics derivation and export changes was queued/in progress when this entry was written; do not claim that newer head as verified until that run completes.
+
+### Next implementation steps
+
+1. Wire the passive-mechanics derivation directly into the Simulation measurement summary and the future patient UI.
+2. Replace/deprecate the legacy waveform-based auto-PEEP metric in favor of explicit expiratory-hold measurement.
+3. Continue HumMod source mapping using exact upstream variable paths and a pinned upstream revision.
+4. Build the first moderate-Berlin end-to-end case combining Vent measurements with HumMod replay systemic state.
+
+## 2026-09-17 — pinned HumMod standalone source map
+
+### Verification update
+
+GitHub Actions run `35277207032` for commit `726fdb09482a6f2489018b590b686b6c74a98f81` completed successfully. This verified the passive-mechanics derivation and associated browser/bundle exports described in the prior work-log entry.
+
+### Upstream revision pinned
+
+HumMod source inspection is now tied to:
+
+- repository: `riliescu/hummod-standalone`
+- revision: `8dab57e05631f779bf5020fe0dd51874d8ae98c1`
+
+Added `src/hummod_standalone_manifest.js` and `docs/HUMMOD_VARIABLE_MAP.md`.
+
+Verified source symbols at that revision include:
+
+- `PO2Artys.Pressure` -> arterial PaO2
+- `CO2Artys.Pressure` -> arterial PaCO2
+- `BloodPh.ArtysPh` -> arterial pH
+- `Heart-Rate.Rate` -> heart rate
+- `SystemicArtys.Pressure` -> mean systemic arterial pressure
+- `CardiacOutput.Flow(L/Min)` -> cardiac output in L/min
+
+The source manifest records the exact defining `.DES` file for each symbol and is exported through the browser API.
+
+### Deliberately unresolved mappings
+
+The following verified HumMod symbols remain intentionally excluded from direct normalized mapping:
+
+- `PO2Artys.Sat(%)`: source is percent while the normalized twin contract expects a fraction; explicit transform required.
+- `RightAtrium.Pressure`: source is right atrial pressure; use as normalized CVP requires an explicit semantic decision.
+- `O2Total.Outflow`: whole-body oxygen-use candidate; source units require end-to-end verification before exposing mL/min.
+- `CO2Total.Inflow`: whole-body carbon-dioxide-production candidate; source units require end-to-end verification before exposing mL/min.
+
+Timestamp ownership is assigned to the execution/export envelope rather than an invented physiological HumMod symbol.
+
+### Export binding boundary implemented
+
+Added `src/hummod_standalone_binding.js` and tests.
+
+`createHumModStandaloneExportMapper()` requires:
+
+- the exact pinned HumMod revision
+- an explicit exporter version
+- an explicit timestamp path from the execution envelope
+- explicit serialized paths keyed by verified HumMod source symbol
+
+It rejects:
+
+- a different/unverified HumMod revision
+- unknown HumMod symbols
+- symbols whose unit conversion is pending
+- symbols whose semantic mapping is pending
+
+This keeps the upstream model identity distinct from the JSON serialization shape and prevents a future exporter from silently redefining physiology.
+
+### Current verification status
+
+A new CI run for the manifest/binding commits was queued when this entry was written. Do not claim that branch head as verified until the corresponding GitHub Actions run completes.
+
+### Next implementation steps
+
+1. Verify/define the HumMod export serialization generated by the selected runner.
+2. Trace whole-body O2/CO2 units through component structures and add explicit transforms only after verification.
+3. Produce a real HumMod trajectory export with revision/exporter metadata.
+4. Attach that replay to the moderate Berlin + moderate recruitability reference case.
+5. Continue replacing legacy waveform heuristics with the explicit hold-based bedside-measurement layer.
+
+## 2026-09-17 — canonical HumMod trajectory serialization
+
+### Canonical export contract implemented
+
+Added `src/hummod_export_contract.js` and `test/hummod_export_contract.test.js`.
+
+The browser/runtime now has a versioned trajectory serialization boundary: `vent-hummod-trajectory/v1`.
+
+The contract requires:
+
+- the exact pinned HumMod standalone repository and revision
+- an explicit exporter version
+- a stable trajectory ID
+- an explicit list of approved HumMod source symbols
+- execution timestamps owned by the export envelope
+- strictly increasing timestamps
+- every declared source symbol to be present with a finite numeric value in every row
+
+It rejects:
+
+- revision mismatch
+- unknown or pending HumMod symbols
+- undeclared row symbols
+- missing values
+- non-finite values
+- duplicate or non-monotonic timestamps
+
+The canonical row shape preserves HumMod symbol identity directly under `values`, for example `values['PO2Artys.Pressure']`. Normalization still occurs only through the pinned standalone binding and normalized digital-twin contract.
+
+Added helpers to:
+
+- validate a canonical HumMod export
+- convert an export to normalized twin snapshots
+- create a deterministic HumMod replay provider directly from the export
+
+No physiologic trajectory was fabricated or checked into the repository. Test values are explicitly fixture data used only to verify serialization and mapping behavior.
+
+Browser and bundle APIs now export the trajectory contract.
+
+### Verification status
+
+GitHub Actions run `35280012377` was queued for branch head `88f9ebe12aa44f2dd107d60d299e0826e73be837` when this entry was written. Do not claim this newest head as verified until that run completes.
+
+### Next implementation steps
+
+1. Produce an actual export using a HumMod runner at the pinned revision and validate it against `vent-hummod-trajectory/v1`.
+2. Bind that trajectory to `berlin-moderate-moderate-aspiration` as the first end-to-end systemic replay case.
+3. Add a clinical-twin runtime that advances Vent mechanics and samples the attached systemic provider on one timeline while retaining separate solver provenance.
+4. Wire explicit hold-derived mechanics into the patient-facing runtime and retire legacy waveform auto-PEEP as a clinical-facing value.
+
+
+## 2026-09-17 — canonical HumMod replay runtime and CI repair
+
+### Canonical export normalization bug fixed
+
+GitHub Actions exposed one failing assertion in `hummod_export_contract.test.js`.
+
+Root cause:
+
+- canonical HumMod trajectory rows intentionally preserve exact source symbols as literal keys, e.g. `PO2Artys.Pressure`
+- the generic HumMod mapper interprets dot-separated paths as nested object paths
+- the export contract therefore produced valid raw rows but normalized fields resolved to `null`
+
+Fix:
+
+- retain the canonical raw export format unchanged
+- expand each validated row into a temporary nested mapping object only during normalization
+- preserve exact raw HumMod symbol identity and revision/exporter provenance
+- do not introduce fuzzy matching, implicit unit conversion, or mutate the source export
+
+Commit: `43cf2e96499d1ef8900b23f7ee1879422b4f0879`.
+
+### Berlin + HumMod replay composition runtime added
+
+Added `src/clinical_twin_runtime.js`.
+
+`createBerlinHumModReplayRuntime()` now binds:
+
+- one named synthetic Berlin ARDS case from the case catalog
+- one validated canonical HumMod trajectory export
+- the pinned HumMod source revision and exporter provenance
+- deterministic systemic state sampling on the shared simulation timeline
+
+The runtime deliberately labels itself as `deterministic-systemic-replay`, not live bidirectional coupling.
+
+It explicitly refuses to synthesize a HumMod systemic response to arbitrary Vent interventions. A PEEP change or other Vent intervention can only have a systemic HumMod response when a live provider is available or when that intervention is represented by an authored HumMod trajectory.
+
+Added `test/clinical_twin_runtime.test.js` covering:
+
+- moderate Berlin / moderate recruitability case binding
+- HumMod revision provenance
+- deterministic systemic initialization and sampling
+- subject/run identity preservation
+- failure before initialization
+- refusal to fake systemic intervention response
+
+Browser and bundle exports now expose `createBerlinHumModReplayRuntime`.
+
+### Verification status
+
+Latest branch head at the time of this entry: `95733933a777cf89fccaedc7319120ba7fe9972f`.
+
+GitHub Actions run `35284416884` was in progress when this entry was written. Do not mark this head as verified until that exact run completes successfully.
+
+
+## 2026-09-17 — composed Vent + HumMod clinical session
+
+### End-to-end session composition added
+
+Added `src/clinical_twin_session.js` and `test/clinical_twin_session.test.js`.
+
+The session layer now composes:
+
+- one authored synthetic Berlin ARDS case
+- Vent lung/ventilator mechanics
+- explicit initial recruitment state
+- explicit VC-AC or PC-AC ventilator settings
+- a validated canonical HumMod trajectory replay
+- one shared simulation clock
+
+Design constraints:
+
+- Vent browser gas exchange is disabled in the composed session so it does not compete with HumMod-derived gas/acid-base state.
+- Vent owns pulmonary mechanics, recruitment, waveform state, holds and ventilator interventions.
+- HumMod replay owns systemic state present in the validated trajectory.
+- Fixed replay does not synthesize systemic response to arbitrary Vent interventions.
+- The session refuses to extrapolate beyond the end of the HumMod trajectory.
+- Missing ventilator settings or recruitment state are rejected rather than guessed.
+
+The session snapshot exposes:
+
+- case identity, Berlin severity and recruitability
+- current ventilator settings
+- compartment volumes, flows, pressures and recruitment
+- explicit hold-derived respiratory mechanics
+- current HumMod systemic snapshot
+- coupling/provenance status
+- session intervention history
+
+### Unified bedside-mechanics summary
+
+Updated `Simulation.measurementSummary()` to use the existing explicit hold derivation layer.
+
+The core summary now returns plateau pressure, total PEEP, intrinsic PEEP, effective end-expiratory reference and driving pressure only when the required zero-flow hold measurements are available. Before both holds exist, the summary remains explicitly incomplete.
+
+### Clinical case readiness layer
+
+Added `src/clinical_case_readiness.js` and tests.
+
+The readiness API makes the future patient UI distinguish:
+
+- fields already authored
+- cohort-calibrated targets
+- required explicit case inputs
+- required external HumMod data
+
+It specifically prevents the UI from silently fabricating:
+
+- ventilator mode
+- FiO2
+- respiratory rate
+- absolute tidal volume
+- initial recruitment state
+- HumMod trajectory linkage
+
+All nine Berlin cases are exposed through the readiness API.
+
+### Verification status
+
+The prior branch head `3f3bf7255b2061621dece81e96a2da16d00f53a4` passed GitHub Actions run `35284451153`.
+
+The newer composed-session/readiness commits were pushed after that successful run and require their own CI confirmation before merge.
+
+
+## 2026-09-17 — patient-first browser preview and generated manifest
+
+### Clinical Twin preview added
+
+The existing mechanics lab remains intact while a new patient-first clinical preview is introduced above it.
+
+The preview:
+
+- lists all nine synthetic Berlin ARDS cases
+- defaults to the moderate Berlin / intermediate-recruitability aspiration reference case
+- displays Berlin severity and recruitability as separate axes
+- displays the authored case narrative
+- shows whether the case is executable
+- shows each readiness field as ready, cohort-calibrated, required explicit input, or required external data
+- explicitly marks HumMod trajectory attachment as external data still required
+
+The preview does not fabricate missing ventilator settings, absolute VT, recruitment state, or systemic physiology.
+
+### Browser manifest generation
+
+Added `scripts/build-clinical-manifest.js`.
+
+The browser-facing `web/clinical-cases.json` is now generated from:
+
+- `src/berlin_case_catalog.js`
+- `src/clinical_case_readiness.js`
+
+Added `test/clinical_case_manifest.test.js` to fail if the browser manifest diverges from canonical source case identity, narrative, severity, recruitability, readiness status, values, provenance, or notes.
+
+The normal `npm run build` now regenerates this manifest before rebuilding `web/engine.js`.
+
+### Browser smoke expansion
+
+Browser smoke coverage now checks:
+
+- nine clinical cases load
+- the intended moderate/intermediate reference case is selected by default
+- severity/recruitability render correctly
+- the case remains explicitly non-executable while HumMod and required inputs are missing
+- switching to the severe/high-recruitability case updates the clinical summary
+- the existing mechanics lab still runs afterward
+
+### Build pipeline
+
+GitHub Actions now:
+
+1. builds the browser artifacts,
+2. runs unit/regression tests,
+3. publishes `web/engine.js` and `web/clinical-cases.json` as a workflow artifact.
+
+This gives a reproducible path to refresh generated browser assets without hand-editing bundled code.
+
+### HumMod export investigation
+
+Added `docs/HUMMOD_EXPORT_DISCOVERY.md`.
+
+Verified from the pinned upstream source:
+
+- separate solution, display, and storage intervals exist in `Control/GoFor.DES`
+- HumMod panels graph exact model symbols against `System.X`
+- the verified mapped variables appear directly in display definitions
+- no source-level CSV/JSON/export command was found in repository search
+
+The units/semantics of `System.X` remain unverified and must not be inferred from menu labels.
+
+No claim is made that the checked-in Windows executable exposes an undocumented exporter.
+
+
+## 2026-09-17 — executable browser session and full ventilator transition foundation
+
+### Persistent browser clinical worker
+
+Added `web/clinical-worker.js`.
+
+The worker keeps one composed clinical session alive across messages instead of rebuilding the lung for each action. Supported commands include:
+
+- initialize
+- advance session time
+- set PEEP
+- queue a full ventilator settings/mode change
+- request inspiratory hold
+- request expiratory hold
+- snapshot
+- reset
+
+This preserves Vent state, recruitment history, trace history, and session time between interventions.
+
+### Explicit executable-session UI
+
+The Clinical Twin preview now includes an executable-session setup panel.
+
+Required inputs are intentionally explicit:
+
+- HumMod trajectory JSON
+- mode
+- FiO2 fraction
+- PEEP
+- respiratory rate
+- recruitable fraction initially open
+- VC tidal volume / flow / pause or PC inspiratory pressure / inspiratory time / pause
+- solver timestep
+
+The UI does not auto-populate missing executable inputs from Berlin severity or cohort medians.
+
+HumMod files must declare `vent-hummod-trajectory/v1` before the worker accepts them for full validation.
+
+Live session output now exposes:
+
+- session time
+- applied ventilator mode
+- applied PEEP
+- HumMod PaO2 / PaCO2
+- heart rate
+- mean arterial pressure
+- hold-derived driving pressure when available
+
+### State-preserving full ventilator changes
+
+Added `Simulation.requestControllerChange()`.
+
+A new VC-AC or PC-AC controller is queued and applied only at a completed-breath boundary.
+
+Preserved across the change:
+
+- lung compartment state
+- recruitment
+- simulation time
+- trace history
+- intervention history
+
+The request is rejected while a bedside hold is pending/active.
+
+The composed clinical session exposes this as `requestVentilationChange()` and explicitly marks fixed HumMod replay as non-responsive to the Vent intervention.
+
+Regression tests cover:
+
+- request-time state preservation
+- VC -> PC transition
+- same-mode VC settings change
+- hold/concurrency rejection
+- clinical-session pending/applied status
+
+### Browser smoke expansion
+
+The browser smoke fixture is explicitly named `fixture-browser-only-not-physiology`.
+
+The smoke test now verifies:
+
+1. nine-case clinical catalog renders;
+2. a HumMod replay fixture can initialize the composed browser session;
+3. shared time advances;
+4. HumMod replay state advances;
+5. VC is initially applied;
+6. a PC settings change is queued;
+7. VC remains active until the completed-breath boundary;
+8. PC and new PEEP become active afterward;
+9. the existing mechanics lab still runs.
+
+### Browser CI
+
+The GitHub Actions workflow now includes Chromium and WebKit browser-smoke jobs after node tests.
+
+The browser matrix exercises 320, 390, 768, and 1440 px viewports. WebKit is used as an iOS-engine approximation; physical-device validation remains a separate deployment gate.
+
+
+## 2026-09-17 — raw HumMod ingestion, history-derived recruitment, and passive mechanics
+
+### Raw HumMod System.X ingestion
+
+Added `src/hummod_raw_series_adapter.js`.
+
+The adapter accepts `hummod-raw-series/v1` with:
+
+- pinned HumMod repository/revision metadata
+- verified `System.X` clock in minutes
+- exact approved HumMod source symbols
+- strictly increasing raw clock values
+
+It converts the raw series to `vent-hummod-trajectory/v1` by:
+
+- preserving the raw `System.X` value
+- normalizing the first raw sample to canonical session time zero
+- converting minutes to seconds using the verified pinned clock contract
+- preserving exact source-symbol values
+- rejecting undeclared or unverified symbols
+
+The browser upload path now accepts either canonical Vent trajectories or raw HumMod series.
+
+### Recruitment initialization history
+
+Added `src/recruitment_history.js`.
+
+A clinical session can now initialize recruitable tissue using either:
+
+1. an explicit current recruitable fraction, or
+2. `vent-recruitment-history/v1`.
+
+The history format requires:
+
+- an explicitly declared earlier recruitable fraction
+- provenance for that earlier state
+- one or more sustained pressure/duration segments
+
+Vent derives the current recruitable fraction using the same recruitment kinetics used by the mechanics engine. The history path does not infer recruitment from Berlin severity, etiology, compliance, or PEEP.
+
+The browser now exposes both initialization modes and accepts a recruitment-history JSON file.
+
+### Partial-recruitment initialization bug fixed
+
+Pressure-consistent initialization was applying recruitable availability twice when calculating starting elastic volume for a partially open recruitable compartment.
+
+The incorrect path effectively used `availability^2 * capacity`.
+
+It now uses the constitutive law as intended:
+
+`Vmax = availability * full_capacity`
+
+and applies availability exactly once.
+
+A dedicated acceptance test now covers partially recruited equilibrium initialization.
+
+### Automated passive mechanics workflow
+
+The composed clinical session now supports a one-action passive mechanics measurement sequence.
+
+The sequence:
+
+- requires stable ventilator settings
+- performs an explicit simulated end-inspiratory zero-flow hold
+- performs an explicit simulated end-expiratory zero-flow hold
+- advances the persistent Vent state only as needed
+- remains bounded by the attached HumMod replay trajectory
+- synchronizes the systemic replay snapshot to the resulting Vent time
+- returns the unified plateau, total PEEP, intrinsic PEEP, and driving-pressure summary
+
+The browser clinical panel displays these measurements and exposes a `Measure passive mechanics` action.
+
+### Full ventilator changes
+
+Ventilator controller changes are now state-preserving and queued to a completed-breath boundary.
+
+VC-AC and PC-AC settings can change without reconstructing the lung, resetting recruitment, clearing history, or restarting simulation time.
+
+The browser exposes this as `Queue full settings` and displays when a controller change is pending.
+
+### Browser verification path
+
+Browser smoke now exercises:
+
+- the nine-case Berlin catalog
+- raw HumMod `System.X` upload and conversion
+- history-derived recruitment initialization
+- persistent Vent + HumMod replay session
+- shared-time advance
+- automated passive mechanics
+- VC-AC to PC-AC transition
+- the existing mechanics lab afterward
+
+Chromium and WebKit remain required CI targets.
+
+
+## 2026-09-17 — executable clinical browser session hardening
+
+### Raw HumMod ingestion
+
+Added a raw-series ingestion path for `hummod-raw-series/v1`.
+
+The adapter:
+
+- requires the pinned HumMod repository and revision
+- requires the verified `System.X` clock
+- preserves each raw `System.X` value
+- converts minutes to canonical Vent seconds relative to the first raw sample
+- accepts only verified direct HumMod source symbols
+- rejects undeclared, duplicated, missing, or non-finite values
+
+The browser upload path now accepts either:
+
+- canonical `vent-hummod-trajectory/v1`, or
+- raw `hummod-raw-series/v1`, converted through the verified adapter
+
+Test-only raw trajectories remain explicitly labeled fixtures and are not clinical data.
+
+### Stateful ventilator changes
+
+The Vent engine and composed clinical session now support state-preserving controller changes.
+
+- VC-AC -> PC-AC and PC-AC -> VC-AC are queued rather than applied mid-breath.
+- Changes apply at the next completed-breath boundary.
+- Lung volume, recruitment state, trace history, simulation time, and intervention history are preserved.
+- Pending controller changes are visible in the clinical session snapshot/UI.
+- Full setting changes remain pulmonary-only when the systemic provider is fixed HumMod replay.
+
+### Recruitment initialization history
+
+Added `vent-recruitment-history/v1`.
+
+The current recruitable fraction can now be derived from:
+
+- an explicitly declared earlier recruitable fraction, plus
+- a sequence of sustained zero-flow-equilibrated airway-pressure segments
+
+using the same Vent recruitment kinetics as the mechanics engine.
+
+This does not infer recruitability from Berlin severity or etiology. The prior starting recruitment state remains an explicit scenario input.
+
+The browser now offers two transparent initialization modes:
+
+1. explicit current recruitment state
+2. prior pressure-history file
+
+The resulting initialization source and derivation are retained in the session snapshot.
+
+### Passive mechanics and clinical waveforms
+
+The executable clinical session now exposes:
+
+- recent Vent pressure, flow, and volume traces
+- automated inspiratory + expiratory zero-flow hold sequence
+- plateau pressure
+- total PEEP
+- intrinsic PEEP
+- derived driving pressure
+
+The automated measurement advances the persistent clinical session rather than reconstructing the patient.
+
+### Cross-browser deployment gate
+
+Chromium and WebKit smoke jobs now exercise:
+
+- the nine-case clinical catalog
+- raw HumMod upload
+- history-derived recruitment initialization
+- executable Vent + HumMod session creation
+- shared-time advancement
+- state-preserving VC -> PC change
+- clinical waveform rendering
+- legacy mechanics lab coexistence
+- narrow mobile widths
+
+Two browser-only failures found by this gate were addressed:
+
+- chart-count assertions were scoped so Clinical Twin plots are not mistaken for legacy plots
+- narrow mobile containment and JSON export behavior were hardened for Chromium/WebKit
+
+Node/unit/regression tests have remained green through these browser-hardening passes. The full browser matrix remains the merge gate.
+
+
+## 2026-09-17 — HumMod documented remote-runner candidate
+
+### Documented remote/scripted control path identified
+
+HumMod's pinned documentation defines a file-based remote listener and scripted execution model.
+
+Relevant documented capabilities:
+
+- file listener processes a remote-request file
+- scripted runs can be non-interactive
+- `fileroster` selects exact variables
+- `filestarttracking` / `filestoptracking` track values
+- `advancefor` advances the solution with explicit intervals
+- `fileopencreate`, `filewriteheader`, `fileupdate`, and `fileclose` manage tracked output
+- `logfile` provides a documented completion signal
+
+This is now the preferred first real HumMod execution path instead of GUI scraping.
+
+### Candidate remote request generator
+
+Added `src/hummod_remote_request.js`.
+
+It generates a schema-derived candidate remote request that always includes:
+
+- `System.X`
+- all verified directly mapped HumMod source symbols
+
+It converts Vent-facing duration/sample cadence into the verified HumMod minute clock.
+
+The generator intentionally reports:
+
+`runtimeVerified: false`
+
+until a pinned HumMod executable successfully processes the request.
+
+### Windows probe workflow
+
+Added manual workflow:
+
+`.github/workflows/hummod-windows-remote-probe.yml`
+
+The workflow can:
+
+1. clone the pinned HumMod standalone revision;
+2. verify `HumMod.EXE` exists and record SHA-256;
+3. generate the candidate reference remote request;
+4. optionally launch the executable;
+5. submit the candidate listener file;
+6. poll for the documented completion logfile/output;
+7. terminate the process after a bounded timeout;
+8. upload all probe artifacts.
+
+Remote execution is opt-in because the exact listener filename/bootstrap behavior remains runtime-unverified.
+
+### Reference request artifacts
+
+Checked in under `hummod-runner/`:
+
+- `reference-run-request.json`
+- `BasicListener.candidate.DAT`
+- `remote-request-manifest.json`
+
+Target reference case:
+
+`berlin-moderate-moderate-aspiration`
+
+The request captures only synthetic/model physiology and must not be described as a real patient trajectory.
+
+### Remaining runner unknown
+
+The tracked-file delimiter/layout is not specified clearly enough in the checked HumMod documentation to implement a trustworthy parser without one real runtime output.
+
+Therefore no tracked-output parser has been guessed.
+
+The next real-data milestone is to run the manual Windows probe, retain the raw output unchanged, and implement the parser from the observed format.

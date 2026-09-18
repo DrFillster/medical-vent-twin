@@ -1,0 +1,15 @@
+{
+  "name": "mechanistic-lung-simulator",
+  "version": "0.4.5",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-clinical-manifest.js && node scripts/build.js",
+    "test": "node test/runner.js",
+    "test:browser": "node test/browser-smoke.cjs",
+    "serve": "node scripts/serve.js",
+    "benchmark:reference": "node scripts/reference-case-benchmark.js"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
