@@ -26,6 +26,8 @@ export { createBerlinHumModReplayRuntime } from './clinical_twin_runtime.js';
 export { createBerlinClinicalTwinSession, buildController } from './clinical_twin_session.js';
 export { createClinicalSessionRecord } from './clinical_session_record.js';
 export { assessBerlinCaseReadiness, listBerlinCaseReadiness } from './clinical_case_readiness.js';
+export { REFERENCE_CASE_ID, EVIDENCE as REFERENCE_CASE_EVIDENCE,
+         buildReferenceCaseCalibration } from './reference_case_calibration.js';
 export { RECRUITMENT_HISTORY_SCHEMA, validateRecruitmentHistory,
          deriveRecruitmentFromHistory } from './recruitment_history.js';
 export { derivePassiveRespiratoryMechanics,
