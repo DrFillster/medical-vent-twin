@@ -613,16 +613,14 @@
   });
   $('download').addEventListener('click', () => {
     if (!latest) return;
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(latest, null, 2)], { type: 'application/json' }));
+    const json = JSON.stringify(latest, null, 2);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
     a.download = `vent-run-v${latest.version}.json`;
-    a.hidden = true;
+    a.style.display = 'none';
     document.body.append(a);
     a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    requestAnimationFrame(() => a.remove());
   });
   let resizeTimer;
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (latest) chartNames.forEach(name => drawChart(name, latest.waveform)); }, 150); });
