@@ -1075,10 +1075,24 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
                activeSetTransitions };
     }
   }
+  const finalSystem = buildSystem(
+    activeComps, vTrial, pBranch[0], boundary, params, dt);
+  const finalScaledComponents = finalSystem.F.map((value, i) => {
+    const scale = i < finalSystem.F.length - 1
+      ? scales.V_scales[i]
+      : scales.P_scale;
+    return value / scale;
+  });
   return { converged, residual: lastResidualNorm,
            scaledResidual: lastScaled, iterations: iter, substeps: 0,
            lineSearchHalvings: totalHalvings,
-           activeSetTransitions };
+           activeSetTransitions,
+           residualVector: finalSystem.F,
+           scaledResidualVector: finalScaledComponents,
+           volumeScales: scales.V_scales,
+           pressureScale: scales.P_scale,
+           trialVolumes: vTrial.slice(),
+           trialBranchPressure: pBranch[0] };
 }
 
 // --- Driver: implicit step with dt subdivision -------------------------
@@ -1183,6 +1197,16 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
         iterations: 0,
         residualNorm: r.residual,
         scaledResidual: r.scaledResidual,
+        residualVector: r.residualVector || null,
+        scaledResidualVector: r.scaledResidualVector || null,
+        volumeScales: r.volumeScales || null,
+        pressureScale: r.pressureScale || null,
+        trialVolumes: r.trialVolumes || null,
+        trialBranchPressure: r.trialBranchPressure ?? null,
+        boundaryKind: boundary.kind,
+        requestedFlowLps: boundary.kind === 'FLOW' ? boundary.flowLps : null,
+        requestedPressureCmH2O:
+          boundary.kind === 'PRESSURE' ? boundary.pressureCmH2O : null,
         substeps: DT_SUBDIV_LIMIT,
         solverFailure: true,
         failureKind: classification,
