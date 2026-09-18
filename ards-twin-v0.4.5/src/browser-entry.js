@@ -15,6 +15,7 @@ module.exports = {
   ...require('./clinical_twin_session.js'),
   ...require('./clinical_session_record.js'),
   ...require('./clinical_case_readiness.js'),
+  ...require('./reference_case_calibration.js'),
   ...require('./recruitment_history.js'),
   ...require('./bedside_measurements.js'),
   ...require('./contracts.js'),
