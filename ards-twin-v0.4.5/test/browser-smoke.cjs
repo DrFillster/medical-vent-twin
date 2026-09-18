@@ -33,6 +33,15 @@ const { chromium, webkit } = require('playwright');
       assert.equal((await page.locator('#clinical-calibration-ri').textContent()).trim(),'Not assigned');
       assert((await page.locator('#clinical-calibration-aop').textContent()).includes('model construct'));
       assert((await page.locator('#clinical-readiness').textContent()).includes('External data required'));
+
+      // Progress-demo path must be one click and remain explicitly synthetic.
+      await page.locator('#clinical-session-panel > summary').click();
+      await page.locator('#clinical-load-demo').click();
+      assert((await page.locator('#clinical-hummod-status').textContent()).includes('SYNTHETIC DEMO DATA LOADED'));
+      assert.equal(await page.locator('#clinical-mode').inputValue(),'VC_AC');
+      assert.equal(await page.locator('#clinical-peep').inputValue(),'8');
+      assert.equal(await page.locator('#clinical-recruitment').inputValue(),'0.35');
+
       await page.locator('#clinical-case').selectOption('berlin-severe-high-diffuse-inflammatory');
       assert.equal((await page.locator('#clinical-severity').textContent()).trim(),'Severe');
       assert.equal((await page.locator('#clinical-recruitability').textContent()).trim(),'High');
