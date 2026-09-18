@@ -7,7 +7,8 @@
     "test": "node test/runner.js",
     "test:browser": "node test/browser-smoke.cjs",
     "serve": "node scripts/serve.js",
-    "benchmark:reference": "node scripts/reference-case-benchmark.js"
+    "benchmark:reference": "node scripts/reference-case-benchmark.js",
+    "hummod:core-graph": "node scripts/build-hummod-ards-core-graph.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
