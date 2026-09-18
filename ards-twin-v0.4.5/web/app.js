@@ -457,6 +457,24 @@
       } catch (error) { showClinicalError(error.message); }
     });
 
+    $('clinical-export-session').addEventListener('click', () => {
+      try {
+        if (!clinicalSnapshot) throw new Error('Initialize a clinical session first');
+        if (!window.VENT || typeof VENT.createClinicalSessionRecord !== 'function') {
+          throw new Error('Clinical session export is unavailable in this browser build');
+        }
+        const record = VENT.createClinicalSessionRecord(clinicalSnapshot);
+        const json = JSON.stringify(record, null, 2);
+        const a = document.createElement('a');
+        a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+        a.download = 'vent-clinical-session-' + record.case.id + '.json';
+        a.style.display = 'none';
+        document.body.append(a);
+        a.click();
+        requestAnimationFrame(() => a.remove());
+      } catch (error) { showClinicalError(error.message); }
+    });
+
     $('clinical-insp-hold').addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
