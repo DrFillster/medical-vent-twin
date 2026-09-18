@@ -139,7 +139,7 @@ jobs:
             --out hummod-ards-core-analysis/dependency-graph.json
       - name: Summarize HumMod ARDS dependency closure
         run: |
-          node -e "const g=require('./hummod-ards-core-analysis/dependency-graph.json'); console.log(JSON.stringify({closure:g.closureStructureCount,missing:g.missingStructures,systems:g.systems},null,2))"
+          node -e "const g=require('./hummod-ards-core-analysis/dependency-graph.json'); console.log(JSON.stringify({fullClosure:g.fullClosure.structureCount,phase1Closure:g.phase1Closure.structureCount,frontierCount:g.phase1Closure.frontierCount,frontier:g.phase1Closure.frontier,missing:g.phase1Closure.missingStructures,systems:g.phase1Closure.systems},null,2))"
       - name: Upload HumMod ARDS core analysis
         uses: actions/upload-artifact@v4
         with:
