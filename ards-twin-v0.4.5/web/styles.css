@@ -3,3 +3,8 @@
 /* Clinical/mobile containment: keep axis labels and flexible controls inside the viewport. */
 .clinical-preview,.clinical-session,#clinical-live,.clinical-waveforms,.plot,.field-grid>*{min-width:0;max-width:100%}
 @media(max-width:700px){svg{overflow:hidden}.clinical-actions button{min-width:0;flex-basis:130px}.clinical-session code{overflow-wrap:anywhere;word-break:break-word}}
+
+/* Narrow-screen intrinsic-size hardening. */
+.brand>div,details,summary,.clinical-summary,.hint,.readiness-name,.card-heading>*{min-width:0;max-width:100%}
+.clinical-summary,.hint,.readiness-name,summary{overflow-wrap:anywhere}
+@media(max-width:360px){.masthead{overflow:hidden}.brand{align-items:flex-start}.brand>div{flex:1 1 auto}.eyebrow{overflow-wrap:anywhere}.actions{max-width:100%}}
