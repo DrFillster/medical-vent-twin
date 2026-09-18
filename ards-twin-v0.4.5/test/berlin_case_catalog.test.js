@@ -51,6 +51,20 @@ test('Berlin calibration stays constant when recruitability changes within sever
   });
 });
 
+test('synthetic cases explicitly represent all four Berlin criteria without inventing individual oxygenation', () => {
+  BERLIN_CASE_CATALOG.forEach(c => {
+    const criteria = c.clinical.berlinCriteria;
+    assert(criteria.timing.status === 'synthetic-authored-assumption');
+    assert(criteria.chestImaging.status === 'synthetic-authored-assumption');
+    assert(criteria.edemaOrigin.status === 'synthetic-authored-assumption');
+    assert(criteria.oxygenation.berlinSeverityCategory === c.clinical.berlinSeverity);
+    assert(criteria.oxygenation.status === 'cohort-calibrated-severity-construct-not-individual-measurement');
+    assert(c.clinical.diagnosisCompleteness.timingCriterion === 'represented-as-synthetic-authored-assumption');
+    assert(c.clinical.diagnosisCompleteness.bilateralOpacitiesCriterion === 'represented-as-synthetic-authored-assumption');
+    assert(c.clinical.diagnosisCompleteness.edemaOriginCriterion === 'represented-as-synthetic-authored-assumption');
+  });
+});
+
 test('case assumptions and evidence-calibrated targets are distinguished', () => {
   BERLIN_CASE_CATALOG.forEach(c => {
     assert(c.clinical.authoringStatus === 'synthetic-scenario-assumption');
