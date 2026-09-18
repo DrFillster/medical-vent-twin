@@ -9,7 +9,7 @@
 
 const { makeBerlinVirtualPatient } = require('./clinical_scenarios.js');
 
-const CASE_AUTHORING_VERSION = '0.5.0-alpha.1';
+const CASE_AUTHORING_VERSION = '0.5.0-alpha.2';
 
 const CASE_DESIGNS = Object.freeze([
   { severity: 'mild', recruitability: 'low',
@@ -85,7 +85,31 @@ function buildCase(design) {
       radiographicPattern: design.pattern,
       narrative: design.narrative,
       authoringStatus: 'synthetic-scenario-assumption',
-      diagnosisCompleteness: clone(base.clinical.diagnosisCompleteness),
+      berlinCriteria: {
+        timing: {
+          value: 'within-1-week-of-known-insult-or-new-worsening-respiratory-symptoms',
+          status: 'synthetic-authored-assumption',
+        },
+        chestImaging: {
+          value: 'bilateral-opacities-not-fully-explained-by-effusion-collapse-or-nodules',
+          status: 'synthetic-authored-assumption',
+        },
+        edemaOrigin: {
+          value: 'respiratory-failure-not-fully-explained-by-cardiac-failure-or-fluid-overload',
+          status: 'synthetic-authored-assumption',
+        },
+        oxygenation: {
+          berlinSeverityCategory: design.severity,
+          status: 'cohort-calibrated-severity-construct-not-individual-measurement',
+          note: 'No individual PaO2/FiO2 value is invented for the authored case.',
+        },
+      },
+      diagnosisCompleteness: {
+        timingCriterion: 'represented-as-synthetic-authored-assumption',
+        bilateralOpacitiesCriterion: 'represented-as-synthetic-authored-assumption',
+        edemaOriginCriterion: 'represented-as-synthetic-authored-assumption',
+        oxygenationCriterion: 'represented-as-cohort-calibrated-severity-construct',
+      },
     },
     phenotype: {
       recruitability: design.recruitability,
