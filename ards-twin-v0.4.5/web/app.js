@@ -5,6 +5,50 @@
   const number = id => Number($(id).value);
   let worker = null, timer = null, latest = null;
   let clinicalWorker = null, clinicalHumModExport = null, clinicalRecruitmentHistory = null, clinicalSnapshot = null;
+  const SYNTHETIC_DEMO_HUMMOD = Object.freeze({
+    schema: 'vent-hummod-trajectory/v1',
+    trajectoryId: 'synthetic-demo-fixture-not-real-hummod',
+    source: Object.freeze({
+      repository: 'riliescu/hummod-standalone',
+      revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+      exporterVersion: 'synthetic-demo-fixture/1',
+    }),
+    symbols: Object.freeze([
+      'PO2Artys.Pressure',
+      'CO2Artys.Pressure',
+      'BloodPh.ArtysPh',
+      'Heart-Rate.Rate',
+      'SystemicArtys.Pressure',
+      'CardiacOutput.Flow(L/Min)',
+    ]),
+    rows: Object.freeze([
+      Object.freeze({ timestampSec: 0, values: Object.freeze({
+        'PO2Artys.Pressure': 80,
+        'CO2Artys.Pressure': 40,
+        'BloodPh.ArtysPh': 7.40,
+        'Heart-Rate.Rate': 90,
+        'SystemicArtys.Pressure': 75,
+        'CardiacOutput.Flow(L/Min)': 5.0,
+      }) }),
+      Object.freeze({ timestampSec: 30, values: Object.freeze({
+        'PO2Artys.Pressure': 79,
+        'CO2Artys.Pressure': 40.5,
+        'BloodPh.ArtysPh': 7.39,
+        'Heart-Rate.Rate': 91,
+        'SystemicArtys.Pressure': 74,
+        'CardiacOutput.Flow(L/Min)': 5.0,
+      }) }),
+      Object.freeze({ timestampSec: 120, values: Object.freeze({
+        'PO2Artys.Pressure': 78,
+        'CO2Artys.Pressure': 41,
+        'BloodPh.ArtysPh': 7.38,
+        'Heart-Rate.Rate': 92,
+        'SystemicArtys.Pressure': 73,
+        'CardiacOutput.Flow(L/Min)': 4.9,
+      }) }),
+    ]),
+  });
+
   const chartNames = ['pressure', 'flow', 'volume'];
   const metrics = ['ppeak', 'pplat', 'dp', 'vti', 'vte', 'mv'];
   function readinessLabel(status) {
@@ -371,9 +415,40 @@
       ' · current recruitment will be derived by Vent.';
   }
 
+  function loadSyntheticDemoInputs() {
+    stopClinicalWorker();
+    clinicalHumModExport = SYNTHETIC_DEMO_HUMMOD;
+    clinicalRecruitmentHistory = null;
+
+    $('clinical-case').value = 'berlin-moderate-moderate-aspiration';
+    renderClinicalCase($('clinical-case').value);
+    $('clinical-mode').value = 'VC_AC';
+    syncClinicalMode();
+    $('clinical-fio2').value = '0.60';
+    $('clinical-peep').value = '8';
+    $('clinical-rr').value = '20';
+    $('clinical-init-mode').value = 'explicit';
+    syncClinicalInitializationMode();
+    $('clinical-recruitment').value = '0.35';
+    $('clinical-vt').value = '0.42';
+    $('clinical-flow').value = '0.70';
+    $('clinical-vc-pause').value = '0.20';
+    $('clinical-dt').value = '0.002';
+    $('clinical-hummod-file').value = '';
+    $('clinical-recruitment-history-file').value = '';
+    $('clinical-hummod-status').textContent =
+      'SYNTHETIC DEMO DATA LOADED · systemic values are fixture-only and are not a real HumMod trajectory.';
+    $('clinical-recruitment-history-status').textContent =
+      'Explicit synthetic current recruitment state selected for demo.';
+    $('clinical-session-error').hidden = true;
+    $('clinical-session-status').textContent =
+      'Synthetic demo inputs loaded. Review the values, then initialize the session.';
+  }
+
   function initializeClinicalSessionUi() {
     syncClinicalMode();
     syncClinicalInitializationMode();
+    $('clinical-load-demo').addEventListener('click', loadSyntheticDemoInputs);
     $('clinical-mode').addEventListener('change', syncClinicalMode);
     $('clinical-init-mode').addEventListener('change', () => {
       syncClinicalInitializationMode();
