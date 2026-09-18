@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   HUMMOD_ARDS_CORE,
+  HUMMOD_ARDS_CORE_PHASE1_POLICY,
   hummodArdsCoreRootStructures,
 } = require('../src/hummod_ards_core_manifest.js');
 
@@ -74,10 +75,15 @@ function buildIndex(root) {
   return { index, duplicateNames };
 }
 
-function dependencyClosure(index, roots, maxDepth) {
+function dependencyClosure(index, roots, maxDepth, policy = null) {
   const seen = new Map();
   const missing = new Set();
+  const frontier = [];
   const queue = roots.map(root => ({ name: root, depth: 0, parent: null }));
+
+  const stopBuckets = new Set(policy?.stopSystemBuckets || []);
+  const laterBuckets = new Set(policy?.laterPhaseSystemBuckets || []);
+  const stopStructures = new Set(policy?.stopStructureNames || []);
 
   while (queue.length) {
     const current = queue.shift();
@@ -87,11 +93,36 @@ function dependencyClosure(index, roots, maxDepth) {
       missing.add(current.name);
       continue;
     }
+
+    const bucket = systemBucket(item.path);
+    const boundaryKind = stopStructures.has(current.name)
+      ? 'explicit-structure-boundary'
+      : stopBuckets.has(bucket)
+        ? 'phase1-externalized-system'
+        : laterBuckets.has(bucket)
+          ? 'later-phase-system'
+          : null;
+
     seen.set(current.name, {
       ...item,
       depth: current.depth,
       firstParent: current.parent,
+      systemBucket: bucket,
+      boundaryKind,
     });
+
+    if (boundaryKind) {
+      frontier.push({
+        structure: current.name,
+        path: item.path,
+        systemBucket: bucket,
+        depth: current.depth,
+        firstParent: current.parent,
+        boundaryKind,
+      });
+      continue;
+    }
+
     if (current.depth >= maxDepth) continue;
     for (const dep of item.dependencies) {
       queue.push({ name: dep, depth: current.depth + 1, parent: current.name });
@@ -101,6 +132,7 @@ function dependencyClosure(index, roots, maxDepth) {
   return {
     structures: [...seen.values()].sort((a,b) => a.depth - b.depth || a.structure.localeCompare(b.structure)),
     missing: [...missing].sort(),
+    frontier: frontier.sort((a,b) => a.depth - b.depth || a.structure.localeCompare(b.structure)),
   };
 }
 
@@ -125,7 +157,9 @@ function main() {
   const hummodRoot = path.resolve(args.hummodRoot);
   const { index, duplicateNames } = buildIndex(hummodRoot);
   const roots = hummodArdsCoreRootStructures();
-  const closure = dependencyClosure(index, roots, args.maxDepth);
+  const fullClosure = dependencyClosure(index, roots, args.maxDepth);
+  const phase1Closure = dependencyClosure(
+    index, roots, args.maxDepth, HUMMOD_ARDS_CORE_PHASE1_POLICY);
 
   const result = {
     schema: 'hummod-ards-core-dependency-graph/v1',
@@ -134,11 +168,21 @@ function main() {
     rootSymbols: HUMMOD_ARDS_CORE.outputs.map(x => x.symbol),
     rootStructures: roots,
     structureCountIndexed: index.size,
-    closureStructureCount: closure.structures.length,
-    systems: summarize(closure.structures),
-    missingStructures: closure.missing,
+    fullClosure: {
+      structureCount: fullClosure.structures.length,
+      systems: summarize(fullClosure.structures),
+      missingStructures: fullClosure.missing,
+    },
+    phase1Policy: HUMMOD_ARDS_CORE_PHASE1_POLICY,
+    phase1Closure: {
+      structureCount: phase1Closure.structures.length,
+      systems: summarize(phase1Closure.structures),
+      missingStructures: phase1Closure.missing,
+      frontierCount: phase1Closure.frontier.length,
+      frontier: phase1Closure.frontier,
+      structures: phase1Closure.structures,
+    },
     duplicateStructureNames: Object.fromEntries(duplicateNames),
-    structures: closure.structures,
     interpretation: {
       status: 'static-source-dependency-closure-not-runnable-submodel',
       note: 'This graph identifies source dependency breadth. It does not prove that copying the listed files yields an independently solvable HumMod subset.',
@@ -151,9 +195,11 @@ function main() {
     out: path.resolve(args.out),
     roots: roots.length,
     indexed: index.size,
-    closure: closure.structures.length,
-    missing: closure.missing.length,
-    topSystems: Object.entries(result.systems).slice(0, 12),
+    fullClosure: fullClosure.structures.length,
+    phase1Closure: phase1Closure.structures.length,
+    phase1Frontier: phase1Closure.frontier.length,
+    missing: phase1Closure.missing.length,
+    phase1TopSystems: Object.entries(result.phase1Closure.systems).slice(0, 12),
   }, null, 2));
 }
 
