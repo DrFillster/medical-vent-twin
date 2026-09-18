@@ -718,3 +718,90 @@ Browser smoke now exercises:
 - the existing mechanics lab afterward
 
 Chromium and WebKit remain required CI targets.
+
+
+## 2026-09-17 — executable clinical browser session hardening
+
+### Raw HumMod ingestion
+
+Added a raw-series ingestion path for `hummod-raw-series/v1`.
+
+The adapter:
+
+- requires the pinned HumMod repository and revision
+- requires the verified `System.X` clock
+- preserves each raw `System.X` value
+- converts minutes to canonical Vent seconds relative to the first raw sample
+- accepts only verified direct HumMod source symbols
+- rejects undeclared, duplicated, missing, or non-finite values
+
+The browser upload path now accepts either:
+
+- canonical `vent-hummod-trajectory/v1`, or
+- raw `hummod-raw-series/v1`, converted through the verified adapter
+
+Test-only raw trajectories remain explicitly labeled fixtures and are not clinical data.
+
+### Stateful ventilator changes
+
+The Vent engine and composed clinical session now support state-preserving controller changes.
+
+- VC-AC -> PC-AC and PC-AC -> VC-AC are queued rather than applied mid-breath.
+- Changes apply at the next completed-breath boundary.
+- Lung volume, recruitment state, trace history, simulation time, and intervention history are preserved.
+- Pending controller changes are visible in the clinical session snapshot/UI.
+- Full setting changes remain pulmonary-only when the systemic provider is fixed HumMod replay.
+
+### Recruitment initialization history
+
+Added `vent-recruitment-history/v1`.
+
+The current recruitable fraction can now be derived from:
+
+- an explicitly declared earlier recruitable fraction, plus
+- a sequence of sustained zero-flow-equilibrated airway-pressure segments
+
+using the same Vent recruitment kinetics as the mechanics engine.
+
+This does not infer recruitability from Berlin severity or etiology. The prior starting recruitment state remains an explicit scenario input.
+
+The browser now offers two transparent initialization modes:
+
+1. explicit current recruitment state
+2. prior pressure-history file
+
+The resulting initialization source and derivation are retained in the session snapshot.
+
+### Passive mechanics and clinical waveforms
+
+The executable clinical session now exposes:
+
+- recent Vent pressure, flow, and volume traces
+- automated inspiratory + expiratory zero-flow hold sequence
+- plateau pressure
+- total PEEP
+- intrinsic PEEP
+- derived driving pressure
+
+The automated measurement advances the persistent clinical session rather than reconstructing the patient.
+
+### Cross-browser deployment gate
+
+Chromium and WebKit smoke jobs now exercise:
+
+- the nine-case clinical catalog
+- raw HumMod upload
+- history-derived recruitment initialization
+- executable Vent + HumMod session creation
+- shared-time advancement
+- state-preserving VC -> PC change
+- clinical waveform rendering
+- legacy mechanics lab coexistence
+- narrow mobile widths
+
+Two browser-only failures found by this gate were addressed:
+
+- chart-count assertions were scoped so Clinical Twin plots are not mistaken for legacy plots
+- narrow mobile containment and JSON export behavior were hardened for Chromium/WebKit
+
+Node/unit/regression tests have remained green through these browser-hardening passes. The full browser matrix remains the merge gate.
