@@ -49,6 +49,7 @@ const HUMMOD_GAS_EXCHANGE_SOURCE = Object.freeze({
 const BLOOD_GAS_TO_BASE_A = 0.2325;
 const BLOOD_GAS_TO_BASE_B = 0.00036;
 const CO2_MOLS_TO_LITERS = 22.4;
+const CO2_LITERS_TO_MOLS = 0.0446;
 const O2_SOLUBILITY = 0.00003;
 
 function finite(value, label) {
@@ -420,6 +421,7 @@ module.exports = {
   BLOOD_GAS_TO_BASE_A,
   BLOOD_GAS_TO_BASE_B,
   CO2_MOLS_TO_LITERS,
+  CO2_LITERS_TO_MOLS,
   O2_SOLUBILITY,
   hco3FromPco2Sid,
   o2ContentFromPo2,
