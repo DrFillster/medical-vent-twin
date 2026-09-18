@@ -55,13 +55,46 @@ sim.requestExpiratoryHold(0.5);
 sim.runFor(5);
 
 const measurements = sim.measurementSummary();
+
+function compareMeasuredToEnvelope(value, envelope) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return Object.freeze({ status: 'not-measured', value: null, envelope });
+  }
+  const [q1, q3] = envelope.iqr;
+  let status = 'within-authored-iqr';
+  if (value < q1) status = 'below-authored-iqr';
+  else if (value > q3) status = 'above-authored-iqr';
+  return Object.freeze({ status, value, envelope });
+}
+
+const mechanicsEnvelope = clinicalCase.calibrationTargets.mechanics;
+const comparison = Object.freeze({
+  plateauPressureCmH2O: compareMeasuredToEnvelope(
+    measurements.plateauPressureCmH2O,
+    mechanicsEnvelope.plateauPressureCmH2O),
+  drivingPressureCmH2O: compareMeasuredToEnvelope(
+    measurements.drivingPressureCmH2O,
+    mechanicsEnvelope.drivingPressureCmH2O),
+  complianceMlPerCmH2O: Object.freeze({
+    status: 'not-measured-by-this-benchmark',
+    value: null,
+    envelope: mechanicsEnvelope.complianceMlPerCmH2O,
+  }),
+  airwayResistanceCmH2OPerLps: Object.freeze({
+    status: 'not-measured-by-this-benchmark',
+    value: null,
+    envelope: mechanicsEnvelope.airwayResistanceCmH2OPerLps,
+  }),
+});
+
 const report = {
   schema: 'vent-reference-case-engineering-benchmark/v1',
   caseId: CASE_ID,
   status: 'engineering-comparison-not-clinical-validation',
   assumptions,
   measurements,
-  cohortEnvelope: clinicalCase.calibrationTargets.mechanics,
+  comparison,
+  cohortEnvelope: mechanicsEnvelope,
   caveats: [
     'Absolute VT and starting recruitment are explicit synthetic engineering assumptions.',
     'No browser gas-exchange output is used.',
