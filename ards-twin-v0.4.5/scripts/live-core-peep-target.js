@@ -153,11 +153,14 @@ function main() {
   const timeline = [];
   timeline.push(capture('initial', simulation, core, initialAdapter));
 
-  runCoupledFor(simulation, core, 30, timeline, 'baseline');
+  // Allow HumMod source gas stores/delays and Vent recruitment kinetics to
+  // settle before comparing interventions. This avoids treating source
+  // initialization transients as a PEEP effect.
+  runCoupledFor(simulation, core, 300, timeline, 'baseline-settle');
   const prePeep = timeline[timeline.length - 1];
 
   simulation.setPEEP(14);
-  runCoupledFor(simulation, core, 90, timeline, 'post-peep');
+  runCoupledFor(simulation, core, 180, timeline, 'post-peep-settle');
   const postPeep = timeline[timeline.length - 1];
 
   const report = {
@@ -173,6 +176,10 @@ function main() {
       fromCmH2O: 8,
       toCmH2O: 14,
       resetBetweenStates: false,
+      baselineSettlingSec: 300,
+      postInterventionSettlingSec: 180,
+      rationale:
+        'avoid comparing HumMod source-initial gas-store transient with a later intervention state',
     },
     prePeep,
     postPeep,
