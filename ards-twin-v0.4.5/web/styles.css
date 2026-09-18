@@ -8,3 +8,8 @@
 .brand>div,details,summary,.clinical-summary,.hint,.readiness-name,.card-heading>*{min-width:0;max-width:100%}
 .clinical-summary,.hint,.readiness-name,summary{overflow-wrap:anywhere}
 @media(max-width:360px){.masthead{overflow:hidden}.brand{align-items:flex-start}.brand>div{flex:1 1 auto}.eyebrow{overflow-wrap:anywhere}.actions{max-width:100%}}
+
+/* WebKit gives file inputs a larger native min-content width on narrow screens. */
+input[type="file"]{display:block;width:100%;max-width:100%;min-width:0;overflow:hidden;font-size:12px;padding:6px}
+input[type="file"]::file-selector-button{max-width:100%;margin-right:6px}
+@media(max-width:360px){input[type="file"]::file-selector-button{display:block;margin:0 0 4px;white-space:normal}}
