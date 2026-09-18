@@ -62,20 +62,21 @@ jobs:
           path: |
             ards-twin-v0.4.5/web/engine.js
             ards-twin-v0.4.5/web/clinical-cases.json
-      - name: Package deployment handoff ZIP
+      - name: Stage deployment handoff
         shell: bash
         run: |
-          printf '%s\n' "${GITHUB_SHA}" > PACKAGE_COMMIT.txt
-          zip -r "vent-clinical-twin-progress-${GITHUB_SHA:0:12}.zip" . \
-            -x "node_modules/*" \
-               "browser-results/*" \
-               "benchmark-results/*" \
-               "vent-clinical-twin-progress-*.zip"
+          rm -rf ../handoff-staging
+          mkdir -p ../handoff-staging/ards-twin-v0.4.5
+          rsync -a ./ ../handoff-staging/ards-twin-v0.4.5/ \
+            --exclude node_modules \
+            --exclude browser-results \
+            --exclude benchmark-results
+          printf '%s\n' "${GITHUB_SHA}" > ../handoff-staging/PACKAGE_COMMIT.txt
       - name: Upload deployment handoff ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: vent-clinical-twin-progress-zip
-          path: ards-twin-v0.4.5/vent-clinical-twin-progress-*.zip
+          name: vent-clinical-twin-progress
+          path: handoff-staging
           if-no-files-found: error
 
   browser-smoke:
