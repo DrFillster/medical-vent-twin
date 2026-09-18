@@ -1145,9 +1145,35 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
   // Initialize trial volumes at current state; Pbranch at boundary value
   // (or AOP if FLOW with no flow).
   const vTrial = activeComps.map(({ cp, cs }) => feasibleV(cs.volume, cp, cs));
+
+  // FLOW-control initial pressure guess.
+  //
+  // Starting every flow solve at AOP is a poor approximation once the lung
+  // is inflated above AOP (especially after sustained PEEP). From
+  // Q = sum_i G_i * (Pbranch - Palv_i), the linearized current-state estimate
+  // is:
+  //
+  //   Pbranch ~= (Q + sum_i G_i * Palv_i) / sum_i G_i
+  //
+  // This is only a Newton starting point; the nonlinear implicit solve remains
+  // authoritative.
+  let flowPressureGuess = params.airwayOpeningPressure;
+  if (boundary.kind === 'FLOW') {
+    let conductanceSum = 0;
+    let weightedAlveolarPressure = 0;
+    for (const { G, cs } of activeComps) {
+      conductanceSum += G;
+      weightedAlveolarPressure += G * cs.alveolarPressure;
+    }
+    if (conductanceSum > 0) {
+      flowPressureGuess =
+        (boundary.flowLps + weightedAlveolarPressure) / conductanceSum;
+    }
+  }
+
   const pBranch = [boundary.kind === 'PRESSURE'
     ? boundary.pressureCmH2O
-    : params.airwayOpeningPressure];
+    : flowPressureGuess];
 
   const r = newtonStep(activeComps, vTrial, pBranch, boundary, params, dt);
   if (r.converged) {
