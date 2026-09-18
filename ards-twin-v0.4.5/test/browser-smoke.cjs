@@ -30,6 +30,8 @@ const { chromium, webkit } = require('playwright');
       assert.equal((await page.locator('#clinical-severity').textContent()).trim(),'Moderate');
       assert.equal((await page.locator('#clinical-recruitability').textContent()).trim(),'Moderate');
       assert.equal((await page.locator('#clinical-executable').textContent()).trim(),'Not yet');
+      assert.equal((await page.locator('#clinical-calibration-ri').textContent()).trim(),'Not assigned');
+      assert((await page.locator('#clinical-calibration-aop').textContent()).includes('model construct'));
       assert((await page.locator('#clinical-readiness').textContent()).includes('External data required'));
       await page.locator('#clinical-case').selectOption('berlin-severe-high-diffuse-inflammatory');
       assert.equal((await page.locator('#clinical-severity').textContent()).trim(),'Severe');
