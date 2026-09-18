@@ -36,6 +36,16 @@ jobs:
       - name: Generate reference-case engineering benchmark
         continue-on-error: true
         run: npm run benchmark:reference
+      - name: Generate live core PEEP target benchmark
+        continue-on-error: true
+        run: npm run benchmark:live-core-target
+      - name: Upload live core target benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-core-peep-target
+          path: ards-twin-v0.4.5/benchmark-results/live-core-peep-target.json
+          if-no-files-found: ignore
       - name: Upload reference-case benchmark
         if: always()
         uses: actions/upload-artifact@v4
