@@ -109,3 +109,44 @@ Draft PR:
 `#1 — v0.5: Berlin ARDS clinical twin + HumMod bridge foundation`
 
 Keep deployment separate from merge readiness. The branch may be deployed for internal evaluation while the PR remains draft for ongoing real-HumMod and clinical-fidelity work.
+
+
+## Progress-demo handoff
+
+For the current progress demonstration, deploy from:
+
+`feature/berlin-virtual-patients`
+
+Do not deploy `main`; it does not contain the current Clinical Twin work.
+
+Before publishing:
+
+```sh
+cd ards-twin-v0.4.5
+npm install
+npm run build
+npm test
+```
+
+Then publish the contents of:
+
+`ards-twin-v0.4.5/web/`
+
+The Clinical Twin panel now includes **Load synthetic demo inputs**. This is intended specifically for showing current functionality when a real HumMod trajectory is not yet available.
+
+The demo path:
+
+- selects the moderate Berlin / intermediate-recruitability aspiration reference case;
+- fills explicit VC-AC settings and an explicit synthetic recruitment state;
+- loads a clearly labeled fixture-only systemic replay;
+- permits the persistent clinical session, ventilator changes, waveforms, holds, and passive mechanics to be demonstrated.
+
+The page must retain the visible:
+
+`DEVELOPMENT PREVIEW · Synthetic cases · Not clinically validated · Not for patient care`
+
+warning.
+
+Do not remove or soften the synthetic-demo warning, and do not relabel the fixture systemic values as real HumMod output.
+
+The deployment mechanism does not need HumMod.EXE or any HumMod source assets.
