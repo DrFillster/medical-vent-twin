@@ -1,0 +1,36 @@
+{
+  "schema": "vent-hummod-run-request/v1",
+  "trajectoryId": "moderate-aspiration-reference-001",
+  "source": {
+    "repository": "riliescu/hummod-standalone",
+    "revision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1"
+  },
+  "requestedOutput": {
+    "durationSec": 300,
+    "sampleIntervalSec": 5,
+    "symbols": [
+      "PO2Artys.Pressure",
+      "CO2Artys.Pressure",
+      "BloodPh.ArtysPh",
+      "Heart-Rate.Rate",
+      "SystemicArtys.Pressure",
+      "CardiacOutput.Flow(L/Min)"
+    ],
+    "canonicalSchema": "vent-hummod-trajectory/v1"
+  },
+  "sourceClock": {
+    "symbol": "System.X",
+    "unit": "minute",
+    "secondsPerUnit": 60,
+    "verificationStatus": "verified-for-pinned-revision",
+    "verificationSources": [
+      "riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1:Control/GoFor.DES",
+      "HumMod/documentation@1cd093c001ea5af72e666a20e51542dce2304b38:schema/3_control/interactive.html"
+    ],
+    "conversionToTimestampSec": "timestampSec = System.X * 60"
+  },
+  "scenarioId": "berlin-moderate-moderate-aspiration",
+  "notes": "First real HumMod integration reference run; not a clinical patient.",
+  "executable": true,
+  "blocker": null
+}
