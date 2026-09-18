@@ -113,3 +113,36 @@ jobs:
           name: browser-smoke-${{ matrix.browser }}
           path: ards-twin-v0.4.5/browser-results/
           if-no-files-found: ignore
+
+  hummod-core-analysis:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.4.5
+    steps:
+      - name: Checkout Vent
+        uses: actions/checkout@v4
+      - name: Checkout pinned HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build HumMod ARDS dependency closure
+        run: |
+          node scripts/build-hummod-ards-core-graph.js \
+            --hummod-root ../hummod-standalone \
+            --out hummod-ards-core-analysis/dependency-graph.json
+      - name: Summarize HumMod ARDS dependency closure
+        run: |
+          node -e "const g=require('./hummod-ards-core-analysis/dependency-graph.json'); console.log(JSON.stringify({closure:g.closureStructureCount,missing:g.missingStructures,systems:g.systems},null,2))"
+      - name: Upload HumMod ARDS core analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-ards-core-analysis
+          path: ards-twin-v0.4.5/hummod-ards-core-analysis/dependency-graph.json
+          if-no-files-found: error
