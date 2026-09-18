@@ -174,6 +174,71 @@ const HUMMOD_ARDS_CORE = Object.freeze({
   ]),
 });
 
+const HUMMOD_ARDS_CORE_PHASE1_POLICY = Object.freeze({
+  id: 'acute-cardiopulmonary-phase1',
+  interpretation: 'Traverse acute cardiopulmonary dependencies; stop at explicitly externalized or later-phase systems.',
+  stopSystemBuckets: Object.freeze([
+    'Nephrons',
+    'Kidney',
+    'TissueH2O',
+    'Heat',
+    'AnesthesiaGas',
+    'AnesthesiaIV',
+    'Drugs',
+    'Brain',
+    'SkeletalMuscle',
+    'RespiratoryMuscle',
+    'Bone',
+    'Fat',
+    'GITract',
+    'GILumen',
+    'Liver',
+    'LiverMetabolism',
+    'OtherTissue',
+    'Skin',
+    'Diet',
+    'Exercise',
+    'Hemodialysis',
+    'Sweat',
+    'Glucose',
+    'Insulin',
+    'Glucagon',
+    'Leptin',
+    'ThyroidGland',
+    'Ketoacid',
+    'Creatine',
+    'Creatinine',
+    'Urea',
+    'AminoAcid',
+    'FattyAcid',
+    'Triglyceride',
+    'DailyPlanner',
+    'Orthostatics',
+    'TiltTable',
+    'Gravity',
+    'Posture',
+    'Hemorrhage',
+    'Transfusion',
+    'IVDrip',
+    'CPR',
+  ]),
+  stopStructureNames: Object.freeze([
+    // Acute core v0 accepts metabolic demand as a boundary rather than
+    // importing every tissue-metabolism subsystem.
+    'O2Total',
+    'CO2Total',
+  ]),
+  laterPhaseSystemBuckets: Object.freeze([
+    'Renin',
+    'ADH',
+    'Aldosterone',
+    'ANP',
+    'Catechols',
+    'Nerves',
+    'Hypothalamus',
+  ]),
+});
+
 function hummodArdsCoreRootSymbols() {
   return HUMMOD_ARDS_CORE.outputs.map(x => x.symbol);
 }
@@ -185,6 +250,7 @@ function hummodArdsCoreRootStructures() {
 module.exports = {
   HUMMOD_ARDS_CORE_SCHEMA,
   HUMMOD_ARDS_CORE,
+  HUMMOD_ARDS_CORE_PHASE1_POLICY,
   hummodArdsCoreRootSymbols,
   hummodArdsCoreRootStructures,
 };
