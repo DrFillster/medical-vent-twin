@@ -2,6 +2,9 @@
 
 const { humModLegacyDeadSpaceMl } = require('./hummod_ards_core_breathing.js');
 const { createVentToArdsCoreSnapshot } = require('./hummod_ards_core_coupling.js');
+const {
+  pulmonaryMembraneState,
+} = require('./hummod_ards_core_pulmonary_membrane.js');
 
 function finite(v, label) {
   if (typeof v !== 'number' || !Number.isFinite(v)) {
@@ -105,6 +108,20 @@ function createLiveCoreBoundaryFromVent({
     cardiacOutputMlPerMin: systemic.cardiacOutputMlPerMin,
   });
 
+  const membrane = pulmonary.membranePermeabilityMlPerMinPerMmHg == null
+    ? pulmonaryMembraneState({
+        alveolarPulmonaryBloodFlowMlPerMin:
+          flow.alveolarPulmonaryBloodFlowMlPerMin,
+        excessLungWaterMl: pulmonary.excessLungWaterMl || 0,
+      })
+    : null;
+  const membranePermeabilityMlPerMinPerMmHg = membrane
+    ? membrane.permeabilityMlPerMinPerMmHg
+    : pulmonary.membranePermeabilityMlPerMinPerMmHg;
+  positive(
+    membranePermeabilityMlPerMinPerMmHg,
+    'membranePermeabilityMlPerMinPerMmHg');
+
   return Object.freeze({
     boundary: Object.freeze({
       ventilation: Object.freeze({
@@ -117,7 +134,7 @@ function createLiveCoreBoundaryFromVent({
       }),
       pulmonary: Object.freeze({
         membranePermeabilityMlPerMinPerMmHg:
-          pulmonary.membranePermeabilityMlPerMinPerMmHg,
+          membranePermeabilityMlPerMinPerMmHg,
         ventilatedPulmonaryBloodFlowMlPerMin:
           flow.ventilatedPulmonaryBloodFlowMlPerMin,
       }),
@@ -151,6 +168,14 @@ function createLiveCoreBoundaryFromVent({
       deadSpaceSource: pulmonary.deadSpaceBtpsMl == null
         ? 'HumMod Breathing.DES legacy equation'
         : 'explicit-boundary',
+      membranePermeabilityMlPerMinPerMmHg,
+      membraneRecruitment: membrane ? membrane.recruitment : null,
+      membraneSource: membrane
+        ? 'HumMod PulmonaryMembrane.DES source curve'
+        : 'explicit-boundary',
+      membraneInterpolation: membrane
+        ? membrane.provenance.interpolation
+        : null,
       hemodynamicCoupling: 'not-yet-enabled-without-pleural-pressure-model',
     }),
   });
