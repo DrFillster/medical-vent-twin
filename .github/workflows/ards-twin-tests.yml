@@ -1,0 +1,198 @@
+name: ARDS Twin Tests
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+      - feature/berlin-virtual-patients
+      - 'integration/**'
+    paths:
+      - 'ards-twin-v0.5-progress/**'
+      - 'ards-twin-v0.4.5/**'
+      - '.github/workflows/ards-twin-tests.yml'
+  pull_request:
+    paths:
+      - 'ards-twin-v0.5-progress/**'
+      - 'ards-twin-v0.4.5/**'
+      - '.github/workflows/ards-twin-tests.yml'
+
+jobs:
+  # Preview (canonical v0.5 development) — moved from ards-twin-v0.4.5 to ards-twin-v0.5-progress
+  node-tests-preview:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build browser bundle
+        run: npm run build
+      - name: Run unit and regression tests
+        run: npm test
+      - name: Generate reference-case engineering benchmark
+        continue-on-error: true
+        run: npm run benchmark:reference
+      - name: Generate live core PEEP target benchmark
+        run: npm run benchmark:live-core-target
+      - name: Upload live core target benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-core-peep-target
+          path: ards-twin-v0.5-progress/benchmark-results/live-core-peep-target.json
+          if-no-files-found: ignore
+      - name: Generate cardiopulmonary PEEP target benchmark
+        continue-on-error: true
+        run: npm run benchmark:cardiopulmonary-target
+      - name: Upload cardiopulmonary target benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-cardiopulmonary-peep-target
+          path: ards-twin-v0.5-progress/benchmark-results/live-cardiopulmonary-peep-target.json
+          if-no-files-found: ignore
+      - name: Generate recruitability phenotype challenge
+        continue-on-error: true
+        run: npm run benchmark:recruitability-challenge
+      - name: Upload recruitability phenotype challenge
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recruitability-phenotype-challenge
+          path: ards-twin-v0.5-progress/benchmark-results/recruitability-phenotype-challenge.json
+          if-no-files-found: ignore
+      - name: Upload reference-case benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-case-engineering-benchmark
+          path: ards-twin-v0.5-progress/benchmark-results/reference-case-mechanics.json
+          if-no-files-found: ignore
+      - name: Report generated browser artifact drift
+        run: |
+          git diff --stat -- web/engine.js web/clinical-cases.json || true
+          echo "Browser artifacts are built and uploaded by CI; CI does not write back to the branch."
+      - name: Upload browser build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ards-twin-browser-build
+          path: |
+            ards-twin-v0.5-progress/web/engine.js
+            ards-twin-v0.5-progress/web/clinical-cases.json
+      - name: Stage deployment handoff
+        shell: bash
+        run: |
+          rm -rf ../handoff-staging
+          mkdir -p ../handoff-staging/ards-twin-v0.5-progress
+          rsync -a ./ ../handoff-staging/ards-twin-v0.5-progress/ \
+            --exclude node_modules \
+            --exclude browser-results \
+            --exclude benchmark-results
+          printf '%s\n' "${GITHUB_SHA}" > ../handoff-staging/PACKAGE_COMMIT.txt
+      - name: Upload deployment handoff ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: vent-clinical-twin-progress
+          path: handoff-staging
+          if-no-files-found: error
+
+  # Browser smoke for the preview (Chromium and WebKit)
+  browser-smoke-preview:
+    needs: node-tests-preview
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser-test dependency
+        run: npm install --no-package-lock
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Build browser assets
+        run: npm run build
+      - name: Run browser smoke
+        env:
+          BROWSER: ${{ matrix.browser }}
+        run: npm run test:browser
+      - name: Upload browser smoke results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-preview-${{ matrix.browser }}
+          path: ards-twin-v0.5-progress/browser-results/
+          if-no-files-found: ignore
+
+  # HumMod ARDS core analysis (depends on preview source)
+  hummod-core-analysis-preview:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - name: Checkout Vent
+        uses: actions/checkout@v4
+      - name: Checkout pinned HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build HumMod ARDS dependency closure
+        run: |
+          node scripts/build-hummod-ards-core-graph.js \
+            --hummod-root ../hummod-standalone \
+            --out hummod-ards-core-analysis/dependency-graph.json
+      - name: Summarize HumMod ARDS dependency closure
+        run: |
+          node -e "const g=require('./hummod-ards-core-analysis/dependency-graph.json'); console.log(JSON.stringify({fullClosure:g.fullClosure.structureCount,phase1Closure:g.phase1Closure.structureCount,frontierCount:g.phase1Closure.frontierCount,frontier:g.phase1Closure.frontier,missing:g.phase1Closure.missingStructures,systems:g.phase1Closure.systems},null,2))"
+      - name: Upload HumMod ARDS core analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-ards-core-analysis
+          path: ards-twin-v0.5-progress/hummod-ards-core-analysis/dependency-graph.json
+          if-no-files-found: error
+
+  # Legacy v0.4.5 mobile release regression — kept byte-for-byte against main baseline
+  node-tests-legacy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.4.5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build browser bundle
+        run: node scripts/build.js
+      - name: Run unit and regression tests
+        run: node test/runner.js
+      - name: Verify legacy tree unchanged from main baseline
+        run: |
+          git fetch origin main
+          git diff --exit-code origin/main -- ards-twin-v0.4.5
+          echo "Legacy v0.4.5 is byte-for-byte identical to origin/main"

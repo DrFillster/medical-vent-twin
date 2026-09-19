@@ -111,23 +111,24 @@ const V_SCALE_FLOOR = 0.01;   // characteristic V scale, never larger
 
 // State-aware scales (per-step, recomputed from current state).
 // V_scale is bounded by V_SCALE_FLOOR to ensure tight convergence.
-function computeScales(activeComps, params, pBranchGuess) {
-  let vmaxMin = Infinity;
-  for (const { cp, cs } of activeComps) {
+function computeScales(activeComps, params, pBranchGuess, boundary) {
+  // Scale each compartment residual independently. A nearly closed
+  // compartment must not impose its microscopic Vmax on all rows.
+  const V_SCALE_MIN = 1e-9;
+  const V_scales = activeComps.map(({ cp, cs }) => {
     const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
-    if (vmax > 0 && vmax < vmaxMin) vmaxMin = vmax;
-  }
-  if (!isFinite(vmaxMin)) vmaxMin = V_SCALE_FLOOR;
-  // Use a tight V_scale: never larger than V_SCALE_FLOOR (0.01 L).
-  // This makes the per-step residual tolerance a meaningful fraction of
-  // a typical compartment's transient response.
-  const V_scale = Math.min(vmaxMin, V_SCALE_FLOOR);
-  // P_scale: order-of-magnitude of airway pressure. The boundary
-  // residual has units cmH2O. Use max(|pBranch|, |AOP|, 1) as scale.
+    if (!(vmax > 0) || !Number.isFinite(vmax)) return V_SCALE_FLOOR;
+    return Math.max(V_SCALE_MIN, Math.min(vmax, V_SCALE_FLOOR));
+  });
+
   const P_scale = Math.max(Math.abs(pBranchGuess),
                            Math.abs(params.airwayOpeningPressure),
                            1);
-  return { V_scale, P_scale };
+  const boundaryScale = boundary && boundary.kind === 'FLOW'
+    ? Math.max(Math.abs(boundary.flowLps), 0.1)
+    : P_scale;
+
+  return { V_scales, P_scale, boundaryScale };
 }
 
 // v0.4.3 → v0.4.4: classify boundary feasibility with direction awareness.
@@ -191,12 +192,12 @@ function classifyBoundaryFeasibility(activeComps, params, boundary, dt) {
 function scaledNorm(F, scales) {
   let maxR = 0;
   for (let i = 0; i < F.length - 1; i++) {
-    const r = Math.abs(F[i]) / scales.V_scale;
+    const r = Math.abs(F[i]) / scales.V_scales[i];
     if (r > maxR) maxR = r;
   }
-  // Last entry is the boundary (P) residual.
-  const rP = Math.abs(F[F.length - 1]) / scales.P_scale;
-  if (rP > maxR) maxR = rP;
+  const rBoundary =
+    Math.abs(F[F.length - 1]) / scales.boundaryScale;
+  if (rBoundary > maxR) maxR = rBoundary;
   return maxR;
 }
 
@@ -375,7 +376,7 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
   // v0.4.3: compute scales once at the start (state is approximately
   // fixed during Newton iteration; per-iter recomputation would just
   // jitter the convergence test).
-  const scales = computeScales(activeComps, params, pBranch[0]);
+  const scales = computeScales(activeComps, params, pBranch[0], boundary);
 
   for (iter = 0; iter < SOLVER_MAX_ITER; iter++) {
     const { F, J } = buildSystem(
@@ -496,10 +497,253 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
                activeSetTransitions };
     }
   }
+  const finalSystem = buildSystem(
+    activeComps, vTrial, pBranch[0], boundary, params, dt);
+  const finalScaledComponents = finalSystem.F.map((value, i) => {
+    const scale = i < finalSystem.F.length - 1
+      ? scales.V_scales[i]
+      : scales.P_scale;
+    return value / scale;
+  });
   return { converged, residual: lastResidualNorm,
            scaledResidual: lastScaled, iterations: iter, substeps: 0,
            lineSearchHalvings: totalHalvings,
-           activeSetTransitions };
+           activeSetTransitions,
+           residualVector: finalSystem.F,
+           scaledResidualVector: finalScaledComponents,
+           volumeScales: scales.V_scales,
+           pressureScale: scales.P_scale,
+           trialVolumes: vTrial.slice(),
+           trialBranchPressure: pBranch[0] };
+}
+
+// Robust FLOW-boundary fallback.
+//
+// When the coupled Newton solve stalls, solve each compartment's implicit
+// volume equation as a monotone scalar function at a trial branch pressure,
+// then solve the remaining scalar flow-balance equation for Pbranch by
+// bracketing/bisection. This preserves the same implicit Euler constitutive
+// equations; it is not a looser approximation or tolerance relaxation.
+function solveFlowBoundaryFallback(activeComps, boundary, params, dt, pGuess) {
+  if (boundary.kind !== 'FLOW') return null;
+  if (classifyBoundaryFeasibility(activeComps, params, boundary, dt) ===
+      'INFEASIBLE_BOUNDARY') {
+    return null;
+  }
+
+  const aop = params.airwayOpeningPressure;
+  const FLOW_TOL = Math.max(1e-9, Math.abs(boundary.flowLps) * 1e-9);
+  const V_TOL = 1e-13;
+
+  function volumeAtPressure(ac, pBranch) {
+    const { cp, cs, G } = ac;
+    const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
+    if (!(vmax > 0) || !(G > 0)) return 0;
+    const upper = (1 - 2 * EPS_CAP) * vmax;
+
+    function residual(v) {
+      const pEl = elasticPressureAboveAOP(v, cp, cs.recruitment);
+      return v - cs.volume -
+        dt * G * (pBranch - aop - pEl);
+    }
+
+    const f0 = residual(0);
+    if (f0 >= 0) return 0;
+    const fUpper = residual(upper);
+    if (fUpper <= 0) return upper;
+
+    let lo = 0;
+    let hi = upper;
+    let flo = f0;
+    for (let iter = 0; iter < 100; iter++) {
+      const mid = 0.5 * (lo + hi);
+      const fm = residual(mid);
+      if (Math.abs(fm) <= V_TOL || (hi - lo) <= V_TOL) return mid;
+      if (flo * fm <= 0) {
+        hi = mid;
+      } else {
+        lo = mid;
+        flo = fm;
+      }
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  function evaluate(pBranch) {
+    const volumes = activeComps.map(ac => volumeAtPressure(ac, pBranch));
+    let flow = 0;
+    for (let i = 0; i < volumes.length; i++) {
+      flow += (volumes[i] - activeComps[i].cs.volume) / dt;
+    }
+    return {
+      pBranch,
+      volumes,
+      flow,
+      residual: flow - boundary.flowLps,
+    };
+  }
+
+  let center = Number.isFinite(pGuess) ? pGuess : aop;
+  let atCenter = evaluate(center);
+  if (Math.abs(atCenter.residual) <= FLOW_TOL) {
+    return { ...atCenter, iterations: 0 };
+  }
+
+  let lo = center;
+  let hi = center;
+  let flo = atCenter.residual;
+  let fhi = atCenter.residual;
+  let span = 1;
+
+  for (let iter = 0; iter < 60 && flo * fhi > 0; iter++) {
+    if (atCenter.residual < 0) {
+      hi = center + span;
+      fhi = evaluate(hi).residual;
+    } else {
+      lo = center - span;
+      flo = evaluate(lo).residual;
+    }
+    span *= 2;
+  }
+
+  if (flo * fhi > 0) return null;
+
+  let best = atCenter;
+  for (let iter = 0; iter < 120; iter++) {
+    const mid = 0.5 * (lo + hi);
+    const ev = evaluate(mid);
+    best = ev;
+    if (Math.abs(ev.residual) <= FLOW_TOL) {
+      return { ...ev, iterations: iter + 1 };
+    }
+    if (flo * ev.residual <= 0) {
+      hi = mid;
+      fhi = ev.residual;
+    } else {
+      lo = mid;
+      flo = ev.residual;
+    }
+  }
+
+  return Math.abs(best.residual) <= 10 * FLOW_TOL
+    ? { ...best, iterations: 120 }
+    : null;
+}
+
+// Robust PRESSURE-boundary fallback.
+//
+// Solve each compartment's implicit volume equation at a trial branch
+// pressure, then solve the central-airway balance equation:
+//
+//   (Pvent - Pbranch) / Rc = sum_i (Vnew_i - Vold_i) / dt
+//
+// by bracketing/bisection. The compartment constitutive equations remain the
+// same implicit Euler equations used by the Newton path.
+function solvePressureBoundaryFallback(activeComps, boundary, params, dt, pGuess) {
+  if (boundary.kind !== 'PRESSURE') return null;
+
+  const aop = params.airwayOpeningPressure;
+  const Rc = params.centralAirwayResistance;
+  const V_TOL = 1e-13;
+  const BAL_TOL = 1e-9;
+
+  function volumeAtPressure(ac, pBranch) {
+    const { cp, cs, G } = ac;
+    const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
+    if (!(vmax > 0) || !(G > 0)) return 0;
+    const upper = (1 - 2 * EPS_CAP) * vmax;
+
+    function residual(v) {
+      const pEl = elasticPressureAboveAOP(v, cp, cs.recruitment);
+      return v - cs.volume -
+        dt * G * (pBranch - aop - pEl);
+    }
+
+    const f0 = residual(0);
+    if (f0 >= 0) return 0;
+    const fUpper = residual(upper);
+    if (fUpper <= 0) return upper;
+
+    let lo = 0;
+    let hi = upper;
+    let flo = f0;
+    for (let iter = 0; iter < 100; iter++) {
+      const mid = 0.5 * (lo + hi);
+      const fm = residual(mid);
+      if (Math.abs(fm) <= V_TOL || (hi - lo) <= V_TOL) return mid;
+      if (flo * fm <= 0) {
+        hi = mid;
+      } else {
+        lo = mid;
+        flo = fm;
+      }
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  function evaluate(pBranch) {
+    const volumes = activeComps.map(ac => volumeAtPressure(ac, pBranch));
+    let compartmentFlow = 0;
+    for (let i = 0; i < volumes.length; i++) {
+      compartmentFlow += (volumes[i] - activeComps[i].cs.volume) / dt;
+    }
+
+    const residual = Rc > 0
+      ? (boundary.pressureCmH2O - pBranch) / Rc - compartmentFlow
+      : pBranch - boundary.pressureCmH2O;
+
+    return { pBranch, volumes, compartmentFlow, residual };
+  }
+
+  if (!(Rc > 0)) {
+    const ev = evaluate(boundary.pressureCmH2O);
+    return { ...ev, iterations: 0 };
+  }
+
+  const center = Number.isFinite(pGuess)
+    ? pGuess
+    : boundary.pressureCmH2O;
+  const atCenter = evaluate(center);
+  if (Math.abs(atCenter.residual) <= BAL_TOL) {
+    return { ...atCenter, iterations: 0 };
+  }
+
+  let lo = center;
+  let hi = center;
+  let flo = atCenter.residual;
+  let fhi = atCenter.residual;
+  let span = 1;
+
+  for (let iter = 0; iter < 60 && flo * fhi > 0; iter++) {
+    lo = center - span;
+    hi = center + span;
+    flo = evaluate(lo).residual;
+    fhi = evaluate(hi).residual;
+    span *= 2;
+  }
+
+  if (flo * fhi > 0) return null;
+
+  let best = atCenter;
+  for (let iter = 0; iter < 120; iter++) {
+    const mid = 0.5 * (lo + hi);
+    const ev = evaluate(mid);
+    best = ev;
+    if (Math.abs(ev.residual) <= BAL_TOL) {
+      return { ...ev, iterations: iter + 1 };
+    }
+    if (flo * ev.residual <= 0) {
+      hi = mid;
+      fhi = ev.residual;
+    } else {
+      lo = mid;
+      flo = ev.residual;
+    }
+  }
+
+  return Math.abs(best.residual) <= 10 * BAL_TOL
+    ? { ...best, iterations: 120 }
+    : null;
 }
 
 // --- Driver: implicit step with dt subdivision -------------------------
@@ -552,9 +796,60 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
   // Initialize trial volumes at current state; Pbranch at boundary value
   // (or AOP if FLOW with no flow).
   const vTrial = activeComps.map(({ cp, cs }) => feasibleV(cs.volume, cp, cs));
-  const pBranch = [boundary.kind === 'PRESSURE'
+
+  // FLOW-control initial pressure guess.
+  //
+  // Starting every flow solve at AOP is a poor approximation once the lung
+  // is inflated above AOP (especially after sustained PEEP). From
+  // Q = sum_i G_i * (Pbranch - Palv_i), the linearized current-state estimate
+  // is:
+  //
+  //   Pbranch ~= (Q + sum_i G_i * Palv_i) / sum_i G_i
+  //
+  // This is only a Newton starting point; the nonlinear implicit solve remains
+  // authoritative.
+  let flowPressureGuess = params.airwayOpeningPressure;
+  if (boundary.kind === 'FLOW') {
+    let conductanceSum = 0;
+    let weightedAlveolarPressure = 0;
+    for (const { G, cs } of activeComps) {
+      conductanceSum += G;
+      weightedAlveolarPressure += G * cs.alveolarPressure;
+    }
+    if (conductanceSum > 0) {
+      flowPressureGuess =
+        (boundary.flowLps + weightedAlveolarPressure) / conductanceSum;
+    }
+  }
+
+  let pressureBoundaryGuess = boundary.kind === 'PRESSURE'
     ? boundary.pressureCmH2O
-    : params.airwayOpeningPressure];
+    : flowPressureGuess;
+
+  if (boundary.kind === 'PRESSURE' &&
+      params.centralAirwayResistance > 0) {
+    let conductanceSum = 0;
+    let weightedAlveolarPressure = 0;
+    for (const { G, cs } of activeComps) {
+      conductanceSum += G;
+      weightedAlveolarPressure += G * cs.alveolarPressure;
+    }
+    const centralConductance = 1 / params.centralAirwayResistance;
+    const totalConductance = centralConductance + conductanceSum;
+    if (totalConductance > 0) {
+      // Linearized current-state circuit:
+      //   Qcentral = (Pvent - Pbranch) / Rc
+      //   Qcentral = sum_i Gi * (Pbranch - Palv_i)
+      // therefore
+      //   Pbranch = (Pvent/Rc + sum_i Gi*Palv_i)
+      //             / (1/Rc + sum_i Gi)
+      pressureBoundaryGuess =
+        (boundary.pressureCmH2O * centralConductance +
+         weightedAlveolarPressure) / totalConductance;
+    }
+  }
+
+  const pBranch = [pressureBoundaryGuess];
 
   const r = newtonStep(activeComps, vTrial, pBranch, boundary, params, dt);
   if (r.converged) {
@@ -562,6 +857,47 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
                     r.iterations, r.residual, r.scaledResidual, 1,
                     r.lineSearchHalvings, r.activeSetTransitions);
   }
+
+  if (boundary.kind === 'FLOW') {
+    const fallback = solveFlowBoundaryFallback(
+      activeComps, boundary, params, dt, pBranch[0]);
+    if (fallback) {
+      for (let i = 0; i < vTrial.length; i++) {
+        vTrial[i] = fallback.volumes[i];
+      }
+      pBranch[0] = fallback.pBranch;
+      const solved = finalize(
+        activeComps, vTrial, pBranch[0], state, boundary, params, dt,
+        fallback.iterations, Math.abs(fallback.residual),
+        Math.abs(fallback.residual) /
+          Math.max(Math.abs(boundary.flowLps), 0.1),
+        1, r.lineSearchHalvings, r.activeSetTransitions);
+      solved.output.solverStats.flowBoundaryFallback = true;
+      solved.output.solverStats.flowBoundaryResidualLps = fallback.residual;
+      return solved;
+    }
+  }
+
+  if (boundary.kind === 'PRESSURE') {
+    const fallback = solvePressureBoundaryFallback(
+      activeComps, boundary, params, dt, pBranch[0]);
+    if (fallback) {
+      for (let i = 0; i < vTrial.length; i++) {
+        vTrial[i] = fallback.volumes[i];
+      }
+      pBranch[0] = fallback.pBranch;
+      const solved = finalize(
+        activeComps, vTrial, pBranch[0], state, boundary, params, dt,
+        fallback.iterations, Math.abs(fallback.residual),
+        Math.abs(fallback.residual) /
+          Math.max(Math.abs(pBranch[0]), 1),
+        1, r.lineSearchHalvings, r.activeSetTransitions);
+      solved.output.solverStats.pressureBoundaryFallback = true;
+      solved.output.solverStats.pressureBoundaryResidual = fallback.residual;
+      return solved;
+    }
+  }
+
   // Newton failed: try with halved dt.
   if (dt / 2 < 1e-6) {
     // Last resort: distinguish INFEASIBLE_BOUNDARY from SOLVER_NONCONVERGENCE.
@@ -580,6 +916,17 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
     // failure is a SOLVER_NONCONVERGENCE; if no, INFEASIBLE_BOUNDARY.
     const classification = classifyBoundaryFeasibility(
       activeComps, params, boundary, dt);
+    const diagnosticSystem = buildSystem(
+      activeComps, vTrial, pBranch[0], boundary, params, dt);
+    const diagnosticScales = computeScales(
+      activeComps, params, pBranch[0], boundary);
+    const diagnosticScaledResidualVector =
+      diagnosticSystem.F.map((value, i) => {
+        const scale = i < diagnosticSystem.F.length - 1
+          ? diagnosticScales.V_scales[i]
+          : diagnosticScales.boundaryScale;
+        return value / scale;
+      });
     return {
       state: {
         t: state.t,
@@ -604,6 +951,17 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
         iterations: 0,
         residualNorm: r.residual,
         scaledResidual: r.scaledResidual,
+        residualVector: diagnosticSystem.F,
+        scaledResidualVector: diagnosticScaledResidualVector,
+        volumeScales: diagnosticScales.V_scales,
+        pressureScale: diagnosticScales.P_scale,
+        boundaryScale: diagnosticScales.boundaryScale,
+        trialVolumes: vTrial.slice(),
+        trialBranchPressure: pBranch[0],
+        boundaryKind: boundary.kind,
+        requestedFlowLps: boundary.kind === 'FLOW' ? boundary.flowLps : null,
+        requestedPressureCmH2O:
+          boundary.kind === 'PRESSURE' ? boundary.pressureCmH2O : null,
         substeps: DT_SUBDIV_LIMIT,
         solverFailure: true,
         failureKind: classification,
@@ -775,6 +1133,8 @@ module.exports = {
   buildSystem,
   newtonStep,
   solveImplicitStep,
+  solveFlowBoundaryFallback,
+  solvePressureBoundaryFallback,
   // Backward-compat shim: legacy tests called `solveBranchForFlow`. The
   // v0.4.2 solver is implicit; this returns the per-step solve output.
   solveBranchForFlow(boundary, params, compartments) {

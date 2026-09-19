@@ -1,7 +1,7 @@
 {
   "version": "0.4.5",
   "runtime": "v26.8.2",
-  "date": "2026-09-18T14:53:11.718Z",
+  "date": "2026-09-19T18:16:57.148Z",
   "files": [
     {
       "file": "a_initialization.test.js",
@@ -23,7 +23,7 @@
     },
     {
       "file": "berlin_case_catalog.test.js",
-      "passed": 8,
+      "passed": 10,
       "failed": 0,
       "status": "passed"
     },
@@ -120,6 +120,72 @@
     {
       "file": "hummod_adapter.test.js",
       "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_breathing.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_chemistry.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_circulation.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_combined_runtime.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_coupling.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_gas_exchange.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_hemodynamic_runtime.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_hemodynamics.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_runtime.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_thorax.test.js",
+      "passed": 3,
       "failed": 0,
       "status": "passed"
     },
@@ -256,6 +322,12 @@
       "status": "passed"
     },
     {
+      "file": "solver_near_closed_regression.test.js",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
       "file": "strict_vc_ac.test.js",
       "passed": 8,
       "failed": 0,
@@ -274,7 +346,7 @@
       "status": "passed"
     }
   ],
-  "passed": 254,
+  "passed": 309,
   "failed": 0,
   "failedFiles": [],
   "success": true
