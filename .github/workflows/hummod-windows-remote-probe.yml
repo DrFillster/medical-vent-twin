@@ -1,6 +1,14 @@
 name: HumMod Windows Remote Probe
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "ards-twin-v0.5-progress/hummod-runner/**"
+      - "ards-twin-v0.5-progress/src/hummod_remote_request.js"
+      - "ards-twin-v0.5-progress/src/hummod_runner_contract.js"
+      - "ards-twin-v0.5-progress/scripts/build-hummod-reference-remote-request.js"
+      - ".github/workflows/hummod-windows-remote-probe.yml"
   workflow_dispatch:
     inputs:
       attempt_remote_request:
@@ -62,8 +70,20 @@ jobs:
           $outDir = Join-Path $PWD "ards-twin-v0.5-progress/hummod-runner"
           $result | ConvertTo-Json | Set-Content (Join-Path $outDir "executable-verification.json")
 
+      - name: Inspect pinned standalone runtime before launch
+        shell: pwsh
+        run: |
+          $hm = Join-Path $PWD "hummod-standalone"
+          $outDir = Join-Path $PWD "ards-twin-v0.5-progress/hummod-runner/runtime"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          Get-ChildItem -Path $hm -Force | Select-Object Name,Length,LastWriteTime,Attributes |
+            ConvertTo-Json | Set-Content (Join-Path $outDir "standalone-root-before.json")
+          Get-ChildItem -Path $hm -Recurse -File -Include *.INI,*.ini,*.DAT,*.dat,*.XML,*.xml |
+            Select-Object FullName,Length,LastWriteTime |
+            ConvertTo-Json | Set-Content (Join-Path $outDir "listener-candidates-before.json")
+
       - name: Attempt documented remote request
-        if: ${{ inputs.attempt_remote_request }}
+        if: ${{ github.event_name == 'pull_request' || inputs.attempt_remote_request }}
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -71,13 +91,14 @@ jobs:
           $hm = Join-Path $root "hummod-standalone"
           $exe = Join-Path $hm "HumMod.EXE"
           $candidate = Join-Path $root "ards-twin-v0.5-progress/hummod-runner/BasicListener.candidate.DAT"
-          $listener = Join-Path $hm "${{ inputs.listener_file }}"
+          $listenerName = if ("${{ inputs.listener_file }}") { "${{ inputs.listener_file }}" } else { "BasicListener.DAT" }
+          $listener = Join-Path $hm $listenerName
           $runtimeOut = Join-Path $root "ards-twin-v0.5-progress/hummod-runner/runtime"
           New-Item -ItemType Directory -Force -Path $runtimeOut | Out-Null
 
           $status = [ordered]@{
             attempted = $true
-            listenerFile = "${{ inputs.listener_file }}"
+            listenerFile = $listenerName
             listenerFilenameVerified = $false
             processStarted = $false
             completionLogObserved = $false
@@ -92,7 +113,9 @@ jobs:
             Start-Sleep -Seconds 5
 
             Copy-Item $candidate $listener -Force
-            $deadline = (Get-Date).AddSeconds([int]"${{ inputs.timeout_seconds }}")
+            $timeoutText = "${{ inputs.timeout_seconds }}"
+            $timeoutSeconds = if ($timeoutText) { [int]$timeoutText } else { 90 }
+            $deadline = (Get-Date).AddSeconds($timeoutSeconds)
             $log = Join-Path $hm "VentHumMod-done.log"
             $out = Join-Path $hm "VentHumMod-output.txt"
 
@@ -114,10 +137,15 @@ jobs:
             }
           }
           finally {
+            Get-ChildItem -Path $hm -Force | Select-Object Name,Length,LastWriteTime,Attributes |
+              ConvertTo-Json | Set-Content (Join-Path $runtimeOut "standalone-root-after.json")
+            Get-ChildItem -Path $hm -Recurse -File -Include *.INI,*.ini,*.DAT,*.dat,*.XML,*.xml,*.log,*.txt |
+              Select-Object FullName,Length,LastWriteTime |
+              ConvertTo-Json | Set-Content (Join-Path $runtimeOut "runtime-files-after.json")
             if ($proc -and -not $proc.HasExited) {
               Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
             }
-            $status | ConvertTo-Json | Set-Content (Join-Path $runtimeOut "probe-status.json")
+            $status | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $runtimeOut "probe-status.json")
           }
 
           if (-not $status.runtimeVerified) {
