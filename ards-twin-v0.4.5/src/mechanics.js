@@ -630,6 +630,122 @@ function solveFlowBoundaryFallback(activeComps, boundary, params, dt, pGuess) {
     : null;
 }
 
+// Robust PRESSURE-boundary fallback.
+//
+// Solve each compartment's implicit volume equation at a trial branch
+// pressure, then solve the central-airway balance equation:
+//
+//   (Pvent - Pbranch) / Rc = sum_i (Vnew_i - Vold_i) / dt
+//
+// by bracketing/bisection. The compartment constitutive equations remain the
+// same implicit Euler equations used by the Newton path.
+function solvePressureBoundaryFallback(activeComps, boundary, params, dt, pGuess) {
+  if (boundary.kind !== 'PRESSURE') return null;
+
+  const aop = params.airwayOpeningPressure;
+  const Rc = params.centralAirwayResistance;
+  const V_TOL = 1e-13;
+  const BAL_TOL = 1e-9;
+
+  function volumeAtPressure(ac, pBranch) {
+    const { cp, cs, G } = ac;
+    const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
+    if (!(vmax > 0) || !(G > 0)) return 0;
+    const upper = (1 - 2 * EPS_CAP) * vmax;
+
+    function residual(v) {
+      const pEl = elasticPressureAboveAOP(v, cp, cs.recruitment);
+      return v - cs.volume -
+        dt * G * (pBranch - aop - pEl);
+    }
+
+    const f0 = residual(0);
+    if (f0 >= 0) return 0;
+    const fUpper = residual(upper);
+    if (fUpper <= 0) return upper;
+
+    let lo = 0;
+    let hi = upper;
+    let flo = f0;
+    for (let iter = 0; iter < 100; iter++) {
+      const mid = 0.5 * (lo + hi);
+      const fm = residual(mid);
+      if (Math.abs(fm) <= V_TOL || (hi - lo) <= V_TOL) return mid;
+      if (flo * fm <= 0) {
+        hi = mid;
+      } else {
+        lo = mid;
+        flo = fm;
+      }
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  function evaluate(pBranch) {
+    const volumes = activeComps.map(ac => volumeAtPressure(ac, pBranch));
+    let compartmentFlow = 0;
+    for (let i = 0; i < volumes.length; i++) {
+      compartmentFlow += (volumes[i] - activeComps[i].cs.volume) / dt;
+    }
+
+    const residual = Rc > 0
+      ? (boundary.pressureCmH2O - pBranch) / Rc - compartmentFlow
+      : pBranch - boundary.pressureCmH2O;
+
+    return { pBranch, volumes, compartmentFlow, residual };
+  }
+
+  if (!(Rc > 0)) {
+    const ev = evaluate(boundary.pressureCmH2O);
+    return { ...ev, iterations: 0 };
+  }
+
+  const center = Number.isFinite(pGuess)
+    ? pGuess
+    : boundary.pressureCmH2O;
+  const atCenter = evaluate(center);
+  if (Math.abs(atCenter.residual) <= BAL_TOL) {
+    return { ...atCenter, iterations: 0 };
+  }
+
+  let lo = center;
+  let hi = center;
+  let flo = atCenter.residual;
+  let fhi = atCenter.residual;
+  let span = 1;
+
+  for (let iter = 0; iter < 60 && flo * fhi > 0; iter++) {
+    lo = center - span;
+    hi = center + span;
+    flo = evaluate(lo).residual;
+    fhi = evaluate(hi).residual;
+    span *= 2;
+  }
+
+  if (flo * fhi > 0) return null;
+
+  let best = atCenter;
+  for (let iter = 0; iter < 120; iter++) {
+    const mid = 0.5 * (lo + hi);
+    const ev = evaluate(mid);
+    best = ev;
+    if (Math.abs(ev.residual) <= BAL_TOL) {
+      return { ...ev, iterations: iter + 1 };
+    }
+    if (flo * ev.residual <= 0) {
+      hi = mid;
+      fhi = ev.residual;
+    } else {
+      lo = mid;
+      flo = ev.residual;
+    }
+  }
+
+  return Math.abs(best.residual) <= 10 * BAL_TOL
+    ? { ...best, iterations: 120 }
+    : null;
+}
+
 // --- Driver: implicit step with dt subdivision -------------------------
 
 function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
@@ -758,6 +874,26 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
         1, r.lineSearchHalvings, r.activeSetTransitions);
       solved.output.solverStats.flowBoundaryFallback = true;
       solved.output.solverStats.flowBoundaryResidualLps = fallback.residual;
+      return solved;
+    }
+  }
+
+  if (boundary.kind === 'PRESSURE') {
+    const fallback = solvePressureBoundaryFallback(
+      activeComps, boundary, params, dt, pBranch[0]);
+    if (fallback) {
+      for (let i = 0; i < vTrial.length; i++) {
+        vTrial[i] = fallback.volumes[i];
+      }
+      pBranch[0] = fallback.pBranch;
+      const solved = finalize(
+        activeComps, vTrial, pBranch[0], state, boundary, params, dt,
+        fallback.iterations, Math.abs(fallback.residual),
+        Math.abs(fallback.residual) /
+          Math.max(Math.abs(pBranch[0]), 1),
+        1, r.lineSearchHalvings, r.activeSetTransitions);
+      solved.output.solverStats.pressureBoundaryFallback = true;
+      solved.output.solverStats.pressureBoundaryResidual = fallback.residual;
       return solved;
     }
   }
@@ -998,6 +1134,7 @@ module.exports = {
   newtonStep,
   solveImplicitStep,
   solveFlowBoundaryFallback,
+  solvePressureBoundaryFallback,
   // Backward-compat shim: legacy tests called `solveBranchForFlow`. The
   // v0.4.2 solver is implicit; this returns the per-step solve output.
   solveBranchForFlow(boundary, params, compartments) {
