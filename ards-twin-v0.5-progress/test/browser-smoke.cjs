@@ -49,7 +49,12 @@ const { chromium, webkit } = require('playwright');
       // End-to-end clinical-session smoke uses a clearly labeled test-only
       // HumMod replay fixture. No fixture value is presented as clinical truth.
       await page.locator('#clinical-case').selectOption('berlin-moderate-moderate-aspiration');
-      await page.locator('#clinical-session-panel > summary').click();
+      // Keep the executable-session details panel open. The earlier synthetic
+      // demo path already opened it; clicking the summary again would close
+      // the panel and make the form controls intentionally invisible.
+      await page.locator('#clinical-session-panel').evaluate(el => {
+        el.open = true;
+      });
       await page.locator('#clinical-hummod-file').setInputFiles(
         path.resolve(__dirname,'fixtures/hummod-browser-raw-fixture.json'));
       await page.waitForFunction(()=>document.querySelector('#clinical-hummod-status').textContent.includes('raw System.X series converted to canonical seconds'));

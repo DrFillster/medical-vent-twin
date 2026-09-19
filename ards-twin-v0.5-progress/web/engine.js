@@ -15,6 +15,15 @@ module.exports = {
   ...require("src/hummod_runner_contract.js"),
   ...require("src/hummod_raw_series_adapter.js"),
   ...require("src/hummod_remote_request.js"),
+  ...require("src/hummod_ards_core_combined_runtime.js"),
+  ...require("src/hummod_ards_core_hemodynamic_runtime.js"),
+  ...require("src/hummod_ards_core_runtime.js"),
+  ...require("src/hummod_ards_core_hemodynamics.js"),
+  ...require("src/hummod_ards_core_gas_exchange.js"),
+  ...require("src/hummod_ards_core_breathing.js"),
+  ...require("src/hummod_ards_core_chemistry.js"),
+  ...require("src/hummod_ards_core_coupling.js"),
+  ...require("src/hummod_ards_core_manifest.js"),
   ...require("src/clinical_twin_runtime.js"),
   ...require("src/clinical_twin_session.js"),
   ...require("src/clinical_session_record.js"),
@@ -683,23 +692,24 @@ const V_SCALE_FLOOR = 0.01;   // characteristic V scale, never larger
 
 // State-aware scales (per-step, recomputed from current state).
 // V_scale is bounded by V_SCALE_FLOOR to ensure tight convergence.
-function computeScales(activeComps, params, pBranchGuess) {
-  let vmaxMin = Infinity;
-  for (const { cp, cs } of activeComps) {
+function computeScales(activeComps, params, pBranchGuess, boundary) {
+  // Scale each compartment residual independently. A nearly closed
+  // compartment must not impose its microscopic Vmax on all rows.
+  const V_SCALE_MIN = 1e-9;
+  const V_scales = activeComps.map(({ cp, cs }) => {
     const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
-    if (vmax > 0 && vmax < vmaxMin) vmaxMin = vmax;
-  }
-  if (!isFinite(vmaxMin)) vmaxMin = V_SCALE_FLOOR;
-  // Use a tight V_scale: never larger than V_SCALE_FLOOR (0.01 L).
-  // This makes the per-step residual tolerance a meaningful fraction of
-  // a typical compartment's transient response.
-  const V_scale = Math.min(vmaxMin, V_SCALE_FLOOR);
-  // P_scale: order-of-magnitude of airway pressure. The boundary
-  // residual has units cmH2O. Use max(|pBranch|, |AOP|, 1) as scale.
+    if (!(vmax > 0) || !Number.isFinite(vmax)) return V_SCALE_FLOOR;
+    return Math.max(V_SCALE_MIN, Math.min(vmax, V_SCALE_FLOOR));
+  });
+
   const P_scale = Math.max(Math.abs(pBranchGuess),
                            Math.abs(params.airwayOpeningPressure),
                            1);
-  return { V_scale, P_scale };
+  const boundaryScale = boundary && boundary.kind === 'FLOW'
+    ? Math.max(Math.abs(boundary.flowLps), 0.1)
+    : P_scale;
+
+  return { V_scales, P_scale, boundaryScale };
 }
 
 // v0.4.3 → v0.4.4: classify boundary feasibility with direction awareness.
@@ -763,12 +773,12 @@ function classifyBoundaryFeasibility(activeComps, params, boundary, dt) {
 function scaledNorm(F, scales) {
   let maxR = 0;
   for (let i = 0; i < F.length - 1; i++) {
-    const r = Math.abs(F[i]) / scales.V_scale;
+    const r = Math.abs(F[i]) / scales.V_scales[i];
     if (r > maxR) maxR = r;
   }
-  // Last entry is the boundary (P) residual.
-  const rP = Math.abs(F[F.length - 1]) / scales.P_scale;
-  if (rP > maxR) maxR = rP;
+  const rBoundary =
+    Math.abs(F[F.length - 1]) / scales.boundaryScale;
+  if (rBoundary > maxR) maxR = rBoundary;
   return maxR;
 }
 
@@ -947,7 +957,7 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
   // v0.4.3: compute scales once at the start (state is approximately
   // fixed during Newton iteration; per-iter recomputation would just
   // jitter the convergence test).
-  const scales = computeScales(activeComps, params, pBranch[0]);
+  const scales = computeScales(activeComps, params, pBranch[0], boundary);
 
   for (iter = 0; iter < SOLVER_MAX_ITER; iter++) {
     const { F, J } = buildSystem(
@@ -1068,10 +1078,253 @@ function newtonStep(activeComps, vTrial, pBranch, boundary, params, dt) {
                activeSetTransitions };
     }
   }
+  const finalSystem = buildSystem(
+    activeComps, vTrial, pBranch[0], boundary, params, dt);
+  const finalScaledComponents = finalSystem.F.map((value, i) => {
+    const scale = i < finalSystem.F.length - 1
+      ? scales.V_scales[i]
+      : scales.P_scale;
+    return value / scale;
+  });
   return { converged, residual: lastResidualNorm,
            scaledResidual: lastScaled, iterations: iter, substeps: 0,
            lineSearchHalvings: totalHalvings,
-           activeSetTransitions };
+           activeSetTransitions,
+           residualVector: finalSystem.F,
+           scaledResidualVector: finalScaledComponents,
+           volumeScales: scales.V_scales,
+           pressureScale: scales.P_scale,
+           trialVolumes: vTrial.slice(),
+           trialBranchPressure: pBranch[0] };
+}
+
+// Robust FLOW-boundary fallback.
+//
+// When the coupled Newton solve stalls, solve each compartment's implicit
+// volume equation as a monotone scalar function at a trial branch pressure,
+// then solve the remaining scalar flow-balance equation for Pbranch by
+// bracketing/bisection. This preserves the same implicit Euler constitutive
+// equations; it is not a looser approximation or tolerance relaxation.
+function solveFlowBoundaryFallback(activeComps, boundary, params, dt, pGuess) {
+  if (boundary.kind !== 'FLOW') return null;
+  if (classifyBoundaryFeasibility(activeComps, params, boundary, dt) ===
+      'INFEASIBLE_BOUNDARY') {
+    return null;
+  }
+
+  const aop = params.airwayOpeningPressure;
+  const FLOW_TOL = Math.max(1e-9, Math.abs(boundary.flowLps) * 1e-9);
+  const V_TOL = 1e-13;
+
+  function volumeAtPressure(ac, pBranch) {
+    const { cp, cs, G } = ac;
+    const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
+    if (!(vmax > 0) || !(G > 0)) return 0;
+    const upper = (1 - 2 * EPS_CAP) * vmax;
+
+    function residual(v) {
+      const pEl = elasticPressureAboveAOP(v, cp, cs.recruitment);
+      return v - cs.volume -
+        dt * G * (pBranch - aop - pEl);
+    }
+
+    const f0 = residual(0);
+    if (f0 >= 0) return 0;
+    const fUpper = residual(upper);
+    if (fUpper <= 0) return upper;
+
+    let lo = 0;
+    let hi = upper;
+    let flo = f0;
+    for (let iter = 0; iter < 100; iter++) {
+      const mid = 0.5 * (lo + hi);
+      const fm = residual(mid);
+      if (Math.abs(fm) <= V_TOL || (hi - lo) <= V_TOL) return mid;
+      if (flo * fm <= 0) {
+        hi = mid;
+      } else {
+        lo = mid;
+        flo = fm;
+      }
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  function evaluate(pBranch) {
+    const volumes = activeComps.map(ac => volumeAtPressure(ac, pBranch));
+    let flow = 0;
+    for (let i = 0; i < volumes.length; i++) {
+      flow += (volumes[i] - activeComps[i].cs.volume) / dt;
+    }
+    return {
+      pBranch,
+      volumes,
+      flow,
+      residual: flow - boundary.flowLps,
+    };
+  }
+
+  let center = Number.isFinite(pGuess) ? pGuess : aop;
+  let atCenter = evaluate(center);
+  if (Math.abs(atCenter.residual) <= FLOW_TOL) {
+    return { ...atCenter, iterations: 0 };
+  }
+
+  let lo = center;
+  let hi = center;
+  let flo = atCenter.residual;
+  let fhi = atCenter.residual;
+  let span = 1;
+
+  for (let iter = 0; iter < 60 && flo * fhi > 0; iter++) {
+    if (atCenter.residual < 0) {
+      hi = center + span;
+      fhi = evaluate(hi).residual;
+    } else {
+      lo = center - span;
+      flo = evaluate(lo).residual;
+    }
+    span *= 2;
+  }
+
+  if (flo * fhi > 0) return null;
+
+  let best = atCenter;
+  for (let iter = 0; iter < 120; iter++) {
+    const mid = 0.5 * (lo + hi);
+    const ev = evaluate(mid);
+    best = ev;
+    if (Math.abs(ev.residual) <= FLOW_TOL) {
+      return { ...ev, iterations: iter + 1 };
+    }
+    if (flo * ev.residual <= 0) {
+      hi = mid;
+      fhi = ev.residual;
+    } else {
+      lo = mid;
+      flo = ev.residual;
+    }
+  }
+
+  return Math.abs(best.residual) <= 10 * FLOW_TOL
+    ? { ...best, iterations: 120 }
+    : null;
+}
+
+// Robust PRESSURE-boundary fallback.
+//
+// Solve each compartment's implicit volume equation at a trial branch
+// pressure, then solve the central-airway balance equation:
+//
+//   (Pvent - Pbranch) / Rc = sum_i (Vnew_i - Vold_i) / dt
+//
+// by bracketing/bisection. The compartment constitutive equations remain the
+// same implicit Euler equations used by the Newton path.
+function solvePressureBoundaryFallback(activeComps, boundary, params, dt, pGuess) {
+  if (boundary.kind !== 'PRESSURE') return null;
+
+  const aop = params.airwayOpeningPressure;
+  const Rc = params.centralAirwayResistance;
+  const V_TOL = 1e-13;
+  const BAL_TOL = 1e-9;
+
+  function volumeAtPressure(ac, pBranch) {
+    const { cp, cs, G } = ac;
+    const vmax = effectiveVolumeCapacity(cp, cs.recruitment);
+    if (!(vmax > 0) || !(G > 0)) return 0;
+    const upper = (1 - 2 * EPS_CAP) * vmax;
+
+    function residual(v) {
+      const pEl = elasticPressureAboveAOP(v, cp, cs.recruitment);
+      return v - cs.volume -
+        dt * G * (pBranch - aop - pEl);
+    }
+
+    const f0 = residual(0);
+    if (f0 >= 0) return 0;
+    const fUpper = residual(upper);
+    if (fUpper <= 0) return upper;
+
+    let lo = 0;
+    let hi = upper;
+    let flo = f0;
+    for (let iter = 0; iter < 100; iter++) {
+      const mid = 0.5 * (lo + hi);
+      const fm = residual(mid);
+      if (Math.abs(fm) <= V_TOL || (hi - lo) <= V_TOL) return mid;
+      if (flo * fm <= 0) {
+        hi = mid;
+      } else {
+        lo = mid;
+        flo = fm;
+      }
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  function evaluate(pBranch) {
+    const volumes = activeComps.map(ac => volumeAtPressure(ac, pBranch));
+    let compartmentFlow = 0;
+    for (let i = 0; i < volumes.length; i++) {
+      compartmentFlow += (volumes[i] - activeComps[i].cs.volume) / dt;
+    }
+
+    const residual = Rc > 0
+      ? (boundary.pressureCmH2O - pBranch) / Rc - compartmentFlow
+      : pBranch - boundary.pressureCmH2O;
+
+    return { pBranch, volumes, compartmentFlow, residual };
+  }
+
+  if (!(Rc > 0)) {
+    const ev = evaluate(boundary.pressureCmH2O);
+    return { ...ev, iterations: 0 };
+  }
+
+  const center = Number.isFinite(pGuess)
+    ? pGuess
+    : boundary.pressureCmH2O;
+  const atCenter = evaluate(center);
+  if (Math.abs(atCenter.residual) <= BAL_TOL) {
+    return { ...atCenter, iterations: 0 };
+  }
+
+  let lo = center;
+  let hi = center;
+  let flo = atCenter.residual;
+  let fhi = atCenter.residual;
+  let span = 1;
+
+  for (let iter = 0; iter < 60 && flo * fhi > 0; iter++) {
+    lo = center - span;
+    hi = center + span;
+    flo = evaluate(lo).residual;
+    fhi = evaluate(hi).residual;
+    span *= 2;
+  }
+
+  if (flo * fhi > 0) return null;
+
+  let best = atCenter;
+  for (let iter = 0; iter < 120; iter++) {
+    const mid = 0.5 * (lo + hi);
+    const ev = evaluate(mid);
+    best = ev;
+    if (Math.abs(ev.residual) <= BAL_TOL) {
+      return { ...ev, iterations: iter + 1 };
+    }
+    if (flo * ev.residual <= 0) {
+      hi = mid;
+      fhi = ev.residual;
+    } else {
+      lo = mid;
+      flo = ev.residual;
+    }
+  }
+
+  return Math.abs(best.residual) <= 10 * BAL_TOL
+    ? { ...best, iterations: 120 }
+    : null;
 }
 
 // --- Driver: implicit step with dt subdivision -------------------------
@@ -1124,9 +1377,60 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
   // Initialize trial volumes at current state; Pbranch at boundary value
   // (or AOP if FLOW with no flow).
   const vTrial = activeComps.map(({ cp, cs }) => feasibleV(cs.volume, cp, cs));
-  const pBranch = [boundary.kind === 'PRESSURE'
+
+  // FLOW-control initial pressure guess.
+  //
+  // Starting every flow solve at AOP is a poor approximation once the lung
+  // is inflated above AOP (especially after sustained PEEP). From
+  // Q = sum_i G_i * (Pbranch - Palv_i), the linearized current-state estimate
+  // is:
+  //
+  //   Pbranch ~= (Q + sum_i G_i * Palv_i) / sum_i G_i
+  //
+  // This is only a Newton starting point; the nonlinear implicit solve remains
+  // authoritative.
+  let flowPressureGuess = params.airwayOpeningPressure;
+  if (boundary.kind === 'FLOW') {
+    let conductanceSum = 0;
+    let weightedAlveolarPressure = 0;
+    for (const { G, cs } of activeComps) {
+      conductanceSum += G;
+      weightedAlveolarPressure += G * cs.alveolarPressure;
+    }
+    if (conductanceSum > 0) {
+      flowPressureGuess =
+        (boundary.flowLps + weightedAlveolarPressure) / conductanceSum;
+    }
+  }
+
+  let pressureBoundaryGuess = boundary.kind === 'PRESSURE'
     ? boundary.pressureCmH2O
-    : params.airwayOpeningPressure];
+    : flowPressureGuess;
+
+  if (boundary.kind === 'PRESSURE' &&
+      params.centralAirwayResistance > 0) {
+    let conductanceSum = 0;
+    let weightedAlveolarPressure = 0;
+    for (const { G, cs } of activeComps) {
+      conductanceSum += G;
+      weightedAlveolarPressure += G * cs.alveolarPressure;
+    }
+    const centralConductance = 1 / params.centralAirwayResistance;
+    const totalConductance = centralConductance + conductanceSum;
+    if (totalConductance > 0) {
+      // Linearized current-state circuit:
+      //   Qcentral = (Pvent - Pbranch) / Rc
+      //   Qcentral = sum_i Gi * (Pbranch - Palv_i)
+      // therefore
+      //   Pbranch = (Pvent/Rc + sum_i Gi*Palv_i)
+      //             / (1/Rc + sum_i Gi)
+      pressureBoundaryGuess =
+        (boundary.pressureCmH2O * centralConductance +
+         weightedAlveolarPressure) / totalConductance;
+    }
+  }
+
+  const pBranch = [pressureBoundaryGuess];
 
   const r = newtonStep(activeComps, vTrial, pBranch, boundary, params, dt);
   if (r.converged) {
@@ -1134,6 +1438,47 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
                     r.iterations, r.residual, r.scaledResidual, 1,
                     r.lineSearchHalvings, r.activeSetTransitions);
   }
+
+  if (boundary.kind === 'FLOW') {
+    const fallback = solveFlowBoundaryFallback(
+      activeComps, boundary, params, dt, pBranch[0]);
+    if (fallback) {
+      for (let i = 0; i < vTrial.length; i++) {
+        vTrial[i] = fallback.volumes[i];
+      }
+      pBranch[0] = fallback.pBranch;
+      const solved = finalize(
+        activeComps, vTrial, pBranch[0], state, boundary, params, dt,
+        fallback.iterations, Math.abs(fallback.residual),
+        Math.abs(fallback.residual) /
+          Math.max(Math.abs(boundary.flowLps), 0.1),
+        1, r.lineSearchHalvings, r.activeSetTransitions);
+      solved.output.solverStats.flowBoundaryFallback = true;
+      solved.output.solverStats.flowBoundaryResidualLps = fallback.residual;
+      return solved;
+    }
+  }
+
+  if (boundary.kind === 'PRESSURE') {
+    const fallback = solvePressureBoundaryFallback(
+      activeComps, boundary, params, dt, pBranch[0]);
+    if (fallback) {
+      for (let i = 0; i < vTrial.length; i++) {
+        vTrial[i] = fallback.volumes[i];
+      }
+      pBranch[0] = fallback.pBranch;
+      const solved = finalize(
+        activeComps, vTrial, pBranch[0], state, boundary, params, dt,
+        fallback.iterations, Math.abs(fallback.residual),
+        Math.abs(fallback.residual) /
+          Math.max(Math.abs(pBranch[0]), 1),
+        1, r.lineSearchHalvings, r.activeSetTransitions);
+      solved.output.solverStats.pressureBoundaryFallback = true;
+      solved.output.solverStats.pressureBoundaryResidual = fallback.residual;
+      return solved;
+    }
+  }
+
   // Newton failed: try with halved dt.
   if (dt / 2 < 1e-6) {
     // Last resort: distinguish INFEASIBLE_BOUNDARY from SOLVER_NONCONVERGENCE.
@@ -1152,6 +1497,17 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
     // failure is a SOLVER_NONCONVERGENCE; if no, INFEASIBLE_BOUNDARY.
     const classification = classifyBoundaryFeasibility(
       activeComps, params, boundary, dt);
+    const diagnosticSystem = buildSystem(
+      activeComps, vTrial, pBranch[0], boundary, params, dt);
+    const diagnosticScales = computeScales(
+      activeComps, params, pBranch[0], boundary);
+    const diagnosticScaledResidualVector =
+      diagnosticSystem.F.map((value, i) => {
+        const scale = i < diagnosticSystem.F.length - 1
+          ? diagnosticScales.V_scales[i]
+          : diagnosticScales.boundaryScale;
+        return value / scale;
+      });
     return {
       state: {
         t: state.t,
@@ -1176,6 +1532,17 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
         iterations: 0,
         residualNorm: r.residual,
         scaledResidual: r.scaledResidual,
+        residualVector: diagnosticSystem.F,
+        scaledResidualVector: diagnosticScaledResidualVector,
+        volumeScales: diagnosticScales.V_scales,
+        pressureScale: diagnosticScales.P_scale,
+        boundaryScale: diagnosticScales.boundaryScale,
+        trialVolumes: vTrial.slice(),
+        trialBranchPressure: pBranch[0],
+        boundaryKind: boundary.kind,
+        requestedFlowLps: boundary.kind === 'FLOW' ? boundary.flowLps : null,
+        requestedPressureCmH2O:
+          boundary.kind === 'PRESSURE' ? boundary.pressureCmH2O : null,
         substeps: DT_SUBDIV_LIMIT,
         solverFailure: true,
         failureKind: classification,
@@ -1347,6 +1714,8 @@ module.exports = {
   buildSystem,
   newtonStep,
   solveImplicitStep,
+  solveFlowBoundaryFallback,
+  solvePressureBoundaryFallback,
   // Backward-compat shim: legacy tests called `solveBranchForFlow`. The
   // v0.4.2 solver is implicit; this returns the per-step solve output.
   solveBranchForFlow(boundary, params, compartments) {
@@ -2937,7 +3306,7 @@ const K_RECRUITABLE = 22;
 const K_CONSOLIDATED = 35;
 
 function makeCompartment({ id, fraction, resistance, perfusion, deadSpace,
-                           elasticScale = K_NORMAL }) {
+                           elasticScale = K_NORMAL, recruitment = null }) {
   const c = fraction * C0;        // L/cmH2O effective spring stiffness
   return {
     id, fraction,
@@ -2946,8 +3315,47 @@ function makeCompartment({ id, fraction, resistance, perfusion, deadSpace,
     elasticScale,
     perfusionFraction: perfusion,
     deadSpaceFraction: deadSpace,
+    ...(recruitment ? { recruitment: { ...recruitment } } : {}),
   };
 }
+
+// Synthetic recruitment-pressure anchors for the mechanical phenotypes.
+//
+// These are engineering calibration anchors, not clinical treatment cutoffs
+// and not Berlin-severity definitions. The recruitable-pool fraction remains
+// the primary low/moderate/high construct. The pressure anchors represent a
+// deliberately simplified dominant opening/closing subpopulation in a
+// three-compartment model; real ARDS has a distribution of regional opening
+// and closing pressures.
+const RECRUITMENT_CALIBRATIONS = Object.freeze({
+  low: Object.freeze({
+    P_open: 30,
+    P_close: 15,
+    k_open: 0.02,
+    k_close: 0.05,
+    pressureReference: 'distending-pressure-above-AOP',
+    status: 'synthetic-engineering-anchor',
+    interpretation: 'sticky-atelectasis-dominant representative unit',
+  }),
+  moderate: Object.freeze({
+    P_open: 22,
+    P_close: 12,
+    k_open: 0.02,
+    k_close: 0.05,
+    pressureReference: 'distending-pressure-above-AOP',
+    status: 'synthetic-engineering-anchor',
+    interpretation: 'mixed-opening-pressure representative unit',
+  }),
+  high: Object.freeze({
+    P_open: 16,
+    P_close: 10,
+    k_open: 0.02,
+    k_close: 0.05,
+    pressureReference: 'distending-pressure-above-AOP',
+    status: 'synthetic-engineering-anchor',
+    interpretation: 'loose-atelectasis-dominant representative unit',
+  }),
+});
 
 function presetBaseline() {
   return {
@@ -2977,7 +3385,8 @@ function presetPhenotypeLowRecruitability() {
                        elasticScale: K_NORMAL }),
       makeCompartment({ id: 'recruitable', fraction: 0.25, resistance: 0.5,
                        perfusion: 0.18, deadSpace: 0.40,
-                       elasticScale: K_RECRUITABLE }),
+                       elasticScale: K_RECRUITABLE,
+                       recruitment: RECRUITMENT_CALIBRATIONS.low }),
       makeCompartment({ id: 'consolidated', fraction: 0.10, resistance: 0.5,
                        perfusion: 0.07, deadSpace: 0.40,
                        elasticScale: K_CONSOLIDATED }),
@@ -2996,7 +3405,8 @@ function presetPhenotypeModerateRecruitability() {
                        elasticScale: K_NORMAL }),
       makeCompartment({ id: 'recruitable', fraction: 0.40, resistance: 0.5,
                        perfusion: 0.30, deadSpace: 0.50,
-                       elasticScale: K_RECRUITABLE }),
+                       elasticScale: K_RECRUITABLE,
+                       recruitment: RECRUITMENT_CALIBRATIONS.moderate }),
       makeCompartment({ id: 'consolidated', fraction: 0.20, resistance: 0.5,
                        perfusion: 0.15, deadSpace: 0.50,
                        elasticScale: K_CONSOLIDATED }),
@@ -3015,7 +3425,8 @@ function presetPhenotypeHighRecruitability() {
                        elasticScale: K_NORMAL }),
       makeCompartment({ id: 'recruitable', fraction: 0.50, resistance: 0.5,
                        perfusion: 0.45, deadSpace: 0.60,
-                       elasticScale: K_RECRUITABLE }),
+                       elasticScale: K_RECRUITABLE,
+                       recruitment: RECRUITMENT_CALIBRATIONS.high }),
       makeCompartment({ id: 'consolidated', fraction: 0.30, resistance: 0.5,
                        perfusion: 0.25, deadSpace: 0.60,
                        elasticScale: K_CONSOLIDATED }),
@@ -3032,7 +3443,7 @@ const PRESETS = Object.freeze({
   phenotype_high_recruitability: presetPhenotypeHighRecruitability,
 });
 
-module.exports = { PRESETS };
+module.exports = { PRESETS, RECRUITMENT_CALIBRATIONS };
 
 },
 "src/clinical_scenarios.js":function(module,exports,require){
@@ -3266,7 +3677,7 @@ module.exports = {
 
 const { makeBerlinVirtualPatient } = require("src/clinical_scenarios.js");
 
-const CASE_AUTHORING_VERSION = '0.5.0-alpha.2';
+const CASE_AUTHORING_VERSION = '0.5.0-alpha.3';
 
 const CASE_DESIGNS = Object.freeze([
   { severity: 'mild', recruitability: 'low',
@@ -3372,6 +3783,19 @@ function buildCase(design) {
       recruitability: design.recruitability,
       mechanicsPresetId: base.mechanics.presetId,
       mechanicsParams: clone(base.mechanics.params),
+      recruitmentCalibration: (() => {
+        const recruitable = base.mechanics.params.compartments.find(
+          compartment => compartment.id === 'recruitable');
+        if (!recruitable || !recruitable.recruitment) return null;
+        return {
+          ...clone(recruitable.recruitment),
+          provenance: {
+            status: 'literature-informed-synthetic-engineering-anchor',
+            note:
+              'Represents one dominant recruitable subpopulation in the current three-compartment model; real ARDS has distributed regional opening/closing pressures. Not a Berlin criterion or clinical PEEP target.',
+          },
+        };
+      })(),
       status: 'mechanistic-construct-not-fitted-to-berlin-grade',
     },
     startingVentilation: {
@@ -3407,6 +3831,8 @@ function buildCase(design) {
       cohortSources: clone(base.provenance),
       scenarioFields: 'synthetic-authoring-assumptions',
       mechanics: 'Vent mechanistic preset; independent of Berlin severity',
+      recruitment:
+        'Literature-informed synthetic opening/closing-pressure anchor; not a clinical threshold and not derived from Berlin severity',
       systemic: 'HumMod mapping pending',
     },
   });
@@ -4538,6 +4964,2530 @@ module.exports = {
   HUMMOD_REMOTE_REQUEST_SCHEMA,
   generateHumModRemoteRequest,
   xmlEscape,
+};
+
+},
+"src/hummod_ards_core_combined_runtime.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_combined_runtime.js
+//
+// First composed reduced HumMod-ARDS-Core runtime.
+//
+// Couples:
+//   reduced source-aligned cardiopulmonary circulation
+//     -> dynamic cardiac output / pulmonary blood flow
+//   source-aligned acute gas + acid-base runtime
+//
+// Still explicit:
+// - ventilated fraction of pulmonary perfusion
+// - Vent -> thoracic pressure (mmHg) adapter
+// - pulmonary membrane permeability
+// - tissue VO2/VCO2
+// - SID / O2 carrying capacity
+//
+// Numerical coupling uses sequential operator splitting at each reduced-core
+// step: hemodynamics first, then gas/acid-base using the updated flows.
+
+const {
+  createHumModArdsHemodynamicRuntime,
+} = require("src/hummod_ards_core_hemodynamic_runtime.js");
+const {
+  createHumModArdsGasRuntime,
+} = require("src/hummod_ards_core_runtime.js");
+
+const HUMMOD_ARDS_COMBINED_SCHEMA =
+  'hummod-ards-core-combined/v1';
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be finite');
+  }
+  return value;
+}
+
+function fraction(value, label) {
+  finite(value, label);
+  if (value < 0 || value > 1) {
+    throw new Error(label + ' must be in [0,1]');
+  }
+  return value;
+}
+
+function buildDynamicGasBoundary({
+  gasBoundaryTemplate,
+  hemodynamicSnapshot,
+  ventilatedPerfusionFraction,
+} = {}) {
+  if (!gasBoundaryTemplate || typeof gasBoundaryTemplate !== 'object') {
+    throw new Error('gasBoundaryTemplate is required');
+  }
+  if (!hemodynamicSnapshot || !hemodynamicSnapshot.calculated) {
+    throw new Error('hemodynamicSnapshot is required');
+  }
+  fraction(ventilatedPerfusionFraction, 'ventilatedPerfusionFraction');
+
+  const f = hemodynamicSnapshot.calculated.flowsMlPerMin;
+
+  const cardiacOutputMlPerMin = f.leftPump;
+  const totalPulmonaryBloodFlowMlPerMin =
+    (f.pulmonaryArtery + f.pulmonaryCapillary) / 2;
+
+  if (!(cardiacOutputMlPerMin > 0)) {
+    throw new Error(
+      'dynamic left-pump cardiac output must be > 0 for gas exchange');
+  }
+  if (!(totalPulmonaryBloodFlowMlPerMin > 0)) {
+    throw new Error(
+      'dynamic pulmonary blood flow must be > 0 for gas exchange');
+  }
+
+  const ventilatedPulmonaryBloodFlowMlPerMin =
+    totalPulmonaryBloodFlowMlPerMin *
+    ventilatedPerfusionFraction;
+
+  return Object.freeze({
+    ventilation: Object.freeze({
+      ...gasBoundaryTemplate.ventilation,
+    }),
+    pulmonary: Object.freeze({
+      ...gasBoundaryTemplate.pulmonary,
+      ventilatedPulmonaryBloodFlowMlPerMin,
+    }),
+    circulation: Object.freeze({
+      cardiacOutputMlPerMin,
+    }),
+    metabolism: Object.freeze({
+      ...gasBoundaryTemplate.metabolism,
+    }),
+    blood: Object.freeze({
+      ...gasBoundaryTemplate.blood,
+    }),
+    environment: Object.freeze({
+      ...gasBoundaryTemplate.environment,
+    }),
+  });
+}
+
+function createHumModArdsCombinedRuntime({
+  gasInitialState,
+  useHumModSourceInitialGasState = false,
+  hemodynamicInitialState,
+  hemodynamicBoundary,
+  gasBoundaryTemplate,
+  ventilatedPerfusionFraction,
+} = {}) {
+  let perfusionFraction = fraction(
+    ventilatedPerfusionFraction,
+    'ventilatedPerfusionFraction'
+  );
+
+  let hemodynamicRuntime = createHumModArdsHemodynamicRuntime({
+    initialState: hemodynamicInitialState,
+    boundary: hemodynamicBoundary,
+  });
+
+  let hemoSnapshot = hemodynamicRuntime.snapshot();
+  let dynamicGasBoundary = buildDynamicGasBoundary({
+    gasBoundaryTemplate,
+    hemodynamicSnapshot: hemoSnapshot,
+    ventilatedPerfusionFraction: perfusionFraction,
+  });
+
+  const gasRuntime = createHumModArdsGasRuntime({
+    initialState: gasInitialState,
+    useHumModSourceInitialState: useHumModSourceInitialGasState,
+    boundary: dynamicGasBoundary,
+  });
+
+  let gasTemplate = gasBoundaryTemplate;
+  let gasSnapshot = gasRuntime.snapshot();
+  let timeSec = 0;
+
+  function snapshot() {
+    const f = hemoSnapshot.calculated.flowsMlPerMin;
+    return Object.freeze({
+      schema: HUMMOD_ARDS_COMBINED_SCHEMA,
+      timeSec,
+      hemodynamics: hemoSnapshot,
+      gases: gasSnapshot,
+      coupling: Object.freeze({
+        cardiacOutputMlPerMin: f.leftPump,
+        totalPulmonaryBloodFlowMlPerMin:
+          (f.pulmonaryArtery + f.pulmonaryCapillary) / 2,
+        ventilatedPerfusionFraction: perfusionFraction,
+        ventilatedPulmonaryBloodFlowMlPerMin:
+          dynamicGasBoundary.pulmonary
+            .ventilatedPulmonaryBloodFlowMlPerMin,
+        updateOrder: 'hemodynamics-then-gas',
+      }),
+      provenance: Object.freeze({
+        status:
+          'source-aligned-reduced-order-cardiopulmonary-core',
+        fullHumModEquivalent: false,
+        clinicalValidation: false,
+        unresolvedVentPressureAdapter:
+          'Vent cmH2O -> HumMod mmHg thoracic-pressure adapter not embedded here',
+        unresolvedPerfusionMapping:
+          'ventilatedPerfusionFraction is an explicit boundary',
+      }),
+    });
+  }
+
+  function step({
+    dtSec,
+    hemodynamicBoundary: nextHemodynamicBoundary,
+    gasBoundaryTemplate: nextGasTemplate,
+    ventilatedPerfusionFraction: nextPerfusionFraction,
+  } = {}) {
+    finite(dtSec, 'dtSec');
+    if (!(dtSec > 0)) throw new Error('dtSec must be > 0');
+
+    if (nextGasTemplate) gasTemplate = nextGasTemplate;
+    if (nextPerfusionFraction != null) {
+      perfusionFraction = fraction(
+        nextPerfusionFraction,
+        'ventilatedPerfusionFraction'
+      );
+    }
+
+    hemoSnapshot = hemodynamicRuntime.step({
+      dtSec,
+      boundary: nextHemodynamicBoundary,
+    });
+
+    dynamicGasBoundary = buildDynamicGasBoundary({
+      gasBoundaryTemplate: gasTemplate,
+      hemodynamicSnapshot: hemoSnapshot,
+      ventilatedPerfusionFraction: perfusionFraction,
+    });
+
+    gasSnapshot = gasRuntime.step({
+      dtSec,
+      boundary: dynamicGasBoundary,
+    });
+
+    timeSec += dtSec;
+    return snapshot();
+  }
+
+  return Object.freeze({
+    kind: 'hummod-ards-core-combined-runtime',
+    snapshot,
+    step,
+  });
+}
+
+module.exports = {
+  HUMMOD_ARDS_COMBINED_SCHEMA,
+  buildDynamicGasBoundary,
+  createHumModArdsCombinedRuntime,
+};
+
+},
+"src/hummod_ards_core_hemodynamic_runtime.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_hemodynamic_runtime.js
+//
+// Reduced-order acute cardiopulmonary circulation built from source-aligned
+// HumMod vascular/pump primitives plus one explicit modeling reduction:
+//
+//   The full HumMod organ/splanchnic circulation is collapsed into a single
+//   systemic arterial runoff + systemic venous reservoir.
+//
+// Everything else in this module uses the source pressure-volume / pump
+// relationships already ported in hummod_ards_core_hemodynamics.js.
+//
+// This is an engineering/research model, NOT a literal standalone HumMod
+// extraction and NOT clinically validated.
+
+const {
+  VASCULAR_DEFAULTS,
+  stressedVolumePressure,
+  conductanceFlow,
+  pericardialPressure,
+  ventricularPump,
+} = require("src/hummod_ards_core_hemodynamics.js");
+
+const HUMMOD_REDUCED_HEMODYNAMIC_SCHEMA =
+  'hummod-ards-core-hemodynamics/v1';
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be finite');
+  }
+  return value;
+}
+
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(label + ' must be > 0');
+  return value;
+}
+
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(label + ' must be >= 0');
+  return value;
+}
+
+function validateInitialState(state) {
+  if (!state || typeof state !== 'object') {
+    throw new Error('hemodynamic initialState is required');
+  }
+  for (const key of [
+    'systemicArterialVolumeMl',
+    'systemicVenousVolumeMl',
+    'rightAtrialVolumeMl',
+    'pulmonaryArterialVolumeMl',
+    'pulmonaryCapillaryVolumeMl',
+    'pulmonaryVenousVolumeMl',
+    'leftAtrialVolumeMl',
+  ]) nonNegative(state[key], 'initialState.' + key);
+  return state;
+}
+
+function validateBoundary(boundary) {
+  if (!boundary || typeof boundary !== 'object') {
+    throw new Error('hemodynamic boundary is required');
+  }
+  positive(boundary.heartRatePerMin, 'heartRatePerMin');
+  positive(boundary.rightContractilityMultiplier,
+    'rightContractilityMultiplier');
+  positive(boundary.leftContractilityMultiplier,
+    'leftContractilityMultiplier');
+  positive(boundary.rightStiffnessMultiplier,
+    'rightStiffnessMultiplier');
+  positive(boundary.leftStiffnessMultiplier,
+    'leftStiffnessMultiplier');
+  finite(boundary.thoracicPressureMmHg, 'thoracicPressureMmHg');
+  finite(boundary.pericardialTmpMmHg, 'pericardialTmpMmHg');
+
+  positive(boundary.systemicVenousV0Ml, 'systemicVenousV0Ml');
+  positive(boundary.systemicVenousComplianceMlPerMmHg,
+    'systemicVenousComplianceMlPerMmHg');
+  nonNegative(boundary.venousReturnConductanceMlPerMinPerMmHg,
+    'venousReturnConductanceMlPerMinPerMmHg');
+  nonNegative(boundary.systemicRunoffConductanceMlPerMinPerMmHg,
+    'systemicRunoffConductanceMlPerMinPerMmHg');
+
+  return boundary;
+}
+
+function clampFlowNonNegative(value) {
+  return Math.max(0, value);
+}
+
+function createHumModArdsHemodynamicRuntime({
+  initialState,
+  boundary,
+} = {}) {
+  let state = Object.freeze({ ...validateInitialState(initialState) });
+  let currentBoundary = validateBoundary(boundary);
+  let timeSec = 0;
+  let last = null;
+
+  function calculate(s, b) {
+    const thorax = b.thoracicPressureMmHg;
+    const pericardial = pericardialPressure({
+      thoracicPressureMmHg: thorax,
+      pericardialTmpMmHg: b.pericardialTmpMmHg,
+    });
+
+    const sysArt = stressedVolumePressure({
+      volumeMl: s.systemicArterialVolumeMl,
+      v0Ml: VASCULAR_DEFAULTS.systemicArteries.v0Ml,
+      complianceMlPerMmHg:
+        VASCULAR_DEFAULTS.systemicArteries.complianceMlPerMmHg,
+      externalPressureMmHg: 0,
+      clampStressedVolumeAtZero: true,
+    });
+
+    const sysVein = stressedVolumePressure({
+      volumeMl: s.systemicVenousVolumeMl,
+      v0Ml: b.systemicVenousV0Ml,
+      complianceMlPerMmHg:
+        b.systemicVenousComplianceMlPerMmHg,
+      externalPressureMmHg: 0,
+      clampStressedVolumeAtZero: true,
+    });
+
+    const ra = stressedVolumePressure({
+      volumeMl: s.rightAtrialVolumeMl,
+      v0Ml: VASCULAR_DEFAULTS.rightAtrium.v0Ml,
+      complianceMlPerMmHg:
+        VASCULAR_DEFAULTS.rightAtrium.complianceMlPerMmHg,
+      externalPressureMmHg: pericardial,
+      clampStressedVolumeAtZero: false,
+    });
+
+    const pa = stressedVolumePressure({
+      volumeMl: s.pulmonaryArterialVolumeMl,
+      v0Ml: VASCULAR_DEFAULTS.pulmonaryArtery.v0Ml,
+      complianceMlPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryArtery.complianceMlPerMmHg,
+      externalPressureMmHg: thorax,
+      clampStressedVolumeAtZero: true,
+    });
+
+    const pc = stressedVolumePressure({
+      volumeMl: s.pulmonaryCapillaryVolumeMl,
+      v0Ml: VASCULAR_DEFAULTS.pulmonaryCapillaries.v0Ml,
+      complianceMlPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryCapillaries.complianceMlPerMmHg,
+      externalPressureMmHg: thorax,
+      clampStressedVolumeAtZero: true,
+    });
+
+    const pv = stressedVolumePressure({
+      volumeMl: s.pulmonaryVenousVolumeMl,
+      v0Ml: VASCULAR_DEFAULTS.pulmonaryVeins.v0Ml,
+      complianceMlPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryVeins.complianceMlPerMmHg,
+      externalPressureMmHg: thorax,
+      clampStressedVolumeAtZero: true,
+    });
+
+    const la = stressedVolumePressure({
+      volumeMl: s.leftAtrialVolumeMl,
+      v0Ml: VASCULAR_DEFAULTS.leftAtrium.v0Ml,
+      complianceMlPerMmHg:
+        VASCULAR_DEFAULTS.leftAtrium.complianceMlPerMmHg,
+      externalPressureMmHg: pericardial,
+      clampStressedVolumeAtZero: false,
+    });
+
+    const venousReturn = clampFlowNonNegative(conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        b.venousReturnConductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: sysVein.pressureMmHg,
+      downstreamPressureMmHg: ra.pressureMmHg,
+    }));
+
+    const pulmonaryArteryFlow = clampFlowNonNegative(conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryArtery
+          .conductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: pa.pressureMmHg,
+      downstreamPressureMmHg: pc.pressureMmHg,
+    }));
+
+    const pulmonaryCapillaryFlow = clampFlowNonNegative(conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryCapillaries
+          .conductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: pc.pressureMmHg,
+      downstreamPressureMmHg: pv.pressureMmHg,
+    }));
+
+    const pulmonaryVenousFlow = clampFlowNonNegative(conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryVeins
+          .conductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: pv.pressureMmHg,
+      downstreamPressureMmHg: la.pressureMmHg,
+    }));
+
+    const systemicRunoff = clampFlowNonNegative(conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        b.systemicRunoffConductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: sysArt.pressureMmHg,
+      downstreamPressureMmHg: sysVein.pressureMmHg,
+    }));
+
+    const rightPump = ventricularPump({
+      side: 'right',
+      atrialPressureMmHg: ra.pressureMmHg,
+      arterialPressureMmHg: pa.pressureMmHg,
+      pericardialPressureMmHg: pericardial,
+      heartRatePerMin: b.heartRatePerMin,
+      contractilityMultiplier: b.rightContractilityMultiplier,
+      stiffnessMultiplier: b.rightStiffnessMultiplier,
+    });
+
+    const leftPump = ventricularPump({
+      side: 'left',
+      atrialPressureMmHg: la.pressureMmHg,
+      arterialPressureMmHg: sysArt.pressureMmHg,
+      pericardialPressureMmHg: pericardial,
+      heartRatePerMin: b.heartRatePerMin,
+      contractilityMultiplier: b.leftContractilityMultiplier,
+      stiffnessMultiplier: b.leftStiffnessMultiplier,
+    });
+
+    const rightPumpFlow =
+      clampFlowNonNegative(rightPump.bloodFlowMlPerMin);
+    const leftPumpFlow =
+      clampFlowNonNegative(leftPump.bloodFlowMlPerMin);
+
+    return Object.freeze({
+      pressuresMmHg: Object.freeze({
+        systemicArtery: sysArt.pressureMmHg,
+        systemicVein: sysVein.pressureMmHg,
+        rightAtrium: ra.pressureMmHg,
+        pulmonaryArtery: pa.pressureMmHg,
+        pulmonaryCapillary: pc.pressureMmHg,
+        pulmonaryVein: pv.pressureMmHg,
+        leftAtrium: la.pressureMmHg,
+        thoracic: thorax,
+        pericardial,
+      }),
+      flowsMlPerMin: Object.freeze({
+        systemicRunoff,
+        venousReturn,
+        rightPump: rightPumpFlow,
+        pulmonaryArtery: pulmonaryArteryFlow,
+        pulmonaryCapillary: pulmonaryCapillaryFlow,
+        pulmonaryVein: pulmonaryVenousFlow,
+        leftPump: leftPumpFlow,
+      }),
+      pump: Object.freeze({
+        right: rightPump,
+        left: leftPump,
+      }),
+    });
+  }
+
+  function snapshot() {
+    const calculated = calculate(state, currentBoundary);
+    return Object.freeze({
+      schema: HUMMOD_REDUCED_HEMODYNAMIC_SCHEMA,
+      timeSec,
+      state,
+      boundary: currentBoundary,
+      calculated,
+      provenance: Object.freeze({
+        status:
+          'reduced-order-adaptation-using-source-aligned-HumMod-vascular-and-pump-equations',
+        fullHumModEquivalent: false,
+        systemicReduction:
+          'organ-and-splanchnic-circulation-collapsed-to-systemic-runoff-and-venous-reservoir',
+        clinicalValidation: false,
+        pressureUnits: 'mmHg-HumMod-native',
+        flowUnits: 'mL/min-HumMod-native',
+      }),
+    });
+  }
+
+  function step({ dtSec, boundary: nextBoundary } = {}) {
+    positive(dtSec, 'dtSec');
+    if (nextBoundary) currentBoundary = validateBoundary(nextBoundary);
+
+    const c = calculate(state, currentBoundary);
+    const f = c.flowsMlPerMin;
+    const dtMin = dtSec / 60;
+
+    const next = {
+      systemicArterialVolumeMl:
+        state.systemicArterialVolumeMl +
+        dtMin * (f.leftPump - f.systemicRunoff),
+
+      systemicVenousVolumeMl:
+        state.systemicVenousVolumeMl +
+        dtMin * (f.systemicRunoff - f.venousReturn),
+
+      rightAtrialVolumeMl:
+        state.rightAtrialVolumeMl +
+        dtMin * (f.venousReturn - f.rightPump),
+
+      pulmonaryArterialVolumeMl:
+        state.pulmonaryArterialVolumeMl +
+        dtMin * (f.rightPump - f.pulmonaryArtery),
+
+      pulmonaryCapillaryVolumeMl:
+        state.pulmonaryCapillaryVolumeMl +
+        dtMin * (f.pulmonaryArtery - f.pulmonaryCapillary),
+
+      pulmonaryVenousVolumeMl:
+        state.pulmonaryVenousVolumeMl +
+        dtMin * (f.pulmonaryCapillary - f.pulmonaryVein),
+
+      leftAtrialVolumeMl:
+        state.leftAtrialVolumeMl +
+        dtMin * (f.pulmonaryVein - f.leftPump),
+    };
+
+    for (const [key, value] of Object.entries(next)) {
+      if (!Number.isFinite(value) || value < 0) {
+        throw new Error(
+          'hemodynamic volume became non-physical: ' + key + '=' + value);
+      }
+    }
+
+    state = Object.freeze(next);
+    timeSec += dtSec;
+    last = c;
+    return snapshot();
+  }
+
+  return Object.freeze({
+    kind: 'hummod-ards-core-hemodynamic-runtime',
+    snapshot,
+    step,
+    setBoundary(nextBoundary) {
+      currentBoundary = validateBoundary(nextBoundary);
+      return snapshot();
+    },
+  });
+}
+
+module.exports = {
+  HUMMOD_REDUCED_HEMODYNAMIC_SCHEMA,
+  validateInitialState,
+  validateBoundary,
+  createHumModArdsHemodynamicRuntime,
+};
+
+},
+"src/hummod_ards_core_hemodynamics.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_hemodynamics.js
+//
+// Source-aligned acute hemodynamic primitives extracted from the pinned
+// HumMod XML model. Units remain HumMod-native: volume in mL, pressure in
+// mmHg, flow in mL/min, heart rate in beats/min.
+//
+// Source revision:
+//   riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+//
+// Source files:
+//   Structure/VascularCompartments/SystemicArtys.DES
+//   Structure/VascularCompartments/SystemicVeins.DES
+//   Structure/VascularCompartments/RightAtrium.DES
+//   Structure/VascularCompartments/PulmArty.DES
+//   Structure/VascularCompartments/PulmCapys.DES
+//   Structure/VascularCompartments/PulmVeins.DES
+//   Structure/VascularCompartments/LeftAtrium.DES
+//   Structure/RightHeartPumping/RightHeartPumping-Diastole.DES
+//   Structure/RightHeartPumping/RightHeartPumping-Systole.DES
+//   Structure/RightHeartPumping/RightHeartPumping-Pumping.DES
+//   Structure/LeftHeartPumping/LeftHeartPumping-Diastole.DES
+//   Structure/LeftHeartPumping/LeftHeartPumping-Systole.DES
+//   Structure/LeftHeartPumping/LeftHeartPumping-Pumping.DES
+//
+// Phase-1 boundaries:
+// - heart rate is supplied explicitly;
+// - beta-receptor effects are supplied as contractility multipliers;
+// - pericardial transmural pressure is supplied explicitly;
+// - Vent/HumMod pressure-unit conversion is NOT performed here;
+// - organ-flow/autonomic/endocrine control remains outside this module.
+
+const HUMMOD_HEMODYNAMICS_SOURCE = Object.freeze({
+  repository: 'riliescu/hummod-standalone',
+  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+});
+
+const VASCULAR_DEFAULTS = Object.freeze({
+  systemicArteries: Object.freeze({
+    v0Ml: 850.0,
+    complianceMlPerMmHg: 1.55,
+    initialVolumeMl: 999.0,
+    externalPressureModel: 'zero',
+    source: 'SystemicArtys',
+  }),
+  systemicVeins: Object.freeze({
+    v0Ml: 1700.0,
+    complianceMlPerMmHg: 88.6,
+    initialVolumeModel: 'residual-blood-volume-in-full-HumMod',
+    externalPressureModel: 'zero',
+    source: 'SystemicVeins',
+  }),
+  rightAtrium: Object.freeze({
+    v0Ml: 0.0,
+    complianceMlPerMmHg: 12.5,
+    initialVolumeMl: 51.0,
+    externalPressureModel: 'pericardial-pressure',
+    source: 'RightAtrium',
+  }),
+  pulmonaryArtery: Object.freeze({
+    v0Ml: 110.0,
+    complianceMlPerMmHg: 5.3,
+    conductanceMlPerMinPerMmHg: 1350.0,
+    initialVolumeMl: 201.0,
+    externalPressureModel: 'thoracic-average-pressure',
+    source: 'PulmArty',
+  }),
+  pulmonaryCapillaries: Object.freeze({
+    v0Ml: 140.0,
+    complianceMlPerMmHg: 4.6,
+    conductanceMlPerMinPerMmHg: 1800.0,
+    initialVolumeMl: 200.0,
+    externalPressureModel: 'thoracic-average-pressure',
+    source: 'PulmCapys',
+  }),
+  pulmonaryVeins: Object.freeze({
+    v0Ml: 150.0,
+    complianceMlPerMmHg: 6.0,
+    conductanceMlPerMinPerMmHg: 5400.0,
+    initialVolumeMl: 211.0,
+    externalPressureModel: 'thoracic-average-pressure',
+    source: 'PulmVeins',
+  }),
+  leftAtrium: Object.freeze({
+    v0Ml: 0.0,
+    complianceMlPerMmHg: 6.25,
+    initialVolumeMl: 51.0,
+    externalPressureModel: 'pericardial-pressure',
+    source: 'LeftAtrium',
+  }),
+});
+
+const PUMP_DEFAULTS = Object.freeze({
+  right: Object.freeze({
+    diastolicABasic: 0.00026,
+    diastolicN: 2.0,
+    systolicABasic: 3.53,
+    systolicN: 0.5,
+    endSystolicPressureOffsetMmHg: 9.0,
+    sourcePrefix: 'RightHeartPumping',
+  }),
+  left: Object.freeze({
+    diastolicABasic: 0.00051,
+    diastolicN: 2.0,
+    systolicABasic: 17.39,
+    systolicN: 0.5,
+    endSystolicPressureOffsetMmHg: 24.0,
+    sourcePrefix: 'LeftHeartPumping',
+  }),
+});
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return value;
+}
+
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(label + ' must be > 0');
+  return value;
+}
+
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(label + ' must be >= 0');
+  return value;
+}
+
+function stressedVolumePressure({
+  volumeMl,
+  v0Ml,
+  complianceMlPerMmHg,
+  externalPressureMmHg = 0,
+  clampStressedVolumeAtZero = true,
+} = {}) {
+  finite(volumeMl, 'volumeMl');
+  finite(v0Ml, 'v0Ml');
+  positive(complianceMlPerMmHg, 'complianceMlPerMmHg');
+  finite(externalPressureMmHg, 'externalPressureMmHg');
+
+  const rawStressedVolumeMl = volumeMl - v0Ml;
+  const stressedVolumeMl = clampStressedVolumeAtZero
+    ? Math.max(rawStressedVolumeMl, 0)
+    : rawStressedVolumeMl;
+
+  return Object.freeze({
+    stressedVolumeMl,
+    pressureMmHg:
+      (stressedVolumeMl / complianceMlPerMmHg) + externalPressureMmHg,
+  });
+}
+
+function conductanceFlow({
+  conductanceMlPerMinPerMmHg,
+  upstreamPressureMmHg,
+  downstreamPressureMmHg,
+} = {}) {
+  nonNegative(conductanceMlPerMinPerMmHg, 'conductanceMlPerMinPerMmHg');
+  finite(upstreamPressureMmHg, 'upstreamPressureMmHg');
+  finite(downstreamPressureMmHg, 'downstreamPressureMmHg');
+  return conductanceMlPerMinPerMmHg *
+    (upstreamPressureMmHg - downstreamPressureMmHg);
+}
+
+function pericardialPressure({
+  thoracicPressureMmHg,
+  pericardialTmpMmHg = 0,
+} = {}) {
+  finite(thoracicPressureMmHg, 'thoracicPressureMmHg');
+  finite(pericardialTmpMmHg, 'pericardialTmpMmHg');
+  return thoracicPressureMmHg + pericardialTmpMmHg;
+}
+
+function ventricularPump({
+  side,
+  atrialPressureMmHg,
+  arterialPressureMmHg,
+  pericardialPressureMmHg,
+  heartRatePerMin,
+  contractilityMultiplier = 1,
+  stiffnessMultiplier = 1,
+} = {}) {
+  if (side !== 'right' && side !== 'left') {
+    throw new Error('side must be right or left');
+  }
+  finite(atrialPressureMmHg, 'atrialPressureMmHg');
+  finite(arterialPressureMmHg, 'arterialPressureMmHg');
+  finite(pericardialPressureMmHg, 'pericardialPressureMmHg');
+  positive(heartRatePerMin, 'heartRatePerMin');
+  positive(contractilityMultiplier, 'contractilityMultiplier');
+  positive(stiffnessMultiplier, 'stiffnessMultiplier');
+
+  const p = PUMP_DEFAULTS[side];
+
+  const edpMmHg = atrialPressureMmHg;
+  const diastolicTmpMmHg = edpMmHg - pericardialPressureMmHg;
+  if (diastolicTmpMmHg < 0) {
+    throw new Error(
+      side + ' ventricular diastolic transmural pressure is negative; ' +
+      'source equation is undefined for fractional power');
+  }
+
+  const diastolicA = stiffnessMultiplier * p.diastolicABasic;
+  const edvMl = Math.pow(
+    diastolicTmpMmHg / diastolicA,
+    1 / p.diastolicN
+  );
+
+  const espMmHg = arterialPressureMmHg + p.endSystolicPressureOffsetMmHg;
+  const systolicTmpMmHg = espMmHg - pericardialPressureMmHg;
+  if (systolicTmpMmHg < 0) {
+    throw new Error(
+      side + ' ventricular systolic transmural pressure is negative; ' +
+      'source equation is undefined for fractional power');
+  }
+
+  const systolicA = contractilityMultiplier * p.systolicABasic;
+  const esvMl = Math.pow(
+    systolicTmpMmHg / systolicA,
+    1 / p.systolicN
+  );
+
+  const strokeVolumeMl = edvMl - esvMl;
+  const bloodFlowMlPerMin = heartRatePerMin * strokeVolumeMl;
+  const ejectionFraction = edvMl > 0 ? strokeVolumeMl / edvMl : null;
+
+  return Object.freeze({
+    side,
+    edpMmHg,
+    edvMl,
+    espMmHg,
+    esvMl,
+    strokeVolumeMl,
+    bloodFlowMlPerMin,
+    ejectionFraction,
+    contractilityMultiplier,
+    stiffnessMultiplier,
+    source: HUMMOD_HEMODYNAMICS_SOURCE,
+    sourceStructures: Object.freeze([
+      p.sourcePrefix + '-Diastole',
+      p.sourcePrefix + '-Systole',
+      p.sourcePrefix + '-Pumping',
+    ]),
+  });
+}
+
+module.exports = {
+  HUMMOD_HEMODYNAMICS_SOURCE,
+  VASCULAR_DEFAULTS,
+  PUMP_DEFAULTS,
+  stressedVolumePressure,
+  conductanceFlow,
+  pericardialPressure,
+  ventricularPump,
+};
+
+},
+"src/hummod_ards_core_runtime.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_runtime.js
+//
+// First runnable reduced HumMod-ARDS gas/acid-base core.
+//
+// This runtime preserves source-aligned HumMod equations for:
+// - Bronchi gas conditioning
+// - BTPS -> STPD ventilation conversion
+// - Lung O2 uptake / Lung CO2 expiration implicit balances
+// - Arterial/venous O2 and HCO3 first-order delays
+// - Blood CO2/HCO3/pH conversion
+// - Hemoglobin P50 / saturation response
+//
+// Phase-1 explicit boundaries:
+// - tissue O2 use
+// - tissue CO2 production
+// - cardiac output
+// - ventilated pulmonary blood flow
+// - dead space
+// - membrane permeability
+// - SID
+// - O2 carrying capacity
+//
+// This is an engineering/research model and is not clinical validation.
+
+const {
+  HUMMOD_SOURCE_CLOCK,
+} = require("src/hummod_runner_contract.js");
+const {
+  pco2FromHco3Sid,
+  phFromPco2Sid,
+  hemoglobinProperties,
+  saturationFractionFromPo2,
+} = require("src/hummod_ards_core_chemistry.js");
+const {
+  bronchiGasFractions,
+  breathingFromVent,
+} = require("src/hummod_ards_core_breathing.js");
+const {
+  CO2_LITERS_TO_MOLS,
+  po2FromO2Content,
+  solveOxygenExchange,
+  solveCo2Exchange,
+} = require("src/hummod_ards_core_gas_exchange.js");
+
+const HUMMOD_GAS_DELAY_K_PER_MIN = 5.0;
+
+const HUMMOD_SOURCE_INITIAL_GAS_STATE = Object.freeze({
+  arterialO2ContentMlPerMl: 0.196,
+  venousO2ContentMlPerMl: 0.157,
+  arterialHco3MolPerL: 0.0240,
+  venousHco3MolPerL: 0.0256,
+  provenance: Object.freeze({
+    arterialO2: 'Structure/O2/O2Artys.DES initialval',
+    venousO2: 'Structure/O2/O2Veins.DES initialval',
+    arterialHco3: 'Structure/CO2/CO2Artys.DES initialval',
+    venousHco3: 'Structure/CO2/CO2Veins.DES initialval',
+  }),
+});
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return value;
+}
+
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(label + ' must be > 0');
+  return value;
+}
+
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(label + ' must be >= 0');
+  return value;
+}
+
+function fraction(value, label) {
+  finite(value, label);
+  if (value < 0 || value > 1) throw new Error(label + ' must be in [0,1]');
+  return value;
+}
+
+function validateState(state) {
+  if (!state || typeof state !== 'object') {
+    throw new Error('initial gas state is required');
+  }
+  nonNegative(state.arterialO2ContentMlPerMl, 'arterialO2ContentMlPerMl');
+  nonNegative(state.venousO2ContentMlPerMl, 'venousO2ContentMlPerMl');
+  nonNegative(state.arterialHco3MolPerL, 'arterialHco3MolPerL');
+  nonNegative(state.venousHco3MolPerL, 'venousHco3MolPerL');
+  return state;
+}
+
+function firstOrderDelayExact({
+  output,
+  input,
+  rateConstantPerMin,
+  dtSec,
+} = {}) {
+  finite(output, 'output');
+  finite(input, 'input');
+  nonNegative(rateConstantPerMin, 'rateConstantPerMin');
+  nonNegative(dtSec, 'dtSec');
+
+  if (dtSec === 0 || rateConstantPerMin === 0) return output;
+
+  const dtMinutes = dtSec / HUMMOD_SOURCE_CLOCK.secondsPerUnit;
+  const alpha = 1 - Math.exp(-rateConstantPerMin * dtMinutes);
+  return output + (alpha * (input - output));
+}
+
+function deriveBloodGasOutputs({
+  state,
+  blood,
+} = {}) {
+  validateState(state);
+  positive(blood.sidMolPerL, 'blood.sidMolPerL');
+  positive(blood.o2MaxMlPerMl, 'blood.o2MaxMlPerMl');
+  finite(blood.tempC, 'blood.tempC');
+  nonNegative(blood.carboxyPercent || 0, 'blood.carboxyPercent');
+
+  const sidMeqPerL = 1000 * blood.sidMolPerL;
+
+  const arterialPco2 = pco2FromHco3Sid({
+    hco3MolPerL: state.arterialHco3MolPerL,
+    sidMolPerL: blood.sidMolPerL,
+  }).pco2MmHg;
+
+  const arterialPh = phFromPco2Sid({
+    pco2MmHg: arterialPco2,
+    sid: sidMeqPerL,
+  }).pH;
+
+  const arterialHgb = hemoglobinProperties({
+    tempC: blood.tempC,
+    pH: arterialPh,
+    pco2MmHg: arterialPco2,
+    carboxyPercent: blood.carboxyPercent || 0,
+  });
+
+  const arterialPo2 = po2FromO2Content({
+    o2ContentMlPerMl: state.arterialO2ContentMlPerMl,
+    o2MaxMlPerMl: blood.o2MaxMlPerMl,
+    p50MmHg: arterialHgb.p50MmHg,
+    scaleForSat: arterialHgb.scaleForSat,
+  });
+
+  const arterialSat = saturationFractionFromPo2({
+    po2MmHg: arterialPo2,
+    p50MmHg: arterialHgb.p50MmHg,
+    scaleForSat: arterialHgb.scaleForSat,
+  });
+
+  const venousPco2 = pco2FromHco3Sid({
+    hco3MolPerL: state.venousHco3MolPerL,
+    sidMolPerL: blood.sidMolPerL,
+  }).pco2MmHg;
+
+  const venousPh = phFromPco2Sid({
+    pco2MmHg: venousPco2,
+    sid: sidMeqPerL,
+  }).pH;
+
+  const venousHgb = hemoglobinProperties({
+    tempC: blood.tempC,
+    pH: venousPh,
+    pco2MmHg: venousPco2,
+    carboxyPercent: blood.carboxyPercent || 0,
+  });
+
+  const venousPo2 = po2FromO2Content({
+    o2ContentMlPerMl: state.venousO2ContentMlPerMl,
+    o2MaxMlPerMl: blood.o2MaxMlPerMl,
+    p50MmHg: venousHgb.p50MmHg,
+    scaleForSat: venousHgb.scaleForSat,
+  });
+
+  const venousSat = saturationFractionFromPo2({
+    po2MmHg: venousPo2,
+    p50MmHg: venousHgb.p50MmHg,
+    scaleForSat: venousHgb.scaleForSat,
+  });
+
+  return Object.freeze({
+    arterial: Object.freeze({
+      po2MmHg: arterialPo2,
+      pco2MmHg: arterialPco2,
+      pH: arterialPh,
+      saturationFraction: arterialSat,
+      hco3MolPerL: state.arterialHco3MolPerL,
+      o2ContentMlPerMl: state.arterialO2ContentMlPerMl,
+      p50MmHg: arterialHgb.p50MmHg,
+    }),
+    venous: Object.freeze({
+      po2MmHg: venousPo2,
+      pco2MmHg: venousPco2,
+      pH: venousPh,
+      saturationFraction: venousSat,
+      hco3MolPerL: state.venousHco3MolPerL,
+      o2ContentMlPerMl: state.venousO2ContentMlPerMl,
+      p50MmHg: venousHgb.p50MmHg,
+    }),
+  });
+}
+
+function validateBoundary(boundary) {
+  if (!boundary || typeof boundary !== 'object') {
+    throw new Error('ARDS core boundary is required');
+  }
+
+  const v = boundary.ventilation;
+  const p = boundary.pulmonary;
+  const c = boundary.circulation;
+  const m = boundary.metabolism;
+  const b = boundary.blood;
+  const e = boundary.environment;
+
+  if (!v || !p || !c || !m || !b || !e) {
+    throw new Error(
+      'boundary requires ventilation, pulmonary, circulation, metabolism, blood and environment');
+  }
+
+  positive(v.respiratoryRatePerMin, 'ventilation.respiratoryRatePerMin');
+  positive(v.tidalVolumeBtpsMl, 'ventilation.tidalVolumeBtpsMl');
+  nonNegative(v.deadSpaceBtpsMl, 'ventilation.deadSpaceBtpsMl');
+  fraction(v.fio2, 'ventilation.fio2');
+
+  positive(p.membranePermeabilityMlPerMinPerMmHg,
+    'pulmonary.membranePermeabilityMlPerMinPerMmHg');
+  nonNegative(p.ventilatedPulmonaryBloodFlowMlPerMin,
+    'pulmonary.ventilatedPulmonaryBloodFlowMlPerMin');
+
+  positive(c.cardiacOutputMlPerMin, 'circulation.cardiacOutputMlPerMin');
+  if (p.ventilatedPulmonaryBloodFlowMlPerMin > c.cardiacOutputMlPerMin) {
+    throw new Error('ventilated pulmonary blood flow cannot exceed cardiac output');
+  }
+
+  nonNegative(m.tissueO2UseMlPerMin, 'metabolism.tissueO2UseMlPerMin');
+  nonNegative(m.tissueCo2ProductionMmolPerMin,
+    'metabolism.tissueCo2ProductionMmolPerMin');
+
+  positive(b.sidMolPerL, 'blood.sidMolPerL');
+  positive(b.o2MaxMlPerMl, 'blood.o2MaxMlPerMl');
+  finite(b.tempC, 'blood.tempC');
+  nonNegative(b.carboxyPercent || 0, 'blood.carboxyPercent');
+
+  positive(e.barometricPressureMmHg, 'environment.barometricPressureMmHg');
+  fraction(e.inspiredCo2Fraction || 0, 'environment.inspiredCo2Fraction');
+
+  return boundary;
+}
+
+function createHumModArdsGasRuntime({
+  initialState,
+  useHumModSourceInitialState = false,
+  boundary,
+} = {}) {
+  if (initialState && useHumModSourceInitialState) {
+    throw new Error('choose initialState or useHumModSourceInitialState, not both');
+  }
+
+  let state = validateState(
+    initialState ||
+    (useHumModSourceInitialState
+      ? HUMMOD_SOURCE_INITIAL_GAS_STATE
+      : null)
+  );
+
+  let currentBoundary = validateBoundary(boundary);
+  let timeSec = 0;
+  let lastExchange = null;
+
+  function snapshot() {
+    const gases = deriveBloodGasOutputs({
+      state,
+      blood: currentBoundary.blood,
+    });
+
+    return Object.freeze({
+      schema: 'hummod-ards-core-gas-runtime/v1',
+      timeSec,
+      state: Object.freeze({ ...state }),
+      gases,
+      exchange: lastExchange,
+      boundary: currentBoundary,
+      provenance: Object.freeze({
+        status: 'source-aligned-reduced-order-research-model',
+        humModRevision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+        delayEquation: 'dOutput/dt = K * (Input - Output)',
+        delayRateConstantPerMin: HUMMOD_GAS_DELAY_K_PER_MIN,
+        delayNumerics: 'analytic-first-order-update-in-JS',
+        systemicHemodynamics: 'not-yet-coupled-in-this-runtime',
+        clinicalValidation: false,
+      }),
+    });
+  }
+
+  function step({
+    dtSec,
+    boundary: nextBoundary,
+  } = {}) {
+    positive(dtSec, 'dtSec');
+    if (nextBoundary) currentBoundary = validateBoundary(nextBoundary);
+
+    const v = currentBoundary.ventilation;
+    const p = currentBoundary.pulmonary;
+    const c = currentBoundary.circulation;
+    const m = currentBoundary.metabolism;
+    const b = currentBoundary.blood;
+    const e = currentBoundary.environment;
+
+    const currentGases = deriveBloodGasOutputs({
+      state,
+      blood: b,
+    });
+
+    const bronchi = bronchiGasFractions({
+      inspiredPressureMmHg: e.barometricPressureMmHg,
+      inspiredO2Fraction: v.fio2,
+      inspiredCo2Fraction: e.inspiredCo2Fraction || 0,
+    });
+
+    const breathing = breathingFromVent({
+      respiratoryRatePerMin: v.respiratoryRatePerMin,
+      tidalVolumeBtpsMl: v.tidalVolumeBtpsMl,
+      deadSpaceBtpsMl: v.deadSpaceBtpsMl,
+      inspiredPressureMmHg: e.barometricPressureMmHg,
+      bodyTempC: b.tempC,
+    });
+
+    const oxygen = solveOxygenExchange({
+      alveolarVentilationStpdMlPerMin:
+        breathing.alveolarVentilationStpdMlPerMin,
+      bronchiO2Fraction: bronchi.o2Fraction,
+      barometricPressureMmHg: e.barometricPressureMmHg,
+      pulmonaryMembranePermeabilityMlPerMinPerMmHg:
+        p.membranePermeabilityMlPerMinPerMmHg,
+      ventilatedPulmonaryBloodFlowMlPerMin:
+        p.ventilatedPulmonaryBloodFlowMlPerMin,
+      mixedVenousO2ContentMlPerMl:
+        state.venousO2ContentMlPerMl,
+      o2MaxMlPerMl: b.o2MaxMlPerMl,
+      tempC: b.tempC,
+      arterialPhEstimate: currentGases.arterial.pH,
+      arterialPco2EstimateMmHg: currentGases.arterial.pco2MmHg,
+      carboxyPercent: b.carboxyPercent || 0,
+    });
+
+    const carbonDioxide = solveCo2Exchange({
+      alveolarVentilationStpdMlPerMin:
+        breathing.alveolarVentilationStpdMlPerMin,
+      bronchiCo2Fraction: bronchi.co2Fraction,
+      barometricPressureMmHg: e.barometricPressureMmHg,
+      ventilatedPulmonaryBloodFlowMlPerMin:
+        p.ventilatedPulmonaryBloodFlowMlPerMin,
+      mixedVenousHco3MolPerL:
+        state.venousHco3MolPerL,
+      sidMolPerL: b.sidMolPerL,
+    });
+
+    const co = c.cardiacOutputMlPerMin;
+
+    const arterialO2Target =
+      state.venousO2ContentMlPerMl +
+      (oxygen.uptakeMlPerMin / co);
+
+    const venousO2Target =
+      state.arterialO2ContentMlPerMl -
+      (m.tissueO2UseMlPerMin / co);
+
+    const lungCo2OutflowMmolPerMin =
+      carbonDioxide.expiredCo2MlPerMin * CO2_LITERS_TO_MOLS;
+
+    const arterialHco3Target =
+      state.venousHco3MolPerL -
+      (lungCo2OutflowMmolPerMin / co);
+
+    const venousHco3Target =
+      state.arterialHco3MolPerL +
+      (m.tissueCo2ProductionMmolPerMin / co);
+
+    for (const [name, value] of Object.entries({
+      arterialO2Target,
+      venousO2Target,
+      arterialHco3Target,
+      venousHco3Target,
+    })) {
+      if (!Number.isFinite(value) || value < 0) {
+        throw new Error(name + ' became non-physical under supplied boundaries');
+      }
+    }
+
+    state = Object.freeze({
+      arterialO2ContentMlPerMl: firstOrderDelayExact({
+        output: state.arterialO2ContentMlPerMl,
+        input: arterialO2Target,
+        rateConstantPerMin: HUMMOD_GAS_DELAY_K_PER_MIN,
+        dtSec,
+      }),
+      venousO2ContentMlPerMl: firstOrderDelayExact({
+        output: state.venousO2ContentMlPerMl,
+        input: venousO2Target,
+        rateConstantPerMin: HUMMOD_GAS_DELAY_K_PER_MIN,
+        dtSec,
+      }),
+      arterialHco3MolPerL: firstOrderDelayExact({
+        output: state.arterialHco3MolPerL,
+        input: arterialHco3Target,
+        rateConstantPerMin: HUMMOD_GAS_DELAY_K_PER_MIN,
+        dtSec,
+      }),
+      venousHco3MolPerL: firstOrderDelayExact({
+        output: state.venousHco3MolPerL,
+        input: venousHco3Target,
+        rateConstantPerMin: HUMMOD_GAS_DELAY_K_PER_MIN,
+        dtSec,
+      }),
+    });
+
+    timeSec += dtSec;
+    lastExchange = Object.freeze({
+      breathing,
+      bronchi,
+      oxygen,
+      carbonDioxide,
+      massBalance: Object.freeze({
+        tissueO2UseMlPerMin: m.tissueO2UseMlPerMin,
+        lungO2UptakeMlPerMin: oxygen.uptakeMlPerMin,
+        tissueCo2ProductionMmolPerMin:
+          m.tissueCo2ProductionMmolPerMin,
+        lungCo2OutflowMmolPerMin,
+      }),
+      targets: Object.freeze({
+        arterialO2ContentMlPerMl: arterialO2Target,
+        venousO2ContentMlPerMl: venousO2Target,
+        arterialHco3MolPerL: arterialHco3Target,
+        venousHco3MolPerL: venousHco3Target,
+      }),
+    });
+
+    return snapshot();
+  }
+
+  return Object.freeze({
+    kind: 'hummod-ards-core-gas-runtime',
+    snapshot,
+    step,
+    setBoundary(nextBoundary) {
+      currentBoundary = validateBoundary(nextBoundary);
+      return snapshot();
+    },
+  });
+}
+
+module.exports = {
+  HUMMOD_GAS_DELAY_K_PER_MIN,
+  HUMMOD_SOURCE_INITIAL_GAS_STATE,
+  firstOrderDelayExact,
+  deriveBloodGasOutputs,
+  validateBoundary,
+  createHumModArdsGasRuntime,
+};
+
+},
+"src/hummod_ards_core_chemistry.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_chemistry.js
+//
+// Source-aligned acute blood-gas chemistry extracted from the pinned HumMod
+// standalone XML model. This module intentionally implements only compact,
+// separable equations whose dependencies are explicit.
+//
+// Source revision:
+//   riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+//
+// Source files:
+//   Structure/AcidBase/PhGeneral.DES
+//   Structure/CO2/Blood-BaseToGas.DES
+//   Structure/Hemoglobin/HgbProps.DES
+//
+// Not yet included here:
+// - total blood O2 content (requires Hgb/Hct/CO state)
+// - tissue O2 extraction / mixed venous O2
+// - CO2 mass transport
+// - renal/metabolic acid-base regulation
+
+const HUMMOD_CHEMISTRY_SOURCE = Object.freeze({
+  repository: 'riliescu/hummod-standalone',
+  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  files: Object.freeze([
+    'Structure/AcidBase/PhGeneral.DES',
+    'Structure/CO2/Blood-BaseToGas.DES',
+    'Structure/Hemoglobin/HgbProps.DES',
+  ]),
+});
+
+const PH_GENERAL_PK_BLOOD = 7.42;
+const BASE_TO_GAS_C = -645.8;
+const BASE_TO_GAS_D = 2777.8;
+
+const HGB = Object.freeze({
+  hillConstant: 2.3,
+  po2SaturatedMmHg: 120,
+  tempK: 0.024,
+  phK: -0.40,
+  pco2K: 0.06,
+  coK: -0.0067,
+  tempNormC: 37.0,
+  phNorm: 7.40,
+  co2NormMmHg: 40.0,
+  coNormPercent: 0.0,
+  p50BasicMmHg: 26.6,
+});
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return value;
+}
+
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(label + ' must be > 0');
+  return value;
+}
+
+function phFromPco2Sid({
+  pco2MmHg,
+  sid,
+  pK = PH_GENERAL_PK_BLOOD,
+} = {}) {
+  finite(pco2MmHg, 'pco2MmHg');
+  finite(sid, 'sid');
+  finite(pK, 'pK');
+
+  let pH;
+  if (pco2MmHg <= 0) {
+    pH = pK + 3;
+  } else if ((sid / pco2MmHg) < 1e-3) {
+    pH = pK - 3;
+  } else {
+    pH = pK + Math.log10(sid / pco2MmHg);
+  }
+
+  return Object.freeze({
+    pH,
+    hydrogenIon: Math.pow(10, 9 - pH),
+    source: HUMMOD_CHEMISTRY_SOURCE,
+    sourceStructure: 'PhGeneral.Calc',
+  });
+}
+
+function pco2FromHco3Sid({
+  hco3MolPerL,
+  sidMolPerL,
+} = {}) {
+  finite(hco3MolPerL, 'hco3MolPerL');
+  finite(sidMolPerL, 'sidMolPerL');
+
+  const pco2MmHg = (hco3MolPerL > 0 && sidMolPerL > 0)
+    ? Math.max(
+      (BASE_TO_GAS_C * sidMolPerL) + (BASE_TO_GAS_D * hco3MolPerL),
+      0.0001
+    )
+    : 0.0001;
+
+  return Object.freeze({
+    pco2MmHg,
+    source: HUMMOD_CHEMISTRY_SOURCE,
+    sourceStructure: 'Blood-BaseToGas.Calc',
+  });
+}
+
+function hemoglobinProperties({
+  tempC,
+  pH,
+  pco2MmHg,
+  carboxyPercent = 0,
+  tempSensitivity = 1,
+  phSensitivity = 1,
+  pco2Sensitivity = 1,
+  coSensitivity = 1,
+} = {}) {
+  finite(tempC, 'tempC');
+  finite(pH, 'pH');
+  positive(pco2MmHg, 'pco2MmHg');
+  finite(carboxyPercent, 'carboxyPercent');
+  finite(tempSensitivity, 'tempSensitivity');
+  finite(phSensitivity, 'phSensitivity');
+  finite(pco2Sensitivity, 'pco2Sensitivity');
+  finite(coSensitivity, 'coSensitivity');
+
+  const tempEffect = Math.pow(
+    10,
+    tempSensitivity * HGB.tempK * (tempC - HGB.tempNormC)
+  );
+
+  const phEffect = Math.pow(
+    10,
+    phSensitivity * HGB.phK * (pH - HGB.phNorm)
+  );
+
+  const logPco2 = pco2MmHg < 1 ? 0 : Math.log10(pco2MmHg);
+  const pco2Effect = Math.pow(
+    10,
+    pco2Sensitivity * HGB.pco2K *
+      (logPco2 - Math.log10(HGB.co2NormMmHg))
+  );
+
+  const coEffect = Math.pow(
+    10,
+    coSensitivity * HGB.coK * (carboxyPercent - HGB.coNormPercent)
+  );
+
+  const p50MmHg =
+    HGB.p50BasicMmHg *
+    tempEffect *
+    phEffect *
+    pco2Effect *
+    coEffect;
+
+  const an = Math.pow(HGB.po2SaturatedMmHg / p50MmHg, HGB.hillConstant);
+  const scaleForSat = (1 + an) / an;
+
+  return Object.freeze({
+    p50MmHg,
+    scaleForSat,
+    effects: Object.freeze({
+      temperature: tempEffect,
+      pH: phEffect,
+      pco2: pco2Effect,
+      carbonMonoxide: coEffect,
+    }),
+    source: HUMMOD_CHEMISTRY_SOURCE,
+    sourceStructure: 'HgbProps.Setup',
+  });
+}
+
+function saturationFractionFromPo2({
+  po2MmHg,
+  p50MmHg,
+  scaleForSat,
+} = {}) {
+  finite(po2MmHg, 'po2MmHg');
+  positive(p50MmHg, 'p50MmHg');
+  positive(scaleForSat, 'scaleForSat');
+
+  if (po2MmHg <= 0) return 0;
+
+  if (po2MmHg >= HGB.po2SaturatedMmHg) {
+    // HumMod's PO2ToO2 path adds dissolved oxygen above this point. Without
+    // importing HgbConc.[O2Max], the reduced core reports saturation only and
+    // caps it at 1 rather than inventing total oxygen content.
+    return 1;
+  }
+
+  const an = Math.pow(po2MmHg / p50MmHg, HGB.hillConstant);
+  const sat = scaleForSat * an / (1 + an);
+  return Math.max(0, Math.min(1, sat));
+}
+
+function saturationPercentFromPo2(args) {
+  return 100 * saturationFractionFromPo2(args);
+}
+
+module.exports = {
+  HUMMOD_CHEMISTRY_SOURCE,
+  PH_GENERAL_PK_BLOOD,
+  BASE_TO_GAS_C,
+  BASE_TO_GAS_D,
+  HGB,
+  phFromPco2Sid,
+  pco2FromHco3Sid,
+  hemoglobinProperties,
+  saturationFractionFromPo2,
+  saturationPercentFromPo2,
+};
+
+},
+"src/hummod_ards_core_breathing.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_breathing.js
+//
+// Source-aligned breathing/gas-conditioning utilities from pinned HumMod.
+//
+// Sources:
+//   Structure/Lungs/Bronchi.DES
+//   Structure/Lungs/Breathing.DES
+//   Structure/Lungs/GasTools/BTPS_To_STPD.DES
+//   Structure/Heat/TempTools.DES
+//
+// These functions operate in HumMod-native units:
+// - volume: mL
+// - pressure: mmHg
+// - temperature: degrees C / K
+// - rate: breaths/min
+// - ventilation: mL/min
+
+const HUMMOD_BREATHING_SOURCE = Object.freeze({
+  repository: 'riliescu/hummod-standalone',
+  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  files: Object.freeze([
+    'Structure/Lungs/Bronchi.DES',
+    'Structure/Lungs/Breathing.DES',
+    'Structure/Lungs/GasTools/BTPS_To_STPD.DES',
+    'Structure/Heat/TempTools.DES',
+  ]),
+});
+
+const TEMPTOOLS = Object.freeze({
+  A: 18.6686,
+  B: 4030.183,
+  C: 235.0,
+});
+
+const BRONCHI_VAPOR_PRESSURE_MMHG = 47.0;
+const BTPS_STPD_P1_MMHG = 760.0;
+const BTPS_STPD_T1_K = 273.2;
+const HUMMOD_DEAD_SPACE_SLOPE = 0.20;
+const HUMMOD_DEAD_SPACE_MIN_ML = 60.0;
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return value;
+}
+
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(label + ' must be > 0');
+  return value;
+}
+
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(label + ' must be >= 0');
+  return value;
+}
+
+function fraction(value, label) {
+  finite(value, label);
+  if (value < 0 || value > 1) throw new Error(label + ' must be in [0,1]');
+  return value;
+}
+
+function saturationVaporPressureMmHg(tempC) {
+  finite(tempC, 'tempC');
+  if (tempC > 100) return 760;
+  if (tempC < -273.15) return 0;
+  return Math.exp(TEMPTOOLS.A - (TEMPTOOLS.B / (tempC + TEMPTOOLS.C)));
+}
+
+function bronchiGasFractions({
+  inspiredPressureMmHg,
+  inspiredO2Fraction,
+  inspiredCo2Fraction = 0,
+} = {}) {
+  positive(inspiredPressureMmHg, 'inspiredPressureMmHg');
+  fraction(inspiredO2Fraction, 'inspiredO2Fraction');
+  fraction(inspiredCo2Fraction, 'inspiredCo2Fraction');
+
+  const dilution =
+    1 - (BRONCHI_VAPOR_PRESSURE_MMHG / inspiredPressureMmHg);
+
+  if (dilution < 0) {
+    throw new Error('inspired pressure is below bronchial vapor pressure');
+  }
+
+  const o2Fraction = dilution * inspiredO2Fraction;
+  const co2Fraction = dilution * inspiredCo2Fraction;
+
+  return Object.freeze({
+    dilution,
+    waterFraction: BRONCHI_VAPOR_PRESSURE_MMHG / inspiredPressureMmHg,
+    o2Fraction,
+    co2Fraction,
+    po2MmHg: o2Fraction * inspiredPressureMmHg,
+    pco2MmHg: co2Fraction * inspiredPressureMmHg,
+    source: HUMMOD_BREATHING_SOURCE,
+    sourceStructure: 'Bronchi.Calc',
+  });
+}
+
+function btpsToStpdVolumeMl({
+  volumeBtpsMl,
+  inspiredPressureMmHg,
+  bodyTempC,
+} = {}) {
+  nonNegative(volumeBtpsMl, 'volumeBtpsMl');
+  positive(inspiredPressureMmHg, 'inspiredPressureMmHg');
+  finite(bodyTempC, 'bodyTempC');
+
+  const vaporPressureMmHg = saturationVaporPressureMmHg(bodyTempC);
+  const p2MmHg = inspiredPressureMmHg - vaporPressureMmHg;
+  if (p2MmHg <= 0) {
+    throw new Error('BTPS->STPD dry-gas pressure must be > 0');
+  }
+  const t2K = bodyTempC + 273.15;
+  positive(t2K, 'body temperature K');
+
+  return Object.freeze({
+    volumeStpdMl:
+      volumeBtpsMl *
+      (p2MmHg / BTPS_STPD_P1_MMHG) *
+      (BTPS_STPD_T1_K / t2K),
+    vaporPressureMmHg,
+    source: HUMMOD_BREATHING_SOURCE,
+    sourceStructure: 'BTPS_To_STPD.Calc',
+  });
+}
+
+function humModLegacyDeadSpaceMl(tidalVolumeMl) {
+  nonNegative(tidalVolumeMl, 'tidalVolumeMl');
+  return (HUMMOD_DEAD_SPACE_SLOPE * tidalVolumeMl) +
+    HUMMOD_DEAD_SPACE_MIN_ML;
+}
+
+function breathingFromVent({
+  respiratoryRatePerMin,
+  tidalVolumeBtpsMl,
+  inspiredPressureMmHg,
+  bodyTempC,
+  deadSpaceBtpsMl,
+  useHumModLegacyDeadSpace = false,
+} = {}) {
+  positive(respiratoryRatePerMin, 'respiratoryRatePerMin');
+  positive(tidalVolumeBtpsMl, 'tidalVolumeBtpsMl');
+  positive(inspiredPressureMmHg, 'inspiredPressureMmHg');
+  finite(bodyTempC, 'bodyTempC');
+
+  let deadSpaceMl;
+  let deadSpaceSource;
+  if (deadSpaceBtpsMl != null) {
+    nonNegative(deadSpaceBtpsMl, 'deadSpaceBtpsMl');
+    deadSpaceMl = deadSpaceBtpsMl;
+    deadSpaceSource = 'explicit-boundary';
+  } else if (useHumModLegacyDeadSpace) {
+    deadSpaceMl = humModLegacyDeadSpaceMl(tidalVolumeBtpsMl);
+    deadSpaceSource = 'HumMod-Breathing.DES-legacy-default';
+  } else {
+    throw new Error(
+      'deadSpaceBtpsMl is required unless useHumModLegacyDeadSpace=true');
+  }
+
+  if (deadSpaceMl >= tidalVolumeBtpsMl) {
+    throw new Error('dead space must be less than tidal volume');
+  }
+
+  const tidalStpd = btpsToStpdVolumeMl({
+    volumeBtpsMl: tidalVolumeBtpsMl,
+    inspiredPressureMmHg,
+    bodyTempC,
+  });
+  const deadStpd = btpsToStpdVolumeMl({
+    volumeBtpsMl: deadSpaceMl,
+    inspiredPressureMmHg,
+    bodyTempC,
+  });
+
+  const alveolarVolumeBtpsMl = tidalVolumeBtpsMl - deadSpaceMl;
+  const alveolarVolumeStpdMl =
+    tidalStpd.volumeStpdMl - deadStpd.volumeStpdMl;
+
+  return Object.freeze({
+    respiratoryRatePerMin,
+    tidalVolumeBtpsMl,
+    deadSpaceBtpsMl: deadSpaceMl,
+    deadSpaceSource,
+    alveolarVolumeBtpsMl,
+    totalVentilationBtpsMlPerMin:
+      respiratoryRatePerMin * tidalVolumeBtpsMl,
+    alveolarVentilationBtpsMlPerMin:
+      respiratoryRatePerMin * alveolarVolumeBtpsMl,
+    tidalVolumeStpdMl: tidalStpd.volumeStpdMl,
+    deadSpaceStpdMl: deadStpd.volumeStpdMl,
+    alveolarVolumeStpdMl,
+    totalVentilationStpdMlPerMin:
+      respiratoryRatePerMin * tidalStpd.volumeStpdMl,
+    alveolarVentilationStpdMlPerMin:
+      respiratoryRatePerMin * alveolarVolumeStpdMl,
+    source: HUMMOD_BREATHING_SOURCE,
+    sourceStructure: 'Breathing.Calc',
+  });
+}
+
+module.exports = {
+  HUMMOD_BREATHING_SOURCE,
+  TEMPTOOLS,
+  BRONCHI_VAPOR_PRESSURE_MMHG,
+  HUMMOD_DEAD_SPACE_SLOPE,
+  HUMMOD_DEAD_SPACE_MIN_ML,
+  saturationVaporPressureMmHg,
+  bronchiGasFractions,
+  btpsToStpdVolumeMl,
+  humModLegacyDeadSpaceMl,
+  breathingFromVent,
+};
+
+},
+"src/hummod_ards_core_gas_exchange.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_gas_exchange.js
+//
+// Reduced acute pulmonary gas-exchange equations aligned to the pinned HumMod
+// source. This module preserves HumMod's algebraic/implicit structure while
+// requiring explicit boundary inputs for quantities that the full HumMod model
+// normally supplies through other systems.
+//
+// Source revision:
+//   riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+//
+// Source files:
+//   Structure/Lungs/LungO2.DES
+//   Structure/Lungs/LungCO2.DES
+//   Structure/Lungs/LungVeinO2.DES
+//   Structure/Lungs/LungVeinCO2.DES
+//   Structure/CO2/Blood-GasToBase.DES
+//   Structure/CO2/CO2Tools.DES
+//   Structure/Hemoglobin/HgbProps.DES
+//
+// IMPORTANT:
+// - This is not yet clinical validation.
+// - Vent -> STPD alveolar ventilation conversion is an unresolved adapter.
+// - Pulmonary membrane permeability is an explicit boundary in v0.
+// - Mixed venous O2/HCO3 and metabolic demand are explicit boundaries in v0.
+// - Solver tolerances are engineering choices for this JS implementation and
+//   are not copied from HumMod's C++ implicit-equation solver.
+
+const {
+  HGB,
+  hemoglobinProperties,
+} = require("src/hummod_ards_core_chemistry.js");
+
+const HUMMOD_GAS_EXCHANGE_SOURCE = Object.freeze({
+  repository: 'riliescu/hummod-standalone',
+  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  files: Object.freeze([
+    'Structure/Lungs/LungO2.DES',
+    'Structure/Lungs/LungCO2.DES',
+    'Structure/Lungs/LungVeinO2.DES',
+    'Structure/Lungs/LungVeinCO2.DES',
+    'Structure/CO2/Blood-GasToBase.DES',
+    'Structure/CO2/CO2Tools.DES',
+    'Structure/Hemoglobin/HgbProps.DES',
+  ]),
+});
+
+const BLOOD_GAS_TO_BASE_A = 0.2325;
+const BLOOD_GAS_TO_BASE_B = 0.00036;
+const CO2_MOLS_TO_LITERS = 22.4;
+const CO2_LITERS_TO_MOLS = 0.0446;
+const O2_SOLUBILITY = 0.00003;
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return value;
+}
+
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(label + ' must be > 0');
+  return value;
+}
+
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(label + ' must be >= 0');
+  return value;
+}
+
+function fraction(value, label) {
+  finite(value, label);
+  if (value < 0 || value > 1) throw new Error(label + ' must be in [0,1]');
+  return value;
+}
+
+function hco3FromPco2Sid({
+  pco2MmHg,
+  sidMolPerL,
+} = {}) {
+  finite(pco2MmHg, 'pco2MmHg');
+  finite(sidMolPerL, 'sidMolPerL');
+
+  const hco3MolPerL = (pco2MmHg > 0 && sidMolPerL > 0)
+    ? (BLOOD_GAS_TO_BASE_A * sidMolPerL) +
+      (BLOOD_GAS_TO_BASE_B * pco2MmHg)
+    : 0.0001;
+
+  return Object.freeze({
+    hco3MolPerL,
+    sourceStructure: 'Blood-GasToBase.Calc',
+    source: HUMMOD_GAS_EXCHANGE_SOURCE,
+  });
+}
+
+function o2ContentFromPo2({
+  po2MmHg,
+  o2MaxMlPerMl,
+  p50MmHg,
+  scaleForSat,
+} = {}) {
+  finite(po2MmHg, 'po2MmHg');
+  positive(o2MaxMlPerMl, 'o2MaxMlPerMl');
+  positive(p50MmHg, 'p50MmHg');
+  positive(scaleForSat, 'scaleForSat');
+
+  if (po2MmHg <= 0) return 0;
+
+  if (po2MmHg >= HGB.po2SaturatedMmHg) {
+    return o2MaxMlPerMl +
+      ((po2MmHg - HGB.po2SaturatedMmHg) * O2_SOLUBILITY);
+  }
+
+  const an = Math.pow(po2MmHg / p50MmHg, HGB.hillConstant);
+  const sat = scaleForSat * an / (1 + an);
+  return sat * o2MaxMlPerMl;
+}
+
+function po2FromO2Content({
+  o2ContentMlPerMl,
+  o2MaxMlPerMl,
+  p50MmHg,
+  scaleForSat,
+} = {}) {
+  nonNegative(o2ContentMlPerMl, 'o2ContentMlPerMl');
+  positive(o2MaxMlPerMl, 'o2MaxMlPerMl');
+  positive(p50MmHg, 'p50MmHg');
+  positive(scaleForSat, 'scaleForSat');
+
+  if (o2ContentMlPerMl <= 0) return 0;
+
+  if (o2ContentMlPerMl > o2MaxMlPerMl) {
+    return HGB.po2SaturatedMmHg +
+      ((o2ContentMlPerMl - o2MaxMlPerMl) / O2_SOLUBILITY);
+  }
+
+  const sat = o2ContentMlPerMl / o2MaxMlPerMl;
+  const s = sat / scaleForSat;
+  if (s <= 0) return 0;
+  if (s >= 1) return HGB.po2SaturatedMmHg;
+
+  const a = Math.pow(s / (1 - s), 1 / HGB.hillConstant);
+  return a * p50MmHg;
+}
+
+function solveRootBisection({
+  fn,
+  low,
+  high,
+  tolerance,
+  maxIterations = 200,
+  label = 'implicit equation',
+} = {}) {
+  positive(tolerance, 'tolerance');
+  positive(maxIterations, 'maxIterations');
+  let lo = finite(low, 'low');
+  let hi = finite(high, 'high');
+  if (!(hi > lo)) throw new Error('high must be > low');
+
+  let flo = finite(fn(lo), label + ' f(low)');
+  let fhi = finite(fn(hi), label + ' f(high)');
+  if (flo === 0) return lo;
+  if (fhi === 0) return hi;
+  if (flo * fhi > 0) {
+    throw new Error(label + ' root is not bracketed');
+  }
+
+  for (let i = 0; i < maxIterations; i += 1) {
+    const mid = (lo + hi) / 2;
+    const fm = finite(fn(mid), label + ' f(mid)');
+    if (Math.abs(fm) <= tolerance || Math.abs(hi - lo) <= tolerance) {
+      return mid;
+    }
+    if (flo * fm <= 0) {
+      hi = mid;
+      fhi = fm;
+    } else {
+      lo = mid;
+      flo = fm;
+    }
+  }
+  throw new Error(label + ' did not converge');
+}
+
+function solveOxygenExchange({
+  alveolarVentilationStpdMlPerMin,
+  bronchiO2Fraction,
+  barometricPressureMmHg,
+  pulmonaryMembranePermeabilityMlPerMinPerMmHg,
+  ventilatedPulmonaryBloodFlowMlPerMin,
+  mixedVenousO2ContentMlPerMl,
+  o2MaxMlPerMl,
+  tempC,
+  arterialPhEstimate,
+  arterialPco2EstimateMmHg,
+  carboxyPercent = 0,
+} = {}) {
+  positive(alveolarVentilationStpdMlPerMin, 'alveolarVentilationStpdMlPerMin');
+  fraction(bronchiO2Fraction, 'bronchiO2Fraction');
+  positive(barometricPressureMmHg, 'barometricPressureMmHg');
+  positive(
+    pulmonaryMembranePermeabilityMlPerMinPerMmHg,
+    'pulmonaryMembranePermeabilityMlPerMinPerMmHg'
+  );
+  nonNegative(ventilatedPulmonaryBloodFlowMlPerMin, 'ventilatedPulmonaryBloodFlowMlPerMin');
+  nonNegative(mixedVenousO2ContentMlPerMl, 'mixedVenousO2ContentMlPerMl');
+  positive(o2MaxMlPerMl, 'o2MaxMlPerMl');
+
+  const props = hemoglobinProperties({
+    tempC,
+    pH: arterialPhEstimate,
+    pco2MmHg: arterialPco2EstimateMmHg,
+    carboxyPercent,
+  });
+
+  if (ventilatedPulmonaryBloodFlowMlPerMin === 0) {
+    const pAlveolarMmHg = bronchiO2Fraction * barometricPressureMmHg;
+    return Object.freeze({
+      uptakeMlPerMin: 0,
+      alveolarO2Fraction: bronchiO2Fraction,
+      pAlveolarO2MmHg: pAlveolarMmHg,
+      pCapillaryO2MmHg: pAlveolarMmHg,
+      capillaryO2ContentMlPerMl: mixedVenousO2ContentMlPerMl,
+      hemoglobinProperties: props,
+      source: HUMMOD_GAS_EXCHANGE_SOURCE,
+    });
+  }
+
+  function residual(uptakeMlPerMin) {
+    const alveolarO2Fraction =
+      bronchiO2Fraction -
+      (uptakeMlPerMin / alveolarVentilationStpdMlPerMin);
+    const pAlveolarO2MmHg =
+      alveolarO2Fraction * barometricPressureMmHg;
+    const membraneGradientMmHg =
+      uptakeMlPerMin / pulmonaryMembranePermeabilityMlPerMinPerMmHg;
+    const pCapillaryO2MmHg =
+      pAlveolarO2MmHg - membraneGradientMmHg;
+    const capillaryO2ContentMlPerMl = o2ContentFromPo2({
+      po2MmHg: pCapillaryO2MmHg,
+      o2MaxMlPerMl,
+      p50MmHg: props.p50MmHg,
+      scaleForSat: props.scaleForSat,
+    });
+    const endUptakeMlPerMin =
+      ventilatedPulmonaryBloodFlowMlPerMin *
+      (capillaryO2ContentMlPerMl - mixedVenousO2ContentMlPerMl);
+    return endUptakeMlPerMin - uptakeMlPerMin;
+  }
+
+  const upperByVentilation =
+    bronchiO2Fraction * alveolarVentilationStpdMlPerMin;
+  const upper = Math.max(1e-9, upperByVentilation * 0.999999);
+
+  const uptakeMlPerMin = solveRootBisection({
+    fn: residual,
+    low: 0,
+    high: upper,
+    tolerance: 1e-6,
+    label: 'HumMod LungO2 uptake',
+  });
+
+  const alveolarO2Fraction =
+    bronchiO2Fraction -
+    (uptakeMlPerMin / alveolarVentilationStpdMlPerMin);
+  const pAlveolarO2MmHg =
+    alveolarO2Fraction * barometricPressureMmHg;
+  const membraneGradientMmHg =
+    uptakeMlPerMin / pulmonaryMembranePermeabilityMlPerMinPerMmHg;
+  const pCapillaryO2MmHg =
+    pAlveolarO2MmHg - membraneGradientMmHg;
+  const capillaryO2ContentMlPerMl = o2ContentFromPo2({
+    po2MmHg: pCapillaryO2MmHg,
+    o2MaxMlPerMl,
+    p50MmHg: props.p50MmHg,
+    scaleForSat: props.scaleForSat,
+  });
+
+  return Object.freeze({
+    uptakeMlPerMin,
+    alveolarO2Fraction,
+    pAlveolarO2MmHg,
+    membraneGradientMmHg,
+    pCapillaryO2MmHg,
+    capillaryO2ContentMlPerMl,
+    hemoglobinProperties: props,
+    source: HUMMOD_GAS_EXCHANGE_SOURCE,
+    sourceStructure: 'LungO2.CalcUptake',
+  });
+}
+
+function mixOxygenAcrossShunt({
+  totalPulmonaryBloodFlowMlPerMin,
+  ventilatedPulmonaryBloodFlowMlPerMin,
+  capillaryO2ContentMlPerMl,
+  mixedVenousO2ContentMlPerMl,
+} = {}) {
+  nonNegative(totalPulmonaryBloodFlowMlPerMin, 'totalPulmonaryBloodFlowMlPerMin');
+  nonNegative(ventilatedPulmonaryBloodFlowMlPerMin, 'ventilatedPulmonaryBloodFlowMlPerMin');
+  nonNegative(capillaryO2ContentMlPerMl, 'capillaryO2ContentMlPerMl');
+  nonNegative(mixedVenousO2ContentMlPerMl, 'mixedVenousO2ContentMlPerMl');
+
+  if (ventilatedPulmonaryBloodFlowMlPerMin > totalPulmonaryBloodFlowMlPerMin) {
+    throw new Error('ventilated pulmonary flow cannot exceed total pulmonary flow');
+  }
+  if (totalPulmonaryBloodFlowMlPerMin === 0) return 0;
+
+  const shuntFlow =
+    totalPulmonaryBloodFlowMlPerMin - ventilatedPulmonaryBloodFlowMlPerMin;
+
+  return (
+    (ventilatedPulmonaryBloodFlowMlPerMin * capillaryO2ContentMlPerMl) +
+    (shuntFlow * mixedVenousO2ContentMlPerMl)
+  ) / totalPulmonaryBloodFlowMlPerMin;
+}
+
+function solveCo2Exchange({
+  alveolarVentilationStpdMlPerMin,
+  bronchiCo2Fraction,
+  barometricPressureMmHg,
+  ventilatedPulmonaryBloodFlowMlPerMin,
+  mixedVenousHco3MolPerL,
+  sidMolPerL,
+} = {}) {
+  positive(alveolarVentilationStpdMlPerMin, 'alveolarVentilationStpdMlPerMin');
+  fraction(bronchiCo2Fraction, 'bronchiCo2Fraction');
+  positive(barometricPressureMmHg, 'barometricPressureMmHg');
+  nonNegative(ventilatedPulmonaryBloodFlowMlPerMin, 'ventilatedPulmonaryBloodFlowMlPerMin');
+  nonNegative(mixedVenousHco3MolPerL, 'mixedVenousHco3MolPerL');
+  positive(sidMolPerL, 'sidMolPerL');
+
+  if (ventilatedPulmonaryBloodFlowMlPerMin === 0) {
+    return Object.freeze({
+      expiredCo2MlPerMin: 0,
+      alveolarCo2Fraction: bronchiCo2Fraction,
+      pAlveolarCo2MmHg: bronchiCo2Fraction * barometricPressureMmHg,
+      capillaryHco3MolPerL: mixedVenousHco3MolPerL,
+      source: HUMMOD_GAS_EXCHANGE_SOURCE,
+    });
+  }
+
+  function residual(expiredCo2MlPerMin) {
+    const alveolarCo2Fraction =
+      bronchiCo2Fraction +
+      (expiredCo2MlPerMin / alveolarVentilationStpdMlPerMin);
+    const pAlveolarCo2MmHg =
+      alveolarCo2Fraction * barometricPressureMmHg;
+    const capillaryHco3MolPerL = hco3FromPco2Sid({
+      pco2MmHg: pAlveolarCo2MmHg,
+      sidMolPerL,
+    }).hco3MolPerL;
+
+    const endExpiredMlPerMin =
+      ventilatedPulmonaryBloodFlowMlPerMin *
+      (mixedVenousHco3MolPerL - capillaryHco3MolPerL) *
+      CO2_MOLS_TO_LITERS;
+
+    return endExpiredMlPerMin - expiredCo2MlPerMin;
+  }
+
+  const high = alveolarVentilationStpdMlPerMin * 0.5;
+  const expiredCo2MlPerMin = solveRootBisection({
+    fn: residual,
+    low: 0,
+    high,
+    tolerance: 1e-6,
+    label: 'HumMod LungCO2 expired',
+  });
+
+  const alveolarCo2Fraction =
+    bronchiCo2Fraction +
+    (expiredCo2MlPerMin / alveolarVentilationStpdMlPerMin);
+  const pAlveolarCo2MmHg =
+    alveolarCo2Fraction * barometricPressureMmHg;
+  const capillaryHco3MolPerL = hco3FromPco2Sid({
+    pco2MmHg: pAlveolarCo2MmHg,
+    sidMolPerL,
+  }).hco3MolPerL;
+
+  return Object.freeze({
+    expiredCo2MlPerMin,
+    alveolarCo2Fraction,
+    pAlveolarCo2MmHg,
+    pCapillaryCo2MmHg: pAlveolarCo2MmHg,
+    capillaryHco3MolPerL,
+    source: HUMMOD_GAS_EXCHANGE_SOURCE,
+    sourceStructure: 'LungCO2.CalcExpired',
+  });
+}
+
+function mixCo2AcrossShunt({
+  totalPulmonaryBloodFlowMlPerMin,
+  ventilatedPulmonaryBloodFlowMlPerMin,
+  capillaryHco3MolPerL,
+  mixedVenousHco3MolPerL,
+} = {}) {
+  nonNegative(totalPulmonaryBloodFlowMlPerMin, 'totalPulmonaryBloodFlowMlPerMin');
+  nonNegative(ventilatedPulmonaryBloodFlowMlPerMin, 'ventilatedPulmonaryBloodFlowMlPerMin');
+  nonNegative(capillaryHco3MolPerL, 'capillaryHco3MolPerL');
+  nonNegative(mixedVenousHco3MolPerL, 'mixedVenousHco3MolPerL');
+
+  if (ventilatedPulmonaryBloodFlowMlPerMin > totalPulmonaryBloodFlowMlPerMin) {
+    throw new Error('ventilated pulmonary flow cannot exceed total pulmonary flow');
+  }
+  if (totalPulmonaryBloodFlowMlPerMin === 0) return 0;
+
+  const shuntFlow =
+    totalPulmonaryBloodFlowMlPerMin - ventilatedPulmonaryBloodFlowMlPerMin;
+
+  return (
+    (ventilatedPulmonaryBloodFlowMlPerMin * capillaryHco3MolPerL) +
+    (shuntFlow * mixedVenousHco3MolPerL)
+  ) / totalPulmonaryBloodFlowMlPerMin;
+}
+
+module.exports = {
+  HUMMOD_GAS_EXCHANGE_SOURCE,
+  BLOOD_GAS_TO_BASE_A,
+  BLOOD_GAS_TO_BASE_B,
+  CO2_MOLS_TO_LITERS,
+  CO2_LITERS_TO_MOLS,
+  O2_SOLUBILITY,
+  hco3FromPco2Sid,
+  o2ContentFromPo2,
+  po2FromO2Content,
+  solveRootBisection,
+  solveOxygenExchange,
+  mixOxygenAcrossShunt,
+  solveCo2Exchange,
+  mixCo2AcrossShunt,
+};
+
+},
+"src/hummod_ards_core_coupling.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_coupling.js
+//
+// Canonical Vent -> HumMod-ARDS-Core coupling snapshot.
+//
+// This deliberately exports raw/mechanistic state rather than inventing
+// physiologic reductions. Downstream core implementations can derive the
+// quantities they need from these signals with separately validated equations.
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return value;
+}
+
+function currentMode(simulation) {
+  const name = simulation.controller && simulation.controller.constructor
+    ? simulation.controller.constructor.name
+    : '';
+  if (name === 'VcAcController') return 'VC_AC';
+  if (name === 'PcAcController') return 'PC_AC';
+  return 'UNKNOWN';
+}
+
+function createVentToArdsCoreSnapshot(simulation, { recentSamples = 1000 } = {}) {
+  if (!simulation || !simulation.state || !simulation.controller) {
+    throw new Error('Vent simulation is required');
+  }
+  if (!Number.isInteger(recentSamples) || recentSamples < 1) {
+    throw new Error('recentSamples must be a positive integer');
+  }
+
+  const settings = simulation.controller.settings || {};
+  const state = simulation.state;
+  const trace = simulation.trace.slice(-recentSamples).map(row => Object.freeze({
+    tSec: row.t,
+    phase: row.phase,
+    maneuver: row.maneuver || null,
+    airwayPressureCmH2O: row.output.airwayPressure,
+    airwayFlowLps: row.output.airwayFlow,
+    totalLungVolumeL: row.output.totalVolume,
+  }));
+
+  const compartments = state.compartments.map(c => Object.freeze({
+    id: c.id,
+    volumeL: finite(c.volume, 'compartment volume'),
+    flowLps: finite(c.flow, 'compartment flow'),
+    alveolarPressureCmH2O: finite(c.alveolarPressure, 'alveolar pressure'),
+    recruitment: finite(c.recruitment, 'recruitment'),
+  }));
+
+  return Object.freeze({
+    schema: 'vent-to-hummod-ards-core/v1',
+    timeSec: finite(state.t, 'simulation time'),
+    ventilator: Object.freeze({
+      mode: currentMode(simulation),
+      fio2: finite(settings.fio2, 'FiO2'),
+      peepCmH2O: finite(settings.peep, 'PEEP'),
+      rrPerMin: finite(settings.rr, 'respiratory rate'),
+      settings: Object.freeze({ ...settings }),
+    }),
+    mechanics: Object.freeze({
+      airwayPressureCmH2O: finite(state.airwayPressure, 'airway pressure'),
+      airwayFlowLps: finite(state.totalFlow, 'airway flow'),
+      totalLungVolumeL: finite(state.totalVolume, 'total lung volume'),
+      compartments: Object.freeze(compartments),
+      recentTrace: Object.freeze(trace),
+    }),
+    couplingInterpretation: Object.freeze({
+      status: 'raw-Vent-mechanical-boundary',
+      thoracicPressure: 'not-yet-derived',
+      transpulmonaryPressure: 'not-yet-derived-without-pleural-pressure-model',
+      shuntAndDeadSpace: 'not-yet-derived-by-ARDS-core',
+      note: 'No systemic physiologic response is inferred in this boundary object.',
+    }),
+  });
+}
+
+module.exports = {
+  createVentToArdsCoreSnapshot,
+};
+
+},
+"src/hummod_ards_core_manifest.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_manifest.js
+//
+// First-pass contract for a reduced-order cardiopulmonary/systemic core built
+// around the pinned HumMod source. This is an engineering extraction target,
+// not a claim that these symbols alone constitute an independently runnable
+// HumMod model.
+//
+// Design rule: keep only physiology that can materially change an acute
+// ventilator/ARDS simulation over seconds-to-tens-of-minutes. Slow systems are
+// held at explicit boundary inputs until later phases.
+
+const HUMMOD_ARDS_CORE_SCHEMA = 'hummod-ards-core/v1';
+
+const HUMMOD_ARDS_CORE = Object.freeze({
+  schema: HUMMOD_ARDS_CORE_SCHEMA,
+  source: Object.freeze({
+    repository: 'riliescu/hummod-standalone',
+    revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  }),
+
+  timeHorizon: Object.freeze({
+    intended: 'seconds-to-tens-of-minutes',
+    laterExpansion: 'hours-to-days after acute core is validated',
+  }),
+
+  outputs: Object.freeze([
+    Object.freeze({
+      domain: 'gas-exchange',
+      symbol: 'PO2Artys.Pressure',
+      normalizedName: 'pao2MmHg',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/O2/PO2Artys.DES',
+    }),
+    Object.freeze({
+      domain: 'gas-exchange',
+      symbol: 'PO2Artys.Sat(%)',
+      normalizedName: 'sao2Percent',
+      status: 'verified-source-symbol-unit-transform-required',
+      sourcePath: 'Structure/O2/PO2Artys.DES',
+    }),
+    Object.freeze({
+      domain: 'gas-exchange',
+      symbol: 'CO2Artys.Pressure',
+      normalizedName: 'paco2MmHg',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/CO2/CO2Artys.DES',
+    }),
+    Object.freeze({
+      domain: 'acid-base',
+      symbol: 'CO2Artys.[HCO3(mEq/L)]',
+      normalizedName: 'hco3MeqPerL',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/CO2/CO2Artys.DES',
+    }),
+    Object.freeze({
+      domain: 'acid-base',
+      symbol: 'BloodPh.ArtysPh',
+      normalizedName: 'arterialPh',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/AcidBase/BloodPh.DES',
+    }),
+    Object.freeze({
+      domain: 'systemic-hemodynamics',
+      symbol: 'Heart-Rate.Rate',
+      normalizedName: 'heartRatePerMin',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/Heart/Heart-Rate.DES',
+    }),
+    Object.freeze({
+      domain: 'systemic-hemodynamics',
+      symbol: 'SystemicArtys.Pressure',
+      normalizedName: 'meanArterialPressureMmHg',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/VascularCompartments/SystemicArtys.DES',
+    }),
+    Object.freeze({
+      domain: 'systemic-hemodynamics',
+      symbol: 'CardiacOutput.Flow(L/Min)',
+      normalizedName: 'cardiacOutputLPerMin',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/Circulation/CardiacOutput.DES',
+    }),
+    Object.freeze({
+      domain: 'right-heart',
+      symbol: 'RightAtrium.Pressure',
+      normalizedName: 'rightAtrialPressureMmHg',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/VascularCompartments/RightAtrium.DES',
+    }),
+    Object.freeze({
+      domain: 'pulmonary-circulation',
+      symbol: 'PulmArty.Pressure',
+      normalizedName: 'meanPulmonaryArteryPressureMmHg',
+      status: 'verified-source-symbol',
+      sourcePath: 'Structure/VascularCompartments/PulmArty.DES',
+    }),
+  ]),
+
+  ventToCoreBoundary: Object.freeze([
+    Object.freeze({
+      name: 'thoracicPressure',
+      role: 'transmit positive-pressure ventilation to intrathoracic vascular compartments',
+      humModDependencyEvidence: Object.freeze([
+        'PulmArty.ExternalPressure <- Thorax.AvePressure',
+        'RightAtrium.ExternalPressure <- Pericardium-Cavity.Pressure',
+      ]),
+      status: 'coupling-interface-required',
+    }),
+    Object.freeze({
+      name: 'alveolarAndTranspulmonaryPressure',
+      role: 'drive pulmonary vascular loading and gas-exchange state',
+      status: 'coupling-interface-required',
+    }),
+    Object.freeze({
+      name: 'regionalVentilation',
+      role: 'supply compartmental ventilation/recruitment to gas-exchange model',
+      status: 'coupling-interface-required',
+    }),
+    Object.freeze({
+      name: 'alveolarVentilation',
+      role: 'drive carbon-dioxide elimination',
+      status: 'coupling-interface-required',
+    }),
+    Object.freeze({
+      name: 'fio2',
+      role: 'inspired oxygen boundary condition',
+      status: 'coupling-interface-required',
+    }),
+    Object.freeze({
+      name: 'shuntAndDeadSpace',
+      role: 'connect heterogeneous lung state to arterial oxygenation and CO2 elimination',
+      status: 'coupling-interface-required',
+    }),
+  ]),
+
+  initialExternalizedBoundaries: Object.freeze([
+    Object.freeze({
+      concept: 'metabolic oxygen consumption',
+      sourceSymbolCandidate: 'O2Total.Outflow',
+      status: 'verified-symbol-units-and-core-role-still-to-be-traced',
+      phase: 1,
+    }),
+    Object.freeze({
+      concept: 'metabolic carbon-dioxide production',
+      sourceSymbolCandidate: 'CO2Total.Inflow',
+      status: 'verified-symbol-units-and-core-role-still-to-be-traced',
+      phase: 1,
+    }),
+    Object.freeze({
+      concept: 'circulating volume / stressed volume baseline',
+      status: 'explicit-scenario-boundary-in-phase-1',
+      phase: 1,
+    }),
+    Object.freeze({
+      concept: 'slow endocrine and renal regulation',
+      status: 'held-at-baseline-in-phase-1',
+      phase: 2,
+    }),
+    Object.freeze({
+      concept: 'thermoregulation, reproductive physiology, exercise adaptation',
+      status: 'excluded-from-ARDS-core',
+      phase: 'out-of-scope-initially',
+    }),
+  ]),
+
+  requiredValidationExperiments: Object.freeze([
+    'FiO2 step -> arterial oxygen transient',
+    'minute-ventilation step -> PaCO2 and pH transient',
+    'PEEP step in recruitable lung -> mechanics/gas/hemodynamic response',
+    'PEEP step in poorly recruitable lung -> overdistension/RV-loading response',
+    'tidal-volume/driving-pressure step -> pulmonary-vascular/RV response',
+  ]),
+});
+
+const HUMMOD_ARDS_CORE_PHASE1_POLICY = Object.freeze({
+  id: 'acute-cardiopulmonary-phase1',
+  interpretation: 'Traverse acute cardiopulmonary dependencies; stop at explicitly externalized or later-phase systems.',
+  stopSystemBuckets: Object.freeze([
+    'Nephrons',
+    'Kidney',
+    'TissueH2O',
+    'Heat',
+    'AnesthesiaGas',
+    'AnesthesiaIV',
+    'Drugs',
+    'Brain',
+    'SkeletalMuscle',
+    'RespiratoryMuscle',
+    'Bone',
+    'Fat',
+    'GITract',
+    'GILumen',
+    'Liver',
+    'LiverMetabolism',
+    'OtherTissue',
+    'Skin',
+    'Diet',
+    'Exercise',
+    'Hemodialysis',
+    'Sweat',
+    'Glucose',
+    'Insulin',
+    'Glucagon',
+    'Leptin',
+    'ThyroidGland',
+    'Ketoacid',
+    'Creatine',
+    'Creatinine',
+    'Urea',
+    'AminoAcid',
+    'FattyAcid',
+    'Triglyceride',
+    'DailyPlanner',
+    'Orthostatics',
+    'TiltTable',
+    'Gravity',
+    'Posture',
+    'Hemorrhage',
+    'Transfusion',
+    'IVDrip',
+    'CPR',
+  ]),
+  stopStructureNames: Object.freeze([
+    // Acute core v0 accepts metabolic demand as a boundary rather than
+    // importing every tissue-metabolism subsystem.
+    'O2Total',
+    'CO2Total',
+  ]),
+  laterPhaseSystemBuckets: Object.freeze([
+    'Renin',
+    'ADH',
+    'Aldosterone',
+    'ANP',
+    'Catechols',
+    'Nerves',
+    'Hypothalamus',
+  ]),
+});
+
+function hummodArdsCoreRootSymbols() {
+  return HUMMOD_ARDS_CORE.outputs.map(x => x.symbol);
+}
+
+function hummodArdsCoreRootStructures() {
+  return [...new Set(hummodArdsCoreRootSymbols().map(symbol => symbol.split('.')[0]))];
+}
+
+module.exports = {
+  HUMMOD_ARDS_CORE_SCHEMA,
+  HUMMOD_ARDS_CORE,
+  HUMMOD_ARDS_CORE_PHASE1_POLICY,
+  hummodArdsCoreRootSymbols,
+  hummodArdsCoreRootStructures,
 };
 
 },

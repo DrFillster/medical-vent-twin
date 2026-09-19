@@ -74,6 +74,41 @@ test('case assumptions and evidence-calibrated targets are distinguished', () =>
   });
 });
 
+
+test('recruitability pressure calibration is explicit synthetic phenotype data', () => {
+  ['low', 'moderate', 'high'].forEach(recruitability => {
+    const cases = BERLIN_CASE_CATALOG.filter(
+      c => c.phenotype.recruitability === recruitability);
+    assert(cases.length === 3, 'expected one case per Berlin grade');
+    const calibrations = cases.map(c => c.phenotype.recruitmentCalibration);
+    assert(calibrations.every(Boolean), recruitability + ' calibration missing');
+    assert(calibrations.every(x =>
+      x.status === 'synthetic-engineering-anchor'),
+      recruitability + ' calibration status must stay synthetic');
+    assert(calibrations.every(x =>
+      x.provenance.status ===
+        'literature-informed-synthetic-engineering-anchor'),
+      recruitability + ' provenance missing');
+    const opening = new Set(calibrations.map(x => x.P_open));
+    const closing = new Set(calibrations.map(x => x.P_close));
+    assert(opening.size === 1,
+      recruitability + ' P_open must not vary with Berlin grade');
+    assert(closing.size === 1,
+      recruitability + ' P_close must not vary with Berlin grade');
+  });
+});
+
+test('Berlin severity does not determine recruitment pressure anchor', () => {
+  ['mild', 'moderate', 'severe'].forEach(severity => {
+    const cases = BERLIN_CASE_CATALOG.filter(
+      c => c.clinical.berlinSeverity === severity);
+    const opening = new Set(
+      cases.map(c => c.phenotype.recruitmentCalibration.P_open));
+    assert(opening.size === 3,
+      severity + ' should retain distinct recruitability calibrations');
+  });
+});
+
 test('patient-specific calculated ventilation is not fabricated', () => {
   BERLIN_CASE_CATALOG.forEach(c => {
     assert(c.startingVentilation.tidalVolumeMl === null, `${c.id} should not invent VT mL`);

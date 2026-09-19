@@ -39,7 +39,7 @@ const K_RECRUITABLE = 22;
 const K_CONSOLIDATED = 35;
 
 function makeCompartment({ id, fraction, resistance, perfusion, deadSpace,
-                           elasticScale = K_NORMAL }) {
+                           elasticScale = K_NORMAL, recruitment = null }) {
   const c = fraction * C0;        // L/cmH2O effective spring stiffness
   return {
     id, fraction,
@@ -48,8 +48,47 @@ function makeCompartment({ id, fraction, resistance, perfusion, deadSpace,
     elasticScale,
     perfusionFraction: perfusion,
     deadSpaceFraction: deadSpace,
+    ...(recruitment ? { recruitment: { ...recruitment } } : {}),
   };
 }
+
+// Synthetic recruitment-pressure anchors for the mechanical phenotypes.
+//
+// These are engineering calibration anchors, not clinical treatment cutoffs
+// and not Berlin-severity definitions. The recruitable-pool fraction remains
+// the primary low/moderate/high construct. The pressure anchors represent a
+// deliberately simplified dominant opening/closing subpopulation in a
+// three-compartment model; real ARDS has a distribution of regional opening
+// and closing pressures.
+const RECRUITMENT_CALIBRATIONS = Object.freeze({
+  low: Object.freeze({
+    P_open: 30,
+    P_close: 15,
+    k_open: 0.02,
+    k_close: 0.05,
+    pressureReference: 'distending-pressure-above-AOP',
+    status: 'synthetic-engineering-anchor',
+    interpretation: 'sticky-atelectasis-dominant representative unit',
+  }),
+  moderate: Object.freeze({
+    P_open: 22,
+    P_close: 12,
+    k_open: 0.02,
+    k_close: 0.05,
+    pressureReference: 'distending-pressure-above-AOP',
+    status: 'synthetic-engineering-anchor',
+    interpretation: 'mixed-opening-pressure representative unit',
+  }),
+  high: Object.freeze({
+    P_open: 16,
+    P_close: 10,
+    k_open: 0.02,
+    k_close: 0.05,
+    pressureReference: 'distending-pressure-above-AOP',
+    status: 'synthetic-engineering-anchor',
+    interpretation: 'loose-atelectasis-dominant representative unit',
+  }),
+});
 
 function presetBaseline() {
   return {
@@ -79,7 +118,8 @@ function presetPhenotypeLowRecruitability() {
                        elasticScale: K_NORMAL }),
       makeCompartment({ id: 'recruitable', fraction: 0.25, resistance: 0.5,
                        perfusion: 0.18, deadSpace: 0.40,
-                       elasticScale: K_RECRUITABLE }),
+                       elasticScale: K_RECRUITABLE,
+                       recruitment: RECRUITMENT_CALIBRATIONS.low }),
       makeCompartment({ id: 'consolidated', fraction: 0.10, resistance: 0.5,
                        perfusion: 0.07, deadSpace: 0.40,
                        elasticScale: K_CONSOLIDATED }),
@@ -98,7 +138,8 @@ function presetPhenotypeModerateRecruitability() {
                        elasticScale: K_NORMAL }),
       makeCompartment({ id: 'recruitable', fraction: 0.40, resistance: 0.5,
                        perfusion: 0.30, deadSpace: 0.50,
-                       elasticScale: K_RECRUITABLE }),
+                       elasticScale: K_RECRUITABLE,
+                       recruitment: RECRUITMENT_CALIBRATIONS.moderate }),
       makeCompartment({ id: 'consolidated', fraction: 0.20, resistance: 0.5,
                        perfusion: 0.15, deadSpace: 0.50,
                        elasticScale: K_CONSOLIDATED }),
@@ -117,7 +158,8 @@ function presetPhenotypeHighRecruitability() {
                        elasticScale: K_NORMAL }),
       makeCompartment({ id: 'recruitable', fraction: 0.50, resistance: 0.5,
                        perfusion: 0.45, deadSpace: 0.60,
-                       elasticScale: K_RECRUITABLE }),
+                       elasticScale: K_RECRUITABLE,
+                       recruitment: RECRUITMENT_CALIBRATIONS.high }),
       makeCompartment({ id: 'consolidated', fraction: 0.30, resistance: 0.5,
                        perfusion: 0.25, deadSpace: 0.60,
                        elasticScale: K_CONSOLIDATED }),
@@ -134,4 +176,4 @@ const PRESETS = Object.freeze({
   phenotype_high_recruitability: presetPhenotypeHighRecruitability,
 });
 
-module.exports = { PRESETS };
+module.exports = { PRESETS, RECRUITMENT_CALIBRATIONS };

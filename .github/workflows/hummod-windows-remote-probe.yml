@@ -1,0 +1,134 @@
+name: HumMod Windows Remote Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      attempt_remote_request:
+        description: "Launch HumMod.EXE and submit the candidate remote request"
+        required: true
+        default: false
+        type: boolean
+      listener_file:
+        description: "Listener target filename to use for the candidate request"
+        required: true
+        default: "BasicListener.DAT"
+        type: string
+      timeout_seconds:
+        description: "Maximum seconds to wait for HumMod completion logfile"
+        required: true
+        default: "90"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Vent
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned HumMod standalone
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Generate candidate reference request
+        working-directory: ards-twin-v0.5-progress
+        run: node scripts/build-hummod-reference-remote-request.js
+
+      - name: Verify HumMod executable
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD "hummod-standalone/HumMod.EXE"
+          if (-not (Test-Path $exe)) {
+            throw "Pinned HumMod.EXE not found at $exe"
+          }
+          $hash = Get-FileHash $exe -Algorithm SHA256
+          $result = [ordered]@{
+            executable = $exe
+            sha256 = $hash.Hash
+            lengthBytes = (Get-Item $exe).Length
+            pinnedRevision = "8dab57e05631f779bf5020fe0dd51874d8ae98c1"
+          }
+          $outDir = Join-Path $PWD "ards-twin-v0.5-progress/hummod-runner"
+          $result | ConvertTo-Json | Set-Content (Join-Path $outDir "executable-verification.json")
+
+      - name: Attempt documented remote request
+        if: ${{ inputs.attempt_remote_request }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = $PWD
+          $hm = Join-Path $root "hummod-standalone"
+          $exe = Join-Path $hm "HumMod.EXE"
+          $candidate = Join-Path $root "ards-twin-v0.5-progress/hummod-runner/BasicListener.candidate.DAT"
+          $listener = Join-Path $hm "${{ inputs.listener_file }}"
+          $runtimeOut = Join-Path $root "ards-twin-v0.5-progress/hummod-runner/runtime"
+          New-Item -ItemType Directory -Force -Path $runtimeOut | Out-Null
+
+          $status = [ordered]@{
+            attempted = $true
+            listenerFile = "${{ inputs.listener_file }}"
+            listenerFilenameVerified = $false
+            processStarted = $false
+            completionLogObserved = $false
+            outputFileObserved = $false
+            runtimeVerified = $false
+          }
+
+          $proc = $null
+          try {
+            $proc = Start-Process -FilePath $exe -WorkingDirectory $hm -PassThru
+            $status.processStarted = $true
+            Start-Sleep -Seconds 5
+
+            Copy-Item $candidate $listener -Force
+            $deadline = (Get-Date).AddSeconds([int]"${{ inputs.timeout_seconds }}")
+            $log = Join-Path $hm "VentHumMod-done.log"
+            $out = Join-Path $hm "VentHumMod-output.txt"
+
+            while ((Get-Date) -lt $deadline) {
+              if (Test-Path $log) {
+                $status.completionLogObserved = $true
+                Copy-Item $log (Join-Path $runtimeOut "VentHumMod-done.log") -Force
+                if (Test-Path $out) {
+                  $status.outputFileObserved = $true
+                  Copy-Item $out (Join-Path $runtimeOut "VentHumMod-output.txt") -Force
+                }
+                break
+              }
+              Start-Sleep -Seconds 2
+            }
+
+            if ($status.completionLogObserved -and $status.outputFileObserved) {
+              $status.runtimeVerified = $true
+            }
+          }
+          finally {
+            if ($proc -and -not $proc.HasExited) {
+              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            }
+            $status | ConvertTo-Json | Set-Content (Join-Path $runtimeOut "probe-status.json")
+          }
+
+          if (-not $status.runtimeVerified) {
+            Write-Error "Remote request did not produce both documented completion log and tracked output within the timeout."
+          }
+
+      - name: Upload HumMod probe artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-windows-remote-probe
+          path: |
+            ards-twin-v0.5-progress/hummod-runner/
+          if-no-files-found: error
