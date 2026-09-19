@@ -179,6 +179,29 @@
     });
   }
 
+  function syncClinicalProvider() {
+    const live = $('clinical-systemic-provider').value === 'live-reduced-hummod';
+    $('clinical-hummod-file-block').hidden = live;
+    $('clinical-hummod-file').disabled = live;
+    $('clinical-provider-status').textContent = live
+      ? 'LIVE REDUCED HUMMOD CORE · experimental · reference aspiration case + VC-AC only · not full HumMod · not clinically validated.'
+      : 'TRAJECTORY REPLAY · attach a canonical Vent trajectory or raw HumMod System.X series. Vent interventions do not alter replayed systemic values.';
+    $('clinical-coupling-note').textContent = live
+      ? 'Live reduced HumMod mode couples Vent recruitment/perfusion and mean airway pressure into source-aligned reduced gas, thorax, and circulation equations. Remaining engineering boundaries are explicit synthetic assumptions.'
+      : 'Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.';
+    if (live) {
+      const reference = 'berlin-moderate-moderate-aspiration';
+      if ($('clinical-case').value !== reference) {
+        $('clinical-case').value = reference;
+        renderClinicalCase(reference);
+      }
+      if ($('clinical-mode').value !== 'VC_AC') {
+        $('clinical-mode').value = 'VC_AC';
+        syncClinicalMode();
+      }
+    }
+  }
+
   function syncClinicalInitializationMode() {
     const history = $('clinical-init-mode').value === 'history';
     $('clinical-explicit-recruitment').hidden = history;
@@ -284,7 +307,9 @@
     $('clinical-session-status').textContent =
       'Session active · ' + snapshot.coupling.mode +
       (snapshot.ventilatorChangePending ? ' · ventilator change pending next breath boundary' : '') +
-      ' · HumMod replay does not synthesize systemic response to Vent interventions.';
+      (snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
+        ? ' · systemic response is dynamically modeled by the experimental reduced HumMod core.'
+        : ' · HumMod replay does not synthesize systemic response to Vent interventions.');
     $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
     $('clinical-reset').disabled = false;
   }
@@ -436,6 +461,8 @@
     $('clinical-dt').value = '0.002';
     $('clinical-hummod-file').value = '';
     $('clinical-recruitment-history-file').value = '';
+    $('clinical-systemic-provider').value = 'replay';
+    syncClinicalProvider();
     $('clinical-hummod-status').textContent =
       'SYNTHETIC DEMO DATA LOADED · systemic values are fixture-only and are not a real HumMod trajectory.';
     $('clinical-recruitment-history-status').textContent =
@@ -448,8 +475,23 @@
   function initializeClinicalSessionUi() {
     syncClinicalMode();
     syncClinicalInitializationMode();
+    syncClinicalProvider();
     $('clinical-load-demo').addEventListener('click', loadSyntheticDemoInputs);
-    $('clinical-mode').addEventListener('change', syncClinicalMode);
+    $('clinical-systemic-provider').addEventListener('change', () => {
+      syncClinicalProvider();
+      if (clinicalWorker) {
+        stopClinicalWorker();
+        $('clinical-session-status').textContent = 'Systemic provider changed. Reinitialize the clinical session.';
+      }
+    });
+    $('clinical-mode').addEventListener('change', () => {
+      syncClinicalMode();
+      if ($('clinical-systemic-provider').value === 'live-reduced-hummod' &&
+          $('clinical-mode').value !== 'VC_AC') {
+        $('clinical-provider-status').textContent =
+          'Live reduced HumMod currently supports VC-AC only. Choose VC-AC or switch to trajectory replay.';
+      }
+    });
     $('clinical-init-mode').addEventListener('change', () => {
       syncClinicalInitializationMode();
       if (clinicalWorker) {
@@ -484,14 +526,25 @@
       $('clinical-session-error').hidden = true;
       if (!$('clinical-session-form').reportValidity()) return;
       try {
-        if (!clinicalHumModExport) throw new Error('Attach a HumMod trajectory before initialization');
+        const provider = $('clinical-systemic-provider').value;
+        if (provider === 'replay' && !clinicalHumModExport) {
+          throw new Error('Attach a HumMod trajectory before replay initialization');
+        }
+        if (provider === 'live-reduced-hummod') {
+          if ($('clinical-case').value !== 'berlin-moderate-moderate-aspiration') {
+            throw new Error('Live reduced HumMod is currently limited to the moderate/intermediate aspiration reference case');
+          }
+          if ($('clinical-mode').value !== 'VC_AC') {
+            throw new Error('Live reduced HumMod currently supports VC-AC only');
+          }
+        }
         const w = startClinicalWorker();
         const payload = {
           caseId: $('clinical-case').value,
-          humModExport: clinicalHumModExport,
           ventilation: clinicalVentilationPayload(),
           dt: clinicalNumber('clinical-dt'),
         };
+        if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {
           if (!clinicalRecruitmentHistory) {
             throw new Error('Attach a recruitment history before initialization');
@@ -506,9 +559,12 @@
         }
         w.postMessage({
           type: 'initialize',
+          provider,
           payload,
         });
-        $('clinical-session-status').textContent = 'Initializing Vent + HumMod replay session…';
+        $('clinical-session-status').textContent = provider === 'live-reduced-hummod'
+          ? 'Initializing Vent + live reduced HumMod cardiopulmonary session…'
+          : 'Initializing Vent + HumMod replay session…';
       } catch (error) {
         showClinicalError(error.message);
       }
