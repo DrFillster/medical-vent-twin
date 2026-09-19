@@ -14,7 +14,10 @@ self.onmessage = ({ data }) => {
     const type = data && data.type;
 
     if (type === 'initialize') {
-      session = VENT.createBerlinClinicalTwinSession(data.payload);
+      const payload = data.payload || {};
+      session = payload.systemicMode === 'live-core'
+        ? VENT.createBerlinLiveHumModSession(payload)
+        : VENT.createBerlinClinicalTwinSession(payload);
       const snapshot = session.initialize();
       self.postMessage({ type: 'initialized', snapshot });
       return;
