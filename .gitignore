@@ -11,4 +11,7 @@ Icon
 .Trashes
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
-*.logards-twin-v0.5-progress/benchmark-results/
+*.log
+ards-twin-v0.5-progress/benchmark-results/
+ards-twin-v0.5-progress/browser-results/
+ards-twin-v0.5-progress/node_modules/
