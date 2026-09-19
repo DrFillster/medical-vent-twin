@@ -11,6 +11,7 @@ const { createLiveCoreBoundaryFromVent } = require('../src/hummod_ards_core_vent
 const { createThoraxState } = require('../src/hummod_ards_core_thorax.js');
 const { createHumModArdsCirculation } = require('../src/hummod_ards_core_circulation.js');
 const { createHumModArdsCardiopulmonaryRuntime } = require('../src/hummod_ards_cardiopulmonary_runtime.js');
+const { createVentToArdsCoreSnapshot } = require('../src/hummod_ards_core_coupling.js');
 const { cmH2OToMmHg } = require('../src/clinical_units.js');
 
 const CASE_ID = 'berlin-moderate-moderate-aspiration';
@@ -97,9 +98,13 @@ function buildVent() {
 }
 
 function meanAirwayPressure(simulation, samples = 1500) {
-  const trace = simulation.trace.slice(-samples);
-  if (!trace.length) return simulation.state.airwayPressure;
-  return trace.reduce((sum, row) => sum + row.airwayPressure, 0) / trace.length;
+  const snap = createVentToArdsCoreSnapshot(simulation, {
+    recentSamples: samples,
+  });
+  const trace = snap.mechanics.recentTrace || [];
+  if (!trace.length) return snap.mechanics.airwayPressureCmH2O;
+  return trace.reduce(
+    (sum, row) => sum + row.airwayPressureCmH2O, 0) / trace.length;
 }
 
 function makeGasBoundary(simulation, cardiacOutputMlPerMin) {
