@@ -52,18 +52,10 @@ jobs:
           name: reference-case-engineering-benchmark
           path: ards-twin-v0.4.5/benchmark-results/reference-case-mechanics.json
           if-no-files-found: ignore
-      - name: Commit generated browser artifacts
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/berlin-virtual-patients'
+      - name: Report generated browser artifact drift
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/engine.js web/clinical-cases.json
-          if git diff --cached --quiet; then
-            echo "Generated browser artifacts already current."
-          else
-            git commit -m "build: refresh generated browser artifacts [skip ci]"
-            git push origin HEAD:feature/berlin-virtual-patients
-          fi
+          git diff --stat -- web/engine.js web/clinical-cases.json || true
+          echo "Browser artifacts are built and uploaded by CI; CI does not write back to the branch."
       - name: Upload browser build
         uses: actions/upload-artifact@v4
         with:
