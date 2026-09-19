@@ -9,7 +9,8 @@
     "serve": "node scripts/serve.js",
     "benchmark:reference": "node scripts/reference-case-benchmark.js",
     "hummod:core-graph": "node scripts/build-hummod-ards-core-graph.js",
-    "benchmark:live-core-target": "node scripts/live-core-peep-target.js"
+    "benchmark:live-core-target": "node scripts/live-core-peep-target.js",
+    "benchmark:cardiopulmonary-target": "node scripts/live-cardiopulmonary-peep-target.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
