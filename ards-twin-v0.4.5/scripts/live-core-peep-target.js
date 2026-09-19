@@ -20,8 +20,8 @@ const engineeringBoundaries = Object.freeze({
   pulmonary: Object.freeze({
     // HumMod PulmonaryMembrane source constants under the deliberately
     // simplified phase-1 boundary: full active area, no excess lung water.
-    membranePermeabilityMlPerMinPerMmHg:
-      5.0 * 0.55 * 80.0 / 0.6,
+    membranePermeabilityMlPerMinPerMmHg: null,
+    excessLungWaterMl: 0,
     deadSpaceBtpsMl: null,
   }),
   blood: Object.freeze({
