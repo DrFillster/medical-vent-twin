@@ -142,6 +142,11 @@
       if (select.value) renderClinicalCase(select.value);
       select.addEventListener('change', () => {
         renderClinicalCase(select.value);
+        if ($('clinical-systemic-provider')?.value === 'live-reduced-hummod' &&
+            select.value !== 'berlin-moderate-moderate-aspiration') {
+          $('clinical-provider-status').textContent =
+            'This case is not enabled for live reduced HumMod yet. Select the moderate/intermediate aspiration reference case or use trajectory replay.';
+        }
         if (clinicalWorker) {
           stopClinicalWorker();
           $('clinical-session-status').textContent =
