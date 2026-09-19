@@ -45,6 +45,16 @@ jobs:
           name: live-core-peep-target
           path: ards-twin-v0.4.5/benchmark-results/live-core-peep-target.json
           if-no-files-found: ignore
+      - name: Generate cardiopulmonary PEEP target benchmark
+        continue-on-error: true
+        run: npm run benchmark:cardiopulmonary-target
+      - name: Upload cardiopulmonary target benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-cardiopulmonary-peep-target
+          path: ards-twin-v0.4.5/benchmark-results/live-cardiopulmonary-peep-target.json
+          if-no-files-found: ignore
       - name: Upload reference-case benchmark
         if: always()
         uses: actions/upload-artifact@v4
