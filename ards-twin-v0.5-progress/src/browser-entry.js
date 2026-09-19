@@ -22,6 +22,7 @@ module.exports = {
   ...require('./hummod_ards_core_manifest.js'),
   ...require('./clinical_twin_runtime.js'),
   ...require('./clinical_twin_session.js'),
+  ...require('./clinical_twin_live_hummod_session.js'),
   ...require('./clinical_session_record.js'),
   ...require('./clinical_case_readiness.js'),
   ...require('./reference_case_calibration.js'),
