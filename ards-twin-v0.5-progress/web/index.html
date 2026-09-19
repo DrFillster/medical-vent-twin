@@ -16,7 +16,7 @@
 <main>
 <section class="clinical-preview card" aria-labelledby="clinical-title">
 <div class="section-heading"><span class="step">00</span><h2 id="clinical-title">Clinical Twin preview</h2></div>
-<p class="clinical-lead">Browse the synthetic Berlin ARDS case catalog and inspect what is known, assumed, or still required before a case can become an executable Vent + HumMod session.</p>
+<p class="clinical-lead">Browse the synthetic Berlin ARDS case catalog and run either trajectory replay or the experimental live reduced HumMod ARDS cardiopulmonary core. The live core is currently limited to the moderate/intermediate aspiration reference case and VC-AC.</p>
 <label for="clinical-case">Synthetic ARDS case</label>
 <select id="clinical-case" aria-describedby="clinical-case-note"></select>
 <p id="clinical-case-note" class="hint">Cases are synthetic teaching constructs calibrated to published cohort envelopes; they are not deidentified patient records.</p>
@@ -46,10 +46,18 @@
 <summary>Prepare an executable Vent + HumMod session</summary>
 <form id="clinical-session-form">
 <p class="hint">All fields below are explicit scenario inputs. No missing value is inferred from Berlin severity or cohort medians.</p>
+<label for="clinical-systemic-provider">Systemic physiology provider</label>
+<select id="clinical-systemic-provider" required>
+<option value="live-reduced-hummod">Live reduced HumMod ARDS core · experimental</option>
+<option value="replay">HumMod trajectory replay</option>
+</select>
+<p id="clinical-provider-status" class="hint">Live mode couples Vent recruitment and airway pressure to a reduced, source-aligned HumMod cardiopulmonary core. It is not the full HumMod executable and is not clinically validated.</p>
+<div id="clinical-hummod-file-block" hidden>
 <label for="clinical-hummod-file">HumMod trajectory JSON</label>
 <input id="clinical-hummod-file" type="file" accept=".json,application/json">
 <div class="actions demo-actions"><button id="clinical-load-demo" type="button" class="secondary">Load synthetic demo inputs</button></div>
 <p id="clinical-hummod-status" class="hint">Attach a validated <code>vent-hummod-trajectory/v1</code> export, or load the clearly labeled synthetic demo dataset.</p>
+</div>
 
 <label for="clinical-mode">Ventilation mode</label>
 <select id="clinical-mode" required>
@@ -106,7 +114,7 @@
 <button id="clinical-initialize" type="submit">Initialize clinical session</button>
 <button id="clinical-reset" type="button" class="secondary" disabled>Reset</button>
 </div>
-<p id="clinical-session-status" role="status" aria-live="polite">Waiting for explicit inputs and a HumMod trajectory.</p>
+<p id="clinical-session-status" role="status" aria-live="polite">Waiting for explicit inputs.</p>
 <p id="clinical-session-error" role="alert" hidden></p>
 </form>
 
@@ -144,7 +152,7 @@
 <button id="clinical-insp-hold" type="button" class="secondary">Inspiratory hold</button>
 <button id="clinical-exp-hold" type="button" class="secondary">Expiratory hold</button>
 </div>
-<p class="hint">Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.</p>
+<p id="clinical-coupling-note" class="hint">Live reduced HumMod mode is experimental: Vent interventions feed a reduced source-aligned gas/circulation core, but several physiologic boundaries remain explicit synthetic assumptions. Replay mode remains available for validated HumMod trajectories.</p>
 </div>
 </details>
 </section>
