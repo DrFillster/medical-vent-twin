@@ -4,6 +4,10 @@ const { Simulation, VcAcController } = require('../src/simulation.js');
 const { makePatientParams } = require('../src/contracts.js');
 const { PRESETS } = require('../src/presets.js');
 const { createVentToArdsCoreSnapshot } = require('../src/hummod_ards_core_coupling.js');
+const {
+  HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN,
+  deriveVentilatedPulmonaryFlowMlPerMin,
+} = require('../src/hummod_ards_core_vent_adapter.js');
 
 let passed = 0;
 let failed = 0;
@@ -48,6 +52,30 @@ test('coupling snapshot preserves raw Vent state without systemic inference', ()
   assert(snap.mechanics.recentTrace.length <= 25);
   assert(snap.couplingInterpretation.thoracicPressure === 'not-yet-derived');
   assert(snap.couplingInterpretation.shuntAndDeadSpace === 'not-yet-derived-by-ARDS-core');
+});
+
+
+test('live flow coupling preserves HumMod basic right-to-left shunt separately from alveolar shunt', () => {
+  const sim = makeSimulation();
+  const flow = deriveVentilatedPulmonaryFlowMlPerMin({
+    simulation: sim,
+    cardiacOutputMlPerMin: 5000,
+  });
+  assert(
+    flow.rightLeftShuntMlPerMin ===
+      HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN,
+    'HumMod basic right-left shunt must be preserved');
+  assert(
+    flow.alveolarPulmonaryBloodFlowMlPerMin ===
+      5000 - HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN,
+    'alveolar flow should exclude basic right-left shunt');
+  assert(flow.alveolarShuntMlPerMin >= 0);
+  assert(
+    Math.abs(
+      flow.ventilatedPulmonaryBloodFlowMlPerMin +
+      flow.totalShuntMlPerMin -
+      5000) < 1e-9,
+    'ventilated flow plus total shunt must conserve pulmonary blood flow');
 });
 
 test('coupling snapshot requires a Vent simulation', () => {
