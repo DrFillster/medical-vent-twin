@@ -9,7 +9,7 @@
 
 const { makeBerlinVirtualPatient } = require('./clinical_scenarios.js');
 
-const CASE_AUTHORING_VERSION = '0.5.0-alpha.2';
+const CASE_AUTHORING_VERSION = '0.5.0-alpha.3';
 
 const CASE_DESIGNS = Object.freeze([
   { severity: 'mild', recruitability: 'low',
@@ -115,6 +115,19 @@ function buildCase(design) {
       recruitability: design.recruitability,
       mechanicsPresetId: base.mechanics.presetId,
       mechanicsParams: clone(base.mechanics.params),
+      recruitmentCalibration: (() => {
+        const recruitable = base.mechanics.params.compartments.find(
+          compartment => compartment.id === 'recruitable');
+        if (!recruitable || !recruitable.recruitment) return null;
+        return {
+          ...clone(recruitable.recruitment),
+          provenance: {
+            status: 'literature-informed-synthetic-engineering-anchor',
+            note:
+              'Represents one dominant recruitable subpopulation in the current three-compartment model; real ARDS has distributed regional opening/closing pressures. Not a Berlin criterion or clinical PEEP target.',
+          },
+        };
+      })(),
       status: 'mechanistic-construct-not-fitted-to-berlin-grade',
     },
     startingVentilation: {
@@ -150,6 +163,8 @@ function buildCase(design) {
       cohortSources: clone(base.provenance),
       scenarioFields: 'synthetic-authoring-assumptions',
       mechanics: 'Vent mechanistic preset; independent of Berlin severity',
+      recruitment:
+        'Literature-informed synthetic opening/closing-pressure anchor; not a clinical threshold and not derived from Berlin severity',
       systemic: 'HumMod mapping pending',
     },
   });
