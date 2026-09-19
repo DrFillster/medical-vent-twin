@@ -16,11 +16,19 @@ function positive(v, label) {
   return v;
 }
 
+const HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN = 220;
+
 function deriveVentilatedPulmonaryFlowMlPerMin({
   simulation,
   cardiacOutputMlPerMin,
+  basicRightLeftShuntMlPerMin =
+    HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN,
 } = {}) {
   positive(cardiacOutputMlPerMin, 'cardiacOutputMlPerMin');
+  finite(basicRightLeftShuntMlPerMin, 'basicRightLeftShuntMlPerMin');
+  if (basicRightLeftShuntMlPerMin < 0) {
+    throw new Error('basicRightLeftShuntMlPerMin must be >= 0');
+  }
 
   const perfusionById = Object.fromEntries(
     simulation.params.compartments.map(cp => [cp.id, cp.perfusionFraction])
@@ -38,9 +46,37 @@ function deriveVentilatedPulmonaryFlowMlPerMin({
   if (!(totalPerfusion > 0)) throw new Error('total perfusion fraction must be > 0');
 
   const fraction = Math.max(0, Math.min(1, ventilatedPerfusion / totalPerfusion));
+
+  // HumMod LungBloodFlow.DES:
+  //   Right-LeftShunt = BasicR-LShunt MIN Total
+  //   Alveolar = Total - Right-LeftShunt
+  //   AlveolarVentilated = alveolar flow * lung-inflation fraction
+  //
+  // Vent supplies the regional inflation/perfusion fraction because the
+  // reduced core does not run HumMod's bilateral hemithorax model.
+  const rightLeftShuntMlPerMin = Math.min(
+    basicRightLeftShuntMlPerMin,
+    cardiacOutputMlPerMin);
+  const alveolarPulmonaryBloodFlowMlPerMin =
+    cardiacOutputMlPerMin - rightLeftShuntMlPerMin;
+  const ventilatedPulmonaryBloodFlowMlPerMin =
+    alveolarPulmonaryBloodFlowMlPerMin * fraction;
+  const alveolarShuntMlPerMin =
+    alveolarPulmonaryBloodFlowMlPerMin -
+    ventilatedPulmonaryBloodFlowMlPerMin;
+  const totalShuntMlPerMin =
+    rightLeftShuntMlPerMin + alveolarShuntMlPerMin;
+
   return Object.freeze({
     ventilatedPerfusionFraction: fraction,
-    ventilatedPulmonaryBloodFlowMlPerMin: cardiacOutputMlPerMin * fraction,
+    totalPulmonaryBloodFlowMlPerMin: cardiacOutputMlPerMin,
+    rightLeftShuntMlPerMin,
+    alveolarPulmonaryBloodFlowMlPerMin,
+    ventilatedPulmonaryBloodFlowMlPerMin,
+    alveolarShuntMlPerMin,
+    totalShuntMlPerMin,
+    humModSource:
+      'Structure/Lungs/LungBloodFlow.DES@8dab57e05631f779bf5020fe0dd51874d8ae98c1',
   });
 }
 
@@ -105,7 +141,13 @@ function createLiveCoreBoundaryFromVent({
     }),
     diagnostics: Object.freeze({
       ventilatedPerfusionFraction: flow.ventilatedPerfusionFraction,
-      source: 'Vent compartment perfusionFraction x current recruitment',
+      rightLeftShuntMlPerMin: flow.rightLeftShuntMlPerMin,
+      alveolarPulmonaryBloodFlowMlPerMin:
+        flow.alveolarPulmonaryBloodFlowMlPerMin,
+      alveolarShuntMlPerMin: flow.alveolarShuntMlPerMin,
+      totalShuntMlPerMin: flow.totalShuntMlPerMin,
+      source:
+        'HumMod LungBloodFlow basic R-L shunt + Vent compartment perfusionFraction x current recruitment',
       deadSpaceSource: pulmonary.deadSpaceBtpsMl == null
         ? 'HumMod Breathing.DES legacy equation'
         : 'explicit-boundary',
@@ -115,6 +157,7 @@ function createLiveCoreBoundaryFromVent({
 }
 
 module.exports = {
+  HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN,
   deriveVentilatedPulmonaryFlowMlPerMin,
   createLiveCoreBoundaryFromVent,
 };
