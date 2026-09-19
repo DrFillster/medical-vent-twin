@@ -167,7 +167,7 @@ function createBerlinLiveHumModSession({
   const referenceMeanAirwayPressureCmH2O = meanAirwayPressureCmH2O(simulation);
 
   const thorax = createThoraxState({
-    referenceAirwayPressureCmH2O,
+    referenceAirwayPressureCmH2O: referenceMeanAirwayPressureCmH2O,
     referencePleuralPressureCmH2O:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.referencePleuralPressureCmH2O,
     chestWallElastanceFraction:
