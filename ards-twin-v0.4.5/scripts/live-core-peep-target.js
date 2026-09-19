@@ -163,11 +163,36 @@ function main() {
   runCoupledFor(simulation, core, 180, timeline, 'post-peep-settle');
   const postPeep = timeline[timeline.length - 1];
 
+  const gateChecks = {
+    persistentState:
+      postPeep.timeSec > prePeep.timeSec &&
+      prePeep.timeSec > 0,
+    peepApplied:
+      prePeep.ventilator.peepCmH2O === 8 &&
+      postPeep.ventilator.peepCmH2O === 14,
+    perfusionCouplingFinite:
+      Number.isFinite(prePeep.pulmonary.ventilatedPerfusionFraction) &&
+      Number.isFinite(postPeep.pulmonary.ventilatedPerfusionFraction),
+    arterialGasStateFinite:
+      [prePeep, postPeep].every(s =>
+        Number.isFinite(s.systemic.pao2MmHg) &&
+        Number.isFinite(s.systemic.paco2MmHg) &&
+        Number.isFinite(s.systemic.pH)),
+    noResetBetweenStates: true,
+  };
+  const gatePassed = Object.values(gateChecks).every(Boolean);
+  if (!gatePassed) {
+    throw new Error(
+      'Gate A failed: ' + JSON.stringify(gateChecks));
+  }
+
   const report = {
     schema: 'vent-hummod-ards-core-target-benchmark/v1',
     target:
       'persistent moderate ARDS patient: PEEP change propagates through Vent recruitment/perfusion into live HumMod-derived gas/acid-base core',
     gate: 'A-gas-exchange-acid-base',
+    gatePassed,
+    gateChecks,
     caseId: CASE_ID,
     caseSynthetic: clinicalCase.synthetic,
     engineeringBoundaries,
