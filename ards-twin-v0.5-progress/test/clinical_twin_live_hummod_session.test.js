@@ -24,7 +24,7 @@ function makeSession(overrides = {}) {
       normal: 1, recruitable: 0.35, consolidated: 0,
     },
     dt: 0.002,
-    mechanicalWarmupSec: 2,
+    mechanicalWarmupSec: 3,
     ...overrides,
   });
 }
