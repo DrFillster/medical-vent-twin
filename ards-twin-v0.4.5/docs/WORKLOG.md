@@ -882,3 +882,144 @@ The tracked-file delimiter/layout is not specified clearly enough in the checked
 Therefore no tracked-output parser has been guessed.
 
 The next real-data milestone is to run the manual Windows probe, retain the raw output unchanged, and implement the parser from the observed format.
+
+
+## 2026-09-19 — live HumMod-ARDS target: dynamic gas core, thorax, and reduced circulation
+
+### Target definition
+
+The current implementation target is now explicit:
+
+> A persistent moderate-ARDS patient in which a ventilator intervention, beginning with a PEEP change, propagates through Vent mechanics/recruitment into a live reduced HumMod-derived systemic core on the same timeline.
+
+The target is split into two engineering gates:
+
+- **Gate A:** Vent -> recruitment/perfused ventilation -> dynamic O2/CO2/acid-base state.
+- **Gate B:** Vent -> explicit thorax/pleural state -> reduced HumMod circulation/RV/LV -> cardiac output -> gas exchange feedback.
+
+Neither gate constitutes clinical validation.
+
+### Dynamic reduced HumMod gas core
+
+Added a persistent source-aligned gas runtime using pinned HumMod equations for:
+
+- ventilation/STPD conversion
+- bronchi gas fractions
+- implicit pulmonary O2 exchange
+- implicit pulmonary CO2 exchange
+- O2/HCO3 arterial/venous first-order delay states
+- pH/HCO3/PCO2 chemistry
+- hemoglobin P50 / saturation
+
+The runtime preserves systemic state between Vent interventions. It does not replay a fixed trajectory.
+
+Phase-1 metabolism, SID, O2 carrying capacity, membrane permeability, temperature, and environment remain explicit engineering boundaries rather than hidden defaults.
+
+### Vent -> systemic live adapter
+
+Added a live Vent adapter that maps:
+
+- respiratory rate
+- tidal volume
+- FiO2
+- current compartment recruitment
+- authored compartment perfusion fractions
+
+into the reduced HumMod gas boundary.
+
+Ventilated pulmonary blood flow is derived from current recruitment-weighted perfusion rather than from Berlin severity.
+
+### Solver hardening discovered by the long PEEP target
+
+A long persistent PEEP 8 -> 14 target exposed nonlinear-solver edge cases that short mechanics tests did not reveal.
+
+Corrections implemented:
+
+1. residual scaling is per compartment so a nearly closed recruitable unit cannot impose its microscopic volume scale on the whole solve;
+2. FLOW-boundary initial branch pressure uses the current lung pressure/conductance state instead of always starting at AOP;
+3. PRESSURE-boundary initial branch pressure uses the current central-airway/lung circuit state rather than always starting at set airway pressure;
+4. FLOW and PRESSURE solves now have scalar bracketed fallbacks when the multidimensional Newton solve stalls;
+5. boundary residual scaling is dimension-specific: flow residuals use a flow scale and pressure residuals use a pressure scale.
+
+These fallbacks solve the same implicit compartment equations and boundary equations; they do not relax the governing equations or silently accept a larger residual.
+
+### Gate A CI
+
+The PEEP target benchmark is now executable and is a blocking CI step.
+
+The benchmark requires:
+
+- persistent state before/after intervention
+- PEEP 8 -> 14 without engine reset
+- finite recruitment/perfusion coupling
+- finite PaO2 / PaCO2 / pH outputs
+
+The target must complete without a solver failure before the node job can pass.
+
+### Explicit thorax bridge
+
+Added a separate thorax phenotype/state layer.
+
+It requires:
+
+- explicit baseline pleural pressure
+- explicit chest-wall elastance fraction
+- provenance for those values
+
+Static airway-pressure changes are partitioned between pleural and transpulmonary pressure through the authored chest-wall fraction.
+
+Berlin severity and recruitability are not used to infer chest-wall mechanics.
+
+### Reduced HumMod circulation
+
+Added a seven-compartment reduced circulation using pinned HumMod vascular constants for:
+
+- systemic arteries
+- systemic veins
+- right atrium
+- pulmonary artery
+- pulmonary capillaries
+- pulmonary veins
+- left atrium
+
+and pinned HumMod RV/LV pressure-volume/pumping equations.
+
+Pinned source constants include:
+
+- systemic arterial conductance 60 mL/min/mmHg
+- systemic venous ConductanceBasic 692 mL/min/mmHg
+- pulmonary artery conductance 1350 mL/min/mmHg
+- pulmonary capillary conductance 1800 mL/min/mmHg
+- pulmonary venous conductance 5400 mL/min/mmHg
+
+Detailed organ beds remain lumped behind explicit reduced-order conductance boundaries.
+
+The reduced loop conserves vascular volume by construction.
+
+### Closed cardiopulmonary runtime
+
+Added a composed runtime:
+
+Vent -> thorax/pleural pressure -> reduced HumMod circulation -> cardiac output -> ventilated pulmonary blood flow -> reduced HumMod gas core.
+
+The cmH2O -> mmHg bridge is isolated in a unit module rather than embedded in HumMod-native hemodynamic equations.
+
+### Provisional Gate B benchmark
+
+Added a persistent PEEP 8 -> 14 cardiopulmonary benchmark.
+
+The first version intentionally labels the following as synthetic engineering inputs, not patient facts:
+
+- systemic venous starting volume
+- baseline pleural pressure
+- chest-wall elastance fraction
+- pericardial TMP offset
+- phase-1 metabolism/SID/blood boundaries
+
+Gate B is non-blocking until the resulting RV/CO/MAP response has been inspected for stability and physiologic interpretation.
+
+### CI cleanup
+
+CI no longer commits generated browser artifacts back to the feature branch. Browser bundles and manifests are still built/uploaded, but the workflow does not self-mutate the branch and therefore cannot race active implementation commits.
+
+The browser smoke test was also corrected so it does not accidentally close the clinical-session details panel before interacting with its controls.
