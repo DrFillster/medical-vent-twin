@@ -167,6 +167,14 @@ function capture(label, simulation, runtime) {
     coupling: Object.freeze({
       ventilatedPerfusionFraction:
         last.adapterDiagnostics.ventilatedPerfusionFraction,
+      rightLeftShuntMlPerMin:
+        last.adapterDiagnostics.rightLeftShuntMlPerMin,
+      alveolarShuntMlPerMin:
+        last.adapterDiagnostics.alveolarShuntMlPerMin,
+      totalShuntMlPerMin:
+        last.adapterDiagnostics.totalShuntMlPerMin,
+      alveolarPulmonaryBloodFlowMlPerMin:
+        last.adapterDiagnostics.alveolarPulmonaryBloodFlowMlPerMin,
     }),
   });
 }
@@ -319,6 +327,10 @@ function main() {
         'provisional engineering benchmark; inspect direction and stability before promotion to hard Gate B',
       thoraxCaveat:
         'baseline pleural pressure and chest-wall elastance fraction are explicit synthetic inputs, not patient measurements',
+      pulmonaryVascularCaveat:
+        'reduced HumMod vascular compartments do not yet include a recruitability-dependent alveolar-vessel PVR law; Gate B therefore remains provisional',
+      shuntCoupling:
+        'HumMod source BasicR-LShunt is preserved separately from Vent-derived alveolar shunt',
     },
     timeline,
   };
