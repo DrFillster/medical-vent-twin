@@ -112,6 +112,8 @@ function runOne(label, caseId) {
     caseId,
     berlinSeverity: clinicalCase.clinical.berlinSeverity,
     phenotypeRecruitability: clinicalCase.phenotype.recruitability,
+    recruitmentCalibration:
+      clinicalCase.phenotype.recruitmentCalibration,
     baseline,
     challenged,
     deltas: Object.freeze({
