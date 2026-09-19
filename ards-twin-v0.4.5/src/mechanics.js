@@ -706,9 +706,34 @@ function solveImplicitStep(params, state, boundary, dt, recruitmentSnapshot) {
     }
   }
 
-  const pBranch = [boundary.kind === 'PRESSURE'
+  let pressureBoundaryGuess = boundary.kind === 'PRESSURE'
     ? boundary.pressureCmH2O
-    : flowPressureGuess];
+    : flowPressureGuess;
+
+  if (boundary.kind === 'PRESSURE' &&
+      params.centralAirwayResistance > 0) {
+    let conductanceSum = 0;
+    let weightedAlveolarPressure = 0;
+    for (const { G, cs } of activeComps) {
+      conductanceSum += G;
+      weightedAlveolarPressure += G * cs.alveolarPressure;
+    }
+    const centralConductance = 1 / params.centralAirwayResistance;
+    const totalConductance = centralConductance + conductanceSum;
+    if (totalConductance > 0) {
+      // Linearized current-state circuit:
+      //   Qcentral = (Pvent - Pbranch) / Rc
+      //   Qcentral = sum_i Gi * (Pbranch - Palv_i)
+      // therefore
+      //   Pbranch = (Pvent/Rc + sum_i Gi*Palv_i)
+      //             / (1/Rc + sum_i Gi)
+      pressureBoundaryGuess =
+        (boundary.pressureCmH2O * centralConductance +
+         weightedAlveolarPressure) / totalConductance;
+    }
+  }
+
+  const pBranch = [pressureBoundaryGuess];
 
   const r = newtonStep(activeComps, vTrial, pBranch, boundary, params, dt);
   if (r.converged) {
