@@ -37,7 +37,6 @@ jobs:
         continue-on-error: true
         run: npm run benchmark:reference
       - name: Generate live core PEEP target benchmark
-        continue-on-error: true
         run: npm run benchmark:live-core-target
       - name: Upload live core target benchmark
         if: always()
