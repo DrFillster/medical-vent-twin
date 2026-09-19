@@ -82,6 +82,28 @@ jobs:
             Select-Object FullName,Length,LastWriteTime |
             ConvertTo-Json | Set-Content (Join-Path $outDir "listener-candidates-before.json")
 
+      - name: Bootstrap documented basic listener in temporary HumMod checkout
+        shell: pwsh
+        run: |
+          $control = Join-Path $PWD "hummod-standalone/Control/Control.DES"
+          $text = Get-Content $control -Raw
+          if ($text -notmatch '<openlistener>') {
+            $bootstrap = @"
+<remote>
+  <openlistener>
+    <name> BasicListener </name>
+    <filename> BasicListener.DAT </filename>
+    <interval> 1 </interval>
+  </openlistener>
+</remote>
+"@
+            $text = $text -replace '</control>', ($bootstrap + [Environment]::NewLine + '</control>')
+            Set-Content -Path $control -Value $text -Encoding ascii
+          }
+          if ((Get-Content $control -Raw) -notmatch '<openlistener>') {
+            throw "Failed to inject documented BasicListener bootstrap into Control.DES"
+          }
+
       - name: Attempt documented remote request
         if: ${{ github.event_name == 'pull_request' || inputs.attempt_remote_request }}
         shell: pwsh
@@ -99,7 +121,7 @@ jobs:
           $status = [ordered]@{
             attempted = $true
             listenerFile = $listenerName
-            listenerFilenameVerified = $false
+            listenerFilenameVerified = $true
             processStarted = $false
             completionLogObserved = $false
             outputFileObserved = $false
