@@ -21,6 +21,13 @@ const HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS = Object.freeze([
   'O2Veins.[O2]',
   'CO2Artys.[HCO3]',
   'CO2Veins.[HCO3]',
+  'SystemicArtys.Vol',
+  'SystemicVeins.Vol',
+  'RightAtrium.Vol',
+  'PulmArty.Vol',
+  'PulmCapys.Vol',
+  'PulmVeins.Vol',
+  'LeftAtrium.Vol',
 ]);
 
 const HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS = Object.freeze([
