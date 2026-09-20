@@ -121,7 +121,7 @@
   async function initializeClinicalPreview() {
     const select = $('clinical-case');
     try {
-      const response = await fetch('./clinical-cases.json?v=0.5-alpha', { cache: 'no-store' });
+      const response = await fetch('./clinical-cases.json?v=0.6', { cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       clinicalManifest = await response.json();
       if (!clinicalManifest || !Array.isArray(clinicalManifest.cases) ||
@@ -299,8 +299,13 @@
     $('clinical-current-peep').textContent = displayClinicalValue(snapshot.ventilator?.peepCmH2O);
     $('clinical-pao2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.pao2MmHg);
     $('clinical-paco2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.paco2MmHg);
+    $('clinical-ph').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.pH);
     $('clinical-hr').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.heartRatePerMin);
     $('clinical-map').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
+    const cardiacOutputMlPerMin = snapshot.systemic?.hemodynamics?.cardiacOutputMlPerMin;
+    $('clinical-co').textContent = typeof cardiacOutputMlPerMin === 'number' && Number.isFinite(cardiacOutputMlPerMin)
+      ? (cardiacOutputMlPerMin / 1000).toFixed(2)
+      : '—';
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
     $('clinical-total-peep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.totalPeepCmH2O);
     $('clinical-autopeep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.intrinsicPeepCmH2O);
@@ -310,11 +315,11 @@
     drawClinicalTrace('clinical-flow-chart', clinicalWaveform, 'flowLps');
     drawClinicalTrace('clinical-volume-chart', clinicalWaveform, 'volumeL');
     $('clinical-session-status').textContent =
-      'Session active · ' + snapshot.coupling.mode +
-      (snapshot.ventilatorChangePending ? ' · ventilator change pending next breath boundary' : '') +
+      'Patient active · ' +
+      (snapshot.ventilatorChangePending ? 'ventilator change pending next breath boundary' : 'settings applied') +
       (snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
-        ? ' · systemic response is dynamically modeled by the experimental reduced HumMod core.'
-        : ' · HumMod replay does not synthesize systemic response to Vent interventions.');
+        ? ' · dynamic cardiopulmonary simulation'
+        : ' · fixed systemic trajectory replay');
     $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
     $('clinical-reset').disabled = false;
   }
@@ -362,7 +367,7 @@
       throw new Error('This browser cannot run the clinical simulation worker');
     }
     stopClinicalWorker();
-    clinicalWorker = new Worker('./clinical-worker.js?v=0.5-alpha');
+    clinicalWorker = new Worker('./clinical-worker.js?v=0.6');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
@@ -482,6 +487,33 @@
     syncClinicalInitializationMode();
     syncClinicalProvider();
     $('clinical-load-demo').addEventListener('click', loadSyntheticDemoInputs);
+    $('clinical-quick-start').addEventListener('click', () => {
+      stopClinicalWorker();
+      clinicalHumModExport = null;
+      clinicalRecruitmentHistory = null;
+      $('clinical-case').value = 'berlin-moderate-moderate-aspiration';
+      renderClinicalCase($('clinical-case').value);
+      $('clinical-systemic-provider').value = 'live-reduced-hummod';
+      $('clinical-mode').value = 'VC_AC';
+      $('clinical-fio2').value = '0.60';
+      $('clinical-peep').value = '8';
+      $('clinical-rr').value = '20';
+      $('clinical-init-mode').value = 'explicit';
+      $('clinical-recruitment').value = '0.35';
+      $('clinical-vt').value = '0.42';
+      $('clinical-flow').value = '0.70';
+      $('clinical-vc-pause').value = '0.20';
+      $('clinical-dt').value = '0.002';
+      syncClinicalMode();
+      syncClinicalInitializationMode();
+      syncClinicalProvider();
+      $('clinical-session-error').hidden = true;
+      $('clinical-session-panel').open = true;
+      $('clinical-session-status').textContent =
+        'Reference patient loaded. Starting live cardiopulmonary simulation…';
+      $('clinical-session-form').requestSubmit();
+      $('clinical-session-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     $('clinical-systemic-provider').addEventListener('change', () => {
       syncClinicalProvider();
       if (clinicalWorker) {
