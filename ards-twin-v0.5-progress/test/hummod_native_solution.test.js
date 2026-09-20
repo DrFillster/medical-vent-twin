@@ -26,6 +26,13 @@ const vars = {
   'O2Veins.[O2]':[0.157,0.156,0.155],
   'CO2Artys.[HCO3]':[0.0240,0.0241,0.0242],
   'CO2Veins.[HCO3]':[0.0256,0.0257,0.0258],
+  'SystemicArtys.Vol':[999,998,997],
+  'SystemicVeins.Vol':[2675,2676,2677],
+  'RightAtrium.Vol':[51,52,53],
+  'PulmArty.Vol':[201,202,203],
+  'PulmCapys.Vol':[200,201,202],
+  'PulmVeins.Vol':[211,212,213],
+  'LeftAtrium.Vol':[51,50,49],
   'Ventilator.Rate':[16,16,16],
   'ExcessLungWater.Volume':[250,249,248],
   'AirSupply-InspiredAir.O2(%)':[50,50,50],
@@ -63,6 +70,8 @@ test('native SOLN retains exact reduced-core gas state when exported',()=>{
   assert(raw.nativeSolution.reducedState['O2Veins.[O2]'].final===0.155);
   assert(raw.nativeSolution.reducedState['CO2Artys.[HCO3]'].final===0.0242);
   assert(raw.nativeSolution.reducedState['CO2Veins.[HCO3]'].final===0.0258);
+  assert(raw.nativeSolution.reducedState['SystemicArtys.Vol'].final===997);
+  assert(raw.nativeSolution.reducedState['PulmCapys.Vol'].final===202);
   const canonical=convertHumModRawSeries(raw);
   assert(canonical.nativeSolution.reducedState['O2Artys.[O2]'].final===0.194);
 });
