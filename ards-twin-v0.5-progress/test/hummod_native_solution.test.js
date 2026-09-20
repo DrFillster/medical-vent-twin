@@ -59,6 +59,24 @@ test('native SOLN preserves explicit scenario provenance',()=>{
   assert(raw.nativeSolution.scenario.clinicalValidation===false);
 });
 
+
+test('native SOLN verifies persisted scenario assignments',()=>{
+  const raw=parseHumModNativeSolution(fixture(),{
+    scenario:{id:'verify',scenarioClass:'engineering',clinicalValidation:false,assignments:{'Heart-Rate.Rate':74}}
+  });
+  assert(raw.nativeSolution.scenario.appliedAssignments['Heart-Rate.Rate']===74);
+});
+
+test('native SOLN rejects scenario assignment mismatch',()=>{
+  let threw=false;
+  try {
+    parseHumModNativeSolution(fixture(),{
+      scenario:{id:'verify',scenarioClass:'engineering',clinicalValidation:false,assignments:{'Heart-Rate.Rate':99}}
+    });
+  } catch(e){ threw=/assignment mismatch/.test(e.message); }
+  assert(threw);
+});
+
 test('native SOLN rejects missing verified symbols',()=>{
   const missing={...vars}; delete missing['BloodPh.ArtysPh'];
   let threw=false; try { parseHumModNativeSolution(fixture(missing).replace(
