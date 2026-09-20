@@ -60,22 +60,27 @@ function parseHumModNativeSolution(text, {
     while ((valueMatch = valRe.exec(match[2])) !== null) {
       values.push(parseFinite(valueMatch[1], name + ' value ' + values.length));
     }
-    if (values.length !== expectedSamples) {
-      throw new Error(
-        'native HumMod variable ' + name + ' has ' + values.length +
-        ' values; expected ' + expectedSamples);
-    }
     variables.set(name, values);
   }
   if (variables.size === 0) throw new Error('native solution contains no variables');
 
   const clock = variables.get(HUMMOD_SOURCE_CLOCK.symbol);
   if (!clock) throw new Error('native solution missing verified clock ' + HUMMOD_SOURCE_CLOCK.symbol);
+  if (clock.length !== expectedSamples) {
+    throw new Error(
+      'native HumMod clock has ' + clock.length + ' values; expected ' + expectedSamples);
+  }
 
   const symbols = listVerifiedDirectMappings().map(m => m.symbol);
   symbols.forEach(symbol => {
     if (!variables.has(symbol)) {
       throw new Error('native solution missing verified HumMod symbol: ' + symbol);
+    }
+    const values = variables.get(symbol);
+    if (values.length !== expectedSamples) {
+      throw new Error(
+        'verified native HumMod symbol ' + symbol + ' has ' + values.length +
+        ' values; expected ' + expectedSamples);
     }
   });
 
