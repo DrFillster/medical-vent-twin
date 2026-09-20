@@ -25,6 +25,22 @@ The workbench sweep fixes ventilation and the complete native inspired-gas mixtu
 
 The output is an engineering sensitivity report. It intentionally does not calculate or assign a Berlin category.
 
+## Native-to-browser calibration gate
+
+The same one-shot experiment now generates a native HumMod endpoint target and runs a reduced-core alignment probe under matched FiO2, respiratory-rate, and tidal-volume controls. It then emits an explicit native-vs-reduced discrepancy report for PaO2, PaCO2, pH, heart rate, systemic arterial pressure, and cardiac output.
+
+This comparison is diagnostic rather than an equivalence test. The native baseline has no PEEP control and no Vent Berlin-case mechanics, whereas the reduced probe uses the project's synthetic ARDS mechanical model. Absolute discrepancies therefore identify calibration work but cannot by themselves validate or invalidate the ARDS case.
+
+The intended progression is:
+
+1. verify native HumMod perturbations and their systemic/gas response;
+2. identify source-native mechanisms suitable for ARDS calibration;
+3. calibrate the reduced core against native response direction and magnitude where model boundaries can be matched;
+4. combine the calibrated systemic layer with Vent's PEEP/recruitment mechanics;
+5. only then evaluate the synthetic cases against explicit Berlin/evidence gates.
+
+No automatic numerical tolerance is allowed to promote the reduced core to "full HumMod equivalent."
+
 ## Distribution constraint
 
 No upstream HumMod executable or model source is committed to this repository. The upstream standalone repository does not expose an obvious license file at the pinned revision, so redistribution or publication of modified upstream assets remains blocked pending rights verification.
