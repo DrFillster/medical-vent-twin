@@ -36,6 +36,13 @@ public static class HumModNative {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetMenuString(IntPtr m, uint pos, StringBuilder text, int count, uint flags);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr SendMessage(IntPtr h, uint msg, IntPtr w, string l);
+  [DllImport("user32.dll", EntryPoint="SendMessageW")] static extern IntPtr SendValue(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  public static void TypeText(long handle, string text) {
+    IntPtr h=new IntPtr(handle);
+    SendValue(h,0xB1,IntPtr.Zero,new IntPtr(-1)); // EM_SETSEL
+    SendValue(h,0x102,new IntPtr(8),IntPtr.Zero); // WM_CHAR backspace
+    foreach(char c in text) SendValue(h,0x102,new IntPtr(c),IntPtr.Zero);
+  }
   static NativeWindow Describe(IntPtr h) {
     var text = new StringBuilder(4096); var cls = new StringBuilder(256);
     GetWindowText(h, text, text.Capacity); GetClassName(h, cls, cls.Capacity);
@@ -144,15 +151,14 @@ try {
   if($filename.Count -ne 1) {
     if($edits.Count -eq 1) { $filename=$edits } else { throw 'Cannot identify filename edit control.' }
   }
-  $editElement=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$filename[0].Handle)
-  $valuePattern=$editElement.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-  $valuePattern.SetValue($solutionPath)
-  $status.filenameEntered=$valuePattern.Current.Value
+  # WM_CHAR follows the edit/combo notification path used by real typing.
+  # Quoting an absolute filename suppresses legacy default-extension rewriting.
+  $filenameText='"' + $solutionPath + '"'
+  [HumModNative]::TypeText($filename[0].Handle,$filenameText)
+  $status.filenameEntered=$filenameText
   $button=@([HumModNative]::Children($dialog.Handle) | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
   if($button.Count -ne 1) { throw 'Cannot identify Save button.' }
-  $buttonElement=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$button[0].Handle)
-  $invokePattern=$buttonElement.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
-  $invokePattern.Invoke()
+  [HumModNative]::PostMessage([IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
   $deadline=(Get-Date).AddSeconds(60)
   $lastLength=-1
   while((Get-Date) -lt $deadline) {
