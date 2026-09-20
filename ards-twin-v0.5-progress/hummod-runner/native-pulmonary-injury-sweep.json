@@ -4,11 +4,14 @@
   "purpose": "Engineering sensitivity sweep to identify which native HumMod pulmonary mechanisms materially change gas exchange and systemic physiology before any Berlin ARDS calibration.",
   "clinicalValidation": false,
   "baseline": {
-    "description": "Native HumMod with explicit mechanical ventilation and no pulmonary injury perturbation.",
+    "description": "Native HumMod with explicit mechanical ventilation and a fixed source-native oxygen/nitrogen gas-tank mixture; no pulmonary injury perturbation.",
     "assignments": {
       "Ventilator.Switch": 1,
       "Ventilator.Rate": 16,
-      "Ventilator.TidalVolume": 450
+      "Ventilator.TidalVolume": 450,
+      "AirSupply-GasTanks.Switch": 1,
+      "AirSupply-GasTanks.O2Valve(%)": 50,
+      "AirSupply-GasTanks.N2Valve(%)": 50
     }
   },
   "cases": [
@@ -19,7 +22,10 @@
         "Ventilator.Switch": 1,
         "Ventilator.Rate": 16,
         "Ventilator.TidalVolume": 450,
-        "ExcessLungWater.Volume": 250
+        "ExcessLungWater.Volume": 250,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50
       }
     },
     {
@@ -30,7 +36,10 @@
         "Ventilator.Rate": 16,
         "Ventilator.TidalVolume": 450,
         "RightHemithorax.NormalPressure": 0,
-        "LeftHemithorax.NormalPressure": 0
+        "LeftHemithorax.NormalPressure": 0,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50
       }
     },
     {
@@ -40,7 +49,10 @@
         "Ventilator.Switch": 1,
         "Ventilator.Rate": 16,
         "Ventilator.TidalVolume": 450,
-        "PulmonaryMembrane.TotalArea": 40
+        "PulmonaryMembrane.TotalArea": 40,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50
       }
     },
     {
@@ -50,7 +62,10 @@
         "Ventilator.Switch": 1,
         "Ventilator.Rate": 16,
         "Ventilator.TidalVolume": 450,
-        "LungBloodFlow.BasicR-LShunt": 1000
+        "LungBloodFlow.BasicR-LShunt": 1000,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50
       }
     },
     {
@@ -64,14 +79,18 @@
         "RightHemithorax.NormalPressure": -2,
         "LeftHemithorax.NormalPressure": -2,
         "PulmonaryMembrane.TotalArea": 60,
-        "LungBloodFlow.BasicR-LShunt": 500
+        "LungBloodFlow.BasicR-LShunt": 500,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50
       }
     }
   ],
   "provenance": {
     "upstreamRepository": "riliescu/hummod-standalone",
     "upstreamRevision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1",
-    "rationale": "Each perturbation targets a source-verified HumMod pulmonary parameter. Values are exploratory engineering probes, not clinically calibrated ARDS settings.",
-    "berlinArdsCalibration": false
+    "rationale": "Each perturbation targets a source-verified HumMod pulmonary parameter. Ventilation and inspired-gas controls are held identical across baseline and injury cases. Values are exploratory engineering probes, not clinically calibrated ARDS settings.",
+    "berlinArdsCalibration": false,
+    "peepRepresentation": "not-available-in-pinned-native-HumMod-ventilator; Berlin classification is therefore prohibited for this sweep"
   }
 }
