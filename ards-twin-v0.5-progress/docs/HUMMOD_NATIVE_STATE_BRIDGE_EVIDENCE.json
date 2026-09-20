@@ -115,6 +115,80 @@
     "usableWithoutAnotherNativeRunForDefaultBaselineCalibration": true,
     "ardsScenario": false,
     "berlinArdsCalibration": false,
-    "clinicalValidation": false
+    "clinicalValidation": false,
+    "sourceNativeReducedBoundariesPresent": true,
+    "defaultBaselineCanSupportGasEquationIsolation": true
+  },
+  "reducedBoundaryEvidence": {
+    "PulmonaryMembrane.Permeability": {
+      "sampleCount": 11,
+      "first": 97.6638938643718,
+      "final": 97.4196629384406
+    },
+    "LungBloodFlow.AlveolarVentilated": {
+      "sampleCount": 11,
+      "first": 5154.40525020509,
+      "final": 5147.3660661529
+    },
+    "O2Total.Outflow": {
+      "sampleCount": 11,
+      "first": 209.036233956053,
+      "final": 210.018750199707
+    },
+    "CO2Total.Inflow": {
+      "sampleCount": 11,
+      "first": 7.45841282755196,
+      "final": 6.08319565793362
+    },
+    "BloodIons.[SID]": {
+      "sampleCount": 11,
+      "first": 0.0406835337930175,
+      "final": 0.0406763520472698
+    },
+    "HgbConc.[O2Max]": {
+      "sampleCount": 11,
+      "first": 0.200216828201916,
+      "final": 0.200327472104864
+    },
+    "AirSupply-InspiredAir.Pressure": {
+      "sampleCount": 11,
+      "first": 760,
+      "final": 760
+    },
+    "AirSupply-InspiredAir.CO2(%)": {
+      "sampleCount": 11,
+      "first": 0,
+      "final": 0
+    },
+    "AirSupply-InspiredAir.O2(%)": {
+      "sampleCount": 11,
+      "first": 21,
+      "final": 21
+    },
+    "Breathing.RespRate": {
+      "sampleCount": 11,
+      "first": 11.7241515181155,
+      "final": 11.2989282367477
+    },
+    "Breathing.TidalVolume": {
+      "sampleCount": 11,
+      "first": 524.794452651182,
+      "final": 493.637059855548
+    },
+    "Breathing.DeadSpace": {
+      "sampleCount": 11,
+      "first": 164.958890530236,
+      "final": 158.72741197111
+    },
+    "HeatCore.Temp(C)": {
+      "sampleCount": 11,
+      "first": 37.0000000000001,
+      "final": 37.0494112744296
+    },
+    "HgbConc.CarboxyPercent": {
+      "sampleCount": 11,
+      "first": 0.389637710489589,
+      "final": 0.389287858027447
+    }
   }
 }
