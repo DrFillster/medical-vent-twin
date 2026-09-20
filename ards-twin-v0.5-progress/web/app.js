@@ -198,6 +198,9 @@
     for (const option of Array.from($('clinical-case').options)) {
       option.disabled = live && option.value !== reference;
     }
+    for (const option of Array.from($('clinical-mode').options)) {
+      option.disabled = live && option.value === 'PC_AC';
+    }
     if (live) {
       if ($('clinical-case').value !== reference) {
         $('clinical-case').value = reference;
