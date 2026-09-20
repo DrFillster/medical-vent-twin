@@ -19,6 +19,20 @@ for(const c of run.cases||[]){
 }
 if(!fs.existsSync(summaryPath)){acceptable=false;findings.push({level:'error',code:'SENSITIVITY_SUMMARY_MISSING'});}
 
+const calibrationTargetPath=path.join(root,'native-reduced-calibration-target.json');
+const decompositionPath=path.join(root,'native-reduced-error-decomposition.json');
+if(!fs.existsSync(calibrationTargetPath)){
+  acceptable=false;findings.push({level:'error',code:'NATIVE_REDUCED_CALIBRATION_TARGET_MISSING'});
+} else {
+  const target=JSON.parse(fs.readFileSync(calibrationTargetPath,'utf8'));
+  if(!target.nativeReducedState||target.nativeReducedState.available!==true){
+    acceptable=false;findings.push({level:'error',code:'NATIVE_REDUCED_GAS_STATE_UNAVAILABLE',missing:target.nativeReducedState?.missingSymbols||null});
+  }
+}
+if(!fs.existsSync(decompositionPath)){
+  acceptable=false;findings.push({level:'error',code:'NATIVE_REDUCED_ERROR_DECOMPOSITION_MISSING'});
+}
+
 if(fs.existsSync(summaryPath)){
   const summary=JSON.parse(fs.readFileSync(summaryPath,'utf8'));
   for(const row of summary.rows||[]){
