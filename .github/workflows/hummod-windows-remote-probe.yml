@@ -8,6 +8,7 @@ on:
       - "ards-twin-v0.5-progress/src/hummod_remote_request.js"
       - "ards-twin-v0.5-progress/src/hummod_runner_contract.js"
       - "ards-twin-v0.5-progress/scripts/build-hummod-reference-remote-request.js"
+      - "ards-twin-v0.5-progress/scripts/run-hummod-probe.ps1"
       - ".github/workflows/hummod-windows-remote-probe.yml"
   workflow_dispatch:
     inputs:
@@ -53,126 +54,18 @@ jobs:
         working-directory: ards-twin-v0.5-progress
         run: node scripts/build-hummod-reference-remote-request.js
 
-      - name: Verify HumMod executable
-        shell: pwsh
-        run: |
-          $exe = Join-Path $PWD "hummod-standalone/HumMod.EXE"
-          if (-not (Test-Path $exe)) {
-            throw "Pinned HumMod.EXE not found at $exe"
-          }
-          $hash = Get-FileHash $exe -Algorithm SHA256
-          $result = [ordered]@{
-            executable = $exe
-            sha256 = $hash.Hash
-            lengthBytes = (Get-Item $exe).Length
-            pinnedRevision = "8dab57e05631f779bf5020fe0dd51874d8ae98c1"
-          }
-          $outDir = Join-Path $PWD "ards-twin-v0.5-progress/hummod-runner"
-          $result | ConvertTo-Json | Set-Content (Join-Path $outDir "executable-verification.json")
-
-      - name: Inspect pinned standalone runtime before launch
-        shell: pwsh
-        run: |
-          $hm = Join-Path $PWD "hummod-standalone"
-          $outDir = Join-Path $PWD "ards-twin-v0.5-progress/hummod-runner/runtime"
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          Get-ChildItem -Path $hm -Force | Select-Object Name,Length,LastWriteTime,Attributes |
-            ConvertTo-Json | Set-Content (Join-Path $outDir "standalone-root-before.json")
-          Get-ChildItem -Path $hm -Recurse -File -Include *.INI,*.ini,*.DAT,*.dat,*.XML,*.xml |
-            Select-Object FullName,Length,LastWriteTime |
-            ConvertTo-Json | Set-Content (Join-Path $outDir "listener-candidates-before.json")
-
-      - name: Bootstrap documented basic listener in temporary HumMod checkout
-        shell: pwsh
-        run: |
-          $control = Join-Path $PWD "hummod-standalone/Control/Control.DES"
-          $text = Get-Content $control -Raw
-          if ($text -notmatch '<openlistener>') {
-            $bootstrap = @"
-<remote>
-  <openlistener>
-    <name> BasicListener </name>
-    <filename> BasicListener.DAT </filename>
-    <interval> 1 </interval>
-  </openlistener>
-</remote>
-"@
-            $text = $text -replace '</control>', ($bootstrap + [Environment]::NewLine + '</control>')
-            Set-Content -Path $control -Value $text -Encoding ascii
-          }
-          if ((Get-Content $control -Raw) -notmatch '<openlistener>') {
-            throw "Failed to inject documented BasicListener bootstrap into Control.DES"
-          }
-
-      - name: Attempt documented remote request
+      - name: Run pinned HumMod reference request
         if: ${{ github.event_name == 'pull_request' || inputs.attempt_remote_request }}
         shell: pwsh
+        env:
+          PROBE_LISTENER: ${{ inputs.listener_file || 'BasicListener.DAT' }}
+          PROBE_TIMEOUT: ${{ inputs.timeout_seconds || '120' }}
         run: |
-          $ErrorActionPreference = "Stop"
-          $root = $PWD
-          $hm = Join-Path $root "hummod-standalone"
-          $exe = Join-Path $hm "HumMod.EXE"
-          $candidate = Join-Path $root "ards-twin-v0.5-progress/hummod-runner/BasicListener.candidate.DAT"
-          $listenerName = if ("${{ inputs.listener_file }}") { "${{ inputs.listener_file }}" } else { "BasicListener.DAT" }
-          $listener = Join-Path $hm $listenerName
-          $runtimeOut = Join-Path $root "ards-twin-v0.5-progress/hummod-runner/runtime"
-          New-Item -ItemType Directory -Force -Path $runtimeOut | Out-Null
-
-          $status = [ordered]@{
-            attempted = $true
-            listenerFile = $listenerName
-            listenerFilenameVerified = $true
-            processStarted = $false
-            completionLogObserved = $false
-            outputFileObserved = $false
-            runtimeVerified = $false
-          }
-
-          $proc = $null
-          try {
-            $proc = Start-Process -FilePath $exe -WorkingDirectory $hm -PassThru
-            $status.processStarted = $true
-            Start-Sleep -Seconds 5
-
-            Copy-Item $candidate $listener -Force
-            $timeoutText = "${{ inputs.timeout_seconds }}"
-            $timeoutSeconds = if ($timeoutText) { [int]$timeoutText } else { 90 }
-            $deadline = (Get-Date).AddSeconds($timeoutSeconds)
-            $log = Join-Path $hm "VentHumMod-done.log"
-            $out = Join-Path $hm "VentHumMod-output.txt"
-
-            while ((Get-Date) -lt $deadline) {
-              if (Test-Path $log) {
-                $status.completionLogObserved = $true
-                Copy-Item $log (Join-Path $runtimeOut "VentHumMod-done.log") -Force
-                if (Test-Path $out) {
-                  $status.outputFileObserved = $true
-                  Copy-Item $out (Join-Path $runtimeOut "VentHumMod-output.txt") -Force
-                }
-                break
-              }
-              Start-Sleep -Seconds 2
-            }
-
-            if ($status.completionLogObserved -and $status.outputFileObserved) {
-              $status.runtimeVerified = $true
-            }
-          }
-          finally {
-            Get-ChildItem -Path $hm -Force | Select-Object Name,Length,LastWriteTime,Attributes |
-              ConvertTo-Json | Set-Content (Join-Path $runtimeOut "standalone-root-after.json")
-            Get-ChildItem -Path $hm -Recurse -File -Include *.INI,*.ini,*.DAT,*.dat,*.XML,*.xml,*.log,*.txt |
-              Select-Object FullName,Length,LastWriteTime |
-              ConvertTo-Json | Set-Content (Join-Path $runtimeOut "runtime-files-after.json")
-            if ($proc -and -not $proc.HasExited) {
-              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-            }
-            $status | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $runtimeOut "probe-status.json")
-          }
-
-          if (-not $status.runtimeVerified) {
-            Write-Error "Remote request did not produce both documented completion log and tracked output within the timeout."
-          }
+          ./ards-twin-v0.5-progress/scripts/run-hummod-probe.ps1 `
+            -HumModRoot ./hummod-standalone `
+            -RequestPath ./ards-twin-v0.5-progress/hummod-runner/BasicListener.candidate.DAT `
+            -OutputDirectory ./ards-twin-v0.5-progress/hummod-runner/runtime `
+            -ListenerFile $env:PROBE_LISTENER -TimeoutSeconds ([int]$env:PROBE_TIMEOUT)
 
       - name: Upload HumMod probe artifacts
         if: always()
@@ -182,3 +75,4 @@ jobs:
           path: |
             ards-twin-v0.5-progress/hummod-runner/
           if-no-files-found: error
+
