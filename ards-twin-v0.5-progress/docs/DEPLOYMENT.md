@@ -1,16 +1,14 @@
-# Deployment contract
+# v0.6 deployable Clinical Twin
 
-The browser application is deployment-neutral. GitHub Actions is used for verification and generated-artifact refresh; it is **not** required as the deployment mechanism.
-
-## Deployable web root
+## Deployment target
 
 Publish the contents of:
 
-`ards-twin-v0.4.5/web/`
+`ards-twin-v0.5-progress/web/`
 
-as a static site.
+as a static HTTPS site. Cloudflare Pages/static hosting is sufficient. No server-side API, native HumMod executable, or GitHub Actions deployment is required.
 
-Required runtime files include:
+Required runtime files:
 
 - `index.html`
 - `styles.css`
@@ -20,133 +18,57 @@ Required runtime files include:
 - `engine.js`
 - `clinical-cases.json`
 
-The current application does not require a server-side API for the Vent mechanics engine or fixed HumMod replay. Web workers are loaded from the same static origin.
+## Product scope
 
-## Build before deployment
+The primary v0.6 experience is the persistent reference aspiration ARDS teaching patient:
 
-From `ards-twin-v0.4.5/`:
+**Patient → Monitor → Trends & waveforms → Interventions**
+
+The browser application exposes VC-AC ventilation, tidal volume, respiratory rate, PEEP, FiO2, inspiratory flow/pause, persistent recruitment state, inspiratory/expiratory holds, passive respiratory mechanics, gas exchange, and hemodynamic outputs.
+
+Vent is authoritative for detailed pulmonary mechanics. The browser-capable reduced HumMod core supplies dynamic cardiopulmonary physiology. The native HumMod executable remains an external research/calibration environment and is not required by the deployed site.
+
+The other authored Berlin/recruitability cases remain synthetic research/teaching phenotypes. v0.6 does not claim that every case has undergone the same native-HumMod calibration as the reference development pathway.
+
+## Build and local verification
+
+From `ards-twin-v0.5-progress/`:
 
 ```sh
 npm run build
 npm test
+npm run verify:deploy
+npm run serve
 ```
 
-The build refreshes generated browser artifacts from source.
-
-The generated files are:
-
-- `web/engine.js`
-- `web/clinical-cases.json`
-
-Do not hand-edit generated files. Edit the canonical source under `src/` and rebuild.
-
-## Browser verification
-
-The project contains browser smoke coverage for Chromium and WebKit.
-
-The verification workflow is useful as a quality gate but is not part of deployment.
-
-A deployment mechanism may independently serve the `web/` directory through any static host that supports:
-
-- HTTPS in production
-- JavaScript
-- Web Workers
-- same-origin loading of the generated assets
-- JSON file upload through the browser
-
-## HumMod boundary
-
-Do **not** bundle `HumMod.EXE`, the upstream HumMod model tree, or modified upstream HumMod assets into the public static site unless distribution/integration rights have been explicitly confirmed.
-
-The web app accepts externally produced HumMod data in either:
-
-- `hummod-raw-series/v1`
-- `vent-hummod-trajectory/v1`
-
-The intended architecture is:
-
-1. HumMod runs externally.
-2. The external runner emits a raw/canonical trajectory.
-3. The user or deployment-specific integration supplies that trajectory to Vent.
-4. Vent composes it with the pulmonary simulation.
-
-This keeps the static deployment independent from the HumMod execution environment.
-
-## Synthetic data boundary
-
-The checked browser fixtures are test-only.
-
-A public deployment must not relabel fixture HumMod values as:
-
-- patient data
-- real HumMod reference physiology
-- clinical validation
-
-The nine Berlin ARDS cases are explicitly synthetic authored teaching/research cases.
-
-## Deployment verification checklist
-
-Before promoting a build:
-
-- run `npm run build`
-- run `npm test`
-- confirm `web/engine.js` and `web/clinical-cases.json` are current
-- run or review Chromium browser smoke
-- run or review WebKit browser smoke
-- verify the default reference case still labels R/I as unassigned
-- verify model AOP is labeled as a mechanistic construct
-- verify fixed HumMod replay is labeled non-intervention-responsive
-- verify no HumMod runtime binary or upstream model assets are present in the static web root
-
-## Current branch
-
-Active development branch:
-
-`feature/berlin-virtual-patients`
-
-Draft PR:
-
-`#1 — v0.5: Berlin ARDS clinical twin + HumMod bridge foundation`
-
-Keep deployment separate from merge readiness. The branch may be deployed for internal evaluation while the PR remains draft for ongoing real-HumMod and clinical-fidelity work.
-
-
-## Progress-demo handoff
-
-For the current progress demonstration, deploy from:
-
-`feature/berlin-virtual-patients`
-
-Do not deploy `main`; it does not contain the current Clinical Twin work.
-
-Before publishing:
+For real-browser verification when Playwright browsers are available:
 
 ```sh
-cd ards-twin-v0.4.5
-npm install
-npm run build
-npm test
+npm run test:browser
+BROWSER=webkit npm run test:browser
 ```
 
-Then publish the contents of:
+The deployability verifier is intentionally local and does not require GitHub Actions.
 
-`ards-twin-v0.4.5/web/`
+## Safety/provenance requirements
 
-The Clinical Twin panel now includes **Load synthetic demo inputs**. This is intended specifically for showing current functionality when a real HumMod trajectory is not yet available.
+The public build must retain visible statements that this is:
 
-The demo path:
+- an educational simulation;
+- a synthetic patient/model;
+- not clinically validated;
+- not for patient care.
 
-- selects the moderate Berlin / intermediate-recruitability aspiration reference case;
-- fills explicit VC-AC settings and an explicit synthetic recruitment state;
-- loads a clearly labeled fixture-only systemic replay;
-- permits the persistent clinical session, ventilator changes, waveforms, holds, and passive mechanics to be demonstrated.
+Do not describe the reduced browser core as the full HumMod executable or as a patient-specific digital twin. Do not describe engineering pulmonary-injury perturbations as clinically calibrated Berlin ARDS until that calibration has actually been established.
 
-The page must retain the visible:
+Do not bundle `HumMod.EXE` or the upstream HumMod model tree into the static web root.
 
-`DEVELOPMENT PREVIEW · Synthetic cases · Not clinically validated · Not for patient care`
+## Cloudflare handoff
 
-warning.
+Cloudflare should serve `ards-twin-v0.5-progress/web/` as the site root after the generated assets have been refreshed with `npm run build`.
 
-Do not remove or soften the synthetic-demo warning, and do not relabel the fixture systemic values as real HumMod output.
+No GitHub Actions workflow is required for deployment. The product branch is:
 
-The deployment mechanism does not need HumMod.EXE or any HumMod source assets.
+`product/v0.6-deployable-clinical-twin`
+
+The research workbench remains separate so native HumMod calibration work can continue without destabilizing the deployable product.
