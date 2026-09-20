@@ -2,6 +2,7 @@
 'use strict';
 
 const fs=require('node:fs');
+const { validateNativeHumModScenario }=require('../src/hummod_native_scenario.js');
 
 function finite(value,label){
   const n=Number(value);
@@ -25,12 +26,7 @@ const input=process.argv[2], specPath=process.argv[3], output=process.argv[4];
 if(!input||!specPath||!output){
   throw new Error('usage: node scripts/mutate-hummod-native-solution.js <input.SOLN> <scenario.json> <output.SOLN>');
 }
-const spec=JSON.parse(fs.readFileSync(specPath,'utf8'));
-if(spec.schema!=='vent-hummod-native-scenario/v1') throw new Error('unsupported scenario schema');
-if(!spec.id) throw new Error('scenario id required');
-if(!spec.assignments||typeof spec.assignments!=='object'||Array.isArray(spec.assignments)){
-  throw new Error('scenario assignments object required');
-}
+const spec=validateNativeHumModScenario(JSON.parse(fs.readFileSync(specPath,'utf8')));
 let text=fs.readFileSync(input,'utf8');
 for(const [name,value] of Object.entries(spec.assignments)){
   text=replaceSeries(text,name,finite(value,'assignment '+name));
