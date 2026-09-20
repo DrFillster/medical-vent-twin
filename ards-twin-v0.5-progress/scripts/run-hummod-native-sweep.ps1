@@ -78,5 +78,12 @@ $summary=[ordered]@{
   calibrationScreen=$calibrationScreen
   clinicalValidation=$false
 }
-$summary | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $out 'sweep-run.json')
+$runPath=Join-Path $out 'sweep-run.json'
+$summary | ConvertTo-Json -Depth 8 | Set-Content $runPath
+$verification=Join-Path $out 'verification.json'
+node (Join-Path $root 'scripts/verify-hummod-native-sweep-output.js') $out $verification
+$verificationExit=$LASTEXITCODE
+$summary.verification=$verification
+$summary.verificationExitCode=$verificationExit
+$summary | ConvertTo-Json -Depth 8 | Set-Content $runPath
 $summary | ConvertTo-Json -Depth 8
