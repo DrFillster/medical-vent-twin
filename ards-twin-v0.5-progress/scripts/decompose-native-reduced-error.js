@@ -25,7 +25,7 @@ const report={
   endpoints,
   interpretation:{
     status:'engineering-error-attribution',
-    nativeStateCalibration:'gas state and heart rate only',
+    nativeStateCalibration:'gas state, seven reduced circulation compartment volumes, and heart rate',
     residualMismatch:'may reflect unmatched mechanics, hemodynamic volumes/conductances, pulmonary perfusion/shunt, metabolism, gas-exchange boundaries, or reduced equations',
     automaticEquivalenceDecision:false,
     fullHumModEquivalent:false,
