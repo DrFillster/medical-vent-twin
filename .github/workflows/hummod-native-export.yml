@@ -8,6 +8,7 @@ on:
       - 'ards-twin-v0.5-progress/src/hummod_native_solution.js'
       - 'ards-twin-v0.5-progress/src/hummod_raw_series_adapter.js'
       - '.github/workflows/hummod-native-export.yml'
+      - 'ards-twin-v0.5-progress/scripts/compare-hummod-trajectories.js'
       - 'ards-twin-v0.5-progress/hummod-runner/native-pulmonary-injury-sensitivity-water.json'
       - 'ards-twin-v0.5-progress/hummod-runner/native-ventilation-probe.json'
       - 'ards-twin-v0.5-progress/scripts/mutate-hummod-native-solution.js'
@@ -67,6 +68,8 @@ jobs:
             -OutputDirectory ./hummod-native-pulmonary-injury-output
       - name: Convert pulmonary-injury sensitivity output
         run: node ards-twin-v0.5-progress/scripts/convert-hummod-native-solution.js hummod-native-pulmonary-injury-output/Vent.SOLN hummod-native-pulmonary-injury-output ards-twin-v0.5-progress/hummod-runner/native-pulmonary-injury-sensitivity-water.json
+      - name: Compare pulmonary-injury trajectory with native baseline
+        run: node ards-twin-v0.5-progress/scripts/compare-hummod-trajectories.js hummod-native-output/Vent.trajectory.json hummod-native-pulmonary-injury-output/Vent.trajectory.json hummod-native-pulmonary-injury-output/comparison.json
       - name: Upload pulmonary-injury sensitivity artifacts
         if: always()
         uses: actions/upload-artifact@v4
