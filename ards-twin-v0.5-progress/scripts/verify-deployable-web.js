@@ -13,7 +13,7 @@ for(const name of required){
 }
 function read(name){return fs.readFileSync(path.join(web,name),'utf8');}
 if(failures.length===0){
-  const html=read('index.html'), app=read('app.js'), css=read('styles.css'), engine=read('engine.js');
+  const html=read('index.html'), app=read('app.js'), css=read('styles.css'), engine=read('engine.js'), clinicalWorker=read('clinical-worker.js');
   const checks=[
     [html.includes('id="clinical-quick-start"'),'quick-start control missing'],
     [html.includes('id="clinical-ph"'),'pH monitor missing'],
@@ -23,6 +23,8 @@ if(failures.length===0){
     [html.includes('Not for patient care'),'patient-care warning missing'],
     [app.includes("clinical-quick-start"),'quick-start behavior missing'],
     [app.includes("live-reduced-hummod"),'live reduced HumMod provider missing'],
+    [clinicalWorker.includes("data.provider || payload.systemicMode"),'clinical worker does not read UI provider'],
+    [clinicalWorker.includes("VENT.createBerlinLiveHumModSession(payload)"),'clinical worker does not route live provider to reduced HumMod session'],
     [app.includes("requestVentilationChange"),'persistent ventilator-change path missing'],
     [app.includes("setPEEP"),'persistent PEEP path missing'],
     [app.includes("performPassiveMechanics"),'passive mechanics path missing'],
