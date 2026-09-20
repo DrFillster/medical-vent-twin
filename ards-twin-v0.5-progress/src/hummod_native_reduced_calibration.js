@@ -20,6 +20,24 @@ function lastRow(trajectory){
 function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod-default-baseline'}={}){
   const row=lastRow(trajectory);
   const v=row.values||{};
+  const rs=trajectory.nativeSolution && trajectory.nativeSolution.reducedState
+    ? trajectory.nativeSolution.reducedState : {};
+  const stateMap={
+    arterialO2ContentMlPerMl:'O2Artys.[O2]',
+    venousO2ContentMlPerMl:'O2Veins.[O2]',
+    arterialHco3MolPerL:'CO2Artys.[HCO3]',
+    venousHco3MolPerL:'CO2Veins.[HCO3]',
+  };
+  const nativeInitialState={};
+  const missingNativeState=[];
+  for(const [targetName,symbol] of Object.entries(stateMap)){
+    const state=rs[symbol];
+    if(state && typeof state.final==='number' && Number.isFinite(state.final)){
+      nativeInitialState[targetName]=state.final;
+    } else {
+      missingNativeState.push(symbol);
+    }
+  }
   const target={
     schema:'vent-native-reduced-hummod-calibration-target/v1',
     targetId,
@@ -33,6 +51,13 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
       heartRatePerMin:finite(v['Heart-Rate.Rate'],'native heart rate'),
       meanArterialPressureMmHg:finite(v['SystemicArtys.Pressure'],'native systemic arterial pressure'),
       cardiacOutputLPerMin:finite(v['CardiacOutput.Flow(L/Min)'],'native cardiac output'),
+    }),
+    nativeReducedState:Object.freeze({
+      available:Object.keys(nativeInitialState).length===Object.keys(stateMap).length,
+      initialState:Object.freeze({ ...nativeInitialState }),
+      missingSymbols:Object.freeze(missingNativeState.slice()),
+      sourceSymbols:Object.freeze({ ...stateMap }),
+      initializationPolicy:'use final native baseline state as reduced-core initial state only when all four source states are present',
     }),
     mapping:Object.freeze({
       circulation:Object.freeze({
@@ -55,7 +80,7 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
       fullHumModEquivalent:false,
       berlinArdsCalibration:false,
       clinicalValidation:false,
-      note:'Native HumMod endpoint values constrain the reduced core but do not establish structural or dynamic equivalence.',
+      note:'Native HumMod endpoints and, when available, exact gas-state variables constrain the reduced core but do not establish structural or dynamic equivalence.',
     }),
   };
   return Object.freeze(target);
