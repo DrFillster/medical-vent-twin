@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $hm = (Resolve-Path $HumModRoot).Path
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $outDir = (Resolve-Path $OutputDirectory).Path
-$solutionPath = Join-Path $hm 'Vent.SOLN'
+$solutionPath = Join-Path $outDir 'Vent.SOLN'
 if (Test-Path $solutionPath) { throw 'Refusing to overwrite an existing solution export.' }
 Add-Type -TypeDefinition @'
 using System;
@@ -98,6 +98,16 @@ function Save-Diagnostics([string]$stage) {
       }
     }
     $data.accessibleNames=$names
+    $fields=@()
+    foreach($child in $descendants) {
+      if($child.Current.ControlType -eq [System.Windows.Automation.ControlType]::ComboBox -or $child.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit) {
+        $field=[ordered]@{name=$child.Current.Name;id=$child.Current.AutomationId;type=$child.Current.ControlType.ProgrammaticName}
+        try { $field.value=$child.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value } catch {}
+        try { $field.selection=@($child.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).GetCurrentSelection() | ForEach-Object { $_.Current.Name }) } catch {}
+        $fields += $field
+      }
+    }
+    $data.accessibleFields=$fields
   } catch { $data.accessibilityError=$_.Exception.Message }
   $data | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $outDir "$stage.json")
   $data | ConvertTo-Json -Depth 8 | Write-Output
@@ -134,8 +144,15 @@ try {
   if($filename.Count -ne 1) {
     if($edits.Count -eq 1) { $filename=$edits } else { throw 'Cannot identify filename edit control.' }
   }
-  [HumModNative]::SetText($filename[0].Handle,'Vent.SOLN')
-  [HumModNative]::Command($dialog.Handle,1)
+  $editElement=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$filename[0].Handle)
+  $valuePattern=$editElement.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+  $valuePattern.SetValue($solutionPath)
+  $status.filenameEntered=$valuePattern.Current.Value
+  $button=@([HumModNative]::Children($dialog.Handle) | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
+  if($button.Count -ne 1) { throw 'Cannot identify Save button.' }
+  $buttonElement=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$button[0].Handle)
+  $invokePattern=$buttonElement.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+  $invokePattern.Invoke()
   $deadline=(Get-Date).AddSeconds(60)
   $lastLength=-1
   while((Get-Date) -lt $deadline) {
@@ -148,7 +165,7 @@ try {
   }
   Save-Diagnostics 'saved'
   if(-not (Test-Path $solutionPath)) { throw 'Native solution file was not created.' }
-  Copy-Item $solutionPath (Join-Path $outDir 'HumMod-default.SOLN')
+  # Native output already resides in the artifact directory.
   $status.outputBytes=(Get-Item $solutionPath).Length
   $status.outputSha256=(Get-FileHash $solutionPath -Algorithm SHA256).Hash
   $status.outputCaptured=$status.outputBytes -gt 0
