@@ -22,6 +22,7 @@ if(!fs.existsSync(summaryPath)){acceptable=false;findings.push({level:'error',co
 const calibrationTargetPath=path.join(root,'native-reduced-calibration-target.json');
 const decompositionPath=path.join(root,'native-reduced-error-decomposition.json');
 const gasEquationAlignmentPath=path.join(root,'native-reduced-gas-equation-alignment.json');
+const doseResponsePath=path.join(root,'dose-response.json');
 if(!fs.existsSync(calibrationTargetPath)){
   acceptable=false;findings.push({level:'error',code:'NATIVE_REDUCED_CALIBRATION_TARGET_MISSING'});
 } else {
@@ -41,6 +42,9 @@ if(!fs.existsSync(decompositionPath)){
 }
 if(!fs.existsSync(gasEquationAlignmentPath)){
   acceptable=false;findings.push({level:'error',code:'NATIVE_REDUCED_GAS_EQUATION_ALIGNMENT_MISSING'});
+}
+if(!fs.existsSync(doseResponsePath)){
+  acceptable=false;findings.push({level:'error',code:'DOSE_RESPONSE_ANALYSIS_MISSING'});
 }
 
 if(fs.existsSync(summaryPath)){
