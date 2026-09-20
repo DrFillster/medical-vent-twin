@@ -254,7 +254,8 @@ jobs:
               pinnedRevision = "8dab57e05631f779bf5020fe0dd51874d8ae98c1"
             } | ConvertTo-Json | Set-Content (Join-Path $runtimeOut "executable-verification.json")
 
-            $proc = Start-Process -FilePath $exe -WorkingDirectory $hm -PassThru
+            $modelArg = '<model> HumMod.DES </model>'
+            $proc = Start-Process -FilePath $exe -WorkingDirectory $hm -ArgumentList ('"' + $modelArg + '"') -PassThru
             $status.processStarted = $true
             Start-Sleep -Seconds 8
 
