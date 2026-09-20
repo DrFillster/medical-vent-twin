@@ -194,8 +194,11 @@
     $('clinical-coupling-note').textContent = live
       ? 'Live reduced HumMod mode couples Vent recruitment/perfusion and mean airway pressure into source-aligned reduced gas, thorax, and circulation equations. Remaining engineering boundaries are explicit synthetic assumptions.'
       : 'Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.';
+    const reference = 'berlin-moderate-moderate-aspiration';
+    for (const option of Array.from($('clinical-case').options)) {
+      option.disabled = live && option.value !== reference;
+    }
     if (live) {
-      const reference = 'berlin-moderate-moderate-aspiration';
       if ($('clinical-case').value !== reference) {
         $('clinical-case').value = reference;
         renderClinicalCase(reference);
@@ -204,6 +207,8 @@
         $('clinical-mode').value = 'VC_AC';
         syncClinicalMode();
       }
+      $('clinical-executable').textContent = 'Live preview';
+      $('clinical-executable').dataset.status = 'ready';
     }
   }
 
