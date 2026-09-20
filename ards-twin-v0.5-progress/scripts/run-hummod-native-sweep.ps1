@@ -9,6 +9,9 @@ $root=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $out=[IO.Path]::GetFullPath($OutputDirectory)
 $scenarioDir=Join-Path $out 'scenarios'
 New-Item -ItemType Directory -Force -Path $scenarioDir | Out-Null
+$preflight=Join-Path $out 'preflight.json'
+node (Join-Path $root 'scripts/preflight-hummod-native-sweep.js') $BaselineSolution $SweepManifest $preflight
+if($LASTEXITCODE -ne 0){ throw "Native HumMod sweep preflight failed with exit code $LASTEXITCODE" }
 node (Join-Path $root 'scripts/materialize-hummod-native-sweep.js') $SweepManifest $scenarioDir
 $scenarioFiles=Get-ChildItem $scenarioDir -Filter '*.json' | Sort-Object Name
 if(-not $scenarioFiles.Count){ throw 'No sweep scenarios materialized.' }
@@ -65,6 +68,7 @@ if($sensitivitySummary){
 } else { $calibrationScreen=$null }
 $summary=[ordered]@{
   schema='vent-hummod-native-sweep-run/v1'
+  preflight=$preflight
   caseCount=$results.Count
   passedCount=@($results | Where-Object { $_.status -eq 'passed' }).Count
   failedCount=@($results | Where-Object { $_.status -ne 'passed' }).Count
