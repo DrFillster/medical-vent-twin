@@ -11,6 +11,12 @@ function fixture(){
     schema:'vent-hummod-trajectory/v1',
     trajectoryId:'native-fixture',
     source:{repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',exporterVersion:'fixture'},
+    nativeSolution:{reducedState:{
+      'O2Artys.[O2]':{first:0.196,final:0.194},
+      'O2Veins.[O2]':{first:0.157,final:0.155},
+      'CO2Artys.[HCO3]':{first:0.0240,final:0.0242},
+      'CO2Veins.[HCO3]':{first:0.0256,final:0.0258},
+    }},
     rows:[
       {timestampSec:0,values:{
         'PO2Artys.Pressure':90,'CO2Artys.Pressure':40,'BloodPh.ArtysPh':7.4,
@@ -31,6 +37,15 @@ test('native calibration bridge uses final verified endpoint row',()=>{
   assert(t.endpoints.meanArterialPressureMmHg===93);
   assert(t.endpoints.cardiacOutputLPerMin===5.1);
   assert(t.timestampSec===300);
+});
+
+test('native calibration bridge exposes complete reduced gas initial state',()=>{
+  const t=buildNativeReducedCalibrationTarget(fixture());
+  assert(t.nativeReducedState.available===true);
+  assert(t.nativeReducedState.initialState.arterialO2ContentMlPerMl===0.194);
+  assert(t.nativeReducedState.initialState.venousO2ContentMlPerMl===0.155);
+  assert(t.nativeReducedState.initialState.arterialHco3MolPerL===0.0242);
+  assert(t.nativeReducedState.initialState.venousHco3MolPerL===0.0258);
 });
 
 test('native calibration bridge cannot claim HumMod equivalence or Berlin calibration',()=>{
