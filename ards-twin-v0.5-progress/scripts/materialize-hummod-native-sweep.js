@@ -3,10 +3,10 @@
 
 const fs=require('node:fs');
 const path=require('node:path');
+const { validateNativeHumModSweep }=require('../src/hummod_native_sweep.js');
 const input=process.argv[2], outDir=process.argv[3];
 if(!input||!outDir) throw new Error('usage: node scripts/materialize-hummod-native-sweep.js <sweep.json> <output-dir>');
-const sweep=JSON.parse(fs.readFileSync(input,'utf8'));
-if(sweep.schema!=='vent-hummod-native-sweep/v1') throw new Error('unsupported sweep schema');
+const sweep=validateNativeHumModSweep(JSON.parse(fs.readFileSync(input,'utf8')));
 fs.mkdirSync(outDir,{recursive:true});
 const all=[{id:'baseline',mechanism:'baseline',assignments:sweep.baseline.assignments},...sweep.cases];
 for(const item of all){
