@@ -11,6 +11,9 @@ const HUMMOD_NATIVE_MUTABLE_PARAMETERS=Object.freeze({
   'Ventilator.Switch':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'boolean-numeric'}),
   'Ventilator.Rate':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'1/min'}),
   'Ventilator.TidalVolume':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'mL'}),
+  'AirSupply-GasTanks.Switch':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'boolean-numeric'}),
+  'AirSupply-GasTanks.O2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting'}),
+  'AirSupply-GasTanks.N2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting'}),
   'ExcessLungWater.Volume':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/ExcessLungWater.DES',unit:'mL'}),
   'PulmonaryMembrane.TotalArea':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/PulmonaryMembrane.DES',unit:'model-area'}),
   'PulmonaryMembrane.Thickness-Structure':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/PulmonaryMembrane.DES',unit:'model-thickness'}),
@@ -34,9 +37,17 @@ function validateNativeHumModScenario(spec){
     const value=spec.assignments[key];
     if(typeof value!=='number'||!Number.isFinite(value)) throw new Error('assignment '+key+' must be finite');
   }
-  if(Object.prototype.hasOwnProperty.call(spec.assignments,'Ventilator.Switch')){
-    const v=spec.assignments['Ventilator.Switch'];
-    if(v!==0&&v!==1) throw new Error('Ventilator.Switch must be 0 or 1');
+  for(const key of ['Ventilator.Switch','AirSupply-GasTanks.Switch']){
+    if(Object.prototype.hasOwnProperty.call(spec.assignments,key)){
+      const v=spec.assignments[key];
+      if(v!==0&&v!==1) throw new Error(key+' must be 0 or 1');
+    }
+  }
+  for(const key of ['AirSupply-GasTanks.O2Valve(%)','AirSupply-GasTanks.N2Valve(%)']){
+    if(Object.prototype.hasOwnProperty.call(spec.assignments,key)){
+      const v=spec.assignments[key];
+      if(v<0||v>100) throw new Error(key+' must be in [0,100]');
+    }
   }
   for(const key of ['Ventilator.Rate','Ventilator.TidalVolume','ExcessLungWater.Volume','PulmonaryMembrane.TotalArea','PulmonaryMembrane.Thickness-Structure','LungBloodFlow.BasicR-LShunt']){
     if(Object.prototype.hasOwnProperty.call(spec.assignments,key)&&spec.assignments[key]<0) throw new Error(key+' must be non-negative');
