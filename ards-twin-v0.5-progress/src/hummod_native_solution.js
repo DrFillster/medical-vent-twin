@@ -16,6 +16,19 @@ const {
 } = require('./hummod_raw_series_adapter.js');
 
 const HUMMOD_NATIVE_SOLN_EXPORTER_VERSION = 'native-soln-parser/1';
+const HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS = Object.freeze([
+  'AirSupply-InspiredAir.O2(%)',
+  'AirSupply-InspiredAir.PO2',
+  'LungBloodFlow.AlveolarShunt',
+  'LungBloodFlow.TotalShunt',
+  'RightHemithorax.LungInflation',
+  'LeftHemithorax.LungInflation',
+  'PulmonaryMembrane.Permeability',
+  'PulmonaryMembrane.DiffusingCapacity',
+  'PulmonaryMembrane.Thickness',
+  'PulmonaryMembrane.Recruitment',
+  'ExcessLungWater.Volume',
+]);
 
 function decodeXmlEntity(text) {
   return text
@@ -121,6 +134,19 @@ function parseHumModNativeSolution(text, {
     }
   }
 
+  const nativeDiagnostics = {};
+  for (const symbol of HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS) {
+    const values = variables.get(symbol);
+    if (!values || values.length !== expectedSamples) {
+      throw new Error('native solution missing diagnostic symbol or sample history: ' + symbol);
+    }
+    nativeDiagnostics[symbol] = Object.freeze({
+      first: values[0],
+      final: values[values.length - 1],
+      delta: values[values.length - 1] - values[0],
+    });
+  }
+
   const raw = {
     schema: HUMMOD_RAW_SERIES_SCHEMA,
     trajectoryId,
@@ -140,6 +166,7 @@ function parseHumModNativeSolution(text, {
       index: maxIndex,
       sampleCount: expectedSamples,
       variableCount: variables.size,
+      diagnostics: Object.freeze({ ...nativeDiagnostics }),
       scenarioApplied: Boolean(scenario),
       scenario: scenario ? Object.freeze({
         id: scenario.id || null,
@@ -156,5 +183,6 @@ function parseHumModNativeSolution(text, {
 
 module.exports = {
   HUMMOD_NATIVE_SOLN_EXPORTER_VERSION,
+  HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS,
   parseHumModNativeSolution,
 };
