@@ -68,24 +68,40 @@ if($sensitivitySummary){
 } else { $calibrationScreen=$null }
 
 $nativeReducedComparison=$null
+$nativeReducedUncalibratedComparison=$null
+$nativeReducedErrorDecomposition=$null
 $nativeCalibrationTarget=$null
 $reducedAlignmentProbe=$null
+$reducedUncalibratedProbe=$null
 if($baselineAvailable){
   try {
     $nativeCalibrationTarget=Join-Path $out 'native-reduced-calibration-target.json'
     node (Join-Path $root 'src/hummod_native_reduced_calibration.js') $baseline $nativeCalibrationTarget
     if($LASTEXITCODE -ne 0){ throw "Native calibration-target generation failed with exit code $LASTEXITCODE" }
 
-    $reducedAlignmentProbe=Join-Path $out 'reduced-native-alignment.json'
-    node (Join-Path $root 'scripts/reduced-native-alignment.js') $reducedAlignmentProbe $nativeCalibrationTarget
-    if($LASTEXITCODE -ne 0){ throw "Reduced-core alignment probe failed with exit code $LASTEXITCODE" }
+    $reducedUncalibratedProbe=Join-Path $out 'reduced-native-alignment-uncalibrated.json'
+    node (Join-Path $root 'scripts/reduced-native-alignment.js') $reducedUncalibratedProbe
+    if($LASTEXITCODE -ne 0){ throw "Uncalibrated reduced-core alignment probe failed with exit code $LASTEXITCODE" }
 
-    $nativeReducedComparison=Join-Path $out 'native-vs-reduced-comparison.json'
+    $nativeReducedUncalibratedComparison=Join-Path $out 'native-vs-reduced-uncalibrated-comparison.json'
+    node (Join-Path $root 'scripts/compare-native-reduced-hummod.js') $nativeCalibrationTarget $reducedUncalibratedProbe $nativeReducedUncalibratedComparison
+    if($LASTEXITCODE -ne 0){ throw "Uncalibrated native/reduced comparison failed with exit code $LASTEXITCODE" }
+
+    $reducedAlignmentProbe=Join-Path $out 'reduced-native-alignment-native-state-calibrated.json'
+    node (Join-Path $root 'scripts/reduced-native-alignment.js') $reducedAlignmentProbe $nativeCalibrationTarget
+    if($LASTEXITCODE -ne 0){ throw "Native-state-calibrated reduced-core alignment probe failed with exit code $LASTEXITCODE" }
+
+    $nativeReducedComparison=Join-Path $out 'native-vs-reduced-native-state-calibrated-comparison.json'
     node (Join-Path $root 'scripts/compare-native-reduced-hummod.js') $nativeCalibrationTarget $reducedAlignmentProbe $nativeReducedComparison
-    if($LASTEXITCODE -ne 0){ throw "Native/reduced comparison failed with exit code $LASTEXITCODE" }
+    if($LASTEXITCODE -ne 0){ throw "Native-state-calibrated native/reduced comparison failed with exit code $LASTEXITCODE" }
+
+    $nativeReducedErrorDecomposition=Join-Path $out 'native-reduced-error-decomposition.json'
+    node (Join-Path $root 'scripts/decompose-native-reduced-error.js') $nativeReducedUncalibratedComparison $nativeReducedComparison $nativeReducedErrorDecomposition
+    if($LASTEXITCODE -ne 0){ throw "Native/reduced error decomposition failed with exit code $LASTEXITCODE" }
   }
   catch {
     $nativeReducedComparison=$null
+    $nativeReducedErrorDecomposition=$null
     Set-Content -Path (Join-Path $out 'native-vs-reduced-error.txt') -Value $_.Exception.Message
     Write-Warning "Native/reduced HumMod comparison failed: $($_.Exception.Message)"
   }
@@ -101,8 +117,11 @@ $summary=[ordered]@{
   sensitivitySummary=$sensitivitySummary
   calibrationScreen=$calibrationScreen
   nativeCalibrationTarget=$nativeCalibrationTarget
+  reducedUncalibratedProbe=$reducedUncalibratedProbe
   reducedAlignmentProbe=$reducedAlignmentProbe
+  nativeReducedUncalibratedComparison=$nativeReducedUncalibratedComparison
   nativeReducedComparison=$nativeReducedComparison
+  nativeReducedErrorDecomposition=$nativeReducedErrorDecomposition
   clinicalValidation=$false
 }
 $runPath=Join-Path $out 'sweep-run.json'
