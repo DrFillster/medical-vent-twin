@@ -8,11 +8,18 @@ const { convertHumModRawSeries }=require('../src/hummod_raw_series_adapter.js');
 
 const input=process.argv[2];
 const outputDir=process.argv[3] || path.dirname(input || '.');
-if(!input) throw new Error('usage: node scripts/convert-hummod-native-solution.js <Vent.SOLN> [output-dir]');
+const scenarioPath=process.argv[4] || null;
+if(!input) throw new Error('usage: node scripts/convert-hummod-native-solution.js <Vent.SOLN> [output-dir] [scenario.json]');
+const scenario=scenarioPath ? JSON.parse(fs.readFileSync(scenarioPath,'utf8')) : null;
 const text=fs.readFileSync(input,'utf8');
 const raw=parseHumModNativeSolution(text,{
   trajectoryId:'hummod-default-native-5min-001',
   exporterVersion:'native-soln-parser/1',
+  scenario: scenario ? {
+    id: scenario.id,
+    scenarioClass: scenario.scenarioClass,
+    clinicalValidation: Boolean(scenario.provenance && scenario.provenance.clinicalValidation),
+  } : null,
 });
 const canonical=convertHumModRawSeries(raw);
 fs.mkdirSync(outputDir,{recursive:true});
@@ -26,5 +33,6 @@ console.log(JSON.stringify({
   startMinute:raw.rows[0]['System.X'],
   endMinute:raw.rows[raw.rows.length-1]['System.X'],
   symbols:raw.symbols,
-  scenarioApplied:false,
+  scenarioApplied:Boolean(scenario),
+  scenario:raw.nativeSolution.scenario,
 },null,2));
