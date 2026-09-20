@@ -72,6 +72,8 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
     respiratoryRatePerMin:'Breathing.RespRate',
     tidalVolumeBtpsMl:'Breathing.TidalVolume',
     deadSpaceBtpsMl:'Breathing.DeadSpace',
+    tempC:'HeatCore.Temp(C)',
+    carboxyPercent:'HgbConc.CarboxyPercent',
   };
   const nativeBoundaryValues={};
   const missingBoundaryState=[];
