@@ -63,3 +63,5 @@ export { makePatientParams, makeInitialState, makeBoundaryFlow,
          makeBoundaryPressure } from './contracts.js';
 export { forwardElasticVolume, dPressureDVolume,
          effectiveVolumeCapacity } from './compartments.js';
+
+export { HUMMOD_NATIVE_SOLN_EXPORTER_VERSION, parseHumModNativeSolution } from './hummod_native_solution.js';
