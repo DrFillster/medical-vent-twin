@@ -21,7 +21,7 @@ function validateNativeHumModSweep(sweep){
     provenance:{clinicalValidation:false},
   };
   validateNativeHumModScenario(baselineScenario);
-  const requiredVent=['Ventilator.Switch','Ventilator.Rate','Ventilator.TidalVolume','AirSupply-GasTanks.Switch','AirSupply-GasTanks.O2Valve(%)','AirSupply-GasTanks.N2Valve(%)'];
+  const requiredVent=['Ventilator.Switch','Ventilator.Rate','Ventilator.TidalVolume','AirSupply-GasTanks.Switch','AirSupply-GasTanks.O2Valve(%)','AirSupply-GasTanks.N2Valve(%)','AirSupply-GasTanks.CO2Valve(%)','AirSupply-GasTanks.COValve(PPM)','AirSupply-GasTanks.AnestheticValve(%)'];
   for(const key of requiredVent){
     if(!Object.prototype.hasOwnProperty.call(sweep.baseline.assignments,key)) throw new Error('baseline missing '+key);
   }
