@@ -1,0 +1,120 @@
+{
+  "schema": "vent-hummod-native-state-bridge-evidence/v1",
+  "capturedAt": "2026-09-20",
+  "source": {
+    "workflowRunId": 35507127440,
+    "artifactId": 10604870595,
+    "artifactName": "hummod-native-solution.zip",
+    "solutionFile": "Vent.SOLN",
+    "solutionBytes": 1710606,
+    "upstreamRepository": "riliescu/hummod-standalone",
+    "upstreamRevision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1"
+  },
+  "clock": {
+    "symbol": "System.X",
+    "sampleCount": 11,
+    "first": 0,
+    "last": 5,
+    "unit": "min"
+  },
+  "gasState": {
+    "O2Artys.[O2]": {
+      "sampleCount": 11,
+      "first": 0.196,
+      "final": 0.195589290552017
+    },
+    "O2Veins.[O2]": {
+      "sampleCount": 11,
+      "first": 0.157,
+      "final": 0.157100875044535
+    },
+    "CO2Artys.[HCO3]": {
+      "sampleCount": 11,
+      "first": 0.024,
+      "final": 0.0237446698546985
+    },
+    "CO2Veins.[HCO3]": {
+      "sampleCount": 11,
+      "first": 0.0256,
+      "final": 0.024979670686675
+    }
+  },
+  "circulationState": {
+    "SystemicArtys.Vol": {
+      "sampleCount": 11,
+      "first": 999,
+      "final": 1000.76593721242
+    },
+    "SystemicVeins.Vol": {
+      "sampleCount": 11,
+      "first": 2298.628756,
+      "final": 2305.05492428031
+    },
+    "RightAtrium.Vol": {
+      "sampleCount": 11,
+      "first": 51,
+      "final": 51.590582174816
+    },
+    "PulmArty.Vol": {
+      "sampleCount": 11,
+      "first": 201,
+      "final": 199.78082085826
+    },
+    "PulmCapys.Vol": {
+      "sampleCount": 11,
+      "first": 200,
+      "final": 199.64321463021
+    },
+    "PulmVeins.Vol": {
+      "sampleCount": 11,
+      "first": 211,
+      "final": 209.895432736838
+    },
+    "LeftAtrium.Vol": {
+      "sampleCount": 11,
+      "first": 51,
+      "final": 51.4001146947011
+    }
+  },
+  "endpoints": {
+    "PO2Artys.Pressure": {
+      "sampleCount": 11,
+      "first": 94.009870530838,
+      "final": 91.6627041224976
+    },
+    "CO2Artys.Pressure": {
+      "sampleCount": 11,
+      "first": 40.3937738764693,
+      "final": 39.6891557702546
+    },
+    "BloodPh.ArtysPh": {
+      "sampleCount": 11,
+      "first": 7.42310423895973,
+      "final": 7.43067013631846
+    },
+    "Heart-Rate.Rate": {
+      "sampleCount": 11,
+      "first": 72.1519231143317,
+      "final": 71.7615425847764
+    },
+    "SystemicArtys.Pressure": {
+      "sampleCount": 11,
+      "first": 96.1290322580645,
+      "final": 97.2683465886572
+    },
+    "CardiacOutput.Flow(L/Min)": {
+      "sampleCount": 11,
+      "first": 5.50405387990819,
+      "final": 5.40190385412399
+    }
+  },
+  "conclusions": {
+    "exactGasStateSymbolsPresent": true,
+    "exactReducedCirculationVolumeSymbolsPresent": true,
+    "historiesAlignedToSystemClock": true,
+    "usableWithoutAnotherNativeRunForDefaultBaselineCalibration": true,
+    "ardsScenario": false,
+    "berlinArdsCalibration": false,
+    "clinicalValidation": false
+  }
+}
