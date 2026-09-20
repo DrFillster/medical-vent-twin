@@ -70,6 +70,7 @@ if($sensitivitySummary){
 $nativeReducedComparison=$null
 $nativeReducedUncalibratedComparison=$null
 $nativeReducedErrorDecomposition=$null
+$nativeReducedGasEquationAlignment=$null
 $nativeCalibrationTarget=$null
 $reducedAlignmentProbe=$null
 $reducedUncalibratedProbe=$null
@@ -78,6 +79,10 @@ if($baselineAvailable){
     $nativeCalibrationTarget=Join-Path $out 'native-reduced-calibration-target.json'
     node (Join-Path $root 'src/hummod_native_reduced_calibration.js') $baseline $nativeCalibrationTarget
     if($LASTEXITCODE -ne 0){ throw "Native calibration-target generation failed with exit code $LASTEXITCODE" }
+
+    $nativeReducedGasEquationAlignment=Join-Path $out 'native-reduced-gas-equation-alignment.json'
+    node (Join-Path $root 'scripts/native-reduced-gas-equation-alignment.js') $nativeCalibrationTarget $nativeReducedGasEquationAlignment
+    if($LASTEXITCODE -ne 0){ throw "Native/reduced gas-equation alignment failed with exit code $LASTEXITCODE" }
 
     $reducedUncalibratedProbe=Join-Path $out 'reduced-native-alignment-uncalibrated.json'
     node (Join-Path $root 'scripts/reduced-native-alignment.js') $reducedUncalibratedProbe
@@ -122,6 +127,7 @@ $summary=[ordered]@{
   nativeReducedUncalibratedComparison=$nativeReducedUncalibratedComparison
   nativeReducedComparison=$nativeReducedComparison
   nativeReducedErrorDecomposition=$nativeReducedErrorDecomposition
+  nativeReducedGasEquationAlignment=$nativeReducedGasEquationAlignment
   clinicalValidation=$false
 }
 $runPath=Join-Path $out 'sweep-run.json'
