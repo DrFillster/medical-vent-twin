@@ -10,6 +10,7 @@ module.exports = {
   ...require('./hummod_export_contract.js'),
   ...require('./hummod_runner_contract.js'),
   ...require('./hummod_raw_series_adapter.js'),
+  ...require('./hummod_native_solution.js'),
   ...require('./hummod_remote_request.js'),
   ...require('./hummod_ards_core_combined_runtime.js'),
   ...require('./hummod_ards_core_hemodynamic_runtime.js'),
