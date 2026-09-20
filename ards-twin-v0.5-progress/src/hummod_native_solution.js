@@ -9,6 +9,7 @@ const {
   listVerifiedDirectMappings,
 } = require('./hummod_standalone_manifest.js');
 const { HUMMOD_SOURCE_CLOCK } = require('./hummod_runner_contract.js');
+const { HUMMOD_NATIVE_MUTABLE_PARAMETERS } = require('./hummod_native_scenario.js');
 const {
   HUMMOD_RAW_SERIES_SCHEMA,
   validateHumModRawSeries,
@@ -99,14 +100,24 @@ function parseHumModNativeSolution(text, {
       if (!values || values.length === 0) {
         throw new Error('native solution missing scenario assignment symbol: ' + symbol);
       }
-      const observed = values[values.length - 1];
+      const meta = HUMMOD_NATIVE_MUTABLE_PARAMETERS[symbol];
+      if (!meta) throw new Error('scenario assignment is not in native mutable whitelist: ' + symbol);
+      const verificationIndex = meta.persistence === 'dynamic-state' ? 0 : values.length - 1;
+      const observed = values[verificationIndex];
       const tolerance = Math.max(1e-9, Math.abs(expected) * 1e-9);
       if (Math.abs(observed - expected) > tolerance) {
         throw new Error(
           'native solution scenario assignment mismatch for ' + symbol +
-          ': expected ' + expected + ', observed ' + observed);
+          ' (' + meta.persistence + '): expected ' + expected + ', observed ' + observed +
+          ' at sample ' + verificationIndex);
       }
-      appliedAssignments[symbol] = observed;
+      appliedAssignments[symbol] = Object.freeze({
+        expected,
+        observedAtVerificationPoint: observed,
+        verificationSampleIndex: verificationIndex,
+        persistence: meta.persistence,
+        finalValue: values[values.length - 1],
+      });
     }
   }
 
