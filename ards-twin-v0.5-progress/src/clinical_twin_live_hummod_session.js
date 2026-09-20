@@ -157,6 +157,11 @@ function createBerlinLiveHumModSession({
     nativeCalibrationTarget.endpoints
       ? nativeCalibrationTarget.endpoints.heartRatePerMin
       : null;
+  const nativeCirculationVolumes = nativeCalibrationTarget &&
+    nativeCalibrationTarget.nativeCirculationState &&
+    nativeCalibrationTarget.nativeCirculationState.available
+      ? nativeCalibrationTarget.nativeCirculationState.initialVolumesMl
+      : null;
   if (nativeHeartRate != null) positive(nativeHeartRate, 'nativeCalibrationTarget.endpoints.heartRatePerMin');
   const effectiveCirculationBoundaries = Object.freeze({
     ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries,
@@ -197,7 +202,8 @@ function createBerlinLiveHumModSession({
   });
 
   const circulation = createHumModArdsCirculation({
-    initialVolumesMl: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.initialVolumesMl,
+    initialVolumesMl: nativeCirculationVolumes ||
+      LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.initialVolumesMl,
     boundaries: effectiveCirculationBoundaries,
     maxSubstepSec: 0.005,
   });
@@ -346,6 +352,7 @@ function createBerlinLiveHumModSession({
         mechanicalWarmupSec,
         nativeCalibrationApplied: Boolean(nativeCalibrationTarget),
         nativeGasStateApplied: Boolean(nativeState),
+        nativeCirculationStateApplied: Boolean(nativeCirculationVolumes),
       }),
       events: Object.freeze(sessionEvents.slice()),
       engineeringBoundaries: Object.freeze({
@@ -358,6 +365,7 @@ function createBerlinLiveHumModSession({
           targetId: nativeCalibrationTarget.targetId,
           heartRateApplied: nativeHeartRate,
           gasStateApplied: Boolean(nativeState),
+          circulationStateApplied: Boolean(nativeCirculationVolumes),
         }) : null,
       }),
       provenance: Object.freeze({
