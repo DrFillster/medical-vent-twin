@@ -34,6 +34,7 @@ function parseFinite(text, label) {
 function parseHumModNativeSolution(text, {
   trajectoryId = 'hummod-native-solution',
   exporterVersion = HUMMOD_NATIVE_SOLN_EXPORTER_VERSION,
+  scenario = null,
 } = {}) {
   if (typeof text !== 'string' || text.length === 0) {
     throw new Error('HumMod native solution text is required');
@@ -109,7 +110,12 @@ function parseHumModNativeSolution(text, {
       index: maxIndex,
       sampleCount: expectedSamples,
       variableCount: variables.size,
-      scenarioApplied: false,
+      scenarioApplied: Boolean(scenario),
+      scenario: scenario ? Object.freeze({
+        id: scenario.id || null,
+        scenarioClass: scenario.scenarioClass || null,
+        clinicalValidation: scenario.clinicalValidation === true,
+      }) : null,
     },
   };
 
