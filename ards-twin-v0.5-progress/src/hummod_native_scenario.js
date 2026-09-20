@@ -8,21 +8,21 @@
 const HUMMOD_NATIVE_SCENARIO_SCHEMA='vent-hummod-native-scenario/v1';
 
 const HUMMOD_NATIVE_MUTABLE_PARAMETERS=Object.freeze({
-  'Ventilator.Switch':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'boolean-numeric'}),
-  'Ventilator.Rate':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'1/min'}),
-  'Ventilator.TidalVolume':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'mL'}),
-  'AirSupply-GasTanks.Switch':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'boolean-numeric'}),
-  'AirSupply-GasTanks.O2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting'}),
-  'AirSupply-GasTanks.N2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting'}),
-  'AirSupply-GasTanks.CO2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting'}),
-  'AirSupply-GasTanks.COValve(PPM)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'ppm-setting'}),
-  'AirSupply-GasTanks.AnestheticValve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting'}),
-  'ExcessLungWater.Volume':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/ExcessLungWater.DES',unit:'mL'}),
-  'PulmonaryMembrane.TotalArea':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/PulmonaryMembrane.DES',unit:'model-area'}),
-  'PulmonaryMembrane.Thickness-Structure':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/PulmonaryMembrane.DES',unit:'model-thickness'}),
-  'LungBloodFlow.BasicR-LShunt':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/LungBloodFlow.DES',unit:'mL/min'}),
-  'RightHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/RightHemithorax.DES',unit:'model-pressure'}),
-  'LeftHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/LeftHemithorax.DES',unit:'model-pressure'}),
+  'Ventilator.Switch':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'boolean-numeric',persistence:'parameter'}),
+  'Ventilator.Rate':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'1/min',persistence:'parameter'}),
+  'Ventilator.TidalVolume':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'mL',persistence:'parameter'}),
+  'AirSupply-GasTanks.Switch':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'boolean-numeric',persistence:'parameter'}),
+  'AirSupply-GasTanks.O2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting',persistence:'parameter'}),
+  'AirSupply-GasTanks.N2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting',persistence:'parameter'}),
+  'AirSupply-GasTanks.CO2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting',persistence:'parameter'}),
+  'AirSupply-GasTanks.COValve(PPM)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'ppm-setting',persistence:'parameter'}),
+  'AirSupply-GasTanks.AnestheticValve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting',persistence:'parameter'}),
+  'ExcessLungWater.Volume':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/ExcessLungWater.DES',unit:'mL',persistence:'dynamic-state'}),
+  'PulmonaryMembrane.TotalArea':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/PulmonaryMembrane.DES',unit:'model-area',persistence:'parameter'}),
+  'PulmonaryMembrane.Thickness-Structure':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/PulmonaryMembrane.DES',unit:'model-thickness',persistence:'parameter'}),
+  'LungBloodFlow.BasicR-LShunt':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/LungBloodFlow.DES',unit:'mL/min',persistence:'parameter'}),
+  'RightHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/RightHemithorax.DES',unit:'model-pressure',persistence:'parameter'}),
+  'LeftHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/LeftHemithorax.DES',unit:'model-pressure',persistence:'parameter'}),
 });
 
 function validateNativeHumModScenario(spec){
