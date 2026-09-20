@@ -65,7 +65,14 @@ if($sensitivitySummary){
   $calibrationScreen=Join-Path $out 'calibration-screen.json'
   node (Join-Path $root 'scripts/rank-hummod-sweep-candidates.js') $sensitivitySummary $calibrationScreen
   if($LASTEXITCODE -ne 0){ $calibrationScreen=$null }
-} else { $calibrationScreen=$null }
+
+  $doseResponse=Join-Path $out 'dose-response.json'
+  node (Join-Path $root 'scripts/analyze-hummod-dose-response.js') $sensitivitySummary $SweepManifest $doseResponse
+  if($LASTEXITCODE -ne 0){ $doseResponse=$null }
+} else {
+  $calibrationScreen=$null
+  $doseResponse=$null
+}
 
 $nativeReducedComparison=$null
 $nativeReducedUncalibratedComparison=$null
@@ -121,6 +128,7 @@ $summary=[ordered]@{
   cases=$results
   sensitivitySummary=$sensitivitySummary
   calibrationScreen=$calibrationScreen
+  doseResponse=$doseResponse
   nativeCalibrationTarget=$nativeCalibrationTarget
   reducedUncalibratedProbe=$reducedUncalibratedProbe
   reducedAlignmentProbe=$reducedAlignmentProbe
