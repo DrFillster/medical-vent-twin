@@ -39,9 +39,15 @@ const tracked=[
  'PulmonaryMembrane.Permeability','PulmonaryMembrane.DiffusingCapacity','PulmonaryMembrane.Thickness','PulmonaryMembrane.Recruitment'
 ];
 const observables={};
+const clockValues=variables.get('System.X');
+if(!clockValues||!clockValues.length) throw new Error('baseline native solution missing System.X clock');
+const stateBridgeSymbols=new Set(['O2Artys.[O2]','O2Veins.[O2]','CO2Artys.[HCO3]','CO2Veins.[HCO3]']);
 for(const name of tracked){
   const values=variables.get(name);
   if(!values||!values.length) throw new Error('baseline native solution missing tracked observable: '+name);
+  if(stateBridgeSymbols.has(name) && values.length!==clockValues.length){
+    throw new Error('native reduced-state bridge history length mismatch for '+name+': '+values.length+' vs clock '+clockValues.length);
+  }
   observables[name]={sampleCount:values.length,first:values[0],last:values[values.length-1]};
 }
 
