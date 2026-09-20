@@ -43,6 +43,8 @@ const HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS = Object.freeze([
   'Breathing.RespRate',
   'Breathing.TidalVolume',
   'Breathing.DeadSpace',
+  'HeatCore.Temp(C)',
+  'HgbConc.CarboxyPercent',
 ]);
 
 const HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS = Object.freeze([
