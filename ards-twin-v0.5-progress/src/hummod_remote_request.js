@@ -7,8 +7,9 @@
 // non-interactively.
 //
 // IMPORTANT: this generator is schema-derived from HumMod documentation and
-// has not yet been executed against the pinned HumMod.EXE in this repository.
-// The returned metadata therefore reports runtimeVerified: false.
+// is rejected by the pinned HumMod.EXE at the remote bootstrap element.
+// The 2026-09-20 Windows probe captured parser error 2220. Generation remains
+// useful for a future compatible runtime; it does not establish executability.
 
 const {
   HUMMOD_RUN_REQUEST_SCHEMA,
@@ -104,7 +105,7 @@ function generateHumModRemoteRequest({
     schema: HUMMOD_REMOTE_REQUEST_SCHEMA,
     runtimeVerified: false,
     runtimeVerificationStatus:
-      'documentation-grounded-candidate-not-yet-executed-against-pinned-HumMod.EXE',
+      'pinned-runtime-rejects-remote-control',
     runRequest,
     outputFile,
     logFile,

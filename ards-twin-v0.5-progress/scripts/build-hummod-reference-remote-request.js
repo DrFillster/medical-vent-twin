@@ -10,11 +10,11 @@ const outDir = path.join(root, 'hummod-runner');
 fs.mkdirSync(outDir, { recursive: true });
 
 const runRequest = createHumModRunRequest({
-  trajectoryId: 'moderate-aspiration-reference-001',
+  trajectoryId: 'hummod-default-runtime-probe-001',
   durationSec: 300,
   sampleIntervalSec: 5,
-  scenarioId: 'berlin-moderate-moderate-aspiration',
-  notes: 'First real HumMod integration reference run; not a clinical patient.',
+  scenarioId: null,
+  notes: 'Default upstream model transport probe only. No ARDS, ventilator, or aspiration initialization is applied; not a Berlin reference trajectory.',
 });
 
 const remote = generateHumModRemoteRequest({
@@ -38,6 +38,8 @@ fs.writeFileSync(
     outputFile: remote.outputFile,
     logFile: remote.logFile,
     roster: remote.roster,
+    scenarioApplied: false,
+    intendedFutureScenarioId: 'berlin-moderate-moderate-aspiration',
     documentationBasis: remote.documentationBasis,
   }, null, 2) + '\n');
 
