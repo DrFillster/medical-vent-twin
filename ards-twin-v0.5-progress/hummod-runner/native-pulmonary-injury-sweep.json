@@ -11,7 +11,10 @@
       "Ventilator.TidalVolume": 450,
       "AirSupply-GasTanks.Switch": 1,
       "AirSupply-GasTanks.O2Valve(%)": 50,
-      "AirSupply-GasTanks.N2Valve(%)": 50
+      "AirSupply-GasTanks.N2Valve(%)": 50,
+      "AirSupply-GasTanks.CO2Valve(%)": 0,
+      "AirSupply-GasTanks.COValve(PPM)": 0,
+      "AirSupply-GasTanks.AnestheticValve(%)": 0
     }
   },
   "cases": [
@@ -25,7 +28,10 @@
         "ExcessLungWater.Volume": 250,
         "AirSupply-GasTanks.Switch": 1,
         "AirSupply-GasTanks.O2Valve(%)": 50,
-        "AirSupply-GasTanks.N2Valve(%)": 50
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
       }
     },
     {
@@ -39,7 +45,10 @@
         "LeftHemithorax.NormalPressure": 0,
         "AirSupply-GasTanks.Switch": 1,
         "AirSupply-GasTanks.O2Valve(%)": 50,
-        "AirSupply-GasTanks.N2Valve(%)": 50
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
       }
     },
     {
@@ -52,7 +61,10 @@
         "PulmonaryMembrane.TotalArea": 40,
         "AirSupply-GasTanks.Switch": 1,
         "AirSupply-GasTanks.O2Valve(%)": 50,
-        "AirSupply-GasTanks.N2Valve(%)": 50
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
       }
     },
     {
@@ -65,7 +77,10 @@
         "LungBloodFlow.BasicR-LShunt": 1000,
         "AirSupply-GasTanks.Switch": 1,
         "AirSupply-GasTanks.O2Valve(%)": 50,
-        "AirSupply-GasTanks.N2Valve(%)": 50
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
       }
     },
     {
@@ -82,7 +97,10 @@
         "LungBloodFlow.BasicR-LShunt": 500,
         "AirSupply-GasTanks.Switch": 1,
         "AirSupply-GasTanks.O2Valve(%)": 50,
-        "AirSupply-GasTanks.N2Valve(%)": 50
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
       }
     }
   ],
@@ -91,6 +109,7 @@
     "upstreamRevision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1",
     "rationale": "Each perturbation targets a source-verified HumMod pulmonary parameter. Ventilation and inspired-gas controls are held identical across baseline and injury cases. Values are exploratory engineering probes, not clinically calibrated ARDS settings.",
     "berlinArdsCalibration": false,
-    "peepRepresentation": "not-available-in-pinned-native-HumMod-ventilator; Berlin classification is therefore prohibited for this sweep"
+    "peepRepresentation": "not-available-in-pinned-native-HumMod-ventilator; Berlin classification is therefore prohibited for this sweep",
+    "inspiredGas": "source-native gas-tank controls fixed at O2 valve 50%, N2 valve 50%, CO2/CO/anesthetic zero; resulting inspired-gas variables must be verified in exported HumMod output before interpretation"
   }
 }
