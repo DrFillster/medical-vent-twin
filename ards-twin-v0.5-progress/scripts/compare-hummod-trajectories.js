@@ -2,6 +2,7 @@
 'use strict';
 
 const fs=require('node:fs');
+const path=require('node:path');
 
 const baselinePath=process.argv[2], scenarioPath=process.argv[3], outputPath=process.argv[4];
 if(!baselinePath||!scenarioPath||!outputPath) throw new Error('usage: node scripts/compare-hummod-trajectories.js <baseline.json> <scenario.json> <output.json>');
@@ -24,6 +25,24 @@ for(const symbol of symbols){
   if(!Number.isFinite(bv)||!Number.isFinite(sv)) throw new Error('missing finite endpoint '+symbol);
   endpoints[symbol]={baseline:bv,scenario:sv,delta:sv-bv};
 }
+const baselineRawPath=path.join(path.dirname(baselinePath),'Vent.raw-series.json');
+const scenarioRawPath=path.join(path.dirname(scenarioPath),'Vent.raw-series.json');
+const pulmonaryDiagnostics={};
+if(fs.existsSync(baselineRawPath)&&fs.existsSync(scenarioRawPath)){
+  const br=JSON.parse(fs.readFileSync(baselineRawPath,'utf8'));
+  const sr=JSON.parse(fs.readFileSync(scenarioRawPath,'utf8'));
+  const bd=br.nativeSolution?.diagnostics||{}, sd=sr.nativeSolution?.diagnostics||{};
+  for(const symbol of Object.keys(bd)){
+    if(!sd[symbol]) continue;
+    pulmonaryDiagnostics[symbol]={
+      baselineFinal:bd[symbol].final,
+      scenarioFinal:sd[symbol].final,
+      deltaFinal:sd[symbol].final-bd[symbol].final,
+      scenarioWithinRunDelta:sd[symbol].delta,
+    };
+  }
+}
+
 const report={
   schema:'vent-hummod-native-comparison/v1',
   baselineTrajectoryId:baseline.trajectoryId,
@@ -31,6 +50,7 @@ const report={
   baselineEndSec:b.timestampSec,
   scenarioEndSec:s.timestampSec,
   endpoints,
+  pulmonaryDiagnostics,
   interpretation:'engineering-delta-only',
   clinicalValidation:false,
 };
