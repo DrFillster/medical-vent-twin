@@ -38,6 +38,25 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
       missingNativeState.push(symbol);
     }
   }
+  const circulationStateMap={
+    systemicArteries:'SystemicArtys.Vol',
+    systemicVeins:'SystemicVeins.Vol',
+    rightAtrium:'RightAtrium.Vol',
+    pulmonaryArtery:'PulmArty.Vol',
+    pulmonaryCapillaries:'PulmCapys.Vol',
+    pulmonaryVeins:'PulmVeins.Vol',
+    leftAtrium:'LeftAtrium.Vol',
+  };
+  const nativeCirculationVolumesMl={};
+  const missingCirculationState=[];
+  for(const [targetName,symbol] of Object.entries(circulationStateMap)){
+    const state=rs[symbol];
+    if(state && typeof state.final==='number' && Number.isFinite(state.final) && state.final>0){
+      nativeCirculationVolumesMl[targetName]=state.final;
+    } else {
+      missingCirculationState.push(symbol);
+    }
+  }
   const target={
     schema:'vent-native-reduced-hummod-calibration-target/v1',
     targetId,
@@ -58,6 +77,13 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
       missingSymbols:Object.freeze(missingNativeState.slice()),
       sourceSymbols:Object.freeze({ ...stateMap }),
       initializationPolicy:'use final native baseline state as reduced-core initial state only when all four source states are present',
+    }),
+    nativeCirculationState:Object.freeze({
+      available:Object.keys(nativeCirculationVolumesMl).length===Object.keys(circulationStateMap).length,
+      initialVolumesMl:Object.freeze({ ...nativeCirculationVolumesMl }),
+      missingSymbols:Object.freeze(missingCirculationState.slice()),
+      sourceSymbols:Object.freeze({ ...circulationStateMap }),
+      initializationPolicy:'use final native baseline compartment volumes only when all seven reduced circulation compartments are present',
     }),
     mapping:Object.freeze({
       circulation:Object.freeze({
