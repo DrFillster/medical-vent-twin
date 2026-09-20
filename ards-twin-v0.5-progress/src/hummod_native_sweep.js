@@ -21,7 +21,7 @@ function validateNativeHumModSweep(sweep){
     provenance:{clinicalValidation:false},
   };
   validateNativeHumModScenario(baselineScenario);
-  const requiredVent=['Ventilator.Switch','Ventilator.Rate','Ventilator.TidalVolume'];
+  const requiredVent=['Ventilator.Switch','Ventilator.Rate','Ventilator.TidalVolume','AirSupply-GasTanks.Switch','AirSupply-GasTanks.O2Valve(%)','AirSupply-GasTanks.N2Valve(%)'];
   for(const key of requiredVent){
     if(!Object.prototype.hasOwnProperty.call(sweep.baseline.assignments,key)) throw new Error('baseline missing '+key);
   }
@@ -43,7 +43,7 @@ function validateNativeHumModSweep(sweep){
     validateNativeHumModScenario(scenario);
     for(const key of requiredVent){
       if(item.assignments[key]!==sweep.baseline.assignments[key]) {
-        throw new Error('case '+item.id+' must preserve baseline '+key);
+        throw new Error('case '+item.id+' must preserve baseline ventilation/inspired-gas setting '+key);
       }
     }
     const injuryKeys=Object.keys(item.assignments).filter(k=>!requiredVent.includes(k));
