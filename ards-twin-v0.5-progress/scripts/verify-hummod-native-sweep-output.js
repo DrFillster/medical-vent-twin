@@ -28,6 +28,9 @@ if(!fs.existsSync(calibrationTargetPath)){
   if(!target.nativeReducedState||target.nativeReducedState.available!==true){
     acceptable=false;findings.push({level:'error',code:'NATIVE_REDUCED_GAS_STATE_UNAVAILABLE',missing:target.nativeReducedState?.missingSymbols||null});
   }
+  if(!target.nativeCirculationState||target.nativeCirculationState.available!==true){
+    acceptable=false;findings.push({level:'error',code:'NATIVE_REDUCED_CIRCULATION_STATE_UNAVAILABLE',missing:target.nativeCirculationState?.missingSymbols||null});
+  }
 }
 if(!fs.existsSync(decompositionPath)){
   acceptable=false;findings.push({level:'error',code:'NATIVE_REDUCED_ERROR_DECOMPOSITION_MISSING'});
