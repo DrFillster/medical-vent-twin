@@ -49,6 +49,29 @@ function validateNativeHumModSweep(sweep){
     const injuryKeys=Object.keys(item.assignments).filter(k=>!requiredVent.includes(k));
     if(injuryKeys.length===0) throw new Error('case '+item.id+' has no pulmonary/thoracic perturbation');
   }
+  if(sweep.doseResponseFamilies!=null){
+    if(!Array.isArray(sweep.doseResponseFamilies)) throw new Error('doseResponseFamilies must be an array');
+    const familyIds=new Set();
+    for(const family of sweep.doseResponseFamilies){
+      if(!family||typeof family!=='object') throw new Error('dose-response family must be an object');
+      if(typeof family.id!=='string'||!family.id) throw new Error('dose-response family id is required');
+      if(familyIds.has(family.id)) throw new Error('duplicate dose-response family id: '+family.id);
+      familyIds.add(family.id);
+      if(typeof family.controlSymbol!=='string'||!family.controlSymbol) throw new Error('dose-response controlSymbol is required for '+family.id);
+      if(!Array.isArray(family.caseIds)||family.caseIds.length<2) throw new Error('dose-response family '+family.id+' requires at least two cases');
+      const seenCases=new Set();
+      for(const caseId of family.caseIds){
+        if(seenCases.has(caseId)) throw new Error('duplicate case '+caseId+' in dose-response family '+family.id);
+        seenCases.add(caseId);
+        const item=sweep.cases.find(x=>x.id===caseId);
+        if(!item) throw new Error('dose-response family '+family.id+' references unknown case '+caseId);
+        if(typeof item.assignments[family.controlSymbol]!=='number'||!Number.isFinite(item.assignments[family.controlSymbol])){
+          throw new Error('dose-response family '+family.id+' case '+caseId+' missing finite '+family.controlSymbol);
+        }
+      }
+    }
+  }
+
   return sweep;
 }
 
