@@ -38,7 +38,10 @@ const tracked=[
  'PulmCapys.Vol','PulmVeins.Vol','LeftAtrium.Vol',
  'AirSupply-InspiredAir.O2(%)','AirSupply-InspiredAir.PO2',
  'LungBloodFlow.AlveolarShunt','RightHemithorax.LungInflation','LeftHemithorax.LungInflation',
- 'PulmonaryMembrane.Permeability','PulmonaryMembrane.DiffusingCapacity','PulmonaryMembrane.Thickness','PulmonaryMembrane.Recruitment'
+ 'PulmonaryMembrane.Permeability','PulmonaryMembrane.DiffusingCapacity','PulmonaryMembrane.Thickness','PulmonaryMembrane.Recruitment',
+ 'LungBloodFlow.AlveolarVentilated','O2Total.Outflow','CO2Total.Inflow','BloodIons.[SID]',
+ 'HgbConc.[O2Max]','AirSupply-InspiredAir.Pressure','AirSupply-InspiredAir.CO2(%)',
+ 'Breathing.RespRate','Breathing.TidalVolume','Breathing.DeadSpace','HeatCore.Temp(C)','HgbConc.CarboxyPercent'
 ];
 const observables={};
 const clockValues=variables.get('System.X');
@@ -46,7 +49,12 @@ if(!clockValues||!clockValues.length) throw new Error('baseline native solution 
 const stateBridgeSymbols=new Set([
   'O2Artys.[O2]','O2Veins.[O2]','CO2Artys.[HCO3]','CO2Veins.[HCO3]',
   'SystemicArtys.Vol','SystemicVeins.Vol','RightAtrium.Vol','PulmArty.Vol',
-  'PulmCapys.Vol','PulmVeins.Vol','LeftAtrium.Vol'
+  'PulmCapys.Vol','PulmVeins.Vol','LeftAtrium.Vol',
+  'PulmonaryMembrane.Permeability','LungBloodFlow.AlveolarVentilated',
+  'O2Total.Outflow','CO2Total.Inflow','BloodIons.[SID]','HgbConc.[O2Max]',
+  'AirSupply-InspiredAir.Pressure','AirSupply-InspiredAir.CO2(%)',
+  'Breathing.RespRate','Breathing.TidalVolume','Breathing.DeadSpace',
+  'HeatCore.Temp(C)','HgbConc.CarboxyPercent'
 ]);
 for(const name of tracked){
   const values=variables.get(name);
