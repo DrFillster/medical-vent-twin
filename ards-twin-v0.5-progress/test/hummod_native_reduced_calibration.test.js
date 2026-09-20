@@ -23,6 +23,21 @@ function fixture(){
       'PulmCapys.Vol':{first:200,final:202},
       'PulmVeins.Vol':{first:211,final:213},
       'LeftAtrium.Vol':{first:51,final:49},
+    },reducedBoundary:{
+      'PulmonaryMembrane.Permeability':{first:97.6,final:97.4},
+      'LungBloodFlow.AlveolarVentilated':{first:5154,final:5147},
+      'O2Total.Outflow':{first:209,final:210},
+      'CO2Total.Inflow':{first:7.45,final:6.08},
+      'BloodIons.[SID]':{first:0.04068,final:0.04067},
+      'HgbConc.[O2Max]':{first:0.2002,final:0.2003},
+      'AirSupply-InspiredAir.Pressure':{first:760,final:760},
+      'AirSupply-InspiredAir.CO2(%)':{first:0,final:0},
+      'AirSupply-InspiredAir.O2(%)':{first:50,final:50},
+      'Breathing.RespRate':{first:16,final:16},
+      'Breathing.TidalVolume':{first:450,final:450},
+      'Breathing.DeadSpace':{first:150,final:150},
+      'HeatCore.Temp(C)':{first:37,final:37.02},
+      'HgbConc.CarboxyPercent':{first:0.39,final:0.39},
     }},
     rows:[
       {timestampSec:0,values:{
@@ -62,6 +77,17 @@ test('native calibration bridge exposes complete reduced circulation state',()=>
   assert(t.nativeCirculationState.initialVolumesMl.systemicVeins===2677);
   assert(t.nativeCirculationState.initialVolumesMl.pulmonaryCapillaries===202);
   assert(t.nativeCirculationState.initialVolumesMl.leftAtrium===49);
+});
+
+test('native calibration bridge exposes source-native reduced boundaries',()=>{
+  const t=buildNativeReducedCalibrationTarget(fixture());
+  assert(t.nativeReducedBoundary.available===true);
+  assert(t.nativeReducedBoundary.values.fio2===0.5);
+  assert(t.nativeReducedBoundary.values.respiratoryRatePerMin===16);
+  assert(t.nativeReducedBoundary.values.tidalVolumeBtpsMl===450);
+  assert(t.nativeReducedBoundary.values.ventilatedPulmonaryBloodFlowMlPerMin===5147);
+  assert(t.nativeReducedBoundary.values.tissueO2UseMlPerMin===210);
+  assert(t.nativeReducedBoundary.values.inspiredCo2Fraction===0);
 });
 
 test('native calibration bridge cannot claim HumMod equivalence or Berlin calibration',()=>{
