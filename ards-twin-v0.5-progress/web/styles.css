@@ -39,3 +39,8 @@ input[type="file"]::file-selector-button{max-width:100%;margin-right:6px}
   .monitor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:390px){.monitor-grid{grid-template-columns:1fr}}
+
+/* Keep research-readiness metadata out of the primary bedside-style workflow. */
+.clinical-preview>.readiness-block{display:none}
+.engineering-provider>summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted)}
+.engineering-provider[open]>summary{margin-bottom:10px}
