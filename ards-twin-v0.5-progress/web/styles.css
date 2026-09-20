@@ -17,3 +17,25 @@ input[type="file"]::file-selector-button{max-width:100%;margin-right:6px}
 .dev-banner{display:inline-block;margin:0 0 14px;padding:7px 10px;border:1px solid #d5b46b;border-radius:999px;background:#fff7df;color:#6f4b09;font-size:11px;font-weight:800;letter-spacing:.04em}
 .demo-actions{position:static!important;bottom:auto!important;padding:0!important;margin-top:8px}
 @media(max-width:360px){.clinical-session .field-grid,.clinical-actions-grid{grid-template-columns:1fr}.clinical-session form,.clinical-session details,.clinical-preview{overflow-x:hidden}.clinical-session input,.clinical-session select,.clinical-session button{max-width:100%}}
+
+
+/* v0.6 product shell: patient -> monitor -> interventions. */
+.product-launch{display:flex;align-items:center;gap:18px;margin:18px 0 20px;padding:18px;border:1px solid var(--line);border-radius:12px;background:#f8fafb}
+.product-launch button{flex:0 0 auto;width:auto;padding-left:22px;padding-right:22px}
+.product-launch p{margin:0;color:var(--muted);font-size:13px;max-width:680px}
+.monitor-heading,.interventions-heading{margin-top:22px}
+.monitor-grid article p small{font-size:11px;font-weight:500;color:var(--muted)}
+.engineering-provider{margin-top:14px;padding:12px;border:1px dashed var(--line);border-radius:10px;background:#fbfcfd}
+.engineering-provider label{margin-top:0}
+.product-setup-note{font-size:13px}
+.legacy-lab{display:none!important}
+.clinical-preview{max-width:1180px;margin:0 auto}
+.clinical-session>summary{font-size:16px;font-weight:750}
+#clinical-live{scroll-margin-top:12px}
+@media(max-width:700px){
+  .product-launch{display:block}
+  .product-launch button{width:100%;margin-bottom:10px}
+  .product-launch p{font-size:12px}
+  .monitor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:390px){.monitor-grid{grid-template-columns:1fr}}
