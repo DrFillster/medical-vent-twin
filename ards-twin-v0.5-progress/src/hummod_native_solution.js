@@ -16,6 +16,13 @@ const {
 } = require('./hummod_raw_series_adapter.js');
 
 const HUMMOD_NATIVE_SOLN_EXPORTER_VERSION = 'native-soln-parser/1';
+const HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS = Object.freeze([
+  'O2Artys.[O2]',
+  'O2Veins.[O2]',
+  'CO2Artys.[HCO3]',
+  'CO2Veins.[HCO3]',
+]);
+
 const HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS = Object.freeze([
   'AirSupply-InspiredAir.O2(%)',
   'AirSupply-InspiredAir.PO2',
@@ -134,6 +141,17 @@ function parseHumModNativeSolution(text, {
     }
   }
 
+  const reducedState = {};
+  for (const symbol of HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS) {
+    const values = variables.get(symbol);
+    if (values && values.length === expectedSamples) {
+      reducedState[symbol] = Object.freeze({
+        first: values[0],
+        final: values[values.length - 1],
+      });
+    }
+  }
+
   const nativeDiagnostics = {};
   for (const symbol of HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS) {
     const values = variables.get(symbol);
@@ -166,6 +184,7 @@ function parseHumModNativeSolution(text, {
       index: maxIndex,
       sampleCount: expectedSamples,
       variableCount: variables.size,
+      reducedState: Object.freeze({ ...reducedState }),
       diagnostics: Object.freeze({ ...nativeDiagnostics }),
       scenarioApplied: Boolean(scenario),
       scenario: scenario ? Object.freeze({
@@ -183,6 +202,7 @@ function parseHumModNativeSolution(text, {
 
 module.exports = {
   HUMMOD_NATIVE_SOLN_EXPORTER_VERSION,
+  HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS,
   HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS,
   parseHumModNativeSolution,
 };
