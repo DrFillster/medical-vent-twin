@@ -24,6 +24,16 @@ const vars = {
   'CardiacOutput.Flow(L/Min)':[5.5,5.4,5.3],
   'Ventilator.Rate':[16,16,16],
   'ExcessLungWater.Volume':[250,249,248],
+  'AirSupply-InspiredAir.O2(%)':[50,50,50],
+  'AirSupply-InspiredAir.PO2':[380,380,380],
+  'LungBloodFlow.AlveolarShunt':[0,100,120],
+  'LungBloodFlow.TotalShunt':[220,320,340],
+  'RightHemithorax.LungInflation':[1,0.8,0.8],
+  'LeftHemithorax.LungInflation':[1,0.8,0.8],
+  'PulmonaryMembrane.Permeability':[97,60,55],
+  'PulmonaryMembrane.DiffusingCapacity':[19.4,12,11],
+  'PulmonaryMembrane.Thickness':[0.6,1.0,1.1],
+  'PulmonaryMembrane.Recruitment':[0.26,0.24,0.23],
 };
 function fixture(overrides={}) {
   const source={...vars,...overrides};
@@ -87,6 +97,14 @@ test('native SOLN rejects scenario assignment mismatch',()=>{
     });
   } catch(e){ threw=/assignment mismatch/.test(e.message); }
   assert(threw);
+});
+
+
+test('native SOLN retains pulmonary diagnostic endpoints',()=>{
+  const raw=parseHumModNativeSolution(fixture());
+  assert(raw.nativeSolution.diagnostics['AirSupply-InspiredAir.O2(%)'].final===50);
+  assert(raw.nativeSolution.diagnostics['LungBloodFlow.AlveolarShunt'].final===120);
+  assert(raw.nativeSolution.diagnostics['PulmonaryMembrane.Thickness'].delta===0.5000000000000001 || Math.abs(raw.nativeSolution.diagnostics['PulmonaryMembrane.Thickness'].delta-0.5)<1e-12);
 });
 
 test('native SOLN rejects missing verified symbols',()=>{
