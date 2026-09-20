@@ -1,6 +1,6 @@
 'use strict';
 
-importScripts('./engine.js?v=0.5-alpha');
+importScripts('./engine.js?v=0.6');
 
 let session = null;
 
@@ -15,9 +15,14 @@ self.onmessage = ({ data }) => {
 
     if (type === 'initialize') {
       const payload = data.payload || {};
-      session = payload.systemicMode === 'live-core'
-        ? VENT.createBerlinLiveHumModSession(payload)
-        : VENT.createBerlinClinicalTwinSession(payload);
+      const provider = data.provider || payload.systemicMode;
+      if (provider === 'live-reduced-hummod' || provider === 'live-core') {
+        session = VENT.createBerlinLiveHumModSession(payload);
+      } else if (provider === 'replay') {
+        session = VENT.createBerlinClinicalTwinSession(payload);
+      } else {
+        throw new Error('Unsupported systemic physiology provider: ' + String(provider));
+      }
       const snapshot = session.initialize();
       self.postMessage({ type: 'initialized', snapshot });
       return;
