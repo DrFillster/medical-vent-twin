@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory)][string]$HumModRoot,
-  [Parameter(Mandatory)][string]$OutputDirectory
+  [Parameter(Mandatory)][string]$OutputDirectory,
+  [string]$LoadSolution
 )
 $ErrorActionPreference = 'Stop'
 $hm = (Resolve-Path $HumModRoot).Path
@@ -130,6 +131,28 @@ try {
   if(-not $script:mainWindow) { throw 'HumMod main window did not load.' }
   $errors=@([HumModNative]::Windows([uint32]$proc.Id,$true) | Where-Object { $_.Text -match 'PARSER REPORT|Parsing Error' })
   if($errors.Count) { throw 'Native model parsing failed; see loaded.json.' }
+  if($LoadSolution) {
+    $loadPath=(Resolve-Path $LoadSolution).Path
+    $load=@([HumModNative]::Menu($script:mainWindow.Handle) | Where-Object { $_.Path -eq '/File/Load Solution' })
+    if($load.Count -ne 1) { throw 'Cannot identify unique Load Solution command.' }
+    [HumModNative]::Command($script:mainWindow.Handle,$load[0].Id)
+    Start-Sleep -Seconds 3
+    $dialogs=@([HumModNative]::Windows([uint32]$proc.Id,$false) | Where-Object { $_.Class -eq '#32770' -and $_.Text -match '(?i)load|open' })
+    if($dialogs.Count -ne 1) { throw 'Cannot identify unique native Load Solution dialog.' }
+    $dialog=$dialogs[0]
+    $edits=@([HumModNative]::Children($dialog.Handle) | Where-Object { $_.Class -eq 'Edit' })
+    $filename=@($edits | Where-Object { $_.Id -eq 1148 -or $_.Id -eq 1001 })
+    if($filename.Count -ne 1) { if($edits.Count -eq 1) { $filename=$edits } else { throw 'Cannot identify load filename edit control.' } }
+    [HumModNative]::TypeText($filename[0].Handle,('"'+$loadPath+'"'))
+    $button=@([HumModNative]::Children($dialog.Handle) | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
+    if($button.Count -ne 1) { throw 'Cannot identify Load button.' }
+    [HumModNative]::PostMessage([IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
+    Start-Sleep -Seconds 8
+    $status.loadedSolution=$loadPath
+    Save-Diagnostics 'scenario-loaded'
+    $loadErrors=@([HumModNative]::Windows([uint32]$proc.Id,$true) | Where-Object { $_.Text -match 'PARSER REPORT|Parsing Error|Error' })
+    if($loadErrors.Count) { throw 'Native solution load reported an error; see scenario-loaded.json.' }
+  }
   $menus=@([HumModNative]::Menu($script:mainWindow.Handle))
   $advance=@($menus | Where-Object { $_.Path -match '/Go/5 Min$' })
   if($advance.Count -ne 1) { throw 'Cannot identify unique Go / 5 Min command.' }
