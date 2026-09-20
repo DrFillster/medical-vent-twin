@@ -57,6 +57,32 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
       missingCirculationState.push(symbol);
     }
   }
+  const rb=trajectory.nativeSolution && trajectory.nativeSolution.reducedBoundary
+    ? trajectory.nativeSolution.reducedBoundary : {};
+  const boundaryMap={
+    membranePermeabilityMlPerMinPerMmHg:'PulmonaryMembrane.Permeability',
+    ventilatedPulmonaryBloodFlowMlPerMin:'LungBloodFlow.AlveolarVentilated',
+    tissueO2UseMlPerMin:'O2Total.Outflow',
+    tissueCo2ProductionMmolPerMin:'CO2Total.Inflow',
+    sidMolPerL:'BloodIons.[SID]',
+    o2MaxMlPerMl:'HgbConc.[O2Max]',
+    barometricPressureMmHg:'AirSupply-InspiredAir.Pressure',
+    inspiredCo2Percent:'AirSupply-InspiredAir.CO2(%)',
+  };
+  const nativeBoundaryValues={};
+  const missingBoundaryState=[];
+  for(const [targetName,symbol] of Object.entries(boundaryMap)){
+    const state=rb[symbol];
+    if(state && typeof state.final==='number' && Number.isFinite(state.final)){
+      nativeBoundaryValues[targetName]=state.final;
+    } else {
+      missingBoundaryState.push(symbol);
+    }
+  }
+  if(Object.prototype.hasOwnProperty.call(nativeBoundaryValues,'inspiredCo2Percent')){
+    nativeBoundaryValues.inspiredCo2Fraction=nativeBoundaryValues.inspiredCo2Percent/100;
+    delete nativeBoundaryValues.inspiredCo2Percent;
+  }
   const target={
     schema:'vent-native-reduced-hummod-calibration-target/v1',
     targetId,
@@ -84,6 +110,13 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
       missingSymbols:Object.freeze(missingCirculationState.slice()),
       sourceSymbols:Object.freeze({ ...circulationStateMap }),
       initializationPolicy:'use final native baseline compartment volumes only when all seven reduced circulation compartments are present',
+    }),
+    nativeReducedBoundary:Object.freeze({
+      available:missingBoundaryState.length===0,
+      values:Object.freeze({ ...nativeBoundaryValues }),
+      missingSymbols:Object.freeze(missingBoundaryState.slice()),
+      sourceSymbols:Object.freeze({ ...boundaryMap }),
+      policy:'engineering equation-alignment only; native boundary values are not patient calibration',
     }),
     mapping:Object.freeze({
       circulation:Object.freeze({
