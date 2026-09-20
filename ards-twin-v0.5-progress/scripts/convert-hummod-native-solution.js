@@ -19,6 +19,7 @@ const raw=parseHumModNativeSolution(text,{
     id: scenario.id,
     scenarioClass: scenario.scenarioClass,
     clinicalValidation: Boolean(scenario.provenance && scenario.provenance.clinicalValidation),
+    assignments: scenario.assignments || null,
   } : null,
 });
 const canonical=convertHumModRawSeries(raw);
