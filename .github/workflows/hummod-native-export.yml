@@ -47,7 +47,7 @@ jobs:
             -LoadSolution ./hummod-native-output/Vent-probe-input.SOLN `
             -OutputDirectory ./hummod-native-probe-output
       - name: Convert transport-probe output
-        run: node ards-twin-v0.5-progress/scripts/convert-hummod-native-solution.js hummod-native-probe-output/Vent.SOLN hummod-native-probe-output
+        run: node ards-twin-v0.5-progress/scripts/convert-hummod-native-solution.js hummod-native-probe-output/Vent.SOLN hummod-native-probe-output ards-twin-v0.5-progress/hummod-runner/native-ventilation-probe.json
       - name: Upload native ventilation probe artifacts
         if: always()
         uses: actions/upload-artifact@v4
