@@ -68,6 +68,10 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
     o2MaxMlPerMl:'HgbConc.[O2Max]',
     barometricPressureMmHg:'AirSupply-InspiredAir.Pressure',
     inspiredCo2Percent:'AirSupply-InspiredAir.CO2(%)',
+    inspiredO2Percent:'AirSupply-InspiredAir.O2(%)',
+    respiratoryRatePerMin:'Breathing.RespRate',
+    tidalVolumeBtpsMl:'Breathing.TidalVolume',
+    deadSpaceBtpsMl:'Breathing.DeadSpace',
   };
   const nativeBoundaryValues={};
   const missingBoundaryState=[];
@@ -82,6 +86,10 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
   if(Object.prototype.hasOwnProperty.call(nativeBoundaryValues,'inspiredCo2Percent')){
     nativeBoundaryValues.inspiredCo2Fraction=nativeBoundaryValues.inspiredCo2Percent/100;
     delete nativeBoundaryValues.inspiredCo2Percent;
+  }
+  if(Object.prototype.hasOwnProperty.call(nativeBoundaryValues,'inspiredO2Percent')){
+    nativeBoundaryValues.fio2=nativeBoundaryValues.inspiredO2Percent/100;
+    delete nativeBoundaryValues.inspiredO2Percent;
   }
   const target={
     schema:'vent-native-reduced-hummod-calibration-target/v1',
