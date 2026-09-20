@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $hm = (Resolve-Path $HumModRoot).Path
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $outDir = (Resolve-Path $OutputDirectory).Path
-$solutionPath = Join-Path $outDir 'HumMod-default.SOLN'
+$solutionPath = Join-Path $hm 'Vent.SOLN'
 if (Test-Path $solutionPath) { throw 'Refusing to overwrite an existing solution export.' }
 Add-Type -TypeDefinition @'
 using System;
@@ -86,6 +86,19 @@ $proc=$null
 function Save-Diagnostics([string]$stage) {
   $data=[ordered]@{stage=$stage;windows=@([HumModNative]::Windows([uint32]$proc.Id,$true))}
   if($script:mainWindow) { $data.menu=@([HumModNative]::Menu($script:mainWindow.Handle)) }
+  try {
+    Add-Type -AssemblyName UIAutomationClient
+    Add-Type -AssemblyName UIAutomationTypes
+    $names = @()
+    foreach ($w in @([HumModNative]::Windows([uint32]$proc.Id,$false))) {
+      $element=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$w.Handle)
+      $descendants=$element.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+      foreach($child in $descendants) {
+        if($child.Current.Name) { $names += $child.Current.Name }
+      }
+    }
+    $data.accessibleNames=$names
+  } catch { $data.accessibilityError=$_.Exception.Message }
   $data | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $outDir "$stage.json")
   $data | ConvertTo-Json -Depth 8 | Write-Output
 }
@@ -121,7 +134,7 @@ try {
   if($filename.Count -ne 1) {
     if($edits.Count -eq 1) { $filename=$edits } else { throw 'Cannot identify filename edit control.' }
   }
-  [HumModNative]::SetText($filename[0].Handle,$solutionPath)
+  [HumModNative]::SetText($filename[0].Handle,'Vent.SOLN')
   [HumModNative]::Command($dialog.Handle,1)
   $deadline=(Get-Date).AddSeconds(60)
   $lastLength=-1
@@ -135,6 +148,7 @@ try {
   }
   Save-Diagnostics 'saved'
   if(-not (Test-Path $solutionPath)) { throw 'Native solution file was not created.' }
+  Copy-Item $solutionPath (Join-Path $outDir 'HumMod-default.SOLN')
   $status.outputBytes=(Get-Item $solutionPath).Length
   $status.outputSha256=(Get-FileHash $solutionPath -Algorithm SHA256).Hash
   $status.outputCaptured=$status.outputBytes -gt 0

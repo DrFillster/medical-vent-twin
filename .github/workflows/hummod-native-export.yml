@@ -21,7 +21,7 @@ jobs:
           ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
           path: hummod-standalone
       - name: Export native solution
-        shell: pwsh
+        shell: powershell
         run: |
           ./ards-twin-v0.5-progress/scripts/export-hummod-native.ps1 `
             -HumModRoot ./hummod-standalone `
