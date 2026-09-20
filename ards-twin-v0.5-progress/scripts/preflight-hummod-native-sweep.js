@@ -33,6 +33,7 @@ for(const name of [...requested].sort()){
 const tracked=[
  'System.X','PO2Artys.Pressure','CO2Artys.Pressure','BloodPh.ArtysPh',
  'Heart-Rate.Rate','SystemicArtys.Pressure','CardiacOutput.Flow(L/Min)',
+ 'O2Artys.[O2]','O2Veins.[O2]','CO2Artys.[HCO3]','CO2Veins.[HCO3]',
  'AirSupply-InspiredAir.O2(%)','AirSupply-InspiredAir.PO2',
  'LungBloodFlow.AlveolarShunt','RightHemithorax.LungInflation','LeftHemithorax.LungInflation',
  'PulmonaryMembrane.Permeability','PulmonaryMembrane.DiffusingCapacity','PulmonaryMembrane.Thickness','PulmonaryMembrane.Recruitment'
@@ -55,6 +56,7 @@ const report={
  peepRepresentation:'not-available-in-pinned-native-HumMod-ventilator',
  berlinClassificationAllowed:false,
  clinicalValidation:false,
+ reducedCoreStateBridgeRequired:true,
  readyForOneShotWindowsRun:true,
 };
 fs.writeFileSync(outputPath,JSON.stringify(report,null,2)+'\n');
