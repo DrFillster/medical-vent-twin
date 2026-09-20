@@ -33,6 +33,18 @@ const vars = {
   'PulmCapys.Vol':[200,201,202],
   'PulmVeins.Vol':[211,212,213],
   'LeftAtrium.Vol':[51,50,49],
+  'LungBloodFlow.AlveolarVentilated':[5154,5149,5147],
+  'O2Total.Outflow':[209,209.5,210],
+  'CO2Total.Inflow':[7.45,6.7,6.08],
+  'BloodIons.[SID]':[0.04068,0.04067,0.04067],
+  'HgbConc.[O2Max]':[0.2002,0.2003,0.2003],
+  'AirSupply-InspiredAir.Pressure':[760,760,760],
+  'AirSupply-InspiredAir.CO2(%)':[0,0,0],
+  'Breathing.RespRate':[16,16,16],
+  'Breathing.TidalVolume':[450,450,450],
+  'Breathing.DeadSpace':[150,150,150],
+  'HeatCore.Temp(C)':[37,37.01,37.02],
+  'HgbConc.CarboxyPercent':[0.39,0.39,0.39],
   'Ventilator.Rate':[16,16,16],
   'ExcessLungWater.Volume':[250,249,248],
   'AirSupply-InspiredAir.O2(%)':[50,50,50],
@@ -74,6 +86,14 @@ test('native SOLN retains exact reduced-core gas state when exported',()=>{
   assert(raw.nativeSolution.reducedState['PulmCapys.Vol'].final===202);
   const canonical=convertHumModRawSeries(raw);
   assert(canonical.nativeSolution.reducedState['O2Artys.[O2]'].final===0.194);
+});
+
+test('native SOLN retains reduced-core equation boundaries',()=>{
+  const raw=parseHumModNativeSolution(fixture());
+  assert(raw.nativeSolution.reducedBoundary['LungBloodFlow.AlveolarVentilated'].final===5147);
+  assert(raw.nativeSolution.reducedBoundary['O2Total.Outflow'].final===210);
+  assert(raw.nativeSolution.reducedBoundary['BloodIons.[SID]'].final===0.04067);
+  assert(raw.nativeSolution.reducedBoundary['Breathing.RespRate'].final===16);
 });
 
 test('native SOLN feeds canonical trajectory conversion',()=>{
