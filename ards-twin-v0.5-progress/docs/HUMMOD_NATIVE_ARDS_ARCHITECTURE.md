@@ -23,11 +23,13 @@ Therefore a native HumMod pulmonary-injury sweep must **not** be labeled a Berli
 
 The workbench sweep fixes ventilation and the complete native inspired-gas mixture across all cases, varies only whitelisted pulmonary/thoracic mechanisms, and records exact scenario assignments in the re-exported SOLN. The parser rejects a run if a requested assignment is missing or not preserved after native HumMod reload/advance.
 
+The one-shot experiment now includes small dose-response families for excess lung water, membrane area, basic right-to-left shunt, and bilateral hemithorax pressure, plus a combined perturbation. This is deliberately batched so the next Windows execution can test direction and monotonicity without spending separate GitHub Actions runs.
+
 The output is an engineering sensitivity report. It intentionally does not calculate or assign a Berlin category.
 
 ## Native-to-browser calibration gate
 
-The same one-shot experiment now generates a native HumMod endpoint target and runs a reduced-core alignment probe under matched FiO2, respiratory-rate, and tidal-volume controls. It then emits an explicit native-vs-reduced discrepancy report for PaO2, PaCO2, pH, heart rate, systemic arterial pressure, and cardiac output.
+The same one-shot experiment now generates a native HumMod endpoint target, captures exact native gas-state and reduced-circulation compartment state where available, isolates the reduced gas equations under source-native boundaries, and runs reduced-core alignment probes before and after native-state initialization under matched FiO2, respiratory-rate, and tidal-volume controls. It then emits an explicit native-vs-reduced discrepancy report for PaO2, PaCO2, pH, heart rate, systemic arterial pressure, and cardiac output.
 
 This comparison is diagnostic rather than an equivalence test. The native baseline has no PEEP control and no Vent Berlin-case mechanics, whereas the reduced probe uses the project's synthetic ARDS mechanical model. Absolute discrepancies therefore identify calibration work but cannot by themselves validate or invalidate the ARDS case.
 
