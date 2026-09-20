@@ -91,6 +91,25 @@ function parseHumModNativeSolution(text, {
     return row;
   });
 
+  let appliedAssignments = null;
+  if (scenario && scenario.assignments) {
+    appliedAssignments = {};
+    for (const [symbol, expected] of Object.entries(scenario.assignments)) {
+      const values = variables.get(symbol);
+      if (!values || values.length === 0) {
+        throw new Error('native solution missing scenario assignment symbol: ' + symbol);
+      }
+      const observed = values[values.length - 1];
+      const tolerance = Math.max(1e-9, Math.abs(expected) * 1e-9);
+      if (Math.abs(observed - expected) > tolerance) {
+        throw new Error(
+          'native solution scenario assignment mismatch for ' + symbol +
+          ': expected ' + expected + ', observed ' + observed);
+      }
+      appliedAssignments[symbol] = observed;
+    }
+  }
+
   const raw = {
     schema: HUMMOD_RAW_SERIES_SCHEMA,
     trajectoryId,
@@ -115,6 +134,7 @@ function parseHumModNativeSolution(text, {
         id: scenario.id || null,
         scenarioClass: scenario.scenarioClass || null,
         clinicalValidation: scenario.clinicalValidation === true,
+        appliedAssignments: appliedAssignments ? Object.freeze({ ...appliedAssignments }) : null,
       }) : null,
     },
   };
