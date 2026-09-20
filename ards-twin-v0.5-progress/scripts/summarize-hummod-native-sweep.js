@@ -30,6 +30,7 @@ for(const entry of fs.readdirSync(root,{withFileTypes:true})){
     case:entry.name,
     mechanism:scenario?.provenance?.mechanism||scenario?.description||null,
     assignments:scenario?.assignments||null,
+    pulmonaryDiagnostics:c.pulmonaryDiagnostics||{},
     deltaPaO2:e['PO2Artys.Pressure'].delta,
     deltaPaCO2:e['CO2Artys.Pressure'].delta,
     deltaPH:e['BloodPh.ArtysPh'].delta,
