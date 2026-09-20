@@ -77,7 +77,7 @@ if($baselineAvailable){
     if($LASTEXITCODE -ne 0){ throw "Native calibration-target generation failed with exit code $LASTEXITCODE" }
 
     $reducedAlignmentProbe=Join-Path $out 'reduced-native-alignment.json'
-    node (Join-Path $root 'scripts/reduced-native-alignment.js') $reducedAlignmentProbe
+    node (Join-Path $root 'scripts/reduced-native-alignment.js') $reducedAlignmentProbe $nativeCalibrationTarget
     if($LASTEXITCODE -ne 0){ throw "Reduced-core alignment probe failed with exit code $LASTEXITCODE" }
 
     $nativeReducedComparison=Join-Path $out 'native-vs-reduced-comparison.json'
