@@ -31,6 +31,7 @@ foreach($r in $results){
   $comparison=Join-Path (Split-Path $r.trajectory) 'comparison.json'
   node (Join-Path $root 'scripts/compare-hummod-trajectories.js') $baseline $r.trajectory $comparison
 }
-$summary=[ordered]@{schema='vent-hummod-native-sweep-run/v1';caseCount=$results.Count;cases=$results;clinicalValidation=$false}
+node (Join-Path $root 'scripts/summarize-hummod-native-sweep.js') $out (Join-Path $out 'sensitivity-summary.json')
+$summary=[ordered]@{schema='vent-hummod-native-sweep-run/v1';caseCount=$results.Count;cases=$results;sensitivitySummary=(Join-Path $out 'sensitivity-summary.json');clinicalValidation=$false}
 $summary | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $out 'sweep-run.json')
 $summary | ConvertTo-Json -Depth 8
