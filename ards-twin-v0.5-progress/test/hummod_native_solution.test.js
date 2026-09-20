@@ -49,6 +49,16 @@ test('native SOLN feeds canonical trajectory conversion',()=>{
   assert(canonical.rows[0].values['CardiacOutput.Flow(L/Min)']===5.5);
 });
 
+
+test('native SOLN preserves explicit scenario provenance',()=>{
+  const raw=parseHumModNativeSolution(fixture(),{
+    scenario:{id:'transport-probe',scenarioClass:'engineering-transport-probe',clinicalValidation:false}
+  });
+  assert(raw.nativeSolution.scenarioApplied===true);
+  assert(raw.nativeSolution.scenario.id==='transport-probe');
+  assert(raw.nativeSolution.scenario.clinicalValidation===false);
+});
+
 test('native SOLN rejects missing verified symbols',()=>{
   const missing={...vars}; delete missing['BloodPh.ArtysPh'];
   let threw=false; try { parseHumModNativeSolution(fixture(missing).replace(
