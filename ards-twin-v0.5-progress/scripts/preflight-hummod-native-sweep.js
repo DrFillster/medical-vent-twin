@@ -34,6 +34,8 @@ const tracked=[
  'System.X','PO2Artys.Pressure','CO2Artys.Pressure','BloodPh.ArtysPh',
  'Heart-Rate.Rate','SystemicArtys.Pressure','CardiacOutput.Flow(L/Min)',
  'O2Artys.[O2]','O2Veins.[O2]','CO2Artys.[HCO3]','CO2Veins.[HCO3]',
+ 'SystemicArtys.Vol','SystemicVeins.Vol','RightAtrium.Vol','PulmArty.Vol',
+ 'PulmCapys.Vol','PulmVeins.Vol','LeftAtrium.Vol',
  'AirSupply-InspiredAir.O2(%)','AirSupply-InspiredAir.PO2',
  'LungBloodFlow.AlveolarShunt','RightHemithorax.LungInflation','LeftHemithorax.LungInflation',
  'PulmonaryMembrane.Permeability','PulmonaryMembrane.DiffusingCapacity','PulmonaryMembrane.Thickness','PulmonaryMembrane.Recruitment'
@@ -41,7 +43,11 @@ const tracked=[
 const observables={};
 const clockValues=variables.get('System.X');
 if(!clockValues||!clockValues.length) throw new Error('baseline native solution missing System.X clock');
-const stateBridgeSymbols=new Set(['O2Artys.[O2]','O2Veins.[O2]','CO2Artys.[HCO3]','CO2Veins.[HCO3]']);
+const stateBridgeSymbols=new Set([
+  'O2Artys.[O2]','O2Veins.[O2]','CO2Artys.[HCO3]','CO2Veins.[HCO3]',
+  'SystemicArtys.Vol','SystemicVeins.Vol','RightAtrium.Vol','PulmArty.Vol',
+  'PulmCapys.Vol','PulmVeins.Vol','LeftAtrium.Vol'
+]);
 for(const name of tracked){
   const values=variables.get(name);
   if(!values||!values.length) throw new Error('baseline native solution missing tracked observable: '+name);
