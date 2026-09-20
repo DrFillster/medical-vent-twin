@@ -22,6 +22,10 @@ const vars = {
   'Heart-Rate.Rate':[72,73,74],
   'SystemicArtys.Pressure':[96,95,94],
   'CardiacOutput.Flow(L/Min)':[5.5,5.4,5.3],
+  'O2Artys.[O2]':[0.196,0.195,0.194],
+  'O2Veins.[O2]':[0.157,0.156,0.155],
+  'CO2Artys.[HCO3]':[0.0240,0.0241,0.0242],
+  'CO2Veins.[HCO3]':[0.0256,0.0257,0.0258],
   'Ventilator.Rate':[16,16,16],
   'ExcessLungWater.Volume':[250,249,248],
   'AirSupply-InspiredAir.O2(%)':[50,50,50],
@@ -51,6 +55,16 @@ test('native SOLN parses exact verified HumMod symbols',()=>{
   assert(raw.rows[2]['PO2Artys.Pressure']===92);
   assert(raw.nativeSolution.sampleCount===3);
   assert(raw.nativeSolution.scenarioApplied===false);
+});
+
+test('native SOLN retains exact reduced-core gas state when exported',()=>{
+  const raw=parseHumModNativeSolution(fixture());
+  assert(raw.nativeSolution.reducedState['O2Artys.[O2]'].final===0.194);
+  assert(raw.nativeSolution.reducedState['O2Veins.[O2]'].final===0.155);
+  assert(raw.nativeSolution.reducedState['CO2Artys.[HCO3]'].final===0.0242);
+  assert(raw.nativeSolution.reducedState['CO2Veins.[HCO3]'].final===0.0258);
+  const canonical=convertHumModRawSeries(raw);
+  assert(canonical.nativeSolution.reducedState['O2Artys.[O2]'].final===0.194);
 });
 
 test('native SOLN feeds canonical trajectory conversion',()=>{
