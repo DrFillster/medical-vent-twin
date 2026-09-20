@@ -129,6 +129,7 @@ function convertHumModRawSeries(raw) {
       sampleCount: raw.nativeSolution.sampleCount,
       variableCount: raw.nativeSolution.variableCount,
       reducedState: raw.nativeSolution.reducedState || {},
+      reducedBoundary: raw.nativeSolution.reducedBoundary || {},
       scenarioApplied: raw.nativeSolution.scenarioApplied,
       scenario: raw.nativeSolution.scenario,
     } : null,
