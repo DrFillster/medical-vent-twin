@@ -58,6 +58,11 @@ if($successfulComparisons.Count -gt 0){
   node (Join-Path $root 'scripts/summarize-hummod-native-sweep.js') $out $sensitivitySummary
   if($LASTEXITCODE -ne 0){ $sensitivitySummary=$null }
 }
+if($sensitivitySummary){
+  $calibrationScreen=Join-Path $out 'calibration-screen.json'
+  node (Join-Path $root 'scripts/rank-hummod-sweep-candidates.js') $sensitivitySummary $calibrationScreen
+  if($LASTEXITCODE -ne 0){ $calibrationScreen=$null }
+} else { $calibrationScreen=$null }
 $summary=[ordered]@{
   schema='vent-hummod-native-sweep-run/v1'
   caseCount=$results.Count
@@ -66,6 +71,7 @@ $summary=[ordered]@{
   baselineAvailable=$baselineAvailable
   cases=$results
   sensitivitySummary=$sensitivitySummary
+  calibrationScreen=$calibrationScreen
   clinicalValidation=$false
 }
 $summary | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $out 'sweep-run.json')
