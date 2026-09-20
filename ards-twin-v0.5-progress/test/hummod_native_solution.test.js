@@ -22,6 +22,8 @@ const vars = {
   'Heart-Rate.Rate':[72,73,74],
   'SystemicArtys.Pressure':[96,95,94],
   'CardiacOutput.Flow(L/Min)':[5.5,5.4,5.3],
+  'Ventilator.Rate':[16,16,16],
+  'ExcessLungWater.Volume':[250,249,248],
 };
 function fixture(overrides={}) {
   const source={...vars,...overrides};
@@ -62,16 +64,26 @@ test('native SOLN preserves explicit scenario provenance',()=>{
 
 test('native SOLN verifies persisted scenario assignments',()=>{
   const raw=parseHumModNativeSolution(fixture(),{
-    scenario:{id:'verify',scenarioClass:'engineering',clinicalValidation:false,assignments:{'Heart-Rate.Rate':74}}
+    scenario:{id:'verify',scenarioClass:'engineering',clinicalValidation:false,assignments:{'Ventilator.Rate':16}}
   });
-  assert(raw.nativeSolution.scenario.appliedAssignments['Heart-Rate.Rate']===74);
+  assert(raw.nativeSolution.scenario.appliedAssignments['Ventilator.Rate'].observedAtVerificationPoint===16 && raw.nativeSolution.scenario.appliedAssignments['Ventilator.Rate'].persistence==='parameter');
+});
+
+test('native SOLN verifies evolving state at initial loaded sample',()=>{
+  const raw=parseHumModNativeSolution(fixture(),{
+    scenario:{id:'water',scenarioClass:'engineering',clinicalValidation:false,assignments:{'ExcessLungWater.Volume':250}}
+  });
+  const v=raw.nativeSolution.scenario.appliedAssignments['ExcessLungWater.Volume'];
+  assert(v.observedAtVerificationPoint===250);
+  assert(v.finalValue===248);
+  assert(v.persistence==='dynamic-state');
 });
 
 test('native SOLN rejects scenario assignment mismatch',()=>{
   let threw=false;
   try {
     parseHumModNativeSolution(fixture(),{
-      scenario:{id:'verify',scenarioClass:'engineering',clinicalValidation:false,assignments:{'Heart-Rate.Rate':99}}
+      scenario:{id:'verify',scenarioClass:'engineering',clinicalValidation:false,assignments:{'Ventilator.Rate':99}}
     });
   } catch(e){ threw=/assignment mismatch/.test(e.message); }
   assert(threw);
