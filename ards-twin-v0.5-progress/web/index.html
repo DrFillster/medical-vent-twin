@@ -47,12 +47,12 @@
 <summary>Ventilator setup</summary>
 <form id="clinical-session-form">
 <p class="hint product-setup-note">Reference settings are prefilled for the synthetic teaching phenotype. They are simulation inputs, not treatment recommendations.</p>
-<div class="engineering-provider"><label for="clinical-systemic-provider">Systemic physiology provider</label>
+<details class="engineering-provider"><summary>Research mode · systemic data source</summary><label for="clinical-systemic-provider">Systemic physiology provider</label>
 <select id="clinical-systemic-provider" required>
 <option value="live-reduced-hummod">Live reduced HumMod ARDS core · experimental</option>
 <option value="replay">HumMod trajectory replay</option>
 </select>
-<p id="clinical-provider-status" class="hint">Live mode couples Vent recruitment and airway pressure to a reduced, source-aligned HumMod cardiopulmonary core. It is not the full HumMod executable and is not clinically validated.</p></div>
+<p id="clinical-provider-status" class="hint">Live mode couples Vent recruitment and airway pressure to a reduced, source-aligned HumMod cardiopulmonary core. It is not the full HumMod executable and is not clinically validated.</p></details>
 <div id="clinical-hummod-file-block" hidden>
 <label for="clinical-hummod-file">HumMod trajectory JSON</label>
 <input id="clinical-hummod-file" type="file" accept=".json,application/json">
