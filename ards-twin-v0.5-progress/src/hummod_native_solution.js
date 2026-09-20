@@ -30,6 +30,17 @@ const HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS = Object.freeze([
   'LeftAtrium.Vol',
 ]);
 
+const HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS = Object.freeze([
+  'PulmonaryMembrane.Permeability',
+  'LungBloodFlow.AlveolarVentilated',
+  'O2Total.Outflow',
+  'CO2Total.Inflow',
+  'BloodIons.[SID]',
+  'HgbConc.[O2Max]',
+  'AirSupply-InspiredAir.Pressure',
+  'AirSupply-InspiredAir.CO2(%)',
+]);
+
 const HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS = Object.freeze([
   'AirSupply-InspiredAir.O2(%)',
   'AirSupply-InspiredAir.PO2',
@@ -159,6 +170,17 @@ function parseHumModNativeSolution(text, {
     }
   }
 
+  const reducedBoundary = {};
+  for (const symbol of HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS) {
+    const values = variables.get(symbol);
+    if (values && values.length === expectedSamples) {
+      reducedBoundary[symbol] = Object.freeze({
+        first: values[0],
+        final: values[values.length - 1],
+      });
+    }
+  }
+
   const nativeDiagnostics = {};
   for (const symbol of HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS) {
     const values = variables.get(symbol);
@@ -192,6 +214,7 @@ function parseHumModNativeSolution(text, {
       sampleCount: expectedSamples,
       variableCount: variables.size,
       reducedState: Object.freeze({ ...reducedState }),
+      reducedBoundary: Object.freeze({ ...reducedBoundary }),
       diagnostics: Object.freeze({ ...nativeDiagnostics }),
       scenarioApplied: Boolean(scenario),
       scenario: scenario ? Object.freeze({
@@ -210,6 +233,7 @@ function parseHumModNativeSolution(text, {
 module.exports = {
   HUMMOD_NATIVE_SOLN_EXPORTER_VERSION,
   HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS,
+  HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS,
   HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS,
   parseHumModNativeSolution,
 };
