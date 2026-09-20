@@ -66,6 +66,30 @@ if($sensitivitySummary){
   node (Join-Path $root 'scripts/rank-hummod-sweep-candidates.js') $sensitivitySummary $calibrationScreen
   if($LASTEXITCODE -ne 0){ $calibrationScreen=$null }
 } else { $calibrationScreen=$null }
+
+$nativeReducedComparison=$null
+$nativeCalibrationTarget=$null
+$reducedAlignmentProbe=$null
+if($baselineAvailable){
+  try {
+    $nativeCalibrationTarget=Join-Path $out 'native-reduced-calibration-target.json'
+    node (Join-Path $root 'src/hummod_native_reduced_calibration.js') $baseline $nativeCalibrationTarget
+    if($LASTEXITCODE -ne 0){ throw "Native calibration-target generation failed with exit code $LASTEXITCODE" }
+
+    $reducedAlignmentProbe=Join-Path $out 'reduced-native-alignment.json'
+    node (Join-Path $root 'scripts/reduced-native-alignment.js') $reducedAlignmentProbe
+    if($LASTEXITCODE -ne 0){ throw "Reduced-core alignment probe failed with exit code $LASTEXITCODE" }
+
+    $nativeReducedComparison=Join-Path $out 'native-vs-reduced-comparison.json'
+    node (Join-Path $root 'scripts/compare-native-reduced-hummod.js') $nativeCalibrationTarget $reducedAlignmentProbe $nativeReducedComparison
+    if($LASTEXITCODE -ne 0){ throw "Native/reduced comparison failed with exit code $LASTEXITCODE" }
+  }
+  catch {
+    $nativeReducedComparison=$null
+    Set-Content -Path (Join-Path $out 'native-vs-reduced-error.txt') -Value $_.Exception.Message
+    Write-Warning "Native/reduced HumMod comparison failed: $($_.Exception.Message)"
+  }
+}
 $summary=[ordered]@{
   schema='vent-hummod-native-sweep-run/v1'
   preflight=$preflight
@@ -76,6 +100,9 @@ $summary=[ordered]@{
   cases=$results
   sensitivitySummary=$sensitivitySummary
   calibrationScreen=$calibrationScreen
+  nativeCalibrationTarget=$nativeCalibrationTarget
+  reducedAlignmentProbe=$reducedAlignmentProbe
+  nativeReducedComparison=$nativeReducedComparison
   clinicalValidation=$false
 }
 $runPath=Join-Path $out 'sweep-run.json'
