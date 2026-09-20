@@ -136,6 +136,7 @@ function createBerlinLiveHumModSession({
   initializationHistory,
   dt = 0.002,
   mechanicalWarmupSec = 30,
+  nativeCalibrationTarget = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -143,6 +144,26 @@ function createBerlinLiveHumModSession({
       LIVE_HUMMOD_REFERENCE_CASE_ID);
   }
   const clinicalCase = getBerlinCase(caseId);
+  if (nativeCalibrationTarget &&
+      nativeCalibrationTarget.schema !== 'vent-native-reduced-hummod-calibration-target/v1') {
+    throw new Error('nativeCalibrationTarget has unsupported schema');
+  }
+  const nativeState = nativeCalibrationTarget &&
+    nativeCalibrationTarget.nativeReducedState &&
+    nativeCalibrationTarget.nativeReducedState.available
+      ? nativeCalibrationTarget.nativeReducedState.initialState
+      : null;
+  const nativeHeartRate = nativeCalibrationTarget &&
+    nativeCalibrationTarget.endpoints
+      ? nativeCalibrationTarget.endpoints.heartRatePerMin
+      : null;
+  if (nativeHeartRate != null) positive(nativeHeartRate, 'nativeCalibrationTarget.endpoints.heartRatePerMin');
+  const effectiveCirculationBoundaries = Object.freeze({
+    ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries,
+    heartRatePerMin: nativeHeartRate == null
+      ? LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries.heartRatePerMin
+      : nativeHeartRate,
+  });
   if (initialRecruitmentState) validateRecruitmentState(initialRecruitmentState);
   else if (!initializationHistory) {
     throw new Error('initialRecruitmentState or initializationHistory is required');
@@ -177,7 +198,7 @@ function createBerlinLiveHumModSession({
 
   const circulation = createHumModArdsCirculation({
     initialVolumesMl: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.initialVolumesMl,
-    boundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries,
+    boundaries: effectiveCirculationBoundaries,
     maxSubstepSec: 0.005,
   });
 
@@ -202,7 +223,9 @@ function createBerlinLiveHumModSession({
     environment: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
   });
   const gasRuntime = createHumModArdsGasRuntime({
-    useHumModSourceInitialState: true,
+    ...(nativeState
+      ? { initialState: nativeState }
+      : { useHumModSourceInitialState: true }),
     boundary: initialGasBoundary.boundary,
   });
   const systemicRuntime = createHumModArdsCardiopulmonaryRuntime({
@@ -245,7 +268,7 @@ function createBerlinLiveHumModSession({
         gasExchange: null,
         hemodynamics: Object.freeze({
           heartRatePerMin:
-            LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries.heartRatePerMin,
+            effectiveCirculationBoundaries.heartRatePerMin,
           meanArterialPressureMmHg: null,
         }),
       });
@@ -263,7 +286,7 @@ function createBerlinLiveHumModSession({
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin:
-          LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries.heartRatePerMin,
+          effectiveCirculationBoundaries.heartRatePerMin,
         meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
         rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
         pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
@@ -321,9 +344,22 @@ function createBerlinLiveHumModSession({
         clinicalValidation: false,
         referenceMeanAirwayPressureCmH2O,
         mechanicalWarmupSec,
+        nativeCalibrationApplied: Boolean(nativeCalibrationTarget),
+        nativeGasStateApplied: Boolean(nativeState),
       }),
       events: Object.freeze(sessionEvents.slice()),
-      engineeringBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES,
+      engineeringBoundaries: Object.freeze({
+        ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES,
+        circulation: Object.freeze({
+          ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation,
+          boundaries: effectiveCirculationBoundaries,
+        }),
+        nativeCalibration: nativeCalibrationTarget ? Object.freeze({
+          targetId: nativeCalibrationTarget.targetId,
+          heartRateApplied: nativeHeartRate,
+          gasStateApplied: Boolean(nativeState),
+        }) : null,
+      }),
       provenance: Object.freeze({
         pulmonary: 'Vent mechanistic engine',
         systemic: 'reduced source-aligned HumMod ARDS cardiopulmonary core',
