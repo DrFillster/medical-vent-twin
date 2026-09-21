@@ -6,6 +6,8 @@
   let worker = null, timer = null, latest = null;
   let clinicalWorker = null, clinicalHumModExport = null, clinicalRecruitmentHistory = null, clinicalSnapshot = null;
   let clinicalContinuousRun = false;
+  let clinicalContinuousTimer = null;
+  let clinicalContinuousNextWallMs = null;
   const SYNTHETIC_DEMO_HUMMOD = Object.freeze({
     schema: 'vent-hummod-trajectory/v1',
     trajectoryId: 'synthetic-demo-fixture-not-real-hummod',
@@ -230,6 +232,10 @@
     return typeof value === 'number' && Number.isFinite(value) ? String(value) : '—';
   }
 
+  function displayClinicalInteger(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? String(Math.round(value)) : '—';
+  }
+
   function drawClinicalTrace(svgId, rows, field) {
     const svg = $(svgId);
     svg.replaceChildren();
@@ -311,14 +317,14 @@
     $('clinical-current-rr').textContent = displayClinicalValue(snapshot.ventilator?.rrPerMin ?? snapshot.ventilator?.rr);
     $('clinical-current-vt').textContent = typeof snapshot.ventilator?.vtL === 'number'
       ? Math.round(snapshot.ventilator.vtL * 1000) : '—';
-    $('clinical-pao2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.pao2MmHg);
-    $('clinical-paco2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.paco2MmHg);
+    $('clinical-pao2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.pao2MmHg);
+    $('clinical-paco2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.paco2MmHg);
     const clinicalPh = snapshot.systemic?.gasExchange?.pH;
     $('clinical-ph').textContent = typeof clinicalPh === 'number' && Number.isFinite(clinicalPh)
       ? clinicalPh.toFixed(2)
       : '—';
     $('clinical-hr').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.heartRatePerMin);
-    $('clinical-map').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
+    $('clinical-map').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
     const cardiacOutputMlPerMin = snapshot.systemic?.hemodynamics?.cardiacOutputMlPerMin;
     $('clinical-co').textContent = typeof cardiacOutputMlPerMin === 'number' && Number.isFinite(cardiacOutputMlPerMin)
       ? (cardiacOutputMlPerMin / 1000).toFixed(2)
@@ -337,15 +343,34 @@
       (snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
         ? ' · dynamic cardiopulmonary simulation'
         : ' · fixed systemic trajectory replay');
-    $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
+    if (document.activeElement !== $('clinical-new-peep')) {
+      $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
+    }
     $('clinical-reset').disabled = false;
     if (clinicalContinuousRun && clinicalWorker) {
-      clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
+      scheduleClinicalContinuousStep();
     }
+  }
+
+  function scheduleClinicalContinuousStep() {
+    if (!clinicalContinuousRun || !clinicalWorker) return;
+    if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
+    const now = performance.now();
+    if (clinicalContinuousNextWallMs == null) clinicalContinuousNextWallMs = now + 1000;
+    const delayMs = Math.max(0, clinicalContinuousNextWallMs - now);
+    clinicalContinuousTimer = setTimeout(() => {
+      clinicalContinuousTimer = null;
+      if (!clinicalContinuousRun || !clinicalWorker) return;
+      clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
+      clinicalContinuousNextWallMs += 1000;
+    }, delayMs);
   }
 
   function stopClinicalContinuousRun() {
     clinicalContinuousRun = false;
+    if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
+    clinicalContinuousTimer = null;
+    clinicalContinuousNextWallMs = null;
     const runButton = $('clinical-run-continuous');
     const pauseButton = $('clinical-pause-continuous');
     if (runButton) runButton.disabled = !clinicalWorker;
@@ -652,10 +677,11 @@
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
         if (clinicalContinuousRun) return;
         clinicalContinuousRun = true;
+        clinicalContinuousNextWallMs = performance.now() + 1000;
         $('clinical-run-continuous').disabled = true;
         $('clinical-pause-continuous').disabled = false;
-        $('clinical-session-status').textContent = 'Patient running continuously…';
-        clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
+        $('clinical-session-status').textContent = 'Patient running continuously in real time…';
+        scheduleClinicalContinuousStep();
       } catch (error) { showClinicalError(error.message); }
     });
 
@@ -668,6 +694,9 @@
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
         clinicalWorker.postMessage({ type: 'setPEEP', valueCmH2O: clinicalNumber('clinical-new-peep') });
+        $('clinical-session-status').textContent = clinicalContinuousRun
+          ? 'PEEP change sent · patient continues running in real time…'
+          : 'PEEP change sent · patient state preserved.';
       } catch (error) { showClinicalError(error.message); }
     });
 
@@ -678,6 +707,9 @@
           type: 'requestVentilationChange',
           ventilation: clinicalVentilationPayload(),
         });
+        $('clinical-session-status').textContent = clinicalContinuousRun
+          ? 'Ventilator settings sent · patient continues running in real time…'
+          : 'Ventilator settings sent · patient state preserved.';
       } catch (error) { showClinicalError(error.message); }
     });
 
