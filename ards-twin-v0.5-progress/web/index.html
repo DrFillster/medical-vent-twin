@@ -8,7 +8,7 @@
 <title>ARDS Clinical Twin · v0.6</title>
 <link rel="stylesheet" href="./styles.css?v=0.6">
 <script src="./engine.js?v=0.6" defer></script>
-<script src="./app.js?v=0.6.1" defer></script>
+<script src="./app.js?v=0.6.2" defer></script>
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
@@ -145,6 +145,13 @@
 <div class="plot"><h3><i class="dot pressure"></i>Airway pressure <span>cmH₂O</span></h3><svg id="clinical-pressure-chart" role="img" aria-label="Clinical session airway pressure over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3><i class="dot flow"></i>Flow <span>L/s · positive into lung</span></h3><svg id="clinical-flow-chart" role="img" aria-label="Clinical session airway flow over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>L</span></h3><svg id="clinical-volume-chart" role="img" aria-label="Clinical session modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+</div>
+<div class="clinical-intervention-timeline card" aria-labelledby="clinical-intervention-title">
+<div class="card-heading"><h2 id="clinical-intervention-title">Intervention timeline</h2><span class="pill">Patient clock</span></div>
+<p class="hint">Ventilator changes are timestamped against the persistent simulated patient so physiologic responses can be interpreted relative to the intervention.</p>
+<ol id="clinical-intervention-log" class="clinical-intervention-log" aria-live="polite">
+<li class="clinical-intervention-empty">No interventions yet.</li>
+</ol>
 </div>
 <div class="section-heading interventions-heading"><span class="step">03</span><h2>Interventions</h2></div>
 <div class="field-grid clinical-actions-grid">
