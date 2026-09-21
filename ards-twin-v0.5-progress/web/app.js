@@ -8,6 +8,7 @@
   let clinicalContinuousRun = false;
   let clinicalContinuousTimer = null;
   let clinicalContinuousNextWallMs = null;
+  let clinicalInterventions = [];
   const SYNTHETIC_DEMO_HUMMOD = Object.freeze({
     schema: 'vent-hummod-trajectory/v1',
     trajectoryId: 'synthetic-demo-fixture-not-real-hummod',
@@ -234,6 +235,55 @@
 
   function displayClinicalInteger(value) {
     return typeof value === 'number' && Number.isFinite(value) ? String(Math.round(value)) : '—';
+  }
+
+  function formatClinicalClock(seconds) {
+    const total = Math.max(0, Math.round(Number(seconds) || 0));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    return hours > 0
+      ? String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0')
+      : String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+  }
+
+  function renderClinicalInterventions() {
+    const log = $('clinical-intervention-log');
+    if (!log) return;
+    log.replaceChildren();
+    if (!clinicalInterventions.length) {
+      const empty = document.createElement('li');
+      empty.className = 'clinical-intervention-empty';
+      empty.textContent = 'No interventions yet.';
+      log.append(empty);
+      return;
+    }
+    for (const event of [...clinicalInterventions].reverse()) {
+      const item = document.createElement('li');
+      const clock = document.createElement('time');
+      clock.textContent = formatClinicalClock(event.timeSec);
+      const text = document.createElement('span');
+      text.textContent = event.label;
+      item.append(clock, text);
+      log.append(item);
+    }
+  }
+
+  function recordClinicalIntervention(label, details) {
+    const event = {
+      timeSec: clinicalSnapshot?.timeSec ?? 0,
+      label,
+      details: details || null,
+    };
+    clinicalInterventions.push(event);
+    renderClinicalInterventions();
+    return event;
+  }
+
+  function formatVentSettingChange(label, previous, next, unit, formatter) {
+    const fmt = formatter || (value => String(value));
+    if (previous == null || next == null || Number(previous) === Number(next)) return null;
+    return label + ' ' + fmt(previous) + ' → ' + fmt(next) + (unit ? ' ' + unit : '');
   }
 
   function drawClinicalTrace(svgId, rows, field) {
@@ -693,7 +743,11 @@
     $('clinical-set-peep').addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
-        clinicalWorker.postMessage({ type: 'setPEEP', valueCmH2O: clinicalNumber('clinical-new-peep') });
+        const nextPeep = clinicalNumber('clinical-new-peep');
+        const previousPeep = clinicalSnapshot?.ventilator?.peepCmH2O;
+        clinicalWorker.postMessage({ type: 'setPEEP', valueCmH2O: nextPeep });
+        const peepChange = formatVentSettingChange('PEEP', previousPeep, nextPeep, 'cmH₂O');
+        if (peepChange) recordClinicalIntervention(peepChange, { setting: 'peepCmH2O', previous: previousPeep, next: nextPeep });
         $('clinical-session-status').textContent = clinicalContinuousRun
           ? 'PEEP change sent · patient continues running in real time…'
           : 'PEEP change sent · patient state preserved.';
@@ -703,10 +757,23 @@
     $('clinical-apply-vent').addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        const nextVentilation = clinicalVentilationPayload();
+        const previousVentilation = clinicalSnapshot?.ventilator || {};
         clinicalWorker.postMessage({
           type: 'requestVentilationChange',
-          ventilation: clinicalVentilationPayload(),
+          ventilation: nextVentilation,
         });
+        const changes = [
+          formatVentSettingChange('FiO₂', previousVentilation.fio2, nextVentilation.fio2, '', value => Number(value).toFixed(2)),
+          formatVentSettingChange('PEEP', previousVentilation.peepCmH2O, nextVentilation.peep, 'cmH₂O'),
+          formatVentSettingChange('RR', previousVentilation.rrPerMin ?? previousVentilation.rr, nextVentilation.rr, '/min'),
+          formatVentSettingChange('VT', previousVentilation.vtL, nextVentilation.vtL, 'mL', value => String(Math.round(Number(value) * 1000))),
+          formatVentSettingChange('Flow', previousVentilation.inspiratoryFlowLps, nextVentilation.inspiratoryFlowLps, 'L/min', value => String(Math.round(Number(value) * 60))),
+          formatVentSettingChange('Pause', previousVentilation.inspiratoryPauseSec, nextVentilation.inspiratoryPauseSec, 's'),
+        ].filter(Boolean);
+        if (changes.length) {
+          recordClinicalIntervention(changes.join(' · '), { type: 'ventilator-settings', requested: nextVentilation });
+        }
         $('clinical-session-status').textContent = clinicalContinuousRun
           ? 'Ventilator settings sent · patient continues running in real time…'
           : 'Ventilator settings sent · patient state preserved.';
@@ -733,6 +800,12 @@
           throw new Error('Clinical session export is unavailable in this browser build');
         }
         const record = VENT.createClinicalSessionRecord(clinicalSnapshot);
+        record.interventions = clinicalInterventions.map(event => ({
+          timeSec: event.timeSec,
+          clock: formatClinicalClock(event.timeSec),
+          label: event.label,
+          details: event.details,
+        }));
         const json = JSON.stringify(record, null, 2);
         const a = document.createElement('a');
         a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
