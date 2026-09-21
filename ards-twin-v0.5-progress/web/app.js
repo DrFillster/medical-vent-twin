@@ -748,6 +748,7 @@
         const nextPeep = clinicalNumber('clinical-new-peep');
         const previousPeep = clinicalSnapshot?.ventilator?.peepCmH2O;
         clinicalWorker.postMessage({ type: 'setPEEP', valueCmH2O: nextPeep });
+        $('clinical-peep').value = String(nextPeep);
         const peepChange = formatVentSettingChange('PEEP', previousPeep, nextPeep, 'cmH₂O');
         if (peepChange) recordClinicalIntervention(peepChange, { setting: 'peepCmH2O', previous: previousPeep, next: nextPeep });
         $('clinical-session-status').textContent = clinicalContinuousRun
@@ -770,7 +771,7 @@
           formatVentSettingChange('PEEP', previousVentilation.peepCmH2O, nextVentilation.peep, 'cmH₂O'),
           formatVentSettingChange('RR', previousVentilation.rrPerMin ?? previousVentilation.rr, nextVentilation.rr, '/min'),
           formatVentSettingChange('VT', previousVentilation.vtL, nextVentilation.vtL, 'mL', value => String(Math.round(Number(value) * 1000))),
-          formatVentSettingChange('Flow', previousVentilation.inspiratoryFlowLps, nextVentilation.inspiratoryFlowLps, 'L/min', value => String(Math.round(Number(value) * 60))),
+          formatVentSettingChange('Flow', previousVentilation.inspiratoryFlowLps, nextVentilation.inspiratoryFlowLps, 'L/s', value => Number(value).toFixed(2)),
           formatVentSettingChange('Pause', previousVentilation.inspiratoryPauseSec, nextVentilation.inspiratoryPauseSec, 's'),
         ].filter(Boolean);
         if (changes.length) {
