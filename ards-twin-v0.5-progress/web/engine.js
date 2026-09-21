@@ -14,6 +14,7 @@ module.exports = {
   ...require("src/hummod_export_contract.js"),
   ...require("src/hummod_runner_contract.js"),
   ...require("src/hummod_raw_series_adapter.js"),
+  ...require("src/hummod_native_solution.js"),
   ...require("src/hummod_remote_request.js"),
   ...require("src/hummod_ards_core_combined_runtime.js"),
   ...require("src/hummod_ards_core_hemodynamic_runtime.js"),
@@ -26,6 +27,7 @@ module.exports = {
   ...require("src/hummod_ards_core_manifest.js"),
   ...require("src/clinical_twin_runtime.js"),
   ...require("src/clinical_twin_session.js"),
+  ...require("src/clinical_twin_live_hummod_session.js"),
   ...require("src/clinical_session_record.js"),
   ...require("src/clinical_case_readiness.js"),
   ...require("src/reference_case_calibration.js"),
@@ -4814,6 +4816,16 @@ function convertHumModRawSeries(raw) {
       rawStart: firstClock,
       canonicalTimelineOrigin: 'first-raw-sample',
     },
+    nativeSolution: raw.nativeSolution ? {
+      format: raw.nativeSolution.format,
+      index: raw.nativeSolution.index,
+      sampleCount: raw.nativeSolution.sampleCount,
+      variableCount: raw.nativeSolution.variableCount,
+      reducedState: raw.nativeSolution.reducedState || {},
+      reducedBoundary: raw.nativeSolution.reducedBoundary || {},
+      scenarioApplied: raw.nativeSolution.scenarioApplied,
+      scenario: raw.nativeSolution.scenario,
+    } : null,
     rows: raw.rows.map(row => {
       const rawClock = row[HUMMOD_SOURCE_CLOCK.symbol];
       const timestampSec =
@@ -4839,6 +4851,322 @@ module.exports = {
 };
 
 },
+"src/hummod_native_solution.js":function(module,exports,require){
+'use strict';
+
+// Strict parser for native HumMod .SOLN files produced by the pinned
+// riliescu/hummod-standalone runtime. This parser intentionally extracts only
+// the verified direct-export symbols already approved by the Vent mapping layer.
+
+const {
+  HUMMOD_STANDALONE_UPSTREAM,
+  listVerifiedDirectMappings,
+} = require("src/hummod_standalone_manifest.js");
+const { HUMMOD_SOURCE_CLOCK } = require("src/hummod_runner_contract.js");
+const { HUMMOD_NATIVE_MUTABLE_PARAMETERS } = require("src/hummod_native_scenario.js");
+const {
+  HUMMOD_RAW_SERIES_SCHEMA,
+  validateHumModRawSeries,
+} = require("src/hummod_raw_series_adapter.js");
+
+const HUMMOD_NATIVE_SOLN_EXPORTER_VERSION = 'native-soln-parser/1';
+const HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS = Object.freeze([
+  'O2Artys.[O2]',
+  'O2Veins.[O2]',
+  'CO2Artys.[HCO3]',
+  'CO2Veins.[HCO3]',
+  'SystemicArtys.Vol',
+  'SystemicVeins.Vol',
+  'RightAtrium.Vol',
+  'PulmArty.Vol',
+  'PulmCapys.Vol',
+  'PulmVeins.Vol',
+  'LeftAtrium.Vol',
+]);
+
+const HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS = Object.freeze([
+  'PulmonaryMembrane.Permeability',
+  'LungBloodFlow.AlveolarVentilated',
+  'O2Total.Outflow',
+  'CO2Total.Inflow',
+  'BloodIons.[SID]',
+  'HgbConc.[O2Max]',
+  'AirSupply-InspiredAir.Pressure',
+  'AirSupply-InspiredAir.CO2(%)',
+  'AirSupply-InspiredAir.O2(%)',
+  'Breathing.RespRate',
+  'Breathing.TidalVolume',
+  'Breathing.DeadSpace',
+  'HeatCore.Temp(C)',
+  'HgbConc.CarboxyPercent',
+]);
+
+const HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS = Object.freeze([
+  'AirSupply-InspiredAir.O2(%)',
+  'AirSupply-InspiredAir.PO2',
+  'LungBloodFlow.AlveolarShunt',
+  'LungBloodFlow.TotalShunt',
+  'RightHemithorax.LungInflation',
+  'LeftHemithorax.LungInflation',
+  'PulmonaryMembrane.Permeability',
+  'PulmonaryMembrane.DiffusingCapacity',
+  'PulmonaryMembrane.Thickness',
+  'PulmonaryMembrane.Recruitment',
+  'ExcessLungWater.Volume',
+]);
+
+function decodeXmlEntity(text) {
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+function parseFinite(text, label) {
+  const value = Number(text.trim());
+  if (!Number.isFinite(value)) throw new Error(label + ' must be finite');
+  return value;
+}
+
+function parseHumModNativeSolution(text, {
+  trajectoryId = 'hummod-native-solution',
+  exporterVersion = HUMMOD_NATIVE_SOLN_EXPORTER_VERSION,
+  scenario = null,
+} = {}) {
+  if (typeof text !== 'string' || text.length === 0) {
+    throw new Error('HumMod native solution text is required');
+  }
+  if (!/<solution>[\s\S]*<\/solution>/.test(text)) {
+    throw new Error('invalid HumMod native solution envelope');
+  }
+
+  const indexMatch = text.match(/<index>\s*(\d+)\s*<\/index>/);
+  if (!indexMatch) throw new Error('native solution index is required');
+  const maxIndex = Number(indexMatch[1]);
+  const expectedSamples = maxIndex + 1;
+
+  const variables = new Map();
+  const varRe = /<var>\s*<name>\s*([\s\S]*?)\s*<\/name>([\s\S]*?)<\/var>/g;
+  let match;
+  while ((match = varRe.exec(text)) !== null) {
+    const name = decodeXmlEntity(match[1].trim());
+    if (!name) throw new Error('native solution contains an empty variable name');
+    if (variables.has(name)) throw new Error('duplicate native HumMod variable: ' + name);
+    const values = [];
+    const valRe = /<val>\s*([\s\S]*?)\s*<\/val>/g;
+    let valueMatch;
+    while ((valueMatch = valRe.exec(match[2])) !== null) {
+      values.push(parseFinite(valueMatch[1], name + ' value ' + values.length));
+    }
+    variables.set(name, values);
+  }
+  if (variables.size === 0) throw new Error('native solution contains no variables');
+
+  const clock = variables.get(HUMMOD_SOURCE_CLOCK.symbol);
+  if (!clock) throw new Error('native solution missing verified clock ' + HUMMOD_SOURCE_CLOCK.symbol);
+  if (clock.length !== expectedSamples) {
+    throw new Error(
+      'native HumMod clock has ' + clock.length + ' values; expected ' + expectedSamples);
+  }
+
+  const symbols = listVerifiedDirectMappings().map(m => m.symbol);
+  symbols.forEach(symbol => {
+    if (!variables.has(symbol)) {
+      throw new Error('native solution missing verified HumMod symbol: ' + symbol);
+    }
+    const values = variables.get(symbol);
+    if (values.length !== expectedSamples) {
+      throw new Error(
+        'verified native HumMod symbol ' + symbol + ' has ' + values.length +
+        ' values; expected ' + expectedSamples);
+    }
+  });
+
+  const rows = clock.map((sourceClockValue, index) => {
+    const row = { [HUMMOD_SOURCE_CLOCK.symbol]: sourceClockValue };
+    symbols.forEach(symbol => { row[symbol] = variables.get(symbol)[index]; });
+    return row;
+  });
+
+  let appliedAssignments = null;
+  if (scenario && scenario.assignments) {
+    appliedAssignments = {};
+    for (const [symbol, expected] of Object.entries(scenario.assignments)) {
+      const values = variables.get(symbol);
+      if (!values || values.length === 0) {
+        throw new Error('native solution missing scenario assignment symbol: ' + symbol);
+      }
+      const meta = HUMMOD_NATIVE_MUTABLE_PARAMETERS[symbol];
+      if (!meta) throw new Error('scenario assignment is not in native mutable whitelist: ' + symbol);
+      const verificationIndex = meta.persistence === 'dynamic-state' ? 0 : values.length - 1;
+      const observed = values[verificationIndex];
+      const tolerance = Math.max(1e-9, Math.abs(expected) * 1e-9);
+      if (Math.abs(observed - expected) > tolerance) {
+        throw new Error(
+          'native solution scenario assignment mismatch for ' + symbol +
+          ' (' + meta.persistence + '): expected ' + expected + ', observed ' + observed +
+          ' at sample ' + verificationIndex);
+      }
+      appliedAssignments[symbol] = Object.freeze({
+        expected,
+        observedAtVerificationPoint: observed,
+        verificationSampleIndex: verificationIndex,
+        persistence: meta.persistence,
+        finalValue: values[values.length - 1],
+      });
+    }
+  }
+
+  const reducedState = {};
+  for (const symbol of HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS) {
+    const values = variables.get(symbol);
+    if (values && values.length === expectedSamples) {
+      reducedState[symbol] = Object.freeze({
+        first: values[0],
+        final: values[values.length - 1],
+      });
+    }
+  }
+
+  const reducedBoundary = {};
+  for (const symbol of HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS) {
+    const values = variables.get(symbol);
+    if (values && values.length === expectedSamples) {
+      reducedBoundary[symbol] = Object.freeze({
+        first: values[0],
+        final: values[values.length - 1],
+      });
+    }
+  }
+
+  const nativeDiagnostics = {};
+  for (const symbol of HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS) {
+    const values = variables.get(symbol);
+    if (!values || values.length !== expectedSamples) {
+      throw new Error('native solution missing diagnostic symbol or sample history: ' + symbol);
+    }
+    nativeDiagnostics[symbol] = Object.freeze({
+      first: values[0],
+      final: values[values.length - 1],
+      delta: values[values.length - 1] - values[0],
+    });
+  }
+
+  const raw = {
+    schema: HUMMOD_RAW_SERIES_SCHEMA,
+    trajectoryId,
+    source: {
+      repository: HUMMOD_STANDALONE_UPSTREAM.repository,
+      revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+      exporterVersion,
+    },
+    clock: {
+      symbol: HUMMOD_SOURCE_CLOCK.symbol,
+      unit: HUMMOD_SOURCE_CLOCK.unit,
+    },
+    symbols,
+    rows,
+    nativeSolution: {
+      format: 'HumMod.SOLN',
+      index: maxIndex,
+      sampleCount: expectedSamples,
+      variableCount: variables.size,
+      reducedState: Object.freeze({ ...reducedState }),
+      reducedBoundary: Object.freeze({ ...reducedBoundary }),
+      diagnostics: Object.freeze({ ...nativeDiagnostics }),
+      scenarioApplied: Boolean(scenario),
+      scenario: scenario ? Object.freeze({
+        id: scenario.id || null,
+        scenarioClass: scenario.scenarioClass || null,
+        clinicalValidation: scenario.clinicalValidation === true,
+        appliedAssignments: appliedAssignments ? Object.freeze({ ...appliedAssignments }) : null,
+      }) : null,
+    },
+  };
+
+  validateHumModRawSeries(raw);
+  return raw;
+}
+
+module.exports = {
+  HUMMOD_NATIVE_SOLN_EXPORTER_VERSION,
+  HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS,
+  HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS,
+  HUMMOD_NATIVE_DIAGNOSTIC_SYMBOLS,
+  parseHumModNativeSolution,
+};
+
+},
+"src/hummod_native_scenario.js":function(module,exports,require){
+'use strict';
+
+// Whitelist and validation for native HumMod solution perturbations.
+// These are source-verified HumMod variables/parameters that are directly
+// relevant to ventilation/pulmonary gas exchange. Presence here does not
+// imply clinical calibration or ARDS validity.
+
+const HUMMOD_NATIVE_SCENARIO_SCHEMA='vent-hummod-native-scenario/v1';
+
+const HUMMOD_NATIVE_MUTABLE_PARAMETERS=Object.freeze({
+  'Ventilator.Switch':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'boolean-numeric',persistence:'parameter'}),
+  'Ventilator.Rate':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'1/min',persistence:'parameter'}),
+  'Ventilator.TidalVolume':Object.freeze({kind:'ventilator',source:'Structure/Lungs/Ventilator.DES',unit:'mL',persistence:'parameter'}),
+  'AirSupply-GasTanks.Switch':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'boolean-numeric',persistence:'parameter'}),
+  'AirSupply-GasTanks.O2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting',persistence:'parameter'}),
+  'AirSupply-GasTanks.N2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting',persistence:'parameter'}),
+  'AirSupply-GasTanks.CO2Valve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting',persistence:'parameter'}),
+  'AirSupply-GasTanks.COValve(PPM)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'ppm-setting',persistence:'parameter'}),
+  'AirSupply-GasTanks.AnestheticValve(%)':Object.freeze({kind:'inspired-gas',source:'Structure/AirSupply/AirSupply-GasTanks.DES',unit:'percent-setting',persistence:'parameter'}),
+  'ExcessLungWater.Volume':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/ExcessLungWater.DES',unit:'mL',persistence:'dynamic-state'}),
+  'PulmonaryMembrane.TotalArea':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/PulmonaryMembrane.DES',unit:'model-area',persistence:'parameter'}),
+  'PulmonaryMembrane.Thickness-Structure':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/PulmonaryMembrane.DES',unit:'model-thickness',persistence:'parameter'}),
+  'LungBloodFlow.BasicR-LShunt':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/LungBloodFlow.DES',unit:'mL/min',persistence:'parameter'}),
+  'RightHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/RightHemithorax.DES',unit:'model-pressure',persistence:'parameter'}),
+  'LeftHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/LeftHemithorax.DES',unit:'model-pressure',persistence:'parameter'}),
+});
+
+function validateNativeHumModScenario(spec){
+  if(!spec||typeof spec!=='object'||Array.isArray(spec)) throw new Error('native HumMod scenario must be an object');
+  if(spec.schema!==HUMMOD_NATIVE_SCENARIO_SCHEMA) throw new Error('unsupported native HumMod scenario schema');
+  if(typeof spec.id!=='string'||!spec.id) throw new Error('scenario id is required');
+  if(typeof spec.scenarioClass!=='string'||!spec.scenarioClass) throw new Error('scenarioClass is required');
+  if(!spec.provenance||typeof spec.provenance!=='object') throw new Error('scenario provenance is required');
+  if(typeof spec.provenance.clinicalValidation!=='boolean') throw new Error('provenance.clinicalValidation must be boolean');
+  if(!spec.assignments||typeof spec.assignments!=='object'||Array.isArray(spec.assignments)) throw new Error('scenario assignments object required');
+  const keys=Object.keys(spec.assignments);
+  if(keys.length===0) throw new Error('scenario requires at least one assignment');
+  for(const key of keys){
+    if(!Object.prototype.hasOwnProperty.call(HUMMOD_NATIVE_MUTABLE_PARAMETERS,key)) throw new Error('unapproved native HumMod assignment: '+key);
+    const value=spec.assignments[key];
+    if(typeof value!=='number'||!Number.isFinite(value)) throw new Error('assignment '+key+' must be finite');
+  }
+  for(const key of ['Ventilator.Switch','AirSupply-GasTanks.Switch']){
+    if(Object.prototype.hasOwnProperty.call(spec.assignments,key)){
+      const v=spec.assignments[key];
+      if(v!==0&&v!==1) throw new Error(key+' must be 0 or 1');
+    }
+  }
+  for(const key of ['AirSupply-GasTanks.O2Valve(%)','AirSupply-GasTanks.N2Valve(%)','AirSupply-GasTanks.CO2Valve(%)','AirSupply-GasTanks.AnestheticValve(%)']){
+    if(Object.prototype.hasOwnProperty.call(spec.assignments,key)){
+      const v=spec.assignments[key];
+      if(v<0||v>100) throw new Error(key+' must be in [0,100]');
+    }
+  }
+  for(const key of ['Ventilator.Rate','Ventilator.TidalVolume','AirSupply-GasTanks.COValve(PPM)','ExcessLungWater.Volume','PulmonaryMembrane.TotalArea','PulmonaryMembrane.Thickness-Structure','LungBloodFlow.BasicR-LShunt']){
+    if(Object.prototype.hasOwnProperty.call(spec.assignments,key)&&spec.assignments[key]<0) throw new Error(key+' must be non-negative');
+  }
+  return spec;
+}
+
+module.exports={
+  HUMMOD_NATIVE_SCENARIO_SCHEMA,
+  HUMMOD_NATIVE_MUTABLE_PARAMETERS,
+  validateNativeHumModScenario,
+};
+
+},
 "src/hummod_remote_request.js":function(module,exports,require){
 'use strict';
 
@@ -4849,8 +5177,9 @@ module.exports = {
 // non-interactively.
 //
 // IMPORTANT: this generator is schema-derived from HumMod documentation and
-// has not yet been executed against the pinned HumMod.EXE in this repository.
-// The returned metadata therefore reports runtimeVerified: false.
+// is rejected by the pinned HumMod.EXE at the remote bootstrap element.
+// The 2026-09-20 Windows probe captured parser error 2220. Generation remains
+// useful for a future compatible runtime; it does not establish executability.
 
 const {
   HUMMOD_RUN_REQUEST_SCHEMA,
@@ -4946,7 +5275,7 @@ function generateHumModRemoteRequest({
     schema: HUMMOD_REMOTE_REQUEST_SCHEMA,
     runtimeVerified: false,
     runtimeVerificationStatus:
-      'documentation-grounded-candidate-not-yet-executed-against-pinned-HumMod.EXE',
+      'pinned-runtime-rejects-remote-control',
     runRequest,
     outputFile,
     logFile,
@@ -7957,6 +8286,1366 @@ function createBerlinClinicalTwinSession({
 module.exports = {
   createBerlinClinicalTwinSession,
   buildController,
+};
+
+},
+"src/clinical_twin_live_hummod_session.js":function(module,exports,require){
+'use strict';
+
+// Experimental browser-capable coupling of persistent Vent mechanics to the
+// reduced, source-aligned HumMod ARDS cardiopulmonary core.
+// This is not full HumMod and is not clinically validated.
+
+const { getBerlinCase } = require("src/berlin_case_catalog.js");
+const { makePatientParams } = require("src/contracts.js");
+const { Simulation, VcAcController } = require("src/simulation.js");
+const { summarizeSimulationMeasurements } = require("src/bedside_measurements.js");
+const { createThoraxState } = require("src/hummod_ards_core_thorax.js");
+const { createHumModArdsCirculation } = require("src/hummod_ards_core_circulation.js");
+const { createHumModArdsGasRuntime } = require("src/hummod_ards_core_runtime.js");
+const {
+  createHumModArdsCardiopulmonaryRuntime,
+  meanAirwayPressureCmH2O,
+} = require("src/hummod_ards_cardiopulmonary_runtime.js");
+const { createLiveCoreBoundaryFromVent } = require("src/hummod_ards_core_vent_adapter.js");
+const { cmH2OToMmHg } = require("src/clinical_units.js");
+
+const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
+
+const LIVE_HUMMOD_ENGINEERING_BOUNDARIES = Object.freeze({
+  status: 'explicit-synthetic-engineering-boundaries-not-patient-data',
+  thorax: Object.freeze({
+    referencePleuralPressureCmH2O: 6,
+    chestWallElastanceFraction: 0.25,
+    pericardialTmpMmHg: 0,
+    provenance: Object.freeze({
+      kind: 'synthetic-engineering-assumption',
+      note:
+        'Reference-case phase-1 thorax values are explicit placeholders and are not inferred from Berlin severity or recruitability.',
+    }),
+  }),
+  circulation: Object.freeze({
+    initialVolumesMl: Object.freeze({
+      systemicArteries: 999,
+      systemicVeins: 2675,
+      rightAtrium: 51,
+      pulmonaryArtery: 201,
+      pulmonaryCapillaries: 200,
+      pulmonaryVeins: 211,
+      leftAtrium: 51,
+    }),
+    boundaries: Object.freeze({
+      heartRatePerMin: 75,
+      systemicArterialConductanceMlPerMinPerMmHg: 60,
+      systemicVenousConductanceMlPerMinPerMmHg: 692,
+      rightContractilityMultiplier: 1,
+      leftContractilityMultiplier: 1,
+      rightStiffnessMultiplier: 1,
+      leftStiffnessMultiplier: 1,
+    }),
+  }),
+  gas: Object.freeze({
+    systemic: Object.freeze({
+      tissueO2UseMlPerMin: 250,
+      tissueCo2ProductionMmolPerMin: 200 * 0.0446,
+    }),
+    pulmonary: Object.freeze({
+      membranePermeabilityMlPerMinPerMmHg: 5.0 * 0.55 * 80.0 / 0.6,
+      deadSpaceBtpsMl: null,
+    }),
+    blood: Object.freeze({
+      sidMolPerL: 0.040,
+      o2MaxMlPerMl: 1.34 * 0.15,
+      tempC: 37,
+      carboxyPercent: 0,
+    }),
+    environment: Object.freeze({
+      barometricPressureMmHg: 760,
+      inspiredCo2Fraction: 0,
+    }),
+  }),
+});
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return value;
+}
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(label + ' must be > 0');
+  return value;
+}
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(label + ' must be non-negative');
+  return value;
+}
+function fraction(value, label) {
+  finite(value, label);
+  if (value < 0 || value > 1) throw new Error(label + ' must be in [0,1]');
+  return value;
+}
+
+function validateRecruitmentState(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('initialRecruitmentState is required');
+  }
+  ['normal', 'recruitable', 'consolidated'].forEach(key =>
+    finite(value[key], 'initialRecruitmentState.' + key));
+  if (value.normal !== 1) throw new Error('initialRecruitmentState.normal must be 1');
+  if (value.consolidated !== 0) throw new Error('initialRecruitmentState.consolidated must be 0');
+  if (value.recruitable < 0 || value.recruitable > 1) {
+    throw new Error('initialRecruitmentState.recruitable must be in [0,1]');
+  }
+  return value;
+}
+
+function buildLiveController(ventilation) {
+  if (!ventilation || typeof ventilation !== 'object' || Array.isArray(ventilation)) {
+    throw new Error('ventilation settings are required');
+  }
+  if (ventilation.mode !== 'VC_AC') {
+    throw new Error('live reduced HumMod core currently supports VC_AC only');
+  }
+  return new VcAcController({
+    fio2: fraction(ventilation.fio2, 'ventilation.fio2'),
+    peep: nonNegative(ventilation.peep, 'ventilation.peep'),
+    rr: positive(ventilation.rr, 'ventilation.rr'),
+    vt: positive(ventilation.vtL, 'ventilation.vtL'),
+    inspiratoryFlow: positive(ventilation.inspiratoryFlowLps, 'ventilation.inspiratoryFlowLps'),
+    inspiratoryPause: ventilation.inspiratoryPauseSec == null
+      ? 0
+      : nonNegative(ventilation.inspiratoryPauseSec, 'ventilation.inspiratoryPauseSec'),
+  });
+}
+
+function createBerlinLiveHumModSession({
+  caseId,
+  ventilation,
+  initialRecruitmentState,
+  initializationHistory,
+  dt = 0.002,
+  mechanicalWarmupSec = 30,
+  nativeCalibrationTarget = null,
+} = {}) {
+  if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
+    throw new Error(
+      'live reduced HumMod core is currently calibrated only for ' +
+      LIVE_HUMMOD_REFERENCE_CASE_ID);
+  }
+  const clinicalCase = getBerlinCase(caseId);
+  if (nativeCalibrationTarget &&
+      nativeCalibrationTarget.schema !== 'vent-native-reduced-hummod-calibration-target/v1') {
+    throw new Error('nativeCalibrationTarget has unsupported schema');
+  }
+  const nativeState = nativeCalibrationTarget &&
+    nativeCalibrationTarget.nativeReducedState &&
+    nativeCalibrationTarget.nativeReducedState.available
+      ? nativeCalibrationTarget.nativeReducedState.initialState
+      : null;
+  const nativeHeartRate = nativeCalibrationTarget &&
+    nativeCalibrationTarget.endpoints
+      ? nativeCalibrationTarget.endpoints.heartRatePerMin
+      : null;
+  const nativeCirculationVolumes = nativeCalibrationTarget &&
+    nativeCalibrationTarget.nativeCirculationState &&
+    nativeCalibrationTarget.nativeCirculationState.available
+      ? nativeCalibrationTarget.nativeCirculationState.initialVolumesMl
+      : null;
+  if (nativeHeartRate != null) positive(nativeHeartRate, 'nativeCalibrationTarget.endpoints.heartRatePerMin');
+  const effectiveCirculationBoundaries = Object.freeze({
+    ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries,
+    heartRatePerMin: nativeHeartRate == null
+      ? LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries.heartRatePerMin
+      : nativeHeartRate,
+  });
+  if (initialRecruitmentState) validateRecruitmentState(initialRecruitmentState);
+  else if (!initializationHistory) {
+    throw new Error('initialRecruitmentState or initializationHistory is required');
+  }
+  positive(dt, 'dt');
+  nonNegative(mechanicalWarmupSec, 'mechanicalWarmupSec');
+
+  const controller = buildLiveController(ventilation);
+  const params = makePatientParams(clinicalCase.phenotype.mechanicsParams);
+  const simulation = new Simulation({
+    params,
+    controller,
+    dt,
+    trackGas: false,
+    initialPEEP: ventilation.peep,
+    initialRecruitmentState,
+    initializationHistory,
+  });
+
+  if (mechanicalWarmupSec > 0) simulation.runFor(mechanicalWarmupSec);
+  const ventTimeOriginSec = simulation.state.t;
+  const referenceMeanAirwayPressureCmH2O = meanAirwayPressureCmH2O(simulation);
+
+  const thorax = createThoraxState({
+    referenceAirwayPressureCmH2O: referenceMeanAirwayPressureCmH2O,
+    referencePleuralPressureCmH2O:
+      LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.referencePleuralPressureCmH2O,
+    chestWallElastanceFraction:
+      LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.chestWallElastanceFraction,
+    provenance: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.provenance,
+  });
+
+  const circulation = createHumModArdsCirculation({
+    initialVolumesMl: nativeCirculationVolumes ||
+      LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.initialVolumesMl,
+    boundaries: effectiveCirculationBoundaries,
+    maxSubstepSec: 0.005,
+  });
+
+  const baselineThorax = thorax.atStaticAirwayPressure(referenceMeanAirwayPressureCmH2O);
+  const baselineThoracicPressureMmHg = cmH2OToMmHg(baselineThorax.pleuralPressureCmH2O);
+  const primedCirc = circulation.step({
+    dtSec: 0.01,
+    thoracicPressureMmHg: baselineThoracicPressureMmHg,
+    pericardialPressureMmHg:
+      baselineThoracicPressureMmHg +
+      LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
+  });
+  const initialCardiacOutputMlPerMin = primedCirc.flowsMlPerMin.leftVentricular;
+  const initialGasBoundary = createLiveCoreBoundaryFromVent({
+    simulation,
+    systemic: {
+      ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic,
+      cardiacOutputMlPerMin: initialCardiacOutputMlPerMin,
+    },
+    pulmonary: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.pulmonary,
+    blood: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
+    environment: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
+  });
+  const gasRuntime = createHumModArdsGasRuntime({
+    ...(nativeState
+      ? { initialState: nativeState }
+      : { useHumModSourceInitialState: true }),
+    boundary: initialGasBoundary.boundary,
+  });
+  const systemicRuntime = createHumModArdsCardiopulmonaryRuntime({
+    simulation,
+    thorax,
+    circulation,
+    gasRuntime,
+    pressureAdapter: { cmH2OToMmHg },
+    systemicBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic,
+    pulmonaryBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.pulmonary,
+    bloodBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
+    environmentBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
+    pericardialTmpMmHg:
+      LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
+  });
+
+  const sessionEvents = [];
+  let initialized = false;
+  let systemicSnapshot = systemicRuntime.snapshot();
+
+  function currentVentSettings() {
+    const s = simulation.controller.settings;
+    return Object.freeze({
+      mode: 'VC_AC',
+      fio2: s.fio2,
+      peepCmH2O: s.peep,
+      rrPerMin: s.rr,
+      vtL: s.vt,
+      inspiratoryFlowLps: s.inspiratoryFlow,
+      inspiratoryPauseSec: s.inspiratoryPause,
+    });
+  }
+
+  function liveSystemicView() {
+    const last = systemicSnapshot.lastStep;
+    if (!last) {
+      return Object.freeze({
+        source: 'reduced-source-aligned-HumMod-ARDS-core',
+        status: 'initialized-not-yet-stepped',
+        gasExchange: null,
+        hemodynamics: Object.freeze({
+          heartRatePerMin:
+            effectiveCirculationBoundaries.heartRatePerMin,
+          meanArterialPressureMmHg: null,
+        }),
+      });
+    }
+    const circ = last.circulation;
+    const gas = last.gas;
+    return Object.freeze({
+      source: 'reduced-source-aligned-HumMod-ARDS-core',
+      status: 'live-coupled-experimental',
+      gasExchange: Object.freeze({
+        pao2MmHg: gas.gases.arterial.po2MmHg,
+        paco2MmHg: gas.gases.arterial.pco2MmHg,
+        pH: gas.gases.arterial.pH,
+        sao2Fraction: gas.gases.arterial.saturationFraction,
+      }),
+      hemodynamics: Object.freeze({
+        heartRatePerMin:
+          effectiveCirculationBoundaries.heartRatePerMin,
+        meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
+        rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
+        pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
+        cardiacOutputMlPerMin: circ.flowsMlPerMin.leftVentricular,
+      }),
+      thorax: Object.freeze({
+        meanAirwayPressureCmH2O: last.meanAirwayPressureCmH2O,
+        pleuralPressureCmH2O: last.thorax.pleuralPressureCmH2O,
+        transpulmonaryPressureCmH2O: last.thorax.transpulmonaryPressureCmH2O,
+      }),
+      coupling: Object.freeze({ ...last.adapterDiagnostics }),
+    });
+  }
+
+  function snapshot() {
+    const mechanics = summarizeSimulationMeasurements(simulation);
+    const recentWaveform = Object.freeze(
+      simulation.trace.slice(-2000).map(row => Object.freeze({
+        t: row.t - ventTimeOriginSec,
+        pressureCmH2O: row.output.airwayPressure,
+        flowLps: row.output.airwayFlow,
+        volumeL: row.output.totalVolume,
+        phase: row.phase,
+        maneuver: row.maneuver,
+      }))
+    );
+    return Object.freeze({
+      sessionSchema: 'berlin-clinical-twin-live-hummod-session/v1',
+      timeSec: systemicSnapshot.timeSec,
+      case: Object.freeze({
+        id: clinicalCase.id,
+        name: clinicalCase.name,
+        berlinSeverity: clinicalCase.clinical.berlinSeverity,
+        recruitability: clinicalCase.phenotype.recruitability,
+        synthetic: clinicalCase.synthetic,
+      }),
+      ventilator: currentVentSettings(),
+      ventilatorChangePending: Boolean(simulation.pendingControllerChange),
+      pulmonary: Object.freeze({
+        engine: 'Vent',
+        initialization: simulation.initialization,
+        airwayPressureCmH2O: simulation.state.airwayPressure,
+        airwayFlowLps: simulation.state.totalFlow,
+        totalLungVolumeL: simulation.state.totalVolume,
+        measurements: mechanics,
+        recentWaveform,
+        waveformStatus: 'most-recent-2000-committed-Vent-samples',
+        gasExchangeAuthority: 'HumMod reduced ARDS core',
+      }),
+      systemic: liveSystemicView(),
+      coupling: Object.freeze({
+        mode: 'live-reduced-hummod-ards-core',
+        systemicResponseToVentInterventions: 'modeled-experimentally',
+        fullHumModEquivalent: false,
+        clinicalValidation: false,
+        referenceMeanAirwayPressureCmH2O,
+        mechanicalWarmupSec,
+        nativeCalibrationApplied: Boolean(nativeCalibrationTarget),
+        nativeGasStateApplied: Boolean(nativeState),
+        nativeCirculationStateApplied: Boolean(nativeCirculationVolumes),
+      }),
+      events: Object.freeze(sessionEvents.slice()),
+      engineeringBoundaries: Object.freeze({
+        ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES,
+        circulation: Object.freeze({
+          ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation,
+          boundaries: effectiveCirculationBoundaries,
+        }),
+        nativeCalibration: nativeCalibrationTarget ? Object.freeze({
+          targetId: nativeCalibrationTarget.targetId,
+          heartRateApplied: nativeHeartRate,
+          gasStateApplied: Boolean(nativeState),
+          circulationStateApplied: Boolean(nativeCirculationVolumes),
+        }) : null,
+      }),
+      provenance: Object.freeze({
+        pulmonary: 'Vent mechanistic engine',
+        systemic: 'reduced source-aligned HumMod ARDS cardiopulmonary core',
+        clinicalCase: 'synthetic Berlin ARDS authored reference case',
+        boundaryStatus: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.status,
+      }),
+    });
+  }
+
+  function stepCoupled(seconds) {
+    nonNegative(seconds, 'seconds');
+    let remaining = seconds;
+    while (remaining > 1e-9) {
+      const h = Math.min(1, remaining);
+      simulation.runFor(h);
+      systemicSnapshot = systemicRuntime.step({ dtSec: h });
+      remaining -= h;
+    }
+  }
+
+  function advanceUntilMeasurement(kind, previousCount, maxAdvanceSec) {
+    positive(maxAdvanceSec, 'maxAdvanceSec');
+    const start = simulation.state.t;
+    const deadline = start + maxAdvanceSec;
+    while (simulation.state.t < deadline) {
+      const result = simulation.step();
+      if (result.failed) {
+        const error = new Error(
+          'Simulation stopped during passive mechanics measurement: ' +
+          (result.output.failureKind || 'STEP_FAILED'));
+        error.diagnostics = result.output;
+        throw error;
+      }
+      const count = simulation.measurements.filter(m => m.kind === kind).length;
+      if (count > previousCount) return simulation.state.t - start;
+    }
+    throw new Error('passive mechanics measurement did not complete within maxAdvanceSec');
+  }
+
+  return Object.freeze({
+    kind: 'berlin-clinical-twin-live-hummod-session',
+    clinicalCase,
+    simulation,
+
+    initialize() {
+      if (initialized) return snapshot();
+      initialized = true;
+      stepCoupled(1);
+      sessionEvents.push(Object.freeze({
+        t: systemicSnapshot.timeSec,
+        kind: 'SESSION_INITIALIZED',
+        systemicMode: 'live-reduced-hummod-ards-core',
+      }));
+      return snapshot();
+    },
+
+    runFor(seconds) {
+      if (!initialized) throw new Error('session must be initialized before runFor');
+      stepCoupled(seconds);
+      return snapshot();
+    },
+
+    setPEEP(value) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      simulation.setPEEP(value);
+      sessionEvents.push(Object.freeze({
+        t: systemicSnapshot.timeSec,
+        kind: 'SET_PEEP',
+        valueCmH2O: value,
+        pulmonaryResponse: 'modeled-by-Vent',
+        systemicResponse: 'modeled-by-live-reduced-HumMod-core-on-next-advance',
+      }));
+      return snapshot();
+    },
+
+    requestVentilationChange(nextVentilation) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      const nextController = buildLiveController(nextVentilation);
+      const requested = simulation.requestControllerChange(nextController, {
+        source: 'clinical-twin-live-hummod-session',
+      });
+      sessionEvents.push(Object.freeze({
+        t: systemicSnapshot.timeSec,
+        kind: 'REQUEST_VENTILATION_CHANGE',
+        fromMode: requested.fromMode,
+        toMode: requested.toMode,
+        application: 'next-completed-breath-boundary',
+        systemicResponse: 'modeled-by-live-reduced-HumMod-core-after-application-and-advance',
+      }));
+      return snapshot();
+    },
+
+    performPassiveMechanicsMeasurement({
+      holdDurationSec = 0.5,
+      maxAdvanceSecPerHold = 90,
+    } = {}) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(holdDurationSec, 'holdDurationSec');
+      positive(maxAdvanceSecPerHold, 'maxAdvanceSecPerHold');
+      if (simulation.pendingControllerChange) {
+        throw new Error('passive mechanics measurement requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+
+      const startVentTime = simulation.state.t;
+      const inspiratoryCount = simulation.measurements
+        .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
+      simulation.requestInspiratoryHold(holdDurationSec);
+      advanceUntilMeasurement('INSPIRATORY_HOLD', inspiratoryCount, maxAdvanceSecPerHold);
+
+      const expiratoryCount = simulation.measurements
+        .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
+      simulation.requestExpiratoryHold(holdDurationSec);
+      advanceUntilMeasurement('EXPIRATORY_HOLD', expiratoryCount, maxAdvanceSecPerHold);
+
+      const elapsed = simulation.state.t - startVentTime;
+      if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+      sessionEvents.push(Object.freeze({
+        t: systemicSnapshot.timeSec,
+        kind: 'PASSIVE_MECHANICS_MEASUREMENT_COMPLETED',
+        systemicCouplingApproximation:
+          'systemic core advanced once across maneuver elapsed time using final recent mean-airway-pressure state',
+      }));
+      return snapshot();
+    },
+
+    requestInspiratoryHold(durationSec) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      simulation.requestInspiratoryHold(durationSec);
+      return snapshot();
+    },
+
+    requestExpiratoryHold(durationSec) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      simulation.requestExpiratoryHold(durationSec);
+      return snapshot();
+    },
+
+    snapshot,
+  });
+}
+
+module.exports = {
+  LIVE_HUMMOD_REFERENCE_CASE_ID,
+  LIVE_HUMMOD_ENGINEERING_BOUNDARIES,
+  createBerlinLiveHumModSession,
+};
+
+},
+"src/hummod_ards_core_thorax.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_thorax.js
+//
+// Reduced chest-wall / pleural-pressure bridge for the live ARDS core.
+//
+// This module does not infer chest-wall mechanics from Berlin severity,
+// recruitability, BMI, or airway pressure alone. Absolute pleural pressure
+// requires an explicit authored/measured baseline. Dynamic changes use the
+// passive static elastance partition:
+//
+//   dPpl = dPaw * Ecw / Ers
+//   dPL  = dPaw * EL  / Ers
+//
+// with Ers = EL + Ecw.
+//
+// This is suitable as a phase-1 quasi-static coupling layer for passive
+// ventilation. It is not a substitute for measured esophageal pressure,
+// regional pleural-pressure gradients, spontaneous effort, or nonlinear
+// chest-wall mechanics.
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return v;
+}
+
+function fraction(v, label) {
+  finite(v, label);
+  if (v < 0 || v > 1) throw new Error(label + ' must be in [0,1]');
+  return v;
+}
+
+function createThoraxState({
+  referenceAirwayPressureCmH2O,
+  referencePleuralPressureCmH2O,
+  chestWallElastanceFraction,
+  provenance,
+} = {}) {
+  finite(referenceAirwayPressureCmH2O, 'referenceAirwayPressureCmH2O');
+  finite(referencePleuralPressureCmH2O, 'referencePleuralPressureCmH2O');
+  fraction(chestWallElastanceFraction, 'chestWallElastanceFraction');
+
+  if (!provenance || typeof provenance !== 'object') {
+    throw new Error('thorax provenance is required');
+  }
+
+  const lungElastanceFraction = 1 - chestWallElastanceFraction;
+
+  function atStaticAirwayPressure(airwayPressureCmH2O) {
+    finite(airwayPressureCmH2O, 'airwayPressureCmH2O');
+    const deltaAirwayCmH2O =
+      airwayPressureCmH2O - referenceAirwayPressureCmH2O;
+    const deltaPleuralCmH2O =
+      deltaAirwayCmH2O * chestWallElastanceFraction;
+    const pleuralPressureCmH2O =
+      referencePleuralPressureCmH2O + deltaPleuralCmH2O;
+    const transpulmonaryPressureCmH2O =
+      airwayPressureCmH2O - pleuralPressureCmH2O;
+
+    return Object.freeze({
+      airwayPressureCmH2O,
+      pleuralPressureCmH2O,
+      transpulmonaryPressureCmH2O,
+      deltaAirwayCmH2O,
+      deltaPleuralCmH2O,
+      deltaTranspulmonaryCmH2O:
+        deltaAirwayCmH2O * lungElastanceFraction,
+      chestWallElastanceFraction,
+      lungElastanceFraction,
+      interpretation: 'passive-static-linear-elastance-partition',
+      provenance: Object.freeze({ ...provenance }),
+    });
+  }
+
+  return Object.freeze({
+    schema: 'hummod-ards-thorax/v1',
+    referenceAirwayPressureCmH2O,
+    referencePleuralPressureCmH2O,
+    chestWallElastanceFraction,
+    lungElastanceFraction,
+    provenance: Object.freeze({ ...provenance }),
+    atStaticAirwayPressure,
+  });
+}
+
+module.exports = {
+  createThoraxState,
+};
+
+},
+"src/hummod_ards_core_circulation.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_circulation.js
+//
+// Reduced closed-loop circulation built from compact HumMod vascular and
+// ventricular source equations, while lumping the detailed organ circulation
+// into explicit effective systemic arterial/venous conductances.
+//
+// Native units:
+//   pressure: mmHg
+//   volume: mL
+//   flow: mL/min
+//   time input: seconds
+//
+// This is a reduced-order engineering model, not a verbatim runnable HumMod
+// subset and not clinical validation.
+
+const {
+  VASCULAR_DEFAULTS,
+  stressedVolumePressure,
+  conductanceFlow,
+  ventricularPump,
+} = require("src/hummod_ards_core_hemodynamics.js");
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return v;
+}
+function positive(v, label) {
+  finite(v, label);
+  if (!(v > 0)) throw new Error(label + ' must be > 0');
+  return v;
+}
+function nonNegative(v, label) {
+  finite(v, label);
+  if (v < 0) throw new Error(label + ' must be >= 0');
+  return v;
+}
+
+function createHumModArdsCirculation({
+  initialVolumesMl,
+  boundaries,
+  maxSubstepSec = 0.01,
+} = {}) {
+  if (!initialVolumesMl || !boundaries) {
+    throw new Error('initialVolumesMl and boundaries are required');
+  }
+
+  const requiredVolumes = [
+    'systemicArteries','systemicVeins','rightAtrium',
+    'pulmonaryArtery','pulmonaryCapillaries','pulmonaryVeins','leftAtrium',
+  ];
+  const volumes = {};
+  for (const name of requiredVolumes) {
+    volumes[name] = positive(initialVolumesMl[name], 'initialVolumesMl.' + name);
+  }
+
+  positive(boundaries.heartRatePerMin, 'heartRatePerMin');
+  positive(boundaries.systemicArterialConductanceMlPerMinPerMmHg,
+    'systemicArterialConductanceMlPerMinPerMmHg');
+  positive(boundaries.systemicVenousConductanceMlPerMinPerMmHg,
+    'systemicVenousConductanceMlPerMinPerMmHg');
+  positive(maxSubstepSec, 'maxSubstepSec');
+
+  let timeSec = 0;
+  let last = null;
+
+  function pressures({ thoracicPressureMmHg, pericardialPressureMmHg }) {
+    finite(thoracicPressureMmHg, 'thoracicPressureMmHg');
+    finite(pericardialPressureMmHg, 'pericardialPressureMmHg');
+
+    const sa = stressedVolumePressure({
+      volumeMl: volumes.systemicArteries,
+      v0Ml: VASCULAR_DEFAULTS.systemicArteries.v0Ml,
+      complianceMlPerMmHg: VASCULAR_DEFAULTS.systemicArteries.complianceMlPerMmHg,
+      externalPressureMmHg: 0,
+    });
+    const sv = stressedVolumePressure({
+      volumeMl: volumes.systemicVeins,
+      v0Ml: VASCULAR_DEFAULTS.systemicVeins.v0Ml,
+      complianceMlPerMmHg: VASCULAR_DEFAULTS.systemicVeins.complianceMlPerMmHg,
+      externalPressureMmHg: 0,
+    });
+    const ra = stressedVolumePressure({
+      volumeMl: volumes.rightAtrium,
+      v0Ml: VASCULAR_DEFAULTS.rightAtrium.v0Ml,
+      complianceMlPerMmHg: VASCULAR_DEFAULTS.rightAtrium.complianceMlPerMmHg,
+      externalPressureMmHg: pericardialPressureMmHg,
+      clampStressedVolumeAtZero: false,
+    });
+    const pa = stressedVolumePressure({
+      volumeMl: volumes.pulmonaryArtery,
+      v0Ml: VASCULAR_DEFAULTS.pulmonaryArtery.v0Ml,
+      complianceMlPerMmHg: VASCULAR_DEFAULTS.pulmonaryArtery.complianceMlPerMmHg,
+      externalPressureMmHg: thoracicPressureMmHg,
+    });
+    const pc = stressedVolumePressure({
+      volumeMl: volumes.pulmonaryCapillaries,
+      v0Ml: VASCULAR_DEFAULTS.pulmonaryCapillaries.v0Ml,
+      complianceMlPerMmHg: VASCULAR_DEFAULTS.pulmonaryCapillaries.complianceMlPerMmHg,
+      externalPressureMmHg: thoracicPressureMmHg,
+    });
+    const pv = stressedVolumePressure({
+      volumeMl: volumes.pulmonaryVeins,
+      v0Ml: VASCULAR_DEFAULTS.pulmonaryVeins.v0Ml,
+      complianceMlPerMmHg: VASCULAR_DEFAULTS.pulmonaryVeins.complianceMlPerMmHg,
+      externalPressureMmHg: thoracicPressureMmHg,
+    });
+    const la = stressedVolumePressure({
+      volumeMl: volumes.leftAtrium,
+      v0Ml: VASCULAR_DEFAULTS.leftAtrium.v0Ml,
+      complianceMlPerMmHg: VASCULAR_DEFAULTS.leftAtrium.complianceMlPerMmHg,
+      externalPressureMmHg: pericardialPressureMmHg,
+      clampStressedVolumeAtZero: false,
+    });
+
+    return { sa, sv, ra, pa, pc, pv, la };
+  }
+
+  function evaluate(boundaryNow) {
+    const p = pressures(boundaryNow);
+
+    const systemicOutflow = conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        boundaries.systemicArterialConductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: p.sa.pressureMmHg,
+      downstreamPressureMmHg: p.sv.pressureMmHg,
+    });
+
+    const venousReturn = conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        boundaries.systemicVenousConductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: p.sv.pressureMmHg,
+      downstreamPressureMmHg: p.ra.pressureMmHg,
+    });
+
+    const pulmonaryArterialOutflow = conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryArtery.conductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: p.pa.pressureMmHg,
+      downstreamPressureMmHg: p.pc.pressureMmHg,
+    });
+    const pulmonaryCapillaryOutflow = conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryCapillaries.conductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: p.pc.pressureMmHg,
+      downstreamPressureMmHg: p.pv.pressureMmHg,
+    });
+    const pulmonaryVenousOutflow = conductanceFlow({
+      conductanceMlPerMinPerMmHg:
+        VASCULAR_DEFAULTS.pulmonaryVeins.conductanceMlPerMinPerMmHg,
+      upstreamPressureMmHg: p.pv.pressureMmHg,
+      downstreamPressureMmHg: p.la.pressureMmHg,
+    });
+
+    const rightPump = ventricularPump({
+      side: 'right',
+      atrialPressureMmHg: p.ra.pressureMmHg,
+      arterialPressureMmHg: p.pa.pressureMmHg,
+      pericardialPressureMmHg: boundaryNow.pericardialPressureMmHg,
+      heartRatePerMin: boundaries.heartRatePerMin,
+      contractilityMultiplier: boundaries.rightContractilityMultiplier || 1,
+      stiffnessMultiplier: boundaries.rightStiffnessMultiplier || 1,
+    });
+    const leftPump = ventricularPump({
+      side: 'left',
+      atrialPressureMmHg: p.la.pressureMmHg,
+      arterialPressureMmHg: p.sa.pressureMmHg,
+      pericardialPressureMmHg: boundaryNow.pericardialPressureMmHg,
+      heartRatePerMin: boundaries.heartRatePerMin,
+      contractilityMultiplier: boundaries.leftContractilityMultiplier || 1,
+      stiffnessMultiplier: boundaries.leftStiffnessMultiplier || 1,
+    });
+
+    if (rightPump.bloodFlowMlPerMin < 0 || leftPump.bloodFlowMlPerMin < 0) {
+      throw new Error('ventricular source algebra produced negative forward flow');
+    }
+
+    return {
+      pressures: {
+        systemicArterialMmHg: p.sa.pressureMmHg,
+        systemicVenousMmHg: p.sv.pressureMmHg,
+        rightAtrialMmHg: p.ra.pressureMmHg,
+        pulmonaryArteryMmHg: p.pa.pressureMmHg,
+        pulmonaryCapillaryMmHg: p.pc.pressureMmHg,
+        pulmonaryVenousMmHg: p.pv.pressureMmHg,
+        leftAtrialMmHg: p.la.pressureMmHg,
+      },
+      flowsMlPerMin: {
+        leftVentricular: leftPump.bloodFlowMlPerMin,
+        systemicOutflow,
+        venousReturn,
+        rightVentricular: rightPump.bloodFlowMlPerMin,
+        pulmonaryArterialOutflow,
+        pulmonaryCapillaryOutflow,
+        pulmonaryVenousOutflow,
+      },
+      rightVentricle: rightPump,
+      leftVentricle: leftPump,
+    };
+  }
+
+  function derivative(e) {
+    const q = e.flowsMlPerMin;
+    return {
+      systemicArteries: q.leftVentricular - q.systemicOutflow,
+      systemicVeins: q.systemicOutflow - q.venousReturn,
+      rightAtrium: q.venousReturn - q.rightVentricular,
+      pulmonaryArtery: q.rightVentricular - q.pulmonaryArterialOutflow,
+      pulmonaryCapillaries:
+        q.pulmonaryArterialOutflow - q.pulmonaryCapillaryOutflow,
+      pulmonaryVeins:
+        q.pulmonaryCapillaryOutflow - q.pulmonaryVenousOutflow,
+      leftAtrium: q.pulmonaryVenousOutflow - q.leftVentricular,
+    };
+  }
+
+  function step({ dtSec, thoracicPressureMmHg, pericardialPressureMmHg } = {}) {
+    positive(dtSec, 'dtSec');
+    finite(thoracicPressureMmHg, 'thoracicPressureMmHg');
+    finite(pericardialPressureMmHg, 'pericardialPressureMmHg');
+
+    const n = Math.max(1, Math.ceil(dtSec / maxSubstepSec));
+    const hSec = dtSec / n;
+    const hMin = hSec / 60;
+
+    for (let k = 0; k < n; k++) {
+      const e = evaluate({ thoracicPressureMmHg, pericardialPressureMmHg });
+      const d = derivative(e);
+      for (const name of requiredVolumes) {
+        volumes[name] += d[name] * hMin;
+        if (!(volumes[name] > 0) || !Number.isFinite(volumes[name])) {
+          throw new Error('circulation volume became non-physical: ' + name);
+        }
+      }
+      timeSec += hSec;
+      last = e;
+    }
+    return snapshot();
+  }
+
+  function snapshot() {
+    return Object.freeze({
+      schema: 'hummod-ards-circulation/v1',
+      timeSec,
+      volumesMl: Object.freeze({ ...volumes }),
+      ...(last || {}),
+      provenance: Object.freeze({
+        status: 'reduced-order-source-aligned-circulation',
+        detailedOrganCirculation:
+          'lumped into explicit systemic conductance boundaries',
+        clinicalValidation: false,
+      }),
+    });
+  }
+
+  return Object.freeze({ kind:'hummod-ards-circulation', step, snapshot });
+}
+
+module.exports = { createHumModArdsCirculation };
+
+},
+"src/hummod_ards_cardiopulmonary_runtime.js":function(module,exports,require){
+'use strict';
+
+const { createVentToArdsCoreSnapshot } = require("src/hummod_ards_core_coupling.js");
+const { createLiveCoreBoundaryFromVent } = require("src/hummod_ards_core_vent_adapter.js");
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){
+  finite(v,label); if(!(v>0)) throw new Error(label+' must be > 0'); return v;
+}
+
+function meanAirwayPressureCmH2O(simulation, recentSamples=1500){
+  const s=createVentToArdsCoreSnapshot(simulation,{recentSamples});
+  const tr=s.mechanics.recentTrace;
+  if(!tr.length) return s.mechanics.airwayPressureCmH2O;
+  return tr.reduce((a,row)=>a+row.airwayPressureCmH2O,0)/tr.length;
+}
+
+function createHumModArdsCardiopulmonaryRuntime({
+  simulation,
+  thorax,
+  circulation,
+  gasRuntime,
+  pressureAdapter,
+  systemicBoundaries,
+  pulmonaryBoundaries,
+  bloodBoundaries,
+  environmentBoundaries,
+  pericardialTmpMmHg=0,
+}={}){
+  if(!simulation||!thorax||!circulation||!gasRuntime){
+    throw new Error('simulation, thorax, circulation, and gasRuntime are required');
+  }
+  if(!pressureAdapter||
+     typeof pressureAdapter.cmH2OToMmHg!=='function'){
+    throw new Error('validated pressureAdapter.cmH2OToMmHg is required');
+  }
+  finite(pericardialTmpMmHg,'pericardialTmpMmHg');
+
+  let timeSec=0;
+  let last=null;
+
+  function step({dtSec}={}){
+    positive(dtSec,'dtSec');
+
+    const meanPaw=meanAirwayPressureCmH2O(simulation);
+    const thoraxState=thorax.atStaticAirwayPressure(meanPaw);
+    const thoracicPressureMmHg=pressureAdapter.cmH2OToMmHg(
+      thoraxState.pleuralPressureCmH2O);
+    finite(thoracicPressureMmHg,'converted thoracic pressure');
+    const pericardialPressureMmHg=thoracicPressureMmHg+pericardialTmpMmHg;
+
+    const circ=circulation.step({
+      dtSec,
+      thoracicPressureMmHg,
+      pericardialPressureMmHg,
+    });
+
+    const cardiacOutputMlPerMin=circ.flowsMlPerMin.leftVentricular;
+    positive(cardiacOutputMlPerMin,'left ventricular cardiac output');
+
+    const adapted=createLiveCoreBoundaryFromVent({
+      simulation,
+      systemic:{
+        ...systemicBoundaries,
+        cardiacOutputMlPerMin,
+      },
+      pulmonary:pulmonaryBoundaries,
+      blood:bloodBoundaries,
+      environment:environmentBoundaries,
+    });
+
+    const gas=gasRuntime.step({
+      dtSec,
+      boundary:adapted.boundary,
+    });
+
+    timeSec+=dtSec;
+    last=Object.freeze({
+      meanAirwayPressureCmH2O:meanPaw,
+      thorax:thoraxState,
+      thoracicPressureMmHg,
+      pericardialPressureMmHg,
+      circulation:circ,
+      gas,
+      adapterDiagnostics:adapted.diagnostics,
+    });
+    return snapshot();
+  }
+
+  function snapshot(){
+    return Object.freeze({
+      schema:'hummod-ards-cardiopulmonary-runtime/v1',
+      timeSec,
+      lastStep:last,
+      provenance:Object.freeze({
+        pulmonaryMechanics:'Vent',
+        thorax:'explicit passive chest-wall phenotype',
+        circulation:'reduced source-aligned HumMod circulation',
+        gasExchange:'source-aligned HumMod reduced gas core',
+        pressureUnits:'caller-supplied validated adapter',
+        clinicalValidation:false,
+      }),
+    });
+  }
+
+  return Object.freeze({
+    kind:'hummod-ards-cardiopulmonary-runtime',
+    step,
+    snapshot,
+  });
+}
+
+module.exports={
+  meanAirwayPressureCmH2O,
+  createHumModArdsCardiopulmonaryRuntime,
+};
+
+},
+"src/hummod_ards_core_vent_adapter.js":function(module,exports,require){
+'use strict';
+
+const { humModLegacyDeadSpaceMl } = require("src/hummod_ards_core_breathing.js");
+const { createVentToArdsCoreSnapshot } = require("src/hummod_ards_core_coupling.js");
+const {
+  pulmonaryMembraneState,
+} = require("src/hummod_ards_core_pulmonary_membrane.js");
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return v;
+}
+
+function positive(v, label) {
+  finite(v, label);
+  if (!(v > 0)) throw new Error(label + ' must be > 0');
+  return v;
+}
+
+const HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN = 220;
+
+function deriveVentilatedPulmonaryFlowMlPerMin({
+  simulation,
+  cardiacOutputMlPerMin,
+  basicRightLeftShuntMlPerMin =
+    HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN,
+} = {}) {
+  positive(cardiacOutputMlPerMin, 'cardiacOutputMlPerMin');
+  finite(basicRightLeftShuntMlPerMin, 'basicRightLeftShuntMlPerMin');
+  if (basicRightLeftShuntMlPerMin < 0) {
+    throw new Error('basicRightLeftShuntMlPerMin must be >= 0');
+  }
+
+  const perfusionById = Object.fromEntries(
+    simulation.params.compartments.map(cp => [cp.id, cp.perfusionFraction])
+  );
+
+  let totalPerfusion = 0;
+  let ventilatedPerfusion = 0;
+  for (const compartment of simulation.state.compartments) {
+    const perfusion = perfusionById[compartment.id];
+    finite(perfusion, 'perfusion fraction ' + compartment.id);
+    totalPerfusion += perfusion;
+    ventilatedPerfusion += perfusion * compartment.recruitment;
+  }
+
+  if (!(totalPerfusion > 0)) throw new Error('total perfusion fraction must be > 0');
+
+  const fraction = Math.max(0, Math.min(1, ventilatedPerfusion / totalPerfusion));
+
+  // HumMod LungBloodFlow.DES:
+  //   Right-LeftShunt = BasicR-LShunt MIN Total
+  //   Alveolar = Total - Right-LeftShunt
+  //   AlveolarVentilated = alveolar flow * lung-inflation fraction
+  //
+  // Vent supplies the regional inflation/perfusion fraction because the
+  // reduced core does not run HumMod's bilateral hemithorax model.
+  const rightLeftShuntMlPerMin = Math.min(
+    basicRightLeftShuntMlPerMin,
+    cardiacOutputMlPerMin);
+  const alveolarPulmonaryBloodFlowMlPerMin =
+    cardiacOutputMlPerMin - rightLeftShuntMlPerMin;
+  const ventilatedPulmonaryBloodFlowMlPerMin =
+    alveolarPulmonaryBloodFlowMlPerMin * fraction;
+  const alveolarShuntMlPerMin =
+    alveolarPulmonaryBloodFlowMlPerMin -
+    ventilatedPulmonaryBloodFlowMlPerMin;
+  const totalShuntMlPerMin =
+    rightLeftShuntMlPerMin + alveolarShuntMlPerMin;
+
+  return Object.freeze({
+    ventilatedPerfusionFraction: fraction,
+    totalPulmonaryBloodFlowMlPerMin: cardiacOutputMlPerMin,
+    rightLeftShuntMlPerMin,
+    alveolarPulmonaryBloodFlowMlPerMin,
+    ventilatedPulmonaryBloodFlowMlPerMin,
+    alveolarShuntMlPerMin,
+    totalShuntMlPerMin,
+    humModSource:
+      'Structure/Lungs/LungBloodFlow.DES@8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  });
+}
+
+function createLiveCoreBoundaryFromVent({
+  simulation,
+  systemic,
+  pulmonary,
+  blood,
+  environment,
+} = {}) {
+  if (!simulation) throw new Error('simulation is required');
+  if (!systemic || !pulmonary || !blood || !environment) {
+    throw new Error('systemic, pulmonary, blood, and environment boundaries are required');
+  }
+
+  const snap = createVentToArdsCoreSnapshot(simulation);
+  if (snap.ventilator.mode !== 'VC_AC') {
+    throw new Error('phase-1 live core adapter currently supports VC_AC only');
+  }
+
+  const vtL = snap.ventilator.settings.vt;
+  positive(vtL, 'VC tidal volume');
+
+  const flow = deriveVentilatedPulmonaryFlowMlPerMin({
+    simulation,
+    cardiacOutputMlPerMin: systemic.cardiacOutputMlPerMin,
+  });
+
+  const membrane = pulmonary.membranePermeabilityMlPerMinPerMmHg == null
+    ? pulmonaryMembraneState({
+        alveolarPulmonaryBloodFlowMlPerMin:
+          flow.alveolarPulmonaryBloodFlowMlPerMin,
+        excessLungWaterMl: pulmonary.excessLungWaterMl || 0,
+      })
+    : null;
+  const membranePermeabilityMlPerMinPerMmHg = membrane
+    ? membrane.permeabilityMlPerMinPerMmHg
+    : pulmonary.membranePermeabilityMlPerMinPerMmHg;
+  positive(
+    membranePermeabilityMlPerMinPerMmHg,
+    'membranePermeabilityMlPerMinPerMmHg');
+
+  return Object.freeze({
+    boundary: Object.freeze({
+      ventilation: Object.freeze({
+        respiratoryRatePerMin: snap.ventilator.rrPerMin,
+        tidalVolumeBtpsMl: vtL * 1000,
+        deadSpaceBtpsMl: pulmonary.deadSpaceBtpsMl == null
+          ? humModLegacyDeadSpaceMl(vtL * 1000)
+          : pulmonary.deadSpaceBtpsMl,
+        fio2: snap.ventilator.fio2,
+      }),
+      pulmonary: Object.freeze({
+        membranePermeabilityMlPerMinPerMmHg:
+          membranePermeabilityMlPerMinPerMmHg,
+        ventilatedPulmonaryBloodFlowMlPerMin:
+          flow.ventilatedPulmonaryBloodFlowMlPerMin,
+      }),
+      circulation: Object.freeze({
+        cardiacOutputMlPerMin: systemic.cardiacOutputMlPerMin,
+      }),
+      metabolism: Object.freeze({
+        tissueO2UseMlPerMin: systemic.tissueO2UseMlPerMin,
+        tissueCo2ProductionMmolPerMin: systemic.tissueCo2ProductionMmolPerMin,
+      }),
+      blood: Object.freeze({
+        sidMolPerL: blood.sidMolPerL,
+        o2MaxMlPerMl: blood.o2MaxMlPerMl,
+        tempC: blood.tempC,
+        carboxyPercent: blood.carboxyPercent || 0,
+      }),
+      environment: Object.freeze({
+        barometricPressureMmHg: environment.barometricPressureMmHg,
+        inspiredCo2Fraction: environment.inspiredCo2Fraction || 0,
+      }),
+    }),
+    diagnostics: Object.freeze({
+      ventilatedPerfusionFraction: flow.ventilatedPerfusionFraction,
+      rightLeftShuntMlPerMin: flow.rightLeftShuntMlPerMin,
+      alveolarPulmonaryBloodFlowMlPerMin:
+        flow.alveolarPulmonaryBloodFlowMlPerMin,
+      alveolarShuntMlPerMin: flow.alveolarShuntMlPerMin,
+      totalShuntMlPerMin: flow.totalShuntMlPerMin,
+      source:
+        'HumMod LungBloodFlow basic R-L shunt + Vent compartment perfusionFraction x current recruitment',
+      deadSpaceSource: pulmonary.deadSpaceBtpsMl == null
+        ? 'HumMod Breathing.DES legacy equation'
+        : 'explicit-boundary',
+      membranePermeabilityMlPerMinPerMmHg,
+      membraneRecruitment: membrane ? membrane.recruitment : null,
+      membraneSource: membrane
+        ? 'HumMod PulmonaryMembrane.DES source curve'
+        : 'explicit-boundary',
+      membraneInterpolation: membrane
+        ? membrane.provenance.interpolation
+        : null,
+      hemodynamicCoupling: 'not-yet-enabled-without-pleural-pressure-model',
+    }),
+  });
+}
+
+module.exports = {
+  HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN,
+  deriveVentilatedPulmonaryFlowMlPerMin,
+  createLiveCoreBoundaryFromVent,
+};
+
+},
+"src/hummod_ards_core_pulmonary_membrane.js":function(module,exports,require){
+'use strict';
+
+// hummod_ards_core_pulmonary_membrane.js
+//
+// Reduced implementation of HumMod PulmonaryMembrane.DES.
+//
+// Source curve:
+//   LungBloodFlow.Alveolar (mL/min) -> membrane Recruitment
+//     0     -> 0.01, slope 0
+//     5500  -> 0.30, slope 0.0001
+//     15000 -> 1.00, slope 0
+//
+// Source equations:
+//   Thickness-H2O = ExcessLungWater.Volume / TotalArea
+//   Thickness = Thickness-Structure + Thickness-H2O
+//   ActiveArea = TotalArea * Recruitment
+//   DiffusingCapacity = DC_SCALER * ActiveArea / Thickness
+//   Permeability = DC_TO_PERM * DiffusingCapacity
+//
+// The DES runtime interpolation algorithm is not distributed here as an
+// executable library. We preserve the source points and endpoint derivatives
+// using piecewise cubic Hermite interpolation and expose that implementation
+// choice in provenance.
+
+const HUMMOD_PULMONARY_MEMBRANE_SOURCE = Object.freeze({
+  repository: 'riliescu/hummod-standalone',
+  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  path: 'Structure/Lungs/PulmonaryMembrane.DES',
+});
+
+const TOTAL_AREA = 80.0;
+const THICKNESS_STRUCTURE = 0.6;
+const DC_SCALER = 0.55;
+const DC_TO_PERM = 5.0;
+
+const RECRUITMENT_POINTS = Object.freeze([
+  Object.freeze({ x: 0, y: 0.01, slope: 0 }),
+  Object.freeze({ x: 5500, y: 0.30, slope: 0.0001 }),
+  Object.freeze({ x: 15000, y: 1.00, slope: 0 }),
+]);
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return v;
+}
+
+function hermiteSegment(x, a, b) {
+  const h = b.x - a.x;
+  const t = (x - a.x) / h;
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const h00 = 2 * t3 - 3 * t2 + 1;
+  const h10 = t3 - 2 * t2 + t;
+  const h01 = -2 * t3 + 3 * t2;
+  const h11 = t3 - t2;
+  return h00 * a.y +
+    h10 * h * a.slope +
+    h01 * b.y +
+    h11 * h * b.slope;
+}
+
+function pulmonaryMembraneRecruitmentForAlveolarFlow(
+  alveolarPulmonaryBloodFlowMlPerMin
+) {
+  finite(
+    alveolarPulmonaryBloodFlowMlPerMin,
+    'alveolarPulmonaryBloodFlowMlPerMin'
+  );
+  if (alveolarPulmonaryBloodFlowMlPerMin < 0) {
+    throw new Error(
+      'alveolarPulmonaryBloodFlowMlPerMin must be >= 0');
+  }
+
+  const x = alveolarPulmonaryBloodFlowMlPerMin;
+  if (x <= RECRUITMENT_POINTS[0].x) return RECRUITMENT_POINTS[0].y;
+  const last = RECRUITMENT_POINTS[RECRUITMENT_POINTS.length - 1];
+  if (x >= last.x) return last.y;
+
+  for (let i = 0; i < RECRUITMENT_POINTS.length - 1; i += 1) {
+    const a = RECRUITMENT_POINTS[i];
+    const b = RECRUITMENT_POINTS[i + 1];
+    if (x <= b.x) {
+      const y = hermiteSegment(x, a, b);
+      return Math.max(
+        Math.min(y, Math.max(a.y, b.y)),
+        Math.min(a.y, b.y)
+      );
+    }
+  }
+  return last.y;
+}
+
+function pulmonaryMembraneState({
+  alveolarPulmonaryBloodFlowMlPerMin,
+  excessLungWaterMl = 0,
+} = {}) {
+  finite(excessLungWaterMl, 'excessLungWaterMl');
+  if (excessLungWaterMl < 0) {
+    throw new Error('excessLungWaterMl must be >= 0');
+  }
+
+  const recruitment =
+    pulmonaryMembraneRecruitmentForAlveolarFlow(
+      alveolarPulmonaryBloodFlowMlPerMin);
+  const thicknessH2O = excessLungWaterMl / TOTAL_AREA;
+  const thickness = THICKNESS_STRUCTURE + thicknessH2O;
+  const activeArea = TOTAL_AREA * recruitment;
+  const diffusingCapacity =
+    DC_SCALER * activeArea / thickness;
+  const permeabilityMlPerMinPerMmHg =
+    DC_TO_PERM * diffusingCapacity;
+
+  return Object.freeze({
+    alveolarPulmonaryBloodFlowMlPerMin,
+    recruitment,
+    totalArea: TOTAL_AREA,
+    activeArea,
+    thicknessStructure: THICKNESS_STRUCTURE,
+    thicknessH2O,
+    thickness,
+    diffusingCapacity,
+    permeabilityMlPerMinPerMmHg,
+    excessLungWaterMl,
+    provenance: Object.freeze({
+      source: HUMMOD_PULMONARY_MEMBRANE_SOURCE,
+      equations: 'source-preserved',
+      curvePointsAndSlopes: 'source-preserved',
+      interpolation:
+        'piecewise-cubic-Hermite; DES runtime interpolation not independently verified',
+    }),
+  });
+}
+
+module.exports = {
+  HUMMOD_PULMONARY_MEMBRANE_SOURCE,
+  RECRUITMENT_POINTS,
+  pulmonaryMembraneRecruitmentForAlveolarFlow,
+  pulmonaryMembraneState,
+};
+
+},
+"src/clinical_units.js":function(module,exports,require){
+'use strict';
+
+// clinical_units.js
+//
+// Small, explicit unit bridge for cross-engine coupling.
+// Pressure conversion is intentionally isolated from HumMod physiology so
+// source-native hemodynamic modules remain in mmHg.
+const CMH2O_TO_MMHG = 0.7356;
+
+function cmH2OToMmHg(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error('cmH2O value must be finite');
+  }
+  return value * CMH2O_TO_MMHG;
+}
+
+module.exports = {
+  CMH2O_TO_MMHG,
+  cmH2OToMmHg,
 };
 
 },

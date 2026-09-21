@@ -308,7 +308,7 @@
     $('clinical-current-peep').textContent = displayClinicalValue(snapshot.ventilator?.peepCmH2O);
     $('clinical-current-fio2').textContent = typeof snapshot.ventilator?.fio2 === 'number'
       ? snapshot.ventilator.fio2.toFixed(2) : '—';
-    $('clinical-current-rr').textContent = displayClinicalValue(snapshot.ventilator?.rr);
+    $('clinical-current-rr').textContent = displayClinicalValue(snapshot.ventilator?.rrPerMin ?? snapshot.ventilator?.rr);
     $('clinical-current-vt').textContent = typeof snapshot.ventilator?.vtL === 'number'
       ? Math.round(snapshot.ventilator.vtL * 1000) : '—';
     $('clinical-pao2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.pao2MmHg);

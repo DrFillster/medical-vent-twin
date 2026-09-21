@@ -1,7 +1,7 @@
 {
   "version": "0.4.5",
   "runtime": "v26.8.2",
-  "date": "2026-09-19T18:16:57.148Z",
+  "date": "2026-09-21T21:23:11.765Z",
   "files": [
     {
       "file": "a_initialization.test.js",
@@ -54,6 +54,12 @@
     {
       "file": "clinical_session_record.test.js",
       "passed": 2,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "clinical_twin_live_hummod_session.test.js",
+      "passed": 5,
       "failed": 0,
       "status": "passed"
     },
@@ -196,6 +202,30 @@
       "status": "passed"
     },
     {
+      "file": "hummod_native_reduced_calibration.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_native_scenario.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_native_solution.test.js",
+      "passed": 12,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_native_sweep.test.js",
+      "passed": 3,
+      "failed": 2,
+      "status": "failed"
+    },
+    {
       "file": "hummod_raw_series_adapter.test.js",
       "passed": 5,
       "failed": 0,
@@ -334,6 +364,12 @@
       "status": "passed"
     },
     {
+      "file": "v0_6_product_smoke.test.js",
+      "passed": 0,
+      "failed": 0,
+      "status": "failed"
+    },
+    {
       "file": "vc_ac.test.js",
       "passed": 6,
       "failed": 0,
@@ -346,8 +382,11 @@
       "status": "passed"
     }
   ],
-  "passed": 309,
-  "failed": 0,
-  "failedFiles": [],
-  "success": true
+  "passed": 340,
+  "failed": 2,
+  "failedFiles": [
+    "hummod_native_sweep.test.js",
+    "v0_6_product_smoke.test.js"
+  ],
+  "success": false
 }
