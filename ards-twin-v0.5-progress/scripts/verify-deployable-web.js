@@ -17,6 +17,8 @@ if(failures.length===0){
   const checks=[
     [html.includes('id="clinical-quick-start"'),'quick-start control missing'],
     [html.includes('id="clinical-ph"'),'pH monitor missing'],
+    [html.includes('id="clinical-run-continuous"'),'continuous-run control missing'],
+    [html.includes('id="clinical-pause-continuous"'),'continuous-pause control missing'],
     [html.includes('id="clinical-co"'),'cardiac-output monitor missing'],
     [html.includes('EDUCATIONAL SIMULATION'),'educational safety banner missing'],
     [html.includes('Not clinically validated'),'clinical-validation warning missing'],
@@ -26,6 +28,8 @@ if(failures.length===0){
     [clinicalWorker.includes("data.provider || payload.systemicMode"),'clinical worker does not read UI provider'],
     [clinicalWorker.includes("VENT.createBerlinLiveHumModSession(payload)"),'clinical worker does not route live provider to reduced HumMod session'],
     [app.includes("requestVentilationChange"),'persistent ventilator-change path missing'],
+    [app.includes("clinicalPh.toFixed(2)"),'pH is not constrained to two displayed decimals'],
+    [app.includes("clinicalContinuousRun"),'continuous patient advancement loop missing'],
     [app.includes("setPEEP"),'persistent PEEP path missing'],
     [app.includes("performPassiveMechanics"),'passive mechanics path missing'],
     [css.includes('.legacy-lab{display:none!important}'),'legacy mechanics lab not hidden from product shell'],
