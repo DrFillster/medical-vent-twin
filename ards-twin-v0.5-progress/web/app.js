@@ -401,6 +401,7 @@
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
       if (data.type === 'error') {
+        stopClinicalContinuousRun();
         showClinicalError(data.message, data.diagnostics);
         $('clinical-initialize').disabled = false;
         return;
@@ -408,6 +409,8 @@
       if (data.type === 'initialized') {
         $('clinical-session-error').hidden = true;
         $('clinical-initialize').disabled = true;
+        $('clinical-run-continuous').disabled = false;
+        $('clinical-pause-continuous').disabled = true;
         renderClinicalSnapshot(data.snapshot);
         return;
       }
