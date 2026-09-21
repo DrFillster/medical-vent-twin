@@ -1,0 +1,16 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "hummod-ventilation-transport-probe-001",
+  "scenarioClass": "engineering-transport-probe",
+  "description": "Non-clinical transport probe proving that persisted HumMod solution parameters can be modified, loaded, advanced, and re-exported. This is not an ARDS phenotype.",
+  "assignments": {
+    "Ventilator.Switch": 1,
+    "Ventilator.Rate": 16,
+    "Ventilator.TidalVolume": 450
+  },
+  "provenance": {
+    "rationale": "Uses only native HumMod Ventilator parameters verified in Structure/Lungs/Ventilator.DES and Breathing.DES.",
+    "clinicalValidation": false,
+    "ardsScenario": false
+  }
+}

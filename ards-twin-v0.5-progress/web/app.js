@@ -5,6 +5,7 @@
   const number = id => Number($(id).value);
   let worker = null, timer = null, latest = null;
   let clinicalWorker = null, clinicalHumModExport = null, clinicalRecruitmentHistory = null, clinicalSnapshot = null;
+  let clinicalContinuousRun = false;
   const SYNTHETIC_DEMO_HUMMOD = Object.freeze({
     schema: 'vent-hummod-trajectory/v1',
     trajectoryId: 'synthetic-demo-fixture-not-real-hummod',
@@ -312,7 +313,10 @@
       ? Math.round(snapshot.ventilator.vtL * 1000) : '—';
     $('clinical-pao2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.pao2MmHg);
     $('clinical-paco2').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.paco2MmHg);
-    $('clinical-ph').textContent = displayClinicalValue(snapshot.systemic?.gasExchange?.pH);
+    const clinicalPh = snapshot.systemic?.gasExchange?.pH;
+    $('clinical-ph').textContent = typeof clinicalPh === 'number' && Number.isFinite(clinicalPh)
+      ? clinicalPh.toFixed(2)
+      : '—';
     $('clinical-hr').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.heartRatePerMin);
     $('clinical-map').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
     const cardiacOutputMlPerMin = snapshot.systemic?.hemodynamics?.cardiacOutputMlPerMin;
@@ -335,9 +339,21 @@
         : ' · fixed systemic trajectory replay');
     $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
     $('clinical-reset').disabled = false;
+    if (clinicalContinuousRun && clinicalWorker) {
+      clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
+    }
+  }
+
+  function stopClinicalContinuousRun() {
+    clinicalContinuousRun = false;
+    const runButton = $('clinical-run-continuous');
+    const pauseButton = $('clinical-pause-continuous');
+    if (runButton) runButton.disabled = !clinicalWorker;
+    if (pauseButton) pauseButton.disabled = true;
   }
 
   function stopClinicalWorker() {
+    stopClinicalContinuousRun();
     if (clinicalWorker) clinicalWorker.terminate();
     clinicalWorker = null;
     clinicalSnapshot = null;
@@ -385,6 +401,7 @@
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
       if (data.type === 'error') {
+        stopClinicalContinuousRun();
         showClinicalError(data.message, data.diagnostics);
         $('clinical-initialize').disabled = false;
         return;
@@ -392,6 +409,8 @@
       if (data.type === 'initialized') {
         $('clinical-session-error').hidden = true;
         $('clinical-initialize').disabled = true;
+        $('clinical-run-continuous').disabled = false;
+        $('clinical-pause-continuous').disabled = true;
         renderClinicalSnapshot(data.snapshot);
         return;
       }
@@ -623,8 +642,26 @@
     $('clinical-run').addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        if (clinicalContinuousRun) throw new Error('Pause continuous advancement before using a fixed advance');
         clinicalWorker.postMessage({ type: 'runFor', seconds: clinicalNumber('clinical-run-seconds') });
       } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-run-continuous').addEventListener('click', () => {
+      try {
+        if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        if (clinicalContinuousRun) return;
+        clinicalContinuousRun = true;
+        $('clinical-run-continuous').disabled = true;
+        $('clinical-pause-continuous').disabled = false;
+        $('clinical-session-status').textContent = 'Patient running continuously…';
+        clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
+      } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-pause-continuous').addEventListener('click', () => {
+      stopClinicalContinuousRun();
+      $('clinical-session-status').textContent = 'Patient paused · state preserved.';
     });
 
     $('clinical-set-peep').addEventListener('click', () => {

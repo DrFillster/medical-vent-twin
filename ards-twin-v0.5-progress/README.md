@@ -1,4 +1,24 @@
-# Mechanistic Lung Simulator v0.4.5 + v0.5 clinical-twin development
+# ARDS Clinical Twin v0.6 deployable preview
+
+This branch packages the existing Vent + live reduced HumMod work as a deployable browser product for education and research. The primary experience is a persistent synthetic aspiration ARDS reference patient: change the ventilator, advance time, perform holds/mechanics measurements, and observe mechanical, gas-exchange, and hemodynamic responses without resetting the patient.
+
+**Scope:** educational simulation; synthetic patient/model; not clinically validated; not for patient care.
+
+## Deploy
+
+```sh
+cd ards-twin-v0.5-progress
+npm run build
+npm test
+npm run verify:deploy
+npm run serve
+```
+
+Production is static: publish `web/` through Cloudflare or another HTTPS static host. Native HumMod and a server-side API are not production dependencies.
+
+See `docs/DEPLOYMENT.md` for the deployment contract and `docs/HUMMOD_NATIVE_ARDS_ARCHITECTURE.md` for the continuing research/calibration path.
+
+---
 
 This directory contains the deployed v0.4.5 mechanics simulator **and** the active
 v0.5 clinical digital-twin work on `feature/berlin-virtual-patients`.

@@ -49,6 +49,8 @@ export { HUMMOD_ARDS_COMBINED_SCHEMA, buildDynamicGasBoundary,
          createHumModArdsCombinedRuntime } from './hummod_ards_core_combined_runtime.js';
 export { createBerlinHumModReplayRuntime } from './clinical_twin_runtime.js';
 export { createBerlinClinicalTwinSession, buildController } from './clinical_twin_session.js';
+export { LIVE_HUMMOD_REFERENCE_CASE_ID, LIVE_HUMMOD_ENGINEERING_BOUNDARIES,
+         createBerlinLiveHumModSession } from './clinical_twin_live_hummod_session.js';
 export { createClinicalSessionRecord } from './clinical_session_record.js';
 export { assessBerlinCaseReadiness, listBerlinCaseReadiness } from './clinical_case_readiness.js';
 export { REFERENCE_CASE_ID, EVIDENCE as REFERENCE_CASE_EVIDENCE,
@@ -61,3 +63,5 @@ export { makePatientParams, makeInitialState, makeBoundaryFlow,
          makeBoundaryPressure } from './contracts.js';
 export { forwardElasticVolume, dPressureDVolume,
          effectiveVolumeCapacity } from './compartments.js';
+
+export { HUMMOD_NATIVE_SOLN_EXPORTER_VERSION, parseHumModNativeSolution } from './hummod_native_solution.js';

@@ -1,6 +1,6 @@
 {
   "schema": "vent-hummod-run-request/v1",
-  "trajectoryId": "moderate-aspiration-reference-001",
+  "trajectoryId": "hummod-default-runtime-probe-001",
   "source": {
     "repository": "riliescu/hummod-standalone",
     "revision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1"
@@ -29,8 +29,8 @@
     ],
     "conversionToTimestampSec": "timestampSec = System.X * 60"
   },
-  "scenarioId": "berlin-moderate-moderate-aspiration",
-  "notes": "First real HumMod integration reference run; not a clinical patient.",
+  "scenarioId": null,
+  "notes": "Default upstream model transport probe only. No ARDS, ventilator, or aspiration initialization is applied; not a Berlin reference trajectory.",
   "executable": true,
   "blocker": null
 }

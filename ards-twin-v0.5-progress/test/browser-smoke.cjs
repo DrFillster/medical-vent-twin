@@ -34,8 +34,10 @@ const { chromium, webkit } = require('playwright');
       assert((await page.locator('#clinical-calibration-aop').textContent()).includes('model construct'));
       assert((await page.locator('#clinical-readiness').textContent()).includes('External data required'));
 
-      // Progress-demo path must be one click and remain explicitly synthetic.
+      // Replay demo remains available and explicitly synthetic. Live reduced HumMod is the default provider.
       await page.locator('#clinical-session-panel > summary').click();
+      assert.equal(await page.locator('#clinical-systemic-provider').inputValue(),'live-reduced-hummod');
+      await page.locator('#clinical-systemic-provider').selectOption('replay');
       await page.locator('#clinical-load-demo').click();
       assert((await page.locator('#clinical-hummod-status').textContent()).includes('SYNTHETIC DEMO DATA LOADED'));
       assert.equal(await page.locator('#clinical-mode').inputValue(),'VC_AC');
@@ -46,8 +48,8 @@ const { chromium, webkit } = require('playwright');
       assert.equal((await page.locator('#clinical-severity').textContent()).trim(),'Severe');
       assert.equal((await page.locator('#clinical-recruitability').textContent()).trim(),'High');
 
-      // End-to-end clinical-session smoke uses a clearly labeled test-only
-      // HumMod replay fixture. No fixture value is presented as clinical truth.
+      // End-to-end replay smoke uses a clearly labeled test-only HumMod fixture.
+      // No fixture value is presented as clinical truth.
       await page.locator('#clinical-case').selectOption('berlin-moderate-moderate-aspiration');
       // Keep the executable-session details panel open. The earlier synthetic
       // demo path already opened it; clicking the summary again would close
