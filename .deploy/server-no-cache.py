@@ -27,6 +27,7 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         return super().do_GET()
 
 PORT = 8770
+socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(('127.0.0.1', PORT), NoCacheHandler) as httpd:
     print(f'Serving with no-cache + dotfile-deny on 127.0.0.1:{PORT}', flush=True)
     httpd.serve_forever()
