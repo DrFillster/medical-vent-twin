@@ -44,3 +44,12 @@ input[type="file"]::file-selector-button{max-width:100%;margin-right:6px}
 .clinical-preview>.readiness-block{display:none}
 .engineering-provider>summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted)}
 .engineering-provider[open]>summary{margin-bottom:10px}
+
+.clinical-intervention-timeline{margin-top:18px;padding:16px}
+.clinical-intervention-log{list-style:none;margin:12px 0 0;padding:0;max-height:230px;overflow:auto}
+.clinical-intervention-log li{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;padding:9px 0;border-top:1px solid var(--line);font-size:13px;align-items:start}
+.clinical-intervention-log li:first-child{border-top:0}
+.clinical-intervention-log time{font-variant-numeric:tabular-nums;font-weight:750;color:var(--teal)}
+.clinical-intervention-log span{overflow-wrap:anywhere}
+.clinical-intervention-log .clinical-intervention-empty{display:block;color:var(--muted)}
+@media(max-width:390px){.clinical-intervention-log li{grid-template-columns:54px minmax(0,1fr);gap:8px;font-size:12px}}
