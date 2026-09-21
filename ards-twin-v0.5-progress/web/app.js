@@ -471,6 +471,8 @@
       throw new Error('This browser cannot run the clinical simulation worker');
     }
     stopClinicalWorker();
+    clinicalInterventions = [];
+    renderClinicalInterventions();
     clinicalWorker = new Worker('./clinical-worker.js?v=0.6');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
