@@ -7,7 +7,6 @@
   let clinicalWorker = null, clinicalHumModExport = null, clinicalRecruitmentHistory = null, clinicalSnapshot = null;
   let clinicalContinuousRun = false;
   let clinicalContinuousTimer = null;
-  let clinicalContinuousNextWallMs = null;
   let clinicalInterventions = [];
   let clinicalPhysiologyTrend = [];
   const CLINICAL_TREND_MAX_POINTS = 1800;
@@ -487,22 +486,17 @@
   function scheduleClinicalContinuousStep() {
     if (!clinicalContinuousRun || !clinicalWorker) return;
     if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
-    const now = performance.now();
-    if (clinicalContinuousNextWallMs == null) clinicalContinuousNextWallMs = now + 1000;
-    const delayMs = Math.max(0, clinicalContinuousNextWallMs - now);
     clinicalContinuousTimer = setTimeout(() => {
       clinicalContinuousTimer = null;
       if (!clinicalContinuousRun || !clinicalWorker) return;
       clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
-      clinicalContinuousNextWallMs += 1000;
-    }, delayMs);
+    }, 1000);
   }
 
   function stopClinicalContinuousRun() {
     clinicalContinuousRun = false;
     if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
     clinicalContinuousTimer = null;
-    clinicalContinuousNextWallMs = null;
     const runButton = $('clinical-run-continuous');
     const pauseButton = $('clinical-pause-continuous');
     if (runButton) runButton.disabled = !clinicalWorker;
@@ -813,10 +807,9 @@
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
         if (clinicalContinuousRun) return;
         clinicalContinuousRun = true;
-        clinicalContinuousNextWallMs = performance.now() + 1000;
         $('clinical-run-continuous').disabled = true;
         $('clinical-pause-continuous').disabled = false;
-        $('clinical-session-status').textContent = 'Patient running continuously in real time…';
+        $('clinical-session-status').textContent = 'Patient running continuously at 1× real time…';
         scheduleClinicalContinuousStep();
       } catch (error) { showClinicalError(error.message); }
     });
