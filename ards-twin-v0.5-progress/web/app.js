@@ -9,6 +9,8 @@
   let clinicalContinuousTimer = null;
   let clinicalContinuousNextWallMs = null;
   let clinicalInterventions = [];
+  let clinicalPhysiologyTrend = [];
+  const CLINICAL_TREND_MAX_POINTS = 1800;
   const SYNTHETIC_DEMO_HUMMOD = Object.freeze({
     schema: 'vent-hummod-trajectory/v1',
     trajectoryId: 'synthetic-demo-fixture-not-real-hummod',
@@ -277,6 +279,7 @@
     };
     clinicalInterventions.push(event);
     renderClinicalInterventions();
+    renderClinicalPhysiologyTrends();
     return event;
   }
 
@@ -284,6 +287,83 @@
     const fmt = formatter || (value => String(value));
     if (previous == null || next == null || Number(previous) === Number(next)) return null;
     return label + ' ' + fmt(previous) + ' → ' + fmt(next) + (unit ? ' ' + unit : '');
+  }
+
+  function captureClinicalPhysiologyTrend(snapshot) {
+    const point = {
+      timeSec: Number(snapshot?.timeSec),
+      pao2: Number(snapshot?.systemic?.gasExchange?.pao2MmHg),
+      paco2: Number(snapshot?.systemic?.gasExchange?.paco2MmHg),
+      map: Number(snapshot?.systemic?.hemodynamics?.meanArterialPressureMmHg),
+      pH: Number(snapshot?.systemic?.gasExchange?.pH),
+    };
+    if (!Number.isFinite(point.timeSec)) return;
+    const previous = clinicalPhysiologyTrend[clinicalPhysiologyTrend.length - 1];
+    if (previous && previous.timeSec === point.timeSec) {
+      clinicalPhysiologyTrend[clinicalPhysiologyTrend.length - 1] = point;
+    } else {
+      clinicalPhysiologyTrend.push(point);
+      if (clinicalPhysiologyTrend.length > CLINICAL_TREND_MAX_POINTS) {
+        clinicalPhysiologyTrend.splice(0, clinicalPhysiologyTrend.length - CLINICAL_TREND_MAX_POINTS);
+      }
+    }
+  }
+
+  function drawClinicalTrend(svgId, field, decimals) {
+    const svg = $(svgId);
+    if (!svg) return;
+    svg.replaceChildren();
+    const data = clinicalPhysiologyTrend
+      .map(row => ({ t: row.timeSec, y: row[field] }))
+      .filter(row => Number.isFinite(row.t) && Number.isFinite(row.y));
+    if (data.length < 2) {
+      svg.append(svgNode('text', { x: '50%', y: '50%', 'text-anchor': 'middle' }, 'Run patient to build trend'));
+      return;
+    }
+    const width = Math.max(230, svg.getBoundingClientRect().width || 650);
+    const height = 160;
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    const left = 44, right = width - 12, top = 10, bottom = 133;
+    const t0 = data[0].t;
+    const t1 = Math.max(data[data.length - 1].t, t0 + 1);
+    let lo = Math.min(...data.map(row => row.y));
+    let hi = Math.max(...data.map(row => row.y));
+    const range = Math.max(hi - lo, field === 'pH' ? 0.02 : 1);
+    lo -= range * 0.12;
+    hi += range * 0.12;
+    const x = t => left + (t - t0) / (t1 - t0) * (right - left);
+    const y = value => bottom - (value - lo) / (hi - lo) * (bottom - top);
+    for (let i = 0; i <= 3; i++) {
+      const value = lo + (hi - lo) * i / 3;
+      svg.append(svgNode('line', { x1:left, x2:right, y1:y(value), y2:y(value), class:'grid' }));
+      svg.append(svgNode('text', { x:left - 6, y:y(value) + 4, 'text-anchor':'end' }, value.toFixed(decimals)));
+    }
+    for (const event of clinicalInterventions) {
+      if (event.timeSec < t0 || event.timeSec > t1) continue;
+      const marker = svgNode('line', { x1:x(event.timeSec), x2:x(event.timeSec), y1:top, y2:bottom, class:'intervention-marker' });
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = formatClinicalClock(event.timeSec) + ' · ' + event.label;
+      marker.append(title);
+      svg.append(marker);
+    }
+    [0, 0.5, 1].forEach(fraction => {
+      const value = t0 + (t1 - t0) * fraction;
+      svg.append(svgNode('text', {
+        x:x(value), y:154,
+        'text-anchor':fraction === 0 ? 'start' : fraction === 1 ? 'end' : 'middle',
+      }, formatClinicalClock(value)));
+    });
+    svg.append(svgNode('path', {
+      class:'trace',
+      d:data.map((row,index) => `${index ? 'L' : 'M'}${x(row.t).toFixed(2)},${y(row.y).toFixed(2)}`).join(' '),
+    }));
+  }
+
+  function renderClinicalPhysiologyTrends() {
+    drawClinicalTrend('clinical-pao2-trend', 'pao2', 0);
+    drawClinicalTrend('clinical-paco2-trend', 'paco2', 0);
+    drawClinicalTrend('clinical-map-trend', 'map', 0);
+    drawClinicalTrend('clinical-ph-trend', 'pH', 2);
   }
 
   function drawClinicalTrace(svgId, rows, field) {
@@ -358,6 +438,7 @@
 
   function renderClinicalSnapshot(snapshot) {
     clinicalSnapshot = snapshot;
+    captureClinicalPhysiologyTrend(snapshot);
     $('clinical-live').hidden = false;
     $('clinical-time').textContent = displayClinicalValue(snapshot.timeSec);
     $('clinical-current-mode').textContent = snapshot.ventilator?.mode || '—';
@@ -387,6 +468,7 @@
     drawClinicalTrace('clinical-pressure-chart', clinicalWaveform, 'pressureCmH2O');
     drawClinicalTrace('clinical-flow-chart', clinicalWaveform, 'flowLps');
     drawClinicalTrace('clinical-volume-chart', clinicalWaveform, 'volumeL');
+    renderClinicalPhysiologyTrends();
     $('clinical-session-status').textContent =
       'Patient active · ' +
       (snapshot.ventilatorChangePending ? 'ventilator change pending next breath boundary' : 'settings applied') +
@@ -472,7 +554,9 @@
     }
     stopClinicalWorker();
     clinicalInterventions = [];
+    clinicalPhysiologyTrend = [];
     renderClinicalInterventions();
+    renderClinicalPhysiologyTrends();
     clinicalWorker = new Worker('./clinical-worker.js?v=0.6');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
@@ -803,6 +887,7 @@
           throw new Error('Clinical session export is unavailable in this browser build');
         }
         const record = VENT.createClinicalSessionRecord(clinicalSnapshot);
+        record.physiologyTrend = clinicalPhysiologyTrend.map(point => ({ ...point }));
         record.interventions = clinicalInterventions.map(event => ({
           timeSec: event.timeSec,
           clock: formatClinicalClock(event.timeSec),
