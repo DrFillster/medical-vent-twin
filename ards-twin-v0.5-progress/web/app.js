@@ -879,7 +879,8 @@
         if (!window.VENT || typeof VENT.createClinicalSessionRecord !== 'function') {
           throw new Error('Clinical session export is unavailable in this browser build');
         }
-        const record = VENT.createClinicalSessionRecord(clinicalSnapshot);
+        const baseRecord = VENT.createClinicalSessionRecord(clinicalSnapshot);
+        const record = { ...baseRecord };
         record.physiologyTrend = clinicalPhysiologyTrend.map(point => ({ ...point }));
         record.interventions = clinicalInterventions.map(event => ({
           timeSec: event.timeSec,
