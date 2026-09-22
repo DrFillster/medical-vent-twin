@@ -8,7 +8,7 @@
 <title>ARDS Clinical Twin · v0.6</title>
 <link rel="stylesheet" href="./styles.css?v=0.6">
 <script src="./engine.js?v=0.6" defer></script>
-<script src="./app.js?v=0.6.2" defer></script>
+<script src="./app.js?v=0.6.3" defer></script>
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
@@ -145,6 +145,16 @@
 <div class="plot"><h3><i class="dot pressure"></i>Airway pressure <span>cmH₂O</span></h3><svg id="clinical-pressure-chart" role="img" aria-label="Clinical session airway pressure over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3><i class="dot flow"></i>Flow <span>L/s · positive into lung</span></h3><svg id="clinical-flow-chart" role="img" aria-label="Clinical session airway flow over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>L</span></h3><svg id="clinical-volume-chart" role="img" aria-label="Clinical session modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="clinical-physiology-trends">
+<div class="card-heading"><h2>Physiologic trends</h2><span class="pill">Patient time</span></div>
+<p class="hint">Vertical markers identify ventilator interventions. All four panels use the same patient-time window.</p>
+<div class="clinical-trend-grid">
+<div class="plot"><h3>PaO₂ <span>mmHg</span></h3><svg id="clinical-pao2-trend" role="img" aria-label="PaO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>PaCO₂ <span>mmHg</span></h3><svg id="clinical-paco2-trend" role="img" aria-label="PaCO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>MAP <span>mmHg</span></h3><svg id="clinical-map-trend" role="img" aria-label="Mean arterial pressure trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>pH</h3><svg id="clinical-ph-trend" role="img" aria-label="Arterial pH trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+</div>
+</div>
 </div>
 <div class="clinical-intervention-timeline card" aria-labelledby="clinical-intervention-title">
 <div class="card-heading"><h2 id="clinical-intervention-title">Intervention timeline</h2><span class="pill">Patient clock</span></div>
