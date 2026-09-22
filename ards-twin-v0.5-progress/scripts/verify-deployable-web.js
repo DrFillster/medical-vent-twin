@@ -30,7 +30,7 @@ if(failures.length===0){
     [app.includes("displayClinicalInteger(snapshot.systemic?.gasExchange?.pao2MmHg)"),'PaO2 is not displayed as a whole number'],
     [app.includes("displayClinicalInteger(snapshot.systemic?.gasExchange?.paco2MmHg)"),'PaCO2 is not displayed as a whole number'],
     [app.includes("displayClinicalInteger(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg)"),'MAP is not displayed as a whole number'],
-    [app.includes("clinicalContinuousNextWallMs = performance.now() + 1000"),'continuous mode is not wall-clock paced'],
+    [app.includes("}, 1000);"),'continuous mode is not wall-clock paced'],
     [app.includes("scheduleClinicalContinuousStep()"),'continuous real-time scheduler missing'],
     [html.includes('id="clinical-intervention-log"'),'patient-clock intervention timeline missing'],
     [app.includes("recordClinicalIntervention"),'intervention recording missing'],
