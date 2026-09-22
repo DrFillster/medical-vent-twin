@@ -2,78 +2,86 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Mechanistic Lung Simulator v0.4.5</title>
+<title>ARDS Clinical Twin v0.6 — Persistent ARDS teaching simulator</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="index,follow">
-<style>body{font-family:system-ui,sans-serif;max-width:780px;margin:4em auto;padding:0 1.2em;color:#eee;background:#1c1c20;line-height:1.6}a{color:#6ad}h1{font-weight:500;letter-spacing:-0.01em}h2{font-weight:500;margin-top:2em;border-top:1px solid #333;padding-top:1em;font-size:1.1em;color:#aaa;text-transform:uppercase;letter-spacing:0.05em}.ver{font-family:ui-monospace,Menlo,monospace;font-size:0.85em;color:#888}li{margin:0.4em 0}</style>
+<style>body{font-family:system-ui,sans-serif;max-width:820px;margin:4em auto;padding:0 1.2em;color:#eee;background:#1c1c20;line-height:1.6}a{color:#6ad}h1{font-weight:500;letter-spacing:-0.01em}h2{font-weight:500;margin-top:2em;border-top:1px solid #333;padding-top:1em;font-size:1.05em;color:#aaa;text-transform:uppercase;letter-spacing:0.05em}.ver{font-family:ui-monospace,Menlo,monospace;font-size:0.85em;color:#888}li{margin:0.4em 0}em.safety{font-style:normal;display:inline-block;border:1px solid #8a4;border-radius:4px;padding:1px 8px;background:#1c1c20;color:#cf9;font-family:ui-monospace,Menlo,monospace;font-size:0.85em;letter-spacing:0.04em}</style>
 </head>
 <body>
-<h1>Mechanistic Lung Simulator v0.4.5</h1>
-<p class="ver">Three-compartment mechanical-ventilation simulator &mdash; finite-capacity exponential elastic law, Newton-Raphson implicit solver with conservation by construction, bounded recruitment kinetics with feasibility floor. Phenotypes are mechanical constructs labeled by their recruitable pool size, not validated clinical ARDS severity grades. Educational exploration prototype; not a clinical decision tool; not a patient-specific digital twin.</p>
 
-<h2>v0.6 deployable Clinical Twin (production preview)</h2>
+<h1>ARDS Clinical Twin v0.6</h1>
+
+<p class="ver">A browser-based persistent ARDS clinical twin for interactive mechanical-ventilation education &mdash; software development and computational-verification report.</p>
+
+<p><em class="safety">EDUCATIONAL / RESEARCH SIMULATION &middot; SYNTHETIC PATIENT &middot; NOT CLINICALLY VALIDATED &middot; NOT FOR PATIENT CARE</em></p>
+
+<p>The v0.6 release extends earlier browser Vent builds into a persistent synthetic-patient environment: a single synthetic aspiration-ARDS teaching phenotype that survives repeated ventilator changes, mechanics maneuvers, holds, and time advances on one shared timeline. Recruitment history, intervention log, mechanical state, and gas-exchange / hemodynamic state remain associated with the same patient rather than resetting between experiments.</p>
+
+<h2>Run v0.6 in browser</h2>
 <ul>
-  <li><strong><a href="ards-twin-v0.5-progress/web/">Run v0.6.0-preview.1 Clinical Twin in browser</a></strong> &mdash; production preview. <em>EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</em>. One-click reference aspiration ARDS teaching patient that persists across settings and time advances; live reduced HumMod cardiopulmonary core (browser-capable; not the full native HumMod executable) routes by default; VC-AC ventilation with persistent PEEP, FiO2, RR, tidal volume, inspiratory flow / pause; passive mechanics, inspiratory / expiratory holds; 13-value monitor (PEEP, FiO2, RR, VT, PaO2, PaCO2, pH, HR, MAP, CO, plateau, total PEEP, intrinsic PEEP, driving pressure); pressure / flow / volume waveforms; session JSON export. <strong>Run continuously / Pause</strong> &mdash; patient time keeps advancing without repeated clicks and never fast-forwards/catches up to wall-clock (1x bedside pacing); pause stops without resetting the patient; resume continues the same patient. <strong>pH formatted to 2 decimal places</strong> (e.g. <code>7.41</code>). <strong>PaO<sub>2</sub> / PaCO<sub>2</sub> / MAP as whole numbers.</strong> Vent changes timestamped on the patient-clock intervention timeline. PaO<sub>2</sub> / PaCO<sub>2</sub> / MAP / pH physiologic trends rendered against the patient clock with intervention markers. Session JSON export includes interventions and physiologyTrend. Persistent virtual patient across all settings, time advances, and holds.</li>
-  <li><strong>Read the v0.6 docs</strong> &mdash; <a href="ards-twin-v0.5-progress/V0_6_RELEASE_CANDIDATE.md">V0_6_RELEASE_CANDIDATE</a> (release-candidate acceptance gate) &middot; <a href="ards-twin-v0.5-progress/DEPLOYMENT_HANDOFF.md">DEPLOYMENT_HANDOFF</a> &middot; <a href="ards-twin-v0.5-progress/docs/DEPLOYMENT.md">docs/DEPLOYMENT.md</a> (Cloudflare static deployment contract) &middot; <a href="ards-twin-v0.5-progress/README.md">README</a>.</li>
-  <li><strong>Verification (v0.6 product path)</strong> &mdash; 340 / 342 Node tests pass across 47 test files (2 pre-existing research-side failures in <code>hummod_native_sweep.test.js</code> are unrelated to the v0.6 deployable product surface and remain on the research workbench). Browser smoke (chromium-1228 via Playwright 1.63.0): 4 / 4 widths pass at 320 / 390 / 768 / 1440 CSS px. Each width: page loads 200, safety banner visible, version marker <code>ARDS Clinical Twin · v0.6</code>, <strong>Start reference patient</strong> button visible, click initiates live reduced HumMod session, monitor panel (<code>#clinical-live</code>) becomes visible with all 13 labels populated, no NaN / Infinity / undefined tokens in monitor, advance patient grows session time (1 s &rarr; 31 s after one Advance click), PEEP changes to 10 cmH<sub>2</sub>O and persists across the advance, no horizontal overflow, no real console errors. Engine.js hash on production: <code>f802db6d245719598b57a5365881686a8e23aad64fd1e30d42e75bd06d2ef8cb</code>.</li>
-  <li><strong>Deployment model</strong> &mdash; Cloudflare static HTTPS serving the same repository tree (no GitHub Actions; no server API; no native HumMod executable). To roll back to a known-good v0.5-progress build, the 7 v0.5-progress runtime files are preserved on this machine at <code>~/.private-evidence/preview-v0.5-progress-rollback/</code>.</li>
+  <li><strong><a href="ards-twin-v0.5-progress/web/">Open the v0.6 Clinical Twin</a></strong> &mdash; one-click reference aspiration-ARDS teaching patient that persists across settings and time advances.</li>
+  <li><strong>One patient, one timeline</strong> &mdash; after initialization, ventilator and recruitment changes do not create a new patient. Pre/post-intervention physiology can be compared on a common patient clock.</li>
+  <li><strong>Ventilator controls</strong> &mdash; mode (VC-AC, PC-AC), PEEP, FiO<sub>2</sub>, respiratory rate, tidal volume or inspiratory pressure, inspiratory flow, inspiratory pause, inspiratory time.</li>
+  <li><strong>Mechanics maneuvers</strong> &mdash; inspiratory and expiratory holds, passive-mechanics derivation (plateau pressure, total and intrinsic PEEP, driving pressure).</li>
+  <li><strong>Synchronized cardiopulmonary outputs</strong> &mdash; PaO<sub>2</sub>, PaCO<sub>2</sub>, pH, heart rate, mean arterial pressure, cardiac output alongside 3-compartment lung state.</li>
+  <li><strong>Display</strong> &mdash; pH formatted to exactly 2 decimal places; PaO<sub>2</sub>, PaCO<sub>2</sub>, MAP as whole numbers; pressure / flow / volume waveforms; per-variable physiologic trends aligned to the patient clock with intervention markers.</li>
+  <li><strong>Continuous-run / pause / resume</strong> &mdash; patient time advances at 1&times; bedside pacing (no fast-forward / catch-up), pause freezes the patient clock and preserves state, resume continues without resetting.</li>
+  <li><strong>Session export</strong> &mdash; JSON record of the clinical session includes the intervention timeline and the per-variable physiology trend for inspection or downstream analysis.</li>
+</ul>
+
+<h2>What v0.6 is &mdash; and what it is not</h2>
+<ul>
+  <li><strong>Educational / research simulator</strong> &mdash; the reference case is a synthetic aspiration-ARDS teaching phenotype, not a deidentified clinical record or patient-specific model.</li>
+  <li><strong>No native HumMod executable is bundled</strong> &mdash; the browser product routes through a reduced, source-aligned HumMod-derived cardiopulmonary model; the native HumMod runtime remains a separate research workbench.</li>
+  <li><strong>No production server, no clinical data feed, no patient-record integration</strong> &mdash; the deployable is a static browser application served over HTTPS.</li>
+  <li><strong>Not clinically validated</strong> &mdash; passing computational verification establishes software behavior according to encoded contracts in tested scenarios; it does not validate prediction of an individual patient, expert performance, or learner outcomes.</li>
+  <li><strong>Not a treatment recommender</strong> &mdash; ventilator changes are simulation inputs, not clinical recommendations.</li>
+</ul>
+
+<h2>Verification (v0.6 product path)</h2>
+<ul>
+  <li><strong>340 / 342 Node tests pass</strong> across 47 test files in the v0.6 product path (<a href="ards-twin-v0.5-progress/TEST_RESULTS.json">TEST_RESULTS.json</a>). The 2 pre-existing research-side failures live in <code>hummod_native_sweep.test.js</code>, which is part of the research workbench, not the v0.6 deployable surface.</li>
+  <li><strong>Browser smoke (Chromium 1228 via Playwright 1.63.0): 4 / 4 widths green at 320 / 390 / 768 / 1440 CSS px.</strong> Each width (17 / 17 checks): page loads, safety banner present, pH displays to 2 decimals (e.g. <code>7.41</code>), PaO<sub>2</sub> / PaCO<sub>2</sub> / MAP as whole numbers, Run continuously operates at 1&times; pacing (no catch-up), Pause stops patient time, vent changes while continuous mode runs do not reset the patient, intervention timeline populated, PaO<sub>2</sub> / PaCO<sub>2</sub> / MAP / pH trends render with intervention markers, pressure / flow / volume waveforms render, session JSON export contains both <code>interventions</code> and <code>physiologyTrend</code>, no NaN / Infinity / undefined in the 13-value monitor, no horizontal overflow, no real console errors.</li>
+  <li><strong>Engine.js hash on production</strong>: <code>22f36657cc5caf3270eead4f92e5ded4072907d16790a01c58a085f29ff30797</code> &mdash; matches the freshly-built local bundle in the deployment tree.</li>
+  <li><strong>Reproducibility</strong> &mdash; in <code>ards-twin-v0.5-progress/</code>: <code>npm install &amp;&amp; npm run build &amp;&amp; npm test &amp;&amp; npm run verify:deploy</code>. Tests fail loudly on crashed / timed-out / signaled / empty processes; <code>verify:deploy</code> returns <code>deployable=true, failures=[]</code>.</li>
+</ul>
+
+<h2>Deployment model</h2>
+<ul>
+  <li>Cloudflare static HTTPS serving the same <code>ards-twin-v0.5-progress/web/</code> tree from this repository &mdash; no GitHub Actions, no server API, no native HumMod executable, no patient data.</li>
+  <li>CI is intentionally <strong>manual-only</strong> on the vent repo (no push / pull-request routine runs).</li>
+  <li><strong>Deployment commit</strong>: <code>0a821e9</code> on <code>main</code>, with <code>4e705d6</code> as the v0.6 product commit the live-deploy packet anchors against. Each runtime file (app.js, engine.js, clinical-worker.js, worker.js, clinical-cases.json, index.html, styles.css) is served straight from the working tree of the launchd-managed origin at <code>127.0.0.1:8770</code>.</li>
+</ul>
+
+<h2>Manuscript and source</h2>
+<ul>
+  <li><strong>v0.6 manuscript (canonical source)</strong> &mdash; <a href="https://docs.google.com/document/d/1fPEoiv3OKNXGYDwUJw3qsz8fjj2vtiD7a6KUAnohTGA/edit?usp=drivesdk">ARDS Clinical Twin v0.6 Manuscript &mdash; 2026-09-22</a> (Google Doc). <a href="ards-twin-v0.5-progress/manuscript/MANUSCRIPT_v0.6.md">Local Markdown copy</a>. Author, affiliation, correspondence, ORCID, funding, conflicts, and contribution statements require completion before journal submission.</li>
+  <li><strong>v0.6 docs (in-repo)</strong> &mdash; <a href="ards-twin-v0.5-progress/V0_6_RELEASE_CANDIDATE.md">V0_6_RELEASE_CANDIDATE</a> (release-candidate acceptance gate) &middot; <a href="ards-twin-v0.5-progress/DEPLOYMENT_HANDOFF.md">DEPLOYMENT_HANDOFF</a> &middot; <a href="ards-twin-v0.5-progress/docs/DEPLOYMENT.md">docs/DEPLOYMENT.md</a> (Cloudflare static deployment contract) &middot; <a href="ards-twin-v0.5-progress/README.md">README</a>.</li>
+  <li><strong>GitHub repository</strong> &mdash; <a href="https://github.com/DrFillster/medical-vent-twin">DrFillster/medical-vent-twin</a> (private mirror; canonical artifacts served from this site).</li>
 </ul>
 
 <h2>v0.5 progress demo: ARDS Clinical Twin (development preview)</h2>
 <ul>
-  <li><strong><a href="ards-twin-v0.5-progress/web/">Run v0.5-progress Clinical Twin in browser</a></strong> &mdash; development preview. <em>DEVELOPMENT PREVIEW · Synthetic cases · Not clinically validated · Not for patient care</em>. Nine synthetic Berlin ARDS cases (mild/moderate/severe &times; low/moderate/high recruitability), severity/recruitability explicitly separated, case-readiness metadata, HumMod trajectory ingestion architecture (no HumMod runtime bundled), persistent clinical session with state-preserving ventilator changes, inspiratory/expiratory holds, hold-derived passive mechanics, and clinical-session JSON export. <strong>Fixture-only systemic replay is clearly labeled synthetic</strong> &mdash; the deployment does not bundle HumMod.EXE, upstream HumMod model tree, or modified HumMod assets.</li>
-  <li><strong>Read the v0.5 docs</strong> &mdash; <a href="ards-twin-v0.5-progress/README.md">README</a> &middot; <a href="ards-twin-v0.5-progress/BUILD_PLAN.md">BUILD_PLAN</a> (architecture, milestones, acceptance criteria) &middot; <a href="ards-twin-v0.5-progress/HANDOFF_TO_DEPLOYMENT_LLM.md">HANDOFF_TO_DEPLOYMENT_LLM</a> (deployment instructions) &middot; <a href="ards-twin-v0.5-progress/DEPLOYMENT_HANDOFF.md">DEPLOYMENT_HANDOFF</a> &middot; <a href="ards-twin-v0.5-progress/docs/DEPLOYMENT.md">docs/DEPLOYMENT.md</a> (deployment contract) &middot; <a href="ards-twin-v0.5-progress/docs/HUMMOD_INTEGRATION.md">HUMMOD_INTEGRATION</a> &middot; <a href="ards-twin-v0.5-progress/docs/HUMMOD_VARIABLE_MAP.md">HUMMOD_VARIABLE_MAP</a> &middot; <a href="ards-twin-v0.5-progress/SHA256SUMS.txt">SHA256SUMS</a>.</li>
-  <li><strong>Verification (clinical-twin path)</strong> &mdash; 254 / 254 Node tests pass (across all v0.5-progress test files). Browser smoke (chromium-1228 via Playwright 1.63.0): 4 / 4 widths pass at 320 / 390 / 768 / 1440 CSS px. Each width: page loads 200, Clinical Twin catalog (9 options, default = berlin-moderate-moderate-aspiration), severity/recruitability/R-I/AOP labels correct, SYNTHETIC DEMO DATA LOADED via "Load synthetic demo inputs", HumMod fixture upload converts to canonical seconds, session initialize → run, passive mechanics: pplat ≈ 19.93 cmH<sub>2</sub>O, total-PEEP ≈ 8.01 cmH<sub>2</sub>O, driving-pressure ≈ 11.92 cmH<sub>2</sub>O, VC-AC → PC-AC transition at breath boundary, mechanics lab still works, no horizontal overflow, touch targets ≥44 px, JSON export writes valid v0.4.5 file. See <a href="ards-twin-v0.5-progress/TEST_RESULTS.json">TEST_RESULTS.json</a>.</li>
-  <li><strong>Source of truth</strong> &mdash; branch <code>feature/berlin-virtual-patients</code> (not <code>main</code>); package commit recorded in <a href="ards-twin-v0.5-progress/PACKAGE_COMMIT.txt">PACKAGE_COMMIT.txt</a>. Deployed faithfully without design changes. <em>No claims of clinical validation.</em></li>
+  <li><strong><a href="ards-twin-v0.5-progress/web/">Open v0.5-progress Clinical Twin</a></strong> &mdash; development preview. <em>DEVELOPMENT PREVIEW &middot; Synthetic cases &middot; Not clinically validated &middot; Not for patient care</em>. Nine synthetic Berlin ARDS cases (mild/moderate/severe &times; low/moderate/high recruitability); severity and recruitability explicitly separated; case-readiness metadata; persistent clinical session with state-preserving ventilator changes; inspiratory / expiratory holds; hold-derived passive mechanics; clinical-session JSON export. <em>Fixture-only systemic replay is clearly labeled synthetic</em> &mdash; the deployment does not bundle HumMod.EXE, upstream HumMod model tree, or modified HumMod assets.</li>
+  <li><strong>Read the v0.5 docs</strong> &mdash; <a href="ards-twin-v0.5-progress/README.md">README</a> &middot; <a href="ards-twin-v0.5-progress/BUILD_PLAN.md">BUILD_PLAN</a> &middot; <a href="ards-twin-v0.5-progress/HANDOFF_TO_DEPLOYMENT_LLM.md">HANDOFF_TO_DEPLOYMENT_LLM</a> &middot; <a href="ards-twin-v0.5-progress/DEPLOYMENT_HANDOFF.md">DEPLOYMENT_HANDOFF</a> &middot; <a href="ards-twin-v0.5-progress/docs/DEPLOYMENT.md">docs/DEPLOYMENT.md</a> &middot; <a href="ards-twin-v0.5-progress/docs/HUMMOD_INTEGRATION.md">HUMMOD_INTEGRATION</a> &middot; <a href="ards-twin-v0.5-progress/docs/HUMMOD_VARIABLE_MAP.md">HUMMOD_VARIABLE_MAP</a> &middot; <a href="ards-twin-v0.5-progress/SHA256SUMS.txt">SHA256SUMS</a>.</li>
+  <li><strong>Source of truth</strong> &mdash; branch <code>feature/berlin-virtual-patients</code>; package commit recorded in <a href="ards-twin-v0.5-progress/PACKAGE_COMMIT.txt">PACKAGE_COMMIT.txt</a>. Deployed faithfully without design changes. <em>No claims of clinical validation.</em></li>
 </ul>
 
 <h2>Current release: v0.4.5 (mobile release candidate)</h2>
 <ul>
-  <li><strong><a href="ards-twin-v0.4.5/web/">Run v0.4.5 in browser</a></strong> &mdash; mobile-responsive UI (320 / 390 / 768 / 1440 CSS px verified), cancelable worker with 2-minute watchdog, separate pressure/flow/volume plots, VC-A/C and PC-A/C modes, four mechanical-construct phenotypes, three named starting examples, mechanics-only scope (gas exchange disabled in browser). <em>This is the verified mobile mechanics lab; the v0.5-progress Clinical Twin preview above is a separate development build, not a replacement.</em></li>
-  <li><strong><a href="ards-twin-v0.4/manuscript/Mechanistic_Lung_Simulator_Novelty_Manuscript_v0.4.5.pdf">Read the manuscript as PDF</a></strong> &mdash; v0.4.5 novelty-rewrite manuscript ("An Open, Browser-Native, Mechanistically Explicit Lung Simulator for Mechanical Ventilation Education"). <a href="ards-twin-v0.4/manuscript/Mechanistic_Lung_Simulator_Novelty_Manuscript_v0.4.5.docx">.docx (editable)</a>. Also available: prior <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.pdf">v0.4.4.1 publication-rewrite PDF</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.md">v0.4.4.1 Markdown source</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md">changelog</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md">review notes</a> &middot; <a href="ards-twin-v0.4/manuscript/SHA256SUMS.txt">SHA256SUMS</a>. <em>Both manuscripts describe v0.4.4.1 / v0.4.5 simulator evidence; verify references and bibliographic details (especially [Verify ...] placeholders) before submission.</em></li>
-  <li><strong>Download ZIPs (served from the website)</strong> &mdash; <a href="ards-twin-v0.4/dist/vent-twin-v0.4.4.1-final-clean.zip">vent-twin-v0.4.4.1-final-clean.zip</a> (runnable v0.4.4.1 simulator) &middot; <a href="ards-twin-v0.4/dist/vent-manuscript-v0.4.5-novelty-final.zip">vent-manuscript-v0.4.5-novelty-final.zip</a> (manuscript bundle containing both the v0.4.5 novelty rewrite and the v0.4.4.1 publication rewrite, plus changelog / review notes / SHA256SUMS). The prior <a href="ards-twin-v0.4/dist/vent-manuscript-v0.4.4.1-final.zip">vent-manuscript-v0.4.4.1-final.zip</a> remains available.</li>
-  <li><strong>Mobile deployment archive</strong> &mdash; <code>vent-simulator-v0.4.5-mobile-deployment.zip</code> is on Drive (id <code>1FLqd2U2VpEP2IALmclTpDs3oqJAdIqnv</code>). The deployed build above is the same content.</li>
+  <li><strong><a href="ards-twin-v0.4.5/web/">Open v0.4.5 in browser</a></strong> &mdash; mobile-responsive UI (320 / 390 / 768 / 1440 CSS px verified), cancelable worker with 2-minute watchdog, separate pressure / flow / volume plots, VC-A/C and PC-A/C modes, four mechanical-construct phenotypes, three named starting examples, mechanics-only scope (gas exchange disabled in browser).</li>
+  <li><strong><a href="ards-twin-v0.4/manuscript/Mechanistic_Lung_Simulator_Novelty_Manuscript_v0.4.5.pdf">Read the v0.4.5 manuscript as PDF</a></strong> &mdash; novelty-rewrite ("An Open, Browser-Native, Mechanistically Explicit Lung Simulator for Mechanical Ventilation Education"). <a href="ards-twin-v0.4/manuscript/Mechanistic_Lung_Simulator_Novelty_Manuscript_v0.4.5.docx">.docx (editable)</a>. Also: prior <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.pdf">v0.4.4.1 publication-rewrite PDF</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.md">v0.4.4.1 Markdown source</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_CHANGELOG.md">changelog</a> &middot; <a href="ards-twin-v0.4/manuscript/MANUSCRIPT_REVIEW_NOTES.md">review notes</a> &middot; <a href="ards-twin-v0.4/manuscript/SHA256SUMS.txt">SHA256SUMS</a>.</li>
+  <li><strong>Downloadable ZIPs</strong> &mdash; <a href="ards-twin-v0.4/dist/vent-twin-v0.4.4.1-final-clean.zip">vent-twin-v0.4.4.1-final-clean.zip</a> (runnable v0.4.4.1 simulator) &middot; <a href="ards-twin-v0.4/dist/vent-manuscript-v0.4.5-novelty-final.zip">vent-manuscript-v0.4.5-novelty-final.zip</a> (manuscript bundle). The prior <a href="ards-twin-v0.4/dist/vent-manuscript-v0.4.4.1-final.zip">vent-manuscript-v0.4.4.1-final.zip</a> remains available.</li>
+  <li><strong>Mobile deployment archive</strong> &mdash; <code>vent-simulator-v0.4.5-mobile-deployment.zip</code> on Drive (id <code>1FLqd2U2VpEP2IALmclTpDs3oqJAdIqnv</code>). The deployed build above is the same content.</li>
 </ul>
 
-<h2>Verification</h2>
+<h2>v0.4.5 verification</h2>
 <ul>
-  <li><strong>143 / 143 Node tests pass</strong> across 22 test files in CommonJS mode under Node v24.19.0 (see <a href="ards-twin-v0.4.5/TEST_RESULTS.json">TEST_RESULTS.json</a>) &mdash; 127 existing acceptance assertions plus 16 new regression / integration assertions.</li>
-  <li><strong>Browser smoke (chromium-1228 via Playwright 1.63.0): 4 / 4 widths pass</strong> at 320 / 390 / 768 / 1440 CSS px. Each width: page loads 200, default VC run completes, three SVG traces, three recruitment rows, no horizontal overflow, touch targets &ge; 44 px, PC run withholds plateau, settings change clears stale metrics, impossible timing shows inline error, cancel + fresh run work, JSON export writes a valid v0.4.5 file. See <a href="ards-twin-v0.4.5/browser-results/report-chromium.json">browser-results/report-chromium.json</a> and screenshots <a href="ards-twin-v0.4.5/browser-results/chromium-320.png">320</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-390.png">390</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-768.png">768</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-1440.png">1440</a>.</li>
-  <li><strong>WebKit / iPhone Safari</strong>: not executed in this environment &mdash; <code>npx playwright install webkit</code> requires network access the deployment environment cannot reach. WebKit-on-iOS-Safari approximation is unverified.</li>
-  <li><strong>Physical iPhone Safari</strong>: not executed in this environment. The package was not device-verified.</li>
-  <li>J-4 acceptance test (High-recruitability phenotype, PEEP = 5 cmH<sub>2</sub>O, 3 breaths at dt = 1 ms) reports 6 924 mechanics steps, 0.52 mean Newton iters/step, 1.00 mean substeps/step, 0 failures, and 3 total active-set transitions.</li>
-  <li>Reproducibility: <code>npm test</code> from <code>ards-twin-v0.4.5/</code> after extracting the v0.4.5 mobile deployment archive.</li>
+  <li><strong>143 / 143 Node tests pass</strong> across 22 test files (CommonJS, Node v24.19.0) &mdash; see <a href="ards-twin-v0.4.5/TEST_RESULTS.json">TEST_RESULTS.json</a>.</li>
+  <li><strong>Browser smoke (Chromium 1228 via Playwright 1.63.0): 4 / 4 widths pass</strong> at 320 / 390 / 768 / 1440 CSS px. Screenshots: <a href="ards-twin-v0.4.5/browser-results/chromium-320.png">320</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-390.png">390</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-768.png">768</a> / <a href="ards-twin-v0.4.5/browser-results/chromium-1440.png">1440</a>.</li>
+  <li><strong>WebKit / iPhone Safari</strong>: not executed in this environment &mdash; <code>npx playwright install webkit</code> requires network access the deployment environment cannot reach.</li>
+  <li><strong>Physical iPhone Safari</strong>: not device-verified.</li>
 </ul>
 
-<h2>What changed since v0.4.4.1</h2>
-<ul>
-  <li>Browser bundle contract repaired: reproducible dependency-free IIFE build replaces the mismatched IIFE/ES-module import.</li>
-  <li>Worker receives an explicit scenario (initial recruitment + PEEP), controller/tracker rollback on rejected steps, <code>runFor</code> abort on failure.</li>
-  <li>Mobile layout stacks panels below 700 CSS px; controls &ge; 46 px high, 16 px text; waveforms resize labels to panel width.</li>
-  <li>Plateau and driving pressure withheld unless a suitable settled VC pause exists; PC mode does not fabricate an occlusion plateau.</li>
-  <li>Three named starting examples; explicit, editable initial recruitment fraction per phenotype.</li>
-  <li>Settings use mL for tidal volume and L/min for flow with conversion at the UI boundary.</li>
-  <li>Gas exchange controls omitted in this UI (gas exchange code retained in source for legacy use, disabled in browser runs).</li>
-  <li>Test runner fails on crashed / timed-out / signaled / empty test processes.</li>
-  <li>Constitutive mechanics, recruitment equations, phenotype parameters &mdash; unchanged. See <code>history/v0.4.4.1/</code> for the prior bundle.</li>
-</ul>
-
-<h2>Repo</h2>
-<ul>
-  <li>Source repository is mirrored privately on GitHub for the owner; canonical artifacts are served from this site.</li>
-</ul>
-
-<h2>Docs (served from the repo root)</h2>
-<ul>
-  <li><a href="ards-twin-v0.4.5/README.md">v0.4.5 README</a> &mdash; quick start + what-changed summary.</li>
-  <li><a href="ards-twin-v0.4.5/CHANGELOG.md">v0.4.5 CHANGELOG</a> &mdash; repairs / interface / evidence.</li>
-  <li><a href="ards-twin-v0.4.5/DEPLOYMENT_HANDOFF.md">v0.4.5 DEPLOYMENT_HANDOFF</a> &mdash; acceptance criteria, iPhone checks, scope boundaries.</li>
-  <li><a href="ards-twin-v0.4.5/SHA256SUMS.txt">v0.4.5 SHA256SUMS</a> &mdash; manifest for the mobile deployment archive.</li>
-  <li><a href="ards-twin-v0.4/CHANGELOG.md">v0.4.4.1 CHANGELOG</a> &mdash; prior version history (preserved for rollback).</li>
-  <li><a href="ards-twin-v0.4/HANDOFF_README.md">v0.4.4.1 HANDOFF_README</a> &mdash; architecture, solver, recruitment, conservation contract.</li>
-  <li><a href="ards-twin-v0.4/REVIEW_NOTES.md">v0.4.4.1 REVIEW_NOTES</a> &mdash; solver tolerance choices, KKT regime handling, departure rationale.</li>
-  <li><a href="ards-twin-v0.4/manuscript/Mechanistic_Lung_Simulator_Novelty_Manuscript_v0.4.5.pdf">v0.4.5 manuscript PDF</a> &mdash; novelty rewrite (current).</li>
-  <li><a href="ards-twin-v0.4/manuscript/MANUSCRIPT_FINAL_v0.4.4.1.pdf">v0.4.4.1 manuscript PDF</a> &mdash; prior publication rewrite; preserved for comparison.</li>
-</ul>
 </body>
 </html>
