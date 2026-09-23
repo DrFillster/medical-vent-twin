@@ -179,6 +179,32 @@ test('session can perform a complete passive mechanics hold sequence', () => {
   assert(snap.events[snap.events.length - 1].kind === 'PASSIVE_MECHANICS_MEASUREMENT_COMPLETED');
 });
 
+test('individual inspiratory hold completes and immediately returns plateau pressure', () => {
+  const session = makeSession();
+  session.initialize();
+  const snap = session.requestInspiratoryHold(0.5);
+  assert(Number.isFinite(snap.pulmonary.measurements.plateauPressureCmH2O),
+    'inspiratory hold should return a plateau pressure');
+  assert(snap.pulmonary.measurements.inspiratoryHold,
+    'completed inspiratory hold should be exposed in the snapshot');
+  assert(snap.events[snap.events.length - 1].kind === 'INSPIRATORY_HOLD_COMPLETED');
+  assert(snap.pulmonary.recentWaveform.some(row => row.maneuver === 'INSPIRATORY_HOLD'),
+    'hold should remain visible in recent waveform');
+});
+
+test('individual expiratory hold completes and immediately returns total PEEP', () => {
+  const session = makeSession();
+  session.initialize();
+  const snap = session.requestExpiratoryHold(0.5);
+  assert(Number.isFinite(snap.pulmonary.measurements.totalPeepCmH2O),
+    'expiratory hold should return total PEEP');
+  assert(Number.isFinite(snap.pulmonary.measurements.intrinsicPeepCmH2O),
+    'expiratory hold should return intrinsic PEEP');
+  assert(snap.events[snap.events.length - 1].kind === 'EXPIRATORY_HOLD_COMPLETED');
+  assert(snap.pulmonary.recentWaveform.some(row => row.maneuver === 'EXPIRATORY_HOLD'),
+    'hold should remain visible in recent waveform');
+});
+
 test('PEEP changes preserve the session and declare replay coupling limitation', () => {
   const session = makeSession();
   session.initialize();
