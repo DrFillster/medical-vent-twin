@@ -292,11 +292,22 @@ function createBerlinLiveHumModSession({
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin:
+          circ.activeBoundaries?.heartRatePerMin ??
           effectiveCirculationBoundaries.heartRatePerMin,
         meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
         rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
         pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
         cardiacOutputMlPerMin: circ.flowsMlPerMin.leftVentricular,
+        strokeVolumeMl: circ.leftVentricle?.strokeVolumeMl ?? null,
+        systemicVascularResistanceMmHgMinPerL:
+          circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
+        pulmonaryVascularResistanceMmHgMinPerL:
+          circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
+        contractilityMultiplier:
+          circ.activeBoundaries?.leftContractilityMultiplier ?? null,
+        sympatheticTone: last.autonomic?.sympatheticTone ?? null,
+        parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
+        catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
       }),
       thorax: Object.freeze({
         meanAirwayPressureCmH2O: last.meanAirwayPressureCmH2O,
