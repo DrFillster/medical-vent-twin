@@ -656,17 +656,17 @@
         $('clinical-run-continuous').disabled = false;
         $('clinical-pause-continuous').disabled = true;
         renderClinicalSnapshot(data.snapshot);
+        return;
+      }
+      if (data.type === 'snapshot') {
+        $('clinical-session-error').hidden = true;
+        renderClinicalSnapshot(data.snapshot);
         if (data.action === 'requestInspiratoryHold' || data.action === 'requestExpiratoryHold' ||
             data.action === 'performPassiveMechanics') {
           showClinicalManeuverResult(data.action, data.snapshot);
           $('clinical-insp-hold').disabled = false;
           $('clinical-exp-hold').disabled = false;
         }
-        return;
-      }
-      if (data.type === 'snapshot') {
-        $('clinical-session-error').hidden = true;
-        renderClinicalSnapshot(data.snapshot);
         return;
       }
       if (data.type === 'reset-complete') {
