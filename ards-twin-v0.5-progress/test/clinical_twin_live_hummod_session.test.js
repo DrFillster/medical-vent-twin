@@ -53,6 +53,47 @@ test('PEEP intervention persists and live systemic state advances rather than re
   assert(Number.isFinite(after.systemic.hemodynamics.meanArterialPressureMmHg));
 });
 
+test('PEEP challenge produces dynamic cardiopulmonary and autonomic response', () => {
+  const session = makeSession();
+  session.initialize();
+  const baseline = session.runFor(20);
+  const b = baseline.systemic.hemodynamics;
+  session.setPEEP(18);
+  const early = session.runFor(5);
+  const late = session.runFor(20);
+  const e = early.systemic.hemodynamics;
+  const l = late.systemic.hemodynamics;
+
+  [
+    b.heartRatePerMin, b.meanArterialPressureMmHg, b.cardiacOutputMlPerMin,
+    b.strokeVolumeMl, b.systemicVascularResistanceMmHgMinPerL,
+    b.pulmonaryVascularResistanceMmHgMinPerL, b.sympatheticTone,
+    l.heartRatePerMin, l.meanArterialPressureMmHg, l.cardiacOutputMlPerMin,
+    l.strokeVolumeMl, l.systemicVascularResistanceMmHgMinPerL,
+    l.pulmonaryVascularResistanceMmHgMinPerL, l.sympatheticTone,
+  ].forEach(v => assert(Number.isFinite(v), 'challenge outputs must remain finite'));
+
+  assert(late.systemic.thorax.meanAirwayPressureCmH2O >
+    baseline.systemic.thorax.meanAirwayPressureCmH2O,
+    'higher PEEP should increase mean airway pressure in this fixed challenge');
+  assert(Math.abs(l.cardiacOutputMlPerMin - b.cardiacOutputMlPerMin) > 1,
+    'cardiac output should not remain static after PEEP challenge');
+  assert(Math.abs(l.strokeVolumeMl - b.strokeVolumeMl) > 0.01,
+    'stroke volume should not remain static after PEEP challenge');
+  assert(Math.abs(l.meanArterialPressureMmHg - b.meanArterialPressureMmHg) > 0.01,
+    'MAP should not remain static after PEEP challenge');
+  assert(Math.abs(l.sympatheticTone - b.sympatheticTone) > 0.0001,
+    'autonomic state should respond to the challenge');
+  assert(Math.abs(l.systemicVascularResistanceMmHgMinPerL -
+    b.systemicVascularResistanceMmHgMinPerL) > 0.001,
+    'SVR should evolve during the challenge');
+  assert(Math.abs(l.pulmonaryVascularResistanceMmHgMinPerL -
+    b.pulmonaryVascularResistanceMmHgMinPerL) > 0.001,
+    'PVR should evolve during the challenge');
+  assert(e.cardiacOutputMlPerMin !== l.cardiacOutputMlPerMin,
+    'early and late cardiac output should differ as feedback evolves');
+});
+
 test('FiO2/VC setting changes are applied at a breath boundary and feed the live core', () => {
   const session = makeSession();
   session.initialize();
