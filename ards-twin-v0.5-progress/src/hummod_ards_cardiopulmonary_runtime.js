@@ -2,6 +2,7 @@
 
 const { createVentToArdsCoreSnapshot } = require('./hummod_ards_core_coupling.js');
 const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adapter.js');
+const { createHumModArdsAutonomicController } = require('./hummod_ards_autonomic_controller.js');
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -41,6 +42,14 @@ function createHumModArdsCardiopulmonaryRuntime({
 
   let timeSec=0;
   let last=null;
+  const autonomic = createHumModArdsAutonomicController({
+    baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
+      heartRatePerMin: 75,
+      systemicArterialConductanceMlPerMinPerMmHg: 60,
+      systemicVenousConductanceMlPerMinPerMmHg: 692,
+      leftContractilityMultiplier: 1,
+    },
+  });
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -52,11 +61,33 @@ function createHumModArdsCardiopulmonaryRuntime({
     finite(thoracicPressureMmHg,'converted thoracic pressure');
     const pericardialPressureMmHg=thoracicPressureMmHg+pericardialTmpMmHg;
 
-    const circ=circulation.step({
+    let circ=circulation.step({
       dtSec,
       thoracicPressureMmHg,
       pericardialPressureMmHg,
     });
+
+    const priorGas = last && last.gas && last.gas.gases
+      ? last.gas.gases.arterial
+      : null;
+    const control = autonomic.step({
+      dtSec,
+      meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
+      thoracicPressureMmHg,
+      arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
+      arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
+    });
+    circulation.setBoundaries({
+      heartRatePerMin: control.heartRatePerMin,
+      leftContractilityMultiplier: control.contractilityMultiplier,
+      rightContractilityMultiplier: control.contractilityMultiplier,
+      systemicArterialConductanceMlPerMinPerMmHg:
+        control.systemicArterialConductanceMlPerMinPerMmHg,
+      systemicVenousV0Ml: control.systemicVenousV0Ml,
+      pulmonaryArterialConductanceMultiplier:
+        control.pulmonaryArterialConductanceMultiplier,
+    });
+    circ=circulation.snapshot();
 
     const cardiacOutputMlPerMin=circ.flowsMlPerMin.leftVentricular;
     positive(cardiacOutputMlPerMin,'left ventricular cardiac output');
@@ -84,6 +115,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       thoracicPressureMmHg,
       pericardialPressureMmHg,
       circulation:circ,
+      autonomic:control,
       gas,
       adapterDiagnostics:adapted.diagnostics,
     });
@@ -98,7 +130,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       provenance:Object.freeze({
         pulmonaryMechanics:'Vent',
         thorax:'explicit passive chest-wall phenotype',
-        circulation:'reduced source-aligned HumMod circulation',
+        circulation:'reduced source-aligned HumMod circulation with dynamic autonomic control',
         gasExchange:'source-aligned HumMod reduced gas core',
         pressureUnits:'caller-supplied validated adapter',
         clinicalValidation:false,
