@@ -40,26 +40,36 @@ function derivePassiveRespiratoryMechanics({
   const setPeep = finiteOrNull(setPeepCmH2O);
   const aop = finiteOrNull(airwayOpeningPressureCmH2O);
 
-  if (plateau === null || totalPeep === null || setPeep === null) {
-    return Object.freeze({
-      plateauPressureCmH2O: plateau,
-      totalPeepCmH2O: totalPeep,
-      setPeepCmH2O: setPeep,
-      airwayOpeningPressureCmH2O: aop,
-      intrinsicPeepCmH2O: null,
-      effectiveEndExpiratoryReferenceCmH2O: null,
-      drivingPressureCmH2O: null,
-      status: 'incomplete-hold-measurements',
-    });
+  // Intrinsic PEEP can be derived whenever an expiratory hold has supplied
+  // total PEEP together with the set PEEP at the time of the hold. Plateau
+  // is not required for this single value (driving pressure still is).
+  const hasExpiratoryHold = totalPeep !== null && setPeep !== null;
+  const intrinsicPeep = hasExpiratoryHold
+    ? clampNonNegative(totalPeep - setPeep)
+    : null;
+
+  // Driving pressure requires BOTH a plateau (inspiratory hold) AND an
+  // end-expiratory reference. Without a measured total PEEP the only
+  // reference available is set PEEP, which is what the user dialed in
+  // rather than what the lung actually achieved — refuse to derive rather
+  // than fabricate a value. When an expiratory hold is also present, use
+  // the more conservative end-expiratory reference (max of set PEEP,
+  // measured total PEEP, modeled airway opening pressure) so a closed-
+  // airway threshold doesn't bias the value downward.
+  let effectiveReference = null;
+  let drivingPressure = null;
+  if (plateau !== null && hasExpiratoryHold) {
+    const referenceCandidates = [setPeep, totalPeep];
+    if (aop !== null) referenceCandidates.push(aop);
+    effectiveReference = Math.max(...referenceCandidates);
+    drivingPressure = plateau - effectiveReference;
   }
 
-  const intrinsicPeep = clampNonNegative(totalPeep - setPeep);
-  const referenceCandidates = [setPeep, totalPeep];
-  if (aop !== null) referenceCandidates.push(aop);
-  const effectiveReference = Math.max(...referenceCandidates);
-  const drivingPressure = plateau - effectiveReference;
+  const status = (plateau !== null && hasExpiratoryHold)
+    ? 'derived-from-explicit-zero-flow-holds'
+    : (hasExpiratoryHold ? 'expiratory-hold-only' : 'incomplete-hold-measurements');
 
-  return Object.freeze({
+  const result = {
     plateauPressureCmH2O: plateau,
     totalPeepCmH2O: totalPeep,
     setPeepCmH2O: setPeep,
@@ -67,8 +77,10 @@ function derivePassiveRespiratoryMechanics({
     intrinsicPeepCmH2O: intrinsicPeep,
     effectiveEndExpiratoryReferenceCmH2O: effectiveReference,
     drivingPressureCmH2O: drivingPressure,
-    status: 'derived-from-explicit-zero-flow-holds',
-    provenance: Object.freeze({
+    status,
+  };
+  if (status === 'derived-from-explicit-zero-flow-holds') {
+    result.provenance = Object.freeze({
       plateau: 'Vent inspiratory hold measurement',
       totalPeep: 'Vent expiratory hold measurement',
       setPeep: 'Ventilator setting at expiratory measurement',
@@ -76,8 +88,9 @@ function derivePassiveRespiratoryMechanics({
         ? 'not supplied'
         : 'Vent mechanical phenotype parameter',
       derivation: 'passive respiratory mechanics',
-    }),
-  });
+    });
+  }
+  return Object.freeze(result);
 }
 
 function latestMeasurement(measurements, kind) {

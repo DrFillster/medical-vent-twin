@@ -570,8 +570,16 @@
       (snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
         ? ' · dynamic cardiopulmonary simulation'
         : ' · fixed systemic trajectory replay');
-    if (document.activeElement !== $('clinical-new-peep')) {
-      $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
+    // The legacy 'new PEEP' draft input was removed in the bedside UX rev.
+    // Sync any matching element only if it still exists; otherwise leave
+    // the form inputs the user is editing untouched.
+    const newPeepInput = $('clinical-new-peep');
+    if (newPeepInput && document.activeElement !== newPeepInput) {
+      newPeepInput.value = snapshot.ventilator?.peepCmH2O ?? '';
+    }
+    const newPeepFio2 = $('clinical-new-fio2');
+    if (newPeepFio2 && document.activeElement !== newPeepFio2) {
+      newPeepFio2.value = snapshot.ventilator?.fio2 ?? '';
     }
     $('clinical-reset').disabled = false;
     renderClinicalPendingSettings();

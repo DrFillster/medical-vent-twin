@@ -3041,26 +3041,36 @@ function derivePassiveRespiratoryMechanics({
   const setPeep = finiteOrNull(setPeepCmH2O);
   const aop = finiteOrNull(airwayOpeningPressureCmH2O);
 
-  if (plateau === null || totalPeep === null || setPeep === null) {
-    return Object.freeze({
-      plateauPressureCmH2O: plateau,
-      totalPeepCmH2O: totalPeep,
-      setPeepCmH2O: setPeep,
-      airwayOpeningPressureCmH2O: aop,
-      intrinsicPeepCmH2O: null,
-      effectiveEndExpiratoryReferenceCmH2O: null,
-      drivingPressureCmH2O: null,
-      status: 'incomplete-hold-measurements',
-    });
+  // Intrinsic PEEP can be derived whenever an expiratory hold has supplied
+  // total PEEP together with the set PEEP at the time of the hold. Plateau
+  // is not required for this single value (driving pressure still is).
+  const hasExpiratoryHold = totalPeep !== null && setPeep !== null;
+  const intrinsicPeep = hasExpiratoryHold
+    ? clampNonNegative(totalPeep - setPeep)
+    : null;
+
+  // Driving pressure requires BOTH a plateau (inspiratory hold) AND an
+  // end-expiratory reference. Without a measured total PEEP the only
+  // reference available is set PEEP, which is what the user dialed in
+  // rather than what the lung actually achieved — refuse to derive rather
+  // than fabricate a value. When an expiratory hold is also present, use
+  // the more conservative end-expiratory reference (max of set PEEP,
+  // measured total PEEP, modeled airway opening pressure) so a closed-
+  // airway threshold doesn't bias the value downward.
+  let effectiveReference = null;
+  let drivingPressure = null;
+  if (plateau !== null && hasExpiratoryHold) {
+    const referenceCandidates = [setPeep, totalPeep];
+    if (aop !== null) referenceCandidates.push(aop);
+    effectiveReference = Math.max(...referenceCandidates);
+    drivingPressure = plateau - effectiveReference;
   }
 
-  const intrinsicPeep = clampNonNegative(totalPeep - setPeep);
-  const referenceCandidates = [setPeep, totalPeep];
-  if (aop !== null) referenceCandidates.push(aop);
-  const effectiveReference = Math.max(...referenceCandidates);
-  const drivingPressure = plateau - effectiveReference;
+  const status = (plateau !== null && hasExpiratoryHold)
+    ? 'derived-from-explicit-zero-flow-holds'
+    : (hasExpiratoryHold ? 'expiratory-hold-only' : 'incomplete-hold-measurements');
 
-  return Object.freeze({
+  const result = {
     plateauPressureCmH2O: plateau,
     totalPeepCmH2O: totalPeep,
     setPeepCmH2O: setPeep,
@@ -3068,8 +3078,10 @@ function derivePassiveRespiratoryMechanics({
     intrinsicPeepCmH2O: intrinsicPeep,
     effectiveEndExpiratoryReferenceCmH2O: effectiveReference,
     drivingPressureCmH2O: drivingPressure,
-    status: 'derived-from-explicit-zero-flow-holds',
-    provenance: Object.freeze({
+    status,
+  };
+  if (status === 'derived-from-explicit-zero-flow-holds') {
+    result.provenance = Object.freeze({
       plateau: 'Vent inspiratory hold measurement',
       totalPeep: 'Vent expiratory hold measurement',
       setPeep: 'Ventilator setting at expiratory measurement',
@@ -3077,8 +3089,9 @@ function derivePassiveRespiratoryMechanics({
         ? 'not supplied'
         : 'Vent mechanical phenotype parameter',
       derivation: 'passive respiratory mechanics',
-    }),
-  });
+    });
+  }
+  return Object.freeze(result);
 }
 
 function latestMeasurement(measurements, kind) {
@@ -8259,22 +8272,51 @@ function createBerlinClinicalTwinSession({
       return snapshot();
     },
 
-    requestInspiratoryHold(durationSec) {
+    requestInspiratoryHold(durationSec = 0.5) {
       if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(durationSec, 'durationSec');
+      if (simulation.pendingControllerChange) {
+        throw new Error('inspiratory hold requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+      const previousCount = simulation.measurements
+        .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
+      advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
+      syncSystemicToVentTime();
+      const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
         t: simulation.state.t,
-        kind: 'REQUEST_INSPIRATORY_HOLD',
+        kind: 'INSPIRATORY_HOLD_COMPLETED',
+        plateauPressureCmH2O: mechanics.plateauPressureCmH2O,
+        holdDurationSec: durationSec,
       }));
       return snapshot();
     },
 
-    requestExpiratoryHold(durationSec) {
+    requestExpiratoryHold(durationSec = 0.5) {
       if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(durationSec, 'durationSec');
+      if (simulation.pendingControllerChange) {
+        throw new Error('expiratory hold requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+      const previousCount = simulation.measurements
+        .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
+      advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
+      syncSystemicToVentTime();
+      const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
         t: simulation.state.t,
-        kind: 'REQUEST_EXPIRATORY_HOLD',
+        kind: 'EXPIRATORY_HOLD_COMPLETED',
+        totalPeepCmH2O: mechanics.totalPeepCmH2O,
+        intrinsicPeepCmH2O: mechanics.intrinsicPeepCmH2O,
+        holdDurationSec: durationSec,
       }));
       return snapshot();
     },
@@ -8584,11 +8626,22 @@ function createBerlinLiveHumModSession({
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin:
+          circ.activeBoundaries?.heartRatePerMin ??
           effectiveCirculationBoundaries.heartRatePerMin,
         meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
         rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
         pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
         cardiacOutputMlPerMin: circ.flowsMlPerMin.leftVentricular,
+        strokeVolumeMl: circ.leftVentricle?.strokeVolumeMl ?? null,
+        systemicVascularResistanceMmHgMinPerL:
+          circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
+        pulmonaryVascularResistanceMmHgMinPerL:
+          circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
+        contractilityMultiplier:
+          circ.activeBoundaries?.leftContractilityMultiplier ?? null,
+        sympatheticTone: last.autonomic?.sympatheticTone ?? null,
+        parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
+        catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
       }),
       thorax: Object.freeze({
         meanAirwayPressureCmH2O: last.meanAirwayPressureCmH2O,
@@ -8788,15 +8841,56 @@ function createBerlinLiveHumModSession({
       return snapshot();
     },
 
-    requestInspiratoryHold(durationSec) {
+    requestInspiratoryHold(durationSec = 0.5) {
       if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(durationSec, 'durationSec');
+      if (simulation.pendingControllerChange) {
+        throw new Error('inspiratory hold requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+      const startVentTime = simulation.state.t;
+      const previousCount = simulation.measurements
+        .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
+      advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
+      const elapsed = simulation.state.t - startVentTime;
+      if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+      const mechanics = summarizeSimulationMeasurements(simulation);
+      sessionEvents.push(Object.freeze({
+        t: systemicSnapshot.timeSec,
+        kind: 'INSPIRATORY_HOLD_COMPLETED',
+        plateauPressureCmH2O: mechanics.plateauPressureCmH2O,
+        holdDurationSec: durationSec,
+      }));
       return snapshot();
     },
 
-    requestExpiratoryHold(durationSec) {
+    requestExpiratoryHold(durationSec = 0.5) {
       if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(durationSec, 'durationSec');
+      if (simulation.pendingControllerChange) {
+        throw new Error('expiratory hold requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+      const startVentTime = simulation.state.t;
+      const previousCount = simulation.measurements
+        .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
+      advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
+      const elapsed = simulation.state.t - startVentTime;
+      if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+      const mechanics = summarizeSimulationMeasurements(simulation);
+      sessionEvents.push(Object.freeze({
+        t: systemicSnapshot.timeSec,
+        kind: 'EXPIRATORY_HOLD_COMPLETED',
+        totalPeepCmH2O: mechanics.totalPeepCmH2O,
+        intrinsicPeepCmH2O: mechanics.intrinsicPeepCmH2O,
+        holdDurationSec: durationSec,
+      }));
       return snapshot();
     },
 
@@ -8964,10 +9058,11 @@ function createHumModArdsCirculation({
     volumes[name] = positive(initialVolumesMl[name], 'initialVolumesMl.' + name);
   }
 
-  positive(boundaries.heartRatePerMin, 'heartRatePerMin');
-  positive(boundaries.systemicArterialConductanceMlPerMinPerMmHg,
+  let activeBoundaries = { ...boundaries };
+  positive(activeBoundaries.heartRatePerMin, 'heartRatePerMin');
+  positive(activeBoundaries.systemicArterialConductanceMlPerMinPerMmHg,
     'systemicArterialConductanceMlPerMinPerMmHg');
-  positive(boundaries.systemicVenousConductanceMlPerMinPerMmHg,
+  positive(activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg,
     'systemicVenousConductanceMlPerMinPerMmHg');
   positive(maxSubstepSec, 'maxSubstepSec');
 
@@ -8986,7 +9081,9 @@ function createHumModArdsCirculation({
     });
     const sv = stressedVolumePressure({
       volumeMl: volumes.systemicVeins,
-      v0Ml: VASCULAR_DEFAULTS.systemicVeins.v0Ml,
+      v0Ml: activeBoundaries.systemicVenousV0Ml == null
+        ? VASCULAR_DEFAULTS.systemicVeins.v0Ml
+        : activeBoundaries.systemicVenousV0Ml,
       complianceMlPerMmHg: VASCULAR_DEFAULTS.systemicVeins.complianceMlPerMmHg,
       externalPressureMmHg: 0,
     });
@@ -9031,21 +9128,22 @@ function createHumModArdsCirculation({
 
     const systemicOutflow = conductanceFlow({
       conductanceMlPerMinPerMmHg:
-        boundaries.systemicArterialConductanceMlPerMinPerMmHg,
+        activeBoundaries.systemicArterialConductanceMlPerMinPerMmHg,
       upstreamPressureMmHg: p.sa.pressureMmHg,
       downstreamPressureMmHg: p.sv.pressureMmHg,
     });
 
     const venousReturn = conductanceFlow({
       conductanceMlPerMinPerMmHg:
-        boundaries.systemicVenousConductanceMlPerMinPerMmHg,
+        activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg,
       upstreamPressureMmHg: p.sv.pressureMmHg,
       downstreamPressureMmHg: p.ra.pressureMmHg,
     });
 
     const pulmonaryArterialOutflow = conductanceFlow({
       conductanceMlPerMinPerMmHg:
-        VASCULAR_DEFAULTS.pulmonaryArtery.conductanceMlPerMinPerMmHg,
+        VASCULAR_DEFAULTS.pulmonaryArtery.conductanceMlPerMinPerMmHg *
+        (activeBoundaries.pulmonaryArterialConductanceMultiplier || 1),
       upstreamPressureMmHg: p.pa.pressureMmHg,
       downstreamPressureMmHg: p.pc.pressureMmHg,
     });
@@ -9067,18 +9165,18 @@ function createHumModArdsCirculation({
       atrialPressureMmHg: p.ra.pressureMmHg,
       arterialPressureMmHg: p.pa.pressureMmHg,
       pericardialPressureMmHg: boundaryNow.pericardialPressureMmHg,
-      heartRatePerMin: boundaries.heartRatePerMin,
-      contractilityMultiplier: boundaries.rightContractilityMultiplier || 1,
-      stiffnessMultiplier: boundaries.rightStiffnessMultiplier || 1,
+      heartRatePerMin: activeBoundaries.heartRatePerMin,
+      contractilityMultiplier: activeBoundaries.rightContractilityMultiplier || 1,
+      stiffnessMultiplier: activeBoundaries.rightStiffnessMultiplier || 1,
     });
     const leftPump = ventricularPump({
       side: 'left',
       atrialPressureMmHg: p.la.pressureMmHg,
       arterialPressureMmHg: p.sa.pressureMmHg,
       pericardialPressureMmHg: boundaryNow.pericardialPressureMmHg,
-      heartRatePerMin: boundaries.heartRatePerMin,
-      contractilityMultiplier: boundaries.leftContractilityMultiplier || 1,
-      stiffnessMultiplier: boundaries.leftStiffnessMultiplier || 1,
+      heartRatePerMin: activeBoundaries.heartRatePerMin,
+      contractilityMultiplier: activeBoundaries.leftContractilityMultiplier || 1,
+      stiffnessMultiplier: activeBoundaries.leftStiffnessMultiplier || 1,
     });
 
     if (rightPump.bloodFlowMlPerMin < 0 || leftPump.bloodFlowMlPerMin < 0) {
@@ -9124,6 +9222,24 @@ function createHumModArdsCirculation({
     };
   }
 
+  function setBoundaries(next = {}) {
+    const merged = { ...activeBoundaries, ...next };
+    positive(merged.heartRatePerMin, 'heartRatePerMin');
+    positive(merged.systemicArterialConductanceMlPerMinPerMmHg,
+      'systemicArterialConductanceMlPerMinPerMmHg');
+    positive(merged.systemicVenousConductanceMlPerMinPerMmHg,
+      'systemicVenousConductanceMlPerMinPerMmHg');
+    if (merged.systemicVenousV0Ml != null) {
+      nonNegative(merged.systemicVenousV0Ml, 'systemicVenousV0Ml');
+    }
+    if (merged.pulmonaryArterialConductanceMultiplier != null) {
+      positive(merged.pulmonaryArterialConductanceMultiplier,
+        'pulmonaryArterialConductanceMultiplier');
+    }
+    activeBoundaries = merged;
+    return Object.freeze({ ...activeBoundaries });
+  }
+
   function step({ dtSec, thoracicPressureMmHg, pericardialPressureMmHg } = {}) {
     positive(dtSec, 'dtSec');
     finite(thoracicPressureMmHg, 'thoracicPressureMmHg');
@@ -9154,6 +9270,19 @@ function createHumModArdsCirculation({
       timeSec,
       volumesMl: Object.freeze({ ...volumes }),
       ...(last || {}),
+      activeBoundaries: Object.freeze({ ...activeBoundaries }),
+      derivedResistance: Object.freeze({
+        systemicVascularResistanceMmHgMinPerL:
+          last && last.flowsMlPerMin.systemicOutflow > 0
+            ? (last.pressures.systemicArterialMmHg - last.pressures.systemicVenousMmHg) /
+              (last.flowsMlPerMin.systemicOutflow / 1000)
+            : null,
+        pulmonaryVascularResistanceMmHgMinPerL:
+          last && last.flowsMlPerMin.pulmonaryArterialOutflow > 0
+            ? (last.pressures.pulmonaryArteryMmHg - last.pressures.pulmonaryCapillaryMmHg) /
+              (last.flowsMlPerMin.pulmonaryArterialOutflow / 1000)
+            : null,
+      }),
       provenance: Object.freeze({
         status: 'reduced-order-source-aligned-circulation',
         detailedOrganCirculation:
@@ -9163,7 +9292,7 @@ function createHumModArdsCirculation({
     });
   }
 
-  return Object.freeze({ kind:'hummod-ards-circulation', step, snapshot });
+  return Object.freeze({ kind:'hummod-ards-circulation', step, snapshot, setBoundaries });
 }
 
 module.exports = { createHumModArdsCirculation };
@@ -9174,6 +9303,7 @@ module.exports = { createHumModArdsCirculation };
 
 const { createVentToArdsCoreSnapshot } = require("src/hummod_ards_core_coupling.js");
 const { createLiveCoreBoundaryFromVent } = require("src/hummod_ards_core_vent_adapter.js");
+const { createHumModArdsAutonomicController } = require("src/hummod_ards_autonomic_controller.js");
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -9213,6 +9343,14 @@ function createHumModArdsCardiopulmonaryRuntime({
 
   let timeSec=0;
   let last=null;
+  const autonomic = createHumModArdsAutonomicController({
+    baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
+      heartRatePerMin: 75,
+      systemicArterialConductanceMlPerMinPerMmHg: 60,
+      systemicVenousConductanceMlPerMinPerMmHg: 692,
+      leftContractilityMultiplier: 1,
+    },
+  });
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -9224,11 +9362,33 @@ function createHumModArdsCardiopulmonaryRuntime({
     finite(thoracicPressureMmHg,'converted thoracic pressure');
     const pericardialPressureMmHg=thoracicPressureMmHg+pericardialTmpMmHg;
 
-    const circ=circulation.step({
+    let circ=circulation.step({
       dtSec,
       thoracicPressureMmHg,
       pericardialPressureMmHg,
     });
+
+    const priorGas = last && last.gas && last.gas.gases
+      ? last.gas.gases.arterial
+      : null;
+    const control = autonomic.step({
+      dtSec,
+      meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
+      thoracicPressureMmHg,
+      arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
+      arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
+    });
+    circulation.setBoundaries({
+      heartRatePerMin: control.heartRatePerMin,
+      leftContractilityMultiplier: control.contractilityMultiplier,
+      rightContractilityMultiplier: control.contractilityMultiplier,
+      systemicArterialConductanceMlPerMinPerMmHg:
+        control.systemicArterialConductanceMlPerMinPerMmHg,
+      systemicVenousV0Ml: control.systemicVenousV0Ml,
+      pulmonaryArterialConductanceMultiplier:
+        control.pulmonaryArterialConductanceMultiplier,
+    });
+    circ=circulation.snapshot();
 
     const cardiacOutputMlPerMin=circ.flowsMlPerMin.leftVentricular;
     positive(cardiacOutputMlPerMin,'left ventricular cardiac output');
@@ -9256,6 +9416,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       thoracicPressureMmHg,
       pericardialPressureMmHg,
       circulation:circ,
+      autonomic:control,
       gas,
       adapterDiagnostics:adapted.diagnostics,
     });
@@ -9270,7 +9431,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       provenance:Object.freeze({
         pulmonaryMechanics:'Vent',
         thorax:'explicit passive chest-wall phenotype',
-        circulation:'reduced source-aligned HumMod circulation',
+        circulation:'reduced source-aligned HumMod circulation with dynamic autonomic control',
         gasExchange:'source-aligned HumMod reduced gas core',
         pressureUnits:'caller-supplied validated adapter',
         clinicalValidation:false,
@@ -9624,6 +9785,170 @@ module.exports = {
   pulmonaryMembraneRecruitmentForAlveolarFlow,
   pulmonaryMembraneState,
 };
+
+},
+"src/hummod_ards_autonomic_controller.js":function(module,exports,require){
+'use strict';
+
+// Reduced dynamic autonomic/hemodynamic controller for the browser ARDS core.
+// This is a transparent engineering control layer inspired by HumMod control
+// architecture; it is not a verbatim HumMod subsystem and is not clinically
+// validated.
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(label + ' must be finite');
+  return v;
+}
+function positive(v, label) {
+  finite(v, label); if (!(v > 0)) throw new Error(label + ' must be > 0'); return v;
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function lag(current, target, dtSec, tauSec) {
+  return current + (target - current) * (1 - Math.exp(-dtSec / tauSec));
+}
+
+function createHumModArdsAutonomicController({
+  baseline,
+  targetMapMmHg = 82,
+  baroreflexGain = 0.035,
+  autonomicTauSec = 5,
+  vascularTauSec = 8,
+  cardiacTauSec = 4,
+} = {}) {
+  if (!baseline) throw new Error('baseline boundaries are required');
+  positive(baseline.heartRatePerMin, 'baseline.heartRatePerMin');
+  positive(baseline.systemicArterialConductanceMlPerMinPerMmHg,
+    'baseline.systemicArterialConductanceMlPerMinPerMmHg');
+  positive(baseline.systemicVenousConductanceMlPerMinPerMmHg,
+    'baseline.systemicVenousConductanceMlPerMinPerMmHg');
+  positive(targetMapMmHg, 'targetMapMmHg');
+
+  const baseVenousV0Ml = baseline.systemicVenousV0Ml == null
+    ? 1700
+    : baseline.systemicVenousV0Ml;
+
+  let sympatheticTone = 0.25;
+  let parasympatheticTone = 0.45;
+  let catecholamineDrive = 0.25;
+  let heartRatePerMin = baseline.heartRatePerMin;
+  let contractility = baseline.leftContractilityMultiplier || 1;
+  let arterialConductance =
+    baseline.systemicArterialConductanceMlPerMinPerMmHg;
+  let venousV0Ml = baseVenousV0Ml;
+  let pulmonaryConductanceMultiplier = 1;
+  let last = null;
+
+  function step({
+    dtSec,
+    meanArterialPressureMmHg,
+    thoracicPressureMmHg = 0,
+    arterialPo2MmHg = 90,
+    arterialPco2MmHg = 40,
+  } = {}) {
+    positive(dtSec, 'dtSec');
+    finite(meanArterialPressureMmHg, 'meanArterialPressureMmHg');
+
+    // Low arterial pressure unloads baroreceptors and increases sympathetic
+    // drive. Severe hypoxemia/hypercapnia add a modest chemoreflex component.
+    const pressureError = targetMapMmHg - meanArterialPressureMmHg;
+    const hypoxicDrive = clamp((70 - arterialPo2MmHg) / 45, 0, 1);
+    const hypercapnicDrive = clamp((arterialPco2MmHg - 45) / 35, 0, 1);
+    const reflexTarget = clamp(
+      0.25 + baroreflexGain * pressureError +
+      0.18 * hypoxicDrive + 0.10 * hypercapnicDrive,
+      0, 1);
+
+    sympatheticTone = lag(sympatheticTone, reflexTarget, dtSec, autonomicTauSec);
+    parasympatheticTone = lag(
+      parasympatheticTone,
+      clamp(0.62 - 0.55 * sympatheticTone, 0.05, 0.75),
+      dtSec, autonomicTauSec);
+    catecholamineDrive = lag(
+      catecholamineDrive,
+      sympatheticTone,
+      dtSec, cardiacTauSec);
+
+    // Chronotropy and inotropy are separated from vascular tone so the model
+    // can express reflex tachycardia, increased contractility, or predominantly
+    // vasoconstrictor compensation.
+    const hrTarget = clamp(
+      baseline.heartRatePerMin +
+      55 * sympatheticTone - 22 * parasympatheticTone,
+      45, 165);
+    heartRatePerMin = lag(heartRatePerMin, hrTarget, dtSec, cardiacTauSec);
+
+    const contractilityTarget = clamp(
+      (baseline.leftContractilityMultiplier || 1) *
+      (0.88 + 0.72 * catecholamineDrive),
+      0.7, 1.8);
+    contractility = lag(contractility, contractilityTarget, dtSec, cardiacTauSec);
+
+    // Alpha-mediated arteriolar constriction is represented by falling
+    // conductance (therefore increasing SVR).
+    const arterialConductanceTarget =
+      baseline.systemicArterialConductanceMlPerMinPerMmHg /
+      (0.86 + 1.45 * sympatheticTone);
+    arterialConductance = lag(
+      arterialConductance,
+      arterialConductanceTarget,
+      dtSec, vascularTauSec);
+
+    // Venoconstriction recruits unstressed volume by lowering effective V0.
+    const venousV0Target = baseVenousV0Ml * (1 - 0.14 * sympatheticTone);
+    venousV0Ml = lag(venousV0Ml, venousV0Target, dtSec, vascularTauSec);
+
+    // Positive intrathoracic pressure plus hypoxemia can increase pulmonary
+    // vascular load. Represent this as lower pulmonary arterial conductance.
+    const pulmonaryLoad =
+      0.018 * Math.max(0, thoracicPressureMmHg) + 0.28 * hypoxicDrive;
+    const pulmonaryTarget = clamp(1 / (1 + pulmonaryLoad), 0.55, 1.15);
+    pulmonaryConductanceMultiplier = lag(
+      pulmonaryConductanceMultiplier,
+      pulmonaryTarget,
+      dtSec, vascularTauSec);
+
+    last = Object.freeze({
+      targetMapMmHg,
+      pressureErrorMmHg: pressureError,
+      sympatheticTone,
+      parasympatheticTone,
+      catecholamineDrive,
+      hypoxicDrive,
+      hypercapnicDrive,
+      heartRatePerMin,
+      contractilityMultiplier: contractility,
+      systemicArterialConductanceMlPerMinPerMmHg: arterialConductance,
+      systemicVenousV0Ml: venousV0Ml,
+      pulmonaryArterialConductanceMultiplier: pulmonaryConductanceMultiplier,
+    });
+    return snapshot();
+  }
+
+  function snapshot() {
+    return Object.freeze({
+      schema: 'hummod-ards-autonomic-controller/v1',
+      ...(last || {
+        targetMapMmHg,
+        sympatheticTone,
+        parasympatheticTone,
+        catecholamineDrive,
+        heartRatePerMin,
+        contractilityMultiplier: contractility,
+        systemicArterialConductanceMlPerMinPerMmHg: arterialConductance,
+        systemicVenousV0Ml: venousV0Ml,
+        pulmonaryArterialConductanceMultiplier: pulmonaryConductanceMultiplier,
+      }),
+      provenance: Object.freeze({
+        status: 'reduced-dynamic-engineering-control-layer',
+        clinicalValidation: false,
+      }),
+    });
+  }
+
+  return Object.freeze({ kind: 'hummod-ards-autonomic-controller', step, snapshot });
+}
+
+module.exports = { createHumModArdsAutonomicController };
 
 },
 "src/clinical_units.js":function(module,exports,require){
