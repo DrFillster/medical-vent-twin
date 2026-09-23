@@ -163,21 +163,40 @@
 <li class="clinical-intervention-empty">No interventions yet.</li>
 </ol>
 </div>
-<div class="section-heading interventions-heading"><span class="step">03</span><h2>Interventions</h2></div>
+<div class="section-heading interventions-heading"><span class="step">03</span><h2>Bedside controls</h2></div>
+<div class="clinical-control-section">
+<h3>Patient clock</h3>
 <div class="field-grid clinical-actions-grid">
 <div><label for="clinical-run-seconds">Advance <span>s</span></label><input id="clinical-run-seconds" type="number" min="0.1" step="0.1" value="30"></div>
-<div><label for="clinical-new-peep">New PEEP <span>cmH₂O</span></label><input id="clinical-new-peep" type="number" min="0" step="0.5"></div>
 </div>
 <div class="actions clinical-actions">
 <button id="clinical-run" type="button">Advance patient</button>
 <button id="clinical-run-continuous" type="button" disabled>Run continuously</button>
 <button id="clinical-pause-continuous" type="button" class="secondary" disabled>Pause</button>
-<button id="clinical-set-peep" type="button" class="secondary">Apply PEEP</button>
-<button id="clinical-apply-vent" type="button" class="secondary">Apply ventilator settings</button>
-<button id="clinical-measure-mechanics" type="button" class="secondary">Measure passive mechanics</button>
+</div>
+</div>
+<div class="clinical-control-section">
+<div class="card-heading"><h3>Ventilator settings</h3><span id="clinical-settings-state" class="pill">Current</span></div>
+<p class="hint">Edit the ventilator settings in the setup panel above, then apply them here. Changes take effect at the next completed breath boundary without resetting the patient.</p>
+<div id="clinical-pending-summary" class="clinical-action-feedback" aria-live="polite">No unapplied ventilator changes.</div>
+<div class="actions clinical-actions">
+<button id="clinical-apply-vent" type="button">Apply changes</button>
+</div>
+</div>
+<div class="clinical-control-section">
+<div class="card-heading"><h3>Respiratory mechanics maneuvers</h3><span class="pill">Zero-flow holds</span></div>
+<p class="hint">Inspiratory hold measures plateau pressure. Expiratory hold measures total PEEP and intrinsic PEEP. The maneuver is performed on the same persistent patient and is visible in the pressure/flow waveform.</p>
+<div class="actions clinical-actions">
+<button id="clinical-insp-hold" type="button" class="secondary">Inspiratory hold · measure Pplat</button>
+<button id="clinical-exp-hold" type="button" class="secondary">Expiratory hold · measure total PEEP</button>
+</div>
+<div id="clinical-maneuver-result" class="clinical-action-feedback" aria-live="polite">No bedside maneuver performed yet.</div>
+<details class="clinical-advanced-actions"><summary>Advanced / research actions</summary>
+<div class="actions clinical-actions">
+<button id="clinical-measure-mechanics" type="button" class="secondary">Run both holds</button>
 <button id="clinical-export-session" type="button" class="secondary">Export clinical session</button>
-<button id="clinical-insp-hold" type="button" class="secondary">Inspiratory hold</button>
-<button id="clinical-exp-hold" type="button" class="secondary">Expiratory hold</button>
+</div>
+</details>
 </div>
 <p id="clinical-coupling-note" class="hint">Live reduced HumMod mode is experimental: Vent interventions feed a reduced source-aligned gas/circulation core, but several physiologic boundaries remain explicit synthetic assumptions. Replay mode remains available for validated HumMod trajectories.</p>
 </div>
