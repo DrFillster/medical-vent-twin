@@ -9,6 +9,7 @@
   let clinicalContinuousTimer = null;
   let clinicalInterventions = [];
   let clinicalPhysiologyTrend = [];
+  let clinicalLastAppliedVentilation = null;
   const CLINICAL_TREND_MAX_POINTS = 1800;
   const SYNTHETIC_DEMO_HUMMOD = Object.freeze({
     schema: 'vent-hummod-trajectory/v1',
@@ -288,6 +289,93 @@
     return label + ' ' + fmt(previous) + ' → ' + fmt(next) + (unit ? ' ' + unit : '');
   }
 
+  function clinicalVentilatorDifferences() {
+    if (!clinicalSnapshot) return [];
+    let next;
+    try { next = clinicalVentilationPayload(); } catch (_) { return []; }
+    const current = clinicalSnapshot.ventilator || {};
+    return [
+      formatVentSettingChange('FiO₂', current.fio2, next.fio2, '', value => Number(value).toFixed(2)),
+      formatVentSettingChange('PEEP', current.peepCmH2O, next.peep, 'cmH₂O'),
+      formatVentSettingChange('RR', current.rrPerMin ?? current.rr, next.rr, '/min'),
+      formatVentSettingChange('VT', current.vtL, next.vtL, 'mL', value => String(Math.round(Number(value) * 1000))),
+      formatVentSettingChange('Flow', current.inspiratoryFlowLps, next.inspiratoryFlowLps, 'L/s', value => Number(value).toFixed(2)),
+      formatVentSettingChange('Pause', current.inspiratoryPauseSec, next.inspiratoryPauseSec, 's'),
+      formatVentSettingChange('Pinsp', current.pinspCmH2O, next.pinspCmH2O, 'cmH₂O'),
+      formatVentSettingChange('Ti', current.inspiratoryTimeSec, next.inspiratoryTimeSec, 's'),
+    ].filter(Boolean);
+  }
+
+  function renderClinicalPendingSettings() {
+    const feedback = $('clinical-pending-summary');
+    const state = $('clinical-settings-state');
+    if (!feedback || !state || !clinicalSnapshot) return;
+    const changes = clinicalVentilatorDifferences();
+    if (clinicalSnapshot.ventilatorChangePending) {
+      state.textContent = 'Pending next breath';
+      state.dataset.status = 'pending';
+      feedback.textContent = 'Ventilator change sent. Waiting for the next completed breath boundary.';
+    } else if (changes.length) {
+      state.textContent = 'Edited · not applied';
+      state.dataset.status = 'edited';
+      feedback.textContent = 'Unapplied: ' + changes.join(' · ');
+    } else {
+      state.textContent = 'Current';
+      state.dataset.status = 'current';
+      feedback.textContent = 'Displayed settings match the active ventilator.';
+    }
+  }
+
+  function latestClinicalManeuver(snapshot, kind) {
+    const hold = kind === 'inspiratory'
+      ? snapshot?.pulmonary?.measurements?.inspiratoryHold
+      : snapshot?.pulmonary?.measurements?.expiratoryHold;
+    return hold || null;
+  }
+
+  function showClinicalManeuverResult(action, snapshot) {
+    const result = $('clinical-maneuver-result');
+    if (!result) return;
+    const m = snapshot?.pulmonary?.measurements || {};
+    if (action === 'requestInspiratoryHold') {
+      const hold = latestClinicalManeuver(snapshot, 'inspiratory');
+      if (hold && Number.isFinite(m.plateauPressureCmH2O)) {
+        const dp = Number.isFinite(m.drivingPressureCmH2O)
+          ? ' · Driving pressure ' + displayClinicalValue(m.drivingPressureCmH2O) + ' cmH₂O'
+          : '';
+        result.textContent = 'Inspiratory hold completed at ' + formatClinicalClock(snapshot.timeSec) +
+          ' · Plateau pressure ' + displayClinicalValue(m.plateauPressureCmH2O) + ' cmH₂O' + dp + '.';
+        recordClinicalIntervention(
+          'Inspiratory hold · Pplat ' + displayClinicalValue(m.plateauPressureCmH2O) + ' cmH₂O',
+          { type: 'inspiratory-hold', measurement: hold });
+      } else {
+        result.textContent = 'Inspiratory hold completed, but a valid plateau pressure was not available.';
+      }
+    } else if (action === 'requestExpiratoryHold') {
+      const hold = latestClinicalManeuver(snapshot, 'expiratory');
+      if (hold && Number.isFinite(m.totalPeepCmH2O)) {
+        const intrinsic = Number.isFinite(m.intrinsicPeepCmH2O)
+          ? ' · Intrinsic PEEP ' + displayClinicalValue(m.intrinsicPeepCmH2O) + ' cmH₂O'
+          : '';
+        result.textContent = 'Expiratory hold completed at ' + formatClinicalClock(snapshot.timeSec) +
+          ' · Total PEEP ' + displayClinicalValue(m.totalPeepCmH2O) + ' cmH₂O' + intrinsic + '.';
+        recordClinicalIntervention(
+          'Expiratory hold · total PEEP ' + displayClinicalValue(m.totalPeepCmH2O) + ' cmH₂O',
+          { type: 'expiratory-hold', measurement: hold });
+      } else {
+        result.textContent = 'Expiratory hold completed, but a valid total PEEP was not available.';
+      }
+    } else if (action === 'performPassiveMechanics') {
+      result.textContent = Number.isFinite(m.plateauPressureCmH2O) && Number.isFinite(m.totalPeepCmH2O)
+        ? 'Both holds completed · Pplat ' + displayClinicalValue(m.plateauPressureCmH2O) +
+          ' cmH₂O · total PEEP ' + displayClinicalValue(m.totalPeepCmH2O) +
+          ' cmH₂O · driving pressure ' + displayClinicalValue(m.drivingPressureCmH2O) + ' cmH₂O.'
+        : 'Combined mechanics maneuver completed with incomplete measurements.';
+      recordClinicalIntervention('Passive mechanics · inspiratory + expiratory holds',
+        { type: 'passive-mechanics', measurements: m });
+    }
+  }
+
   function captureClinicalPhysiologyTrend(snapshot) {
     const point = {
       timeSec: Number(snapshot?.timeSec),
@@ -478,6 +566,7 @@
       $('clinical-new-peep').value = snapshot.ventilator?.peepCmH2O ?? '';
     }
     $('clinical-reset').disabled = false;
+    renderClinicalPendingSettings();
     if (clinicalContinuousRun && clinicalWorker) {
       scheduleClinicalContinuousStep();
     }
@@ -567,6 +656,12 @@
         $('clinical-run-continuous').disabled = false;
         $('clinical-pause-continuous').disabled = true;
         renderClinicalSnapshot(data.snapshot);
+        if (data.action === 'requestInspiratoryHold' || data.action === 'requestExpiratoryHold' ||
+            data.action === 'performPassiveMechanics') {
+          showClinicalManeuverResult(data.action, data.snapshot);
+          $('clinical-insp-hold').disabled = false;
+          $('clinical-exp-hold').disabled = false;
+        }
         return;
       }
       if (data.type === 'snapshot') {
@@ -819,7 +914,7 @@
       $('clinical-session-status').textContent = 'Patient paused · state preserved.';
     });
 
-    $('clinical-set-peep').addEventListener('click', () => {
+    $('clinical-set-peep')?.addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
         const nextPeep = clinicalNumber('clinical-new-peep');
@@ -834,6 +929,9 @@
       } catch (error) { showClinicalError(error.message); }
     });
 
+    ['clinical-mode','clinical-fio2','clinical-peep','clinical-rr','clinical-vt','clinical-flow','clinical-vc-pause','clinical-pinsp','clinical-ti','clinical-pc-pause']
+      .forEach(id => $(id)?.addEventListener('input', renderClinicalPendingSettings));
+
     $('clinical-apply-vent').addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
@@ -843,14 +941,7 @@
           type: 'requestVentilationChange',
           ventilation: nextVentilation,
         });
-        const changes = [
-          formatVentSettingChange('FiO₂', previousVentilation.fio2, nextVentilation.fio2, '', value => Number(value).toFixed(2)),
-          formatVentSettingChange('PEEP', previousVentilation.peepCmH2O, nextVentilation.peep, 'cmH₂O'),
-          formatVentSettingChange('RR', previousVentilation.rrPerMin ?? previousVentilation.rr, nextVentilation.rr, '/min'),
-          formatVentSettingChange('VT', previousVentilation.vtL, nextVentilation.vtL, 'mL', value => String(Math.round(Number(value) * 1000))),
-          formatVentSettingChange('Flow', previousVentilation.inspiratoryFlowLps, nextVentilation.inspiratoryFlowLps, 'L/s', value => Number(value).toFixed(2)),
-          formatVentSettingChange('Pause', previousVentilation.inspiratoryPauseSec, nextVentilation.inspiratoryPauseSec, 's'),
-        ].filter(Boolean);
+        const changes = clinicalVentilatorDifferences();
         if (changes.length) {
           recordClinicalIntervention(changes.join(' · '), { type: 'ventilator-settings', requested: nextVentilation });
         }
@@ -902,6 +993,10 @@
     $('clinical-insp-hold').addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        $('clinical-insp-hold').disabled = true;
+        $('clinical-exp-hold').disabled = true;
+        $('clinical-maneuver-result').textContent =
+          'Inspiratory hold requested · waiting for end inspiration and zero flow…';
         clinicalWorker.postMessage({ type: 'requestInspiratoryHold', durationSec: 0.5 });
       } catch (error) { showClinicalError(error.message); }
     });
@@ -909,6 +1004,10 @@
     $('clinical-exp-hold').addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        $('clinical-insp-hold').disabled = true;
+        $('clinical-exp-hold').disabled = true;
+        $('clinical-maneuver-result').textContent =
+          'Expiratory hold requested · waiting for end expiration and zero flow…';
         clinicalWorker.postMessage({ type: 'requestExpiratoryHold', durationSec: 0.5 });
       } catch (error) { showClinicalError(error.message); }
     });
