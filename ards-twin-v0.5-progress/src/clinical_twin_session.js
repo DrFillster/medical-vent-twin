@@ -348,22 +348,51 @@ function createBerlinClinicalTwinSession({
       return snapshot();
     },
 
-    requestInspiratoryHold(durationSec) {
+    requestInspiratoryHold(durationSec = 0.5) {
       if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(durationSec, 'durationSec');
+      if (simulation.pendingControllerChange) {
+        throw new Error('inspiratory hold requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+      const previousCount = simulation.measurements
+        .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
+      advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
+      syncSystemicToVentTime();
+      const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
         t: simulation.state.t,
-        kind: 'REQUEST_INSPIRATORY_HOLD',
+        kind: 'INSPIRATORY_HOLD_COMPLETED',
+        plateauPressureCmH2O: mechanics.plateauPressureCmH2O,
+        holdDurationSec: durationSec,
       }));
       return snapshot();
     },
 
-    requestExpiratoryHold(durationSec) {
+    requestExpiratoryHold(durationSec = 0.5) {
       if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(durationSec, 'durationSec');
+      if (simulation.pendingControllerChange) {
+        throw new Error('expiratory hold requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+      const previousCount = simulation.measurements
+        .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
+      advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
+      syncSystemicToVentTime();
+      const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
         t: simulation.state.t,
-        kind: 'REQUEST_EXPIRATORY_HOLD',
+        kind: 'EXPIRATORY_HOLD_COMPLETED',
+        totalPeepCmH2O: mechanics.totalPeepCmH2O,
+        intrinsicPeepCmH2O: mechanics.intrinsicPeepCmH2O,
+        holdDurationSec: durationSec,
       }));
       return snapshot();
     },
