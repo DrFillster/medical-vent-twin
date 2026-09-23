@@ -547,6 +547,14 @@
     $('clinical-co').textContent = typeof cardiacOutputMlPerMin === 'number' && Number.isFinite(cardiacOutputMlPerMin)
       ? (cardiacOutputMlPerMin / 1000).toFixed(2)
       : '—';
+    const hemo = snapshot.systemic?.hemodynamics || {};
+    $('clinical-sv').textContent = displayClinicalValue(hemo.strokeVolumeMl);
+    $('clinical-svr').textContent = displayClinicalValue(hemo.systemicVascularResistanceMmHgMinPerL);
+    $('clinical-pvr').textContent = displayClinicalValue(hemo.pulmonaryVascularResistanceMmHgMinPerL);
+    $('clinical-sympathetic').textContent = typeof hemo.sympatheticTone === 'number'
+      ? hemo.sympatheticTone.toFixed(2) : '—';
+    $('clinical-catecholamine').textContent = typeof hemo.catecholamineDrive === 'number'
+      ? hemo.catecholamineDrive.toFixed(2) : '—';
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
     $('clinical-total-peep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.totalPeepCmH2O);
     $('clinical-autopeep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.intrinsicPeepCmH2O);
