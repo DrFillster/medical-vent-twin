@@ -60,3 +60,32 @@ input[type="file"]::file-selector-button{max-width:100%;margin-right:6px}
 .clinical-trend-grid .trace{stroke:var(--blue)}
 .clinical-trend-grid .intervention-marker{stroke:var(--danger);stroke-width:1.5;stroke-dasharray:4 3;opacity:.8}
 @media(max-width:700px){.clinical-trend-grid{grid-template-columns:1fr}}
+
+
+/* v0.6 bedside control workflow */
+.clinical-control-section {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line, #d7dce2);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+.clinical-control-section > h3,
+.clinical-control-section .card-heading h3 { margin: 0; }
+.clinical-action-feedback {
+  margin: .7rem 0;
+  padding: .7rem .8rem;
+  border-radius: 8px;
+  background: rgba(80, 105, 130, .08);
+  font-size: .92rem;
+  line-height: 1.4;
+}
+#clinical-settings-state[data-status="edited"],
+#clinical-settings-state[data-status="pending"] { font-weight: 700; }
+.clinical-advanced-actions { margin-top: .75rem; }
+.clinical-advanced-actions summary { cursor: pointer; font-weight: 600; }
+.clinical-advanced-actions .actions { margin-top: .75rem; }
+@media (max-width: 640px) {
+  .clinical-control-section { padding: .8rem; }
+  .clinical-control-section .clinical-actions button { width: 100%; }
+}
