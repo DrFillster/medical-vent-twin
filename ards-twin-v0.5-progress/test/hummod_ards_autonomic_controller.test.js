@@ -61,6 +61,21 @@ test('positive thoracic pressure and hypoxemia increase modeled pulmonary vascul
 });
 
 
+test('severe respiratory acidosis directly depresses myocardial contractility independent of catecholamine drive',()=>{
+  const c=makeController();
+  let s;
+  for(let i=0;i<30;i++) s=c.step({
+    dtSec:1, meanArterialPressureMmHg:82,
+    thoracicPressureMmHg:0, arterialPo2MmHg:90,
+    arterialPco2MmHg:100, arterialPh:7.10,
+  });
+  assert(s.acidoticContractilityMultiplier<=0.46 &&
+    s.acidoticContractilityMultiplier>=0.44,
+    'pH 7.10 respiratory acidosis should apply ~0.45 direct inotropy multiplier');
+  assert(s.contractilityMultiplier>1,
+    'sympathoadrenal controller may still be inotropically activated');
+});
+
 test('hypercapnic acidemia raises HR and pulmonary load while lowering systemic resistance',()=>{
   const c=makeController();
   let baseline;
