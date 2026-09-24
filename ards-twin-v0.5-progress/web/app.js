@@ -541,6 +541,11 @@
     $('clinical-ph').textContent = typeof clinicalPh === 'number' && Number.isFinite(clinicalPh)
       ? clinicalPh.toFixed(2)
       : '—';
+    const clinicalSvo2 = snapshot.systemic?.gasExchange?.svo2Fraction;
+    $('clinical-svo2').textContent = typeof clinicalSvo2 === 'number' && Number.isFinite(clinicalSvo2)
+      ? String(Math.round(clinicalSvo2 * 100))
+      : '—';
+    $('clinical-pvo2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.pvo2MmHg);
     $('clinical-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.heartRatePerMin);
     $('clinical-map').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
     const cardiacOutputMlPerMin = snapshot.systemic?.hemodynamics?.cardiacOutputMlPerMin;
