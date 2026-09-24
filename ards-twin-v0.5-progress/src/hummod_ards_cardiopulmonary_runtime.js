@@ -76,6 +76,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       thoracicPressureMmHg,
       arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
+      arterialPh: priorGas ? priorGas.pH : 7.40,
     });
     circulation.setBoundaries({
       heartRatePerMin: control.heartRatePerMin,
