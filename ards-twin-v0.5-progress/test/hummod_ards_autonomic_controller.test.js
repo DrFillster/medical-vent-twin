@@ -60,5 +60,30 @@ test('positive thoracic pressure and hypoxemia increase modeled pulmonary vascul
     'pulmonary conductance should fall with pressure/hypoxic load');
 });
 
+
+test('hypercapnic acidemia raises HR and pulmonary load while lowering systemic resistance',()=>{
+  const c=makeController();
+  let baseline;
+  for(let i=0;i<30;i++) baseline=c.step({
+    dtSec:1, meanArterialPressureMmHg:82,
+    thoracicPressureMmHg:0, arterialPo2MmHg:90,
+    arterialPco2MmHg:40, arterialPh:7.40,
+  });
+  let acidotic=baseline;
+  for(let i=0;i<30;i++) acidotic=c.step({
+    dtSec:1, meanArterialPressureMmHg:82,
+    thoracicPressureMmHg:0, arterialPo2MmHg:90,
+    arterialPco2MmHg:116.8, arterialPh:7.10,
+  });
+  assert(acidotic.hypercapnicAcidosisSeverity>0.99,'HCA severity should reach challenge anchor');
+  assert(acidotic.heartRatePerMin>baseline.heartRatePerMin,'HR should rise with HCA');
+  assert(acidotic.systemicArterialConductanceMlPerMinPerMmHg>
+    baseline.systemicArterialConductanceMlPerMinPerMmHg,
+    'systemic conductance should rise as SVR falls with HCA');
+  assert(acidotic.pulmonaryArterialConductanceMultiplier<
+    baseline.pulmonaryArterialConductanceMultiplier,
+    'pulmonary conductance should fall as PVR rises with HCA');
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);
