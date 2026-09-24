@@ -39,12 +39,22 @@ const {
 } = require('./hummod_ards_core_breathing.js');
 const {
   CO2_LITERS_TO_MOLS,
+  o2ContentFromPo2,
   po2FromO2Content,
   solveOxygenExchange,
   solveCo2Exchange,
 } = require('./hummod_ards_core_gas_exchange.js');
 
 const HUMMOD_GAS_DELAY_K_PER_MIN = 5.0;
+
+// Lower bound for the reduced aerobic-extraction model. Peripheral oxygen
+// delivery literature describes a critical capillary PO2 on the order of
+// 15-20 mmHg below which aerobic ATP production becomes supply limited.
+// We use the lower bound (15 mmHg) as an explicit, conservative transition
+// point. This is not an SvO2 target and does not prevent pathologically low
+// venous saturation; it prevents the model from extracting more oxygen than
+// can be represented by a positive venous PO2.
+const CRITICAL_VENOUS_PO2_MMHG = 15;
 
 const HUMMOD_SOURCE_INITIAL_GAS_STATE = Object.freeze({
   arterialO2ContentMlPerMl: 0.196,
@@ -368,9 +378,34 @@ function createHumModArdsGasRuntime({
       state.venousO2ContentMlPerMl +
       (oxygen.uptakeMlPerMin / co);
 
-    const venousO2Target =
+    const venousHgbForExtraction = hemoglobinProperties({
+      tempC: b.tempC,
+      pH: currentGases.venous.pH,
+      pco2MmHg: currentGases.venous.pco2MmHg,
+      carboxyPercent: b.carboxyPercent || 0,
+    });
+    const criticalVenousO2ContentMlPerMl = o2ContentFromPo2({
+      po2MmHg: CRITICAL_VENOUS_PO2_MMHG,
+      o2MaxMlPerMl: b.o2MaxMlPerMl,
+      p50MmHg: venousHgbForExtraction.p50MmHg,
+      scaleForSat: venousHgbForExtraction.scaleForSat,
+    });
+    const requestedTissueO2UseMlPerMin = m.tissueO2UseMlPerMin;
+    const maxAerobicO2UseMlPerMin = Math.max(
+      0,
+      co * Math.max(
+        0,
+        state.arterialO2ContentMlPerMl - criticalVenousO2ContentMlPerMl));
+    const actualTissueO2UseMlPerMin = Math.min(
+      requestedTissueO2UseMlPerMin,
+      maxAerobicO2UseMlPerMin);
+    const oxygenSupplyDeficitMlPerMin = Math.max(
+      0,
+      requestedTissueO2UseMlPerMin - actualTissueO2UseMlPerMin);
+    const venousO2Target = Math.max(
+      criticalVenousO2ContentMlPerMl,
       state.arterialO2ContentMlPerMl -
-      (m.tissueO2UseMlPerMin / co);
+        (actualTissueO2UseMlPerMin / co));
 
     const lungCo2OutflowMmolPerMin =
       carbonDioxide.expiredCo2MlPerMin * CO2_LITERS_TO_MOLS;
@@ -428,7 +463,11 @@ function createHumModArdsGasRuntime({
       oxygen,
       carbonDioxide,
       massBalance: Object.freeze({
-        tissueO2UseMlPerMin: m.tissueO2UseMlPerMin,
+        requestedTissueO2UseMlPerMin,
+        actualTissueO2UseMlPerMin,
+        oxygenSupplyDeficitMlPerMin,
+        criticalVenousPo2MmHg: CRITICAL_VENOUS_PO2_MMHG,
+        criticalVenousO2ContentMlPerMl,
         lungO2UptakeMlPerMin: oxygen.uptakeMlPerMin,
         tissueCo2ProductionMmolPerMin:
           m.tissueCo2ProductionMmolPerMin,
@@ -459,6 +498,7 @@ function createHumModArdsGasRuntime({
 module.exports = {
   HUMMOD_GAS_DELAY_K_PER_MIN,
   HUMMOD_SOURCE_INITIAL_GAS_STATE,
+  CRITICAL_VENOUS_PO2_MMHG,
   firstOrderDelayExact,
   deriveBloodGasOutputs,
   validateBoundary,
