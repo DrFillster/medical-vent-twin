@@ -245,6 +245,32 @@ function createHumModArdsDecompensationController() {
     return snapshot();
   }
 
+  function forceArrest({
+    reason = 'mechanical-pump-failure',
+    rhythm = 'PEA',
+  } = {}) {
+    cardiacArrest = true;
+    cardiacArrestReason = reason;
+    arrestRhythm = rhythm;
+    const prior = snapshot();
+    last = Object.freeze({
+      ...prior,
+      stage: 'cardiac-arrest',
+      alive: false,
+      cardiacArrest: true,
+      cardiacArrestReason,
+      arrestRhythm,
+      myocardialContractilityMultiplier: 0,
+      chronotropicReserveMultiplier: 0,
+      asphyxialReserveMultiplier: Math.min(
+        prior.asphyxialReserveMultiplier == null
+          ? 1
+          : prior.asphyxialReserveMultiplier,
+        0),
+    });
+    return snapshot();
+  }
+
   function snapshot() {
     return Object.freeze(last || {
       stage: 'stable',
@@ -274,6 +300,7 @@ function createHumModArdsDecompensationController() {
   return Object.freeze({
     kind: 'hummod-ards-decompensation-controller',
     step,
+    forceArrest,
     snapshot,
   });
 }
