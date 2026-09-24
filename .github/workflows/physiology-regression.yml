@@ -26,5 +26,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run unit and physiology regression tests
-        run: npm test
+      - name: Run acidemia/autonomic regression
+        run: node test/hummod_ards_autonomic_controller.test.js
+      - name: Run oxygen-transport regression
+        run: node test/hummod_ards_core_runtime.test.js
+      - name: Run integrated live-session regression
+        run: node test/clinical_twin_live_hummod_session.test.js
