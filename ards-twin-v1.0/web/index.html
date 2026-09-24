@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101d2a">
+<meta name="description" content="Explore pressure, flow, volume, and recruitment with an inspectable three-compartment mechanical lung model.">
+<title>ARDS Clinical Twin · v0.6</title>
+<link rel="stylesheet" href="./styles.css?v=0.6">
+<script src="./engine.js?v=0.6" defer></script>
+<script src="./app.js?v=0.6.5" defer></script>
+</head>
+<body>
+<a class="skip" href="#results">Skip to results</a>
+<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v0.6 preview</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">Deployable education/research preview · Vent mechanics + live reduced HumMod cardiopulmonary physiology</p></header>
+<main>
+<section class="clinical-preview card" aria-labelledby="clinical-title">
+<div class="section-heading"><span class="step">01</span><h2 id="clinical-title">Patient</h2></div>
+<p class="clinical-lead">Start with the reference aspiration ARDS teaching phenotype. The patient persists as you change PEEP, FiO₂, tidal volume, respiratory rate, and perform respiratory mechanics maneuvers.</p>
+<div class="product-launch"><button id="clinical-quick-start" type="button">Start reference patient <span aria-hidden="true">→</span></button><p>Preloads the reference case and starts the live browser cardiopulmonary model. You can change every exposed ventilator setting afterward.</p></div>
+<label for="clinical-case">Synthetic ARDS case</label>
+<select id="clinical-case" aria-describedby="clinical-case-note"></select>
+<p id="clinical-case-note" class="hint">Cases are synthetic teaching constructs calibrated to published cohort envelopes; they are not deidentified patient records.</p>
+<div id="clinical-summary" class="clinical-summary" aria-live="polite"></div>
+<div class="clinical-grid">
+<article><h3>Berlin severity</h3><p id="clinical-severity">—</p></article>
+<article><h3>Recruitability</h3><p id="clinical-recruitability">—</p></article>
+<article><h3>Executable now?</h3><p id="clinical-executable">—</p></article>
+</div>
+<div class="readiness-block">
+<h3>Session readiness</h3>
+<div id="clinical-readiness"></div>
+</div>
+
+<div id="clinical-calibration-panel" class="readiness-block" hidden>
+<h3>Reference-case calibration</h3>
+<div class="clinical-grid">
+<article><h3>Cohort envelope</h3><p id="clinical-calibration-envelope">—</p></article>
+<article><h3>R/I target</h3><p id="clinical-calibration-ri">—</p></article>
+<article><h3>Model AOP</h3><p id="clinical-calibration-aop">—</p></article>
+</div>
+<p id="clinical-calibration-note" class="hint"></p>
+</div>
+<details class="advanced product-provenance"><summary>Model provenance and safeguards</summary><p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. Vent owns detailed pulmonary mechanics. The default live session uses a reduced, source-aligned HumMod cardiopulmonary core in the browser; it is not the full HumMod executable and is not clinically validated. Research mode can instead replay an externally produced HumMod trajectory.</p></details>
+
+<details class="clinical-session advanced" id="clinical-session-panel" open>
+<summary>Ventilator setup</summary>
+<form id="clinical-session-form">
+<p class="hint product-setup-note">Reference settings are prefilled for the synthetic teaching phenotype. They are simulation inputs, not treatment recommendations.</p>
+<details class="engineering-provider"><summary>Research mode · systemic data source</summary><label for="clinical-systemic-provider">Systemic physiology provider</label>
+<select id="clinical-systemic-provider" required>
+<option value="live-reduced-hummod">Live reduced HumMod ARDS core · experimental</option>
+<option value="replay">HumMod trajectory replay</option>
+</select>
+<p id="clinical-provider-status" class="hint">Live mode couples Vent recruitment and airway pressure to a reduced, source-aligned HumMod cardiopulmonary core. It is not the full HumMod executable and is not clinically validated.</p></details>
+<div id="clinical-hummod-file-block" hidden>
+<label for="clinical-hummod-file">HumMod trajectory JSON</label>
+<input id="clinical-hummod-file" type="file" accept=".json,application/json">
+<div class="actions demo-actions"><button id="clinical-load-demo" type="button" class="secondary">Load synthetic demo inputs</button></div>
+<p id="clinical-hummod-status" class="hint">Attach a validated <code>vent-hummod-trajectory/v1</code> export, or load the clearly labeled synthetic demo dataset.</p>
+</div>
+
+<label for="clinical-mode">Ventilation mode</label>
+<select id="clinical-mode" required>
+<option value="">Choose mode…</option>
+<option value="VC_AC">VC-AC</option>
+<option value="PC_AC">PC-AC</option>
+</select>
+
+<div class="field-grid">
+<div><label for="clinical-fio2">FiO₂ <span>fraction 0–1</span></label><input id="clinical-fio2" type="number" min="0" max="1" step="0.01" required></div>
+<div><label for="clinical-peep">PEEP <span>cmH₂O</span></label><input id="clinical-peep" type="number" min="0" step="0.5" required></div>
+</div>
+<div class="field-grid">
+<div><label for="clinical-rr">Respiratory rate <span>/min</span></label><input id="clinical-rr" type="number" min="1" step="1" required></div>
+<div><label for="clinical-init-mode">Recruitment initialization</label>
+<select id="clinical-init-mode">
+<option value="explicit">Explicit current state</option>
+<option value="history">Prior pressure history</option>
+</select></div>
+</div>
+
+<div id="clinical-explicit-recruitment">
+<label for="clinical-recruitment">Recruitable fraction open <span>0–1</span></label>
+<input id="clinical-recruitment" type="number" min="0" max="1" step="0.01" required>
+<p class="hint">Current recruitable fraction is an explicit scenario state; it is not inferred from Berlin severity.</p>
+</div>
+
+<div id="clinical-history-recruitment" hidden>
+<label for="clinical-recruitment-history-file">Recruitment history JSON</label>
+<input id="clinical-recruitment-history-file" type="file" accept=".json,application/json" disabled>
+<p id="clinical-recruitment-history-status" class="hint">Attach a <code>vent-recruitment-history/v1</code> file containing an explicit prior state and sustained pressure segments.</p>
+</div>
+
+<div id="clinical-vc-fields" hidden>
+<div class="field-grid">
+<div><label for="clinical-vt">Tidal volume <span>L</span></label><input id="clinical-vt" type="number" min="0.01" step="0.01"></div>
+<div><label for="clinical-flow">Inspiratory flow <span>L/s</span></label><input id="clinical-flow" type="number" min="0.01" step="0.01"></div>
+</div>
+<label for="clinical-vc-pause">Inspiratory pause <span>s</span></label><input id="clinical-vc-pause" type="number" min="0" step="0.05" value="0">
+</div>
+
+<div id="clinical-pc-fields" hidden>
+<div class="field-grid">
+<div><label for="clinical-pinsp">Pressure above PEEP <span>cmH₂O</span></label><input id="clinical-pinsp" type="number" min="0.1" step="0.5"></div>
+<div><label for="clinical-ti">Inspiratory time <span>s</span></label><input id="clinical-ti" type="number" min="0.05" step="0.05"></div>
+</div>
+<label for="clinical-pc-pause">Inspiratory pause <span>s</span></label><input id="clinical-pc-pause" type="number" min="0" step="0.05" value="0">
+</div>
+
+<label for="clinical-dt">Solver timestep <span>s</span></label>
+<select id="clinical-dt"><option value="0.002">0.002</option><option value="0.001">0.001</option><option value="0.0005">0.0005</option></select>
+
+<div class="actions">
+<button id="clinical-initialize" type="submit">Start patient</button>
+<button id="clinical-reset" type="button" class="secondary" disabled>Reset</button>
+</div>
+<p id="clinical-session-status" role="status" aria-live="polite">Waiting for explicit inputs.</p>
+<p id="clinical-session-error" role="alert" hidden></p>
+</form>
+
+<div id="clinical-live" hidden>
+<div class="section-heading monitor-heading"><span class="step">02</span><h2>Monitor</h2></div>
+<div class="clinical-grid monitor-grid">
+<article><h3>Session time</h3><p><span id="clinical-time">—</span> s</p></article>
+<article><h3>Vent mode</h3><p><span id="clinical-current-mode">—</span></p></article>
+<article><h3>PEEP</h3><p><span id="clinical-current-peep">—</span><small> cmH₂O</small></p></article>
+<article><h3>FiO₂</h3><p><span id="clinical-current-fio2">—</span></p></article>
+<article><h3>Respiratory rate</h3><p><span id="clinical-current-rr">—</span><small> /min</small></p></article>
+<article><h3>Tidal volume</h3><p><span id="clinical-current-vt">—</span><small> mL</small></p></article>
+<article><h3>PaO₂</h3><p><span id="clinical-pao2">—</span><small> mmHg</small></p></article>
+<article><h3>PaCO₂</h3><p><span id="clinical-paco2">—</span><small> mmHg</small></p></article>
+<article><h3>pH</h3><p><span id="clinical-ph">—</span></p></article>
+<article><h3>Mixed venous O₂ saturation</h3><p><span id="clinical-svo2">—</span><small> %</small></p></article>
+<article><h3>Mixed venous PO₂</h3><p><span id="clinical-pvo2">—</span><small> mmHg</small></p></article>
+<article><h3>Heart rate</h3><p><span id="clinical-hr">—</span></p></article>
+<article><h3>Mean arterial pressure</h3><p><span id="clinical-map">—</span><small> mmHg</small></p></article>
+<article><h3>Cardiac output</h3><p><span id="clinical-co">—</span><small> L/min</small></p></article>
+<article><h3>Stroke volume</h3><p><span id="clinical-sv">—</span><small> mL</small></p></article>
+<article><h3>SVR</h3><p><span id="clinical-svr">—</span><small> mmHg·min/L</small></p></article>
+<article><h3>PVR</h3><p><span id="clinical-pvr">—</span><small> mmHg·min/L</small></p></article>
+<article><h3>Sympathetic tone</h3><p><span id="clinical-sympathetic">—</span></p></article>
+<article><h3>Catecholamine drive</h3><p><span id="clinical-catecholamine">—</span></p></article>
+<article><h3>Plateau pressure</h3><p><span id="clinical-pplat">—</span><small> cmH₂O</small></p></article>
+<article><h3>Total PEEP</h3><p><span id="clinical-total-peep">—</span><small> cmH₂O</small></p></article>
+<article><h3>Intrinsic PEEP</h3><p><span id="clinical-autopeep">—</span><small> cmH₂O</small></p></article>
+<article><h3>Driving pressure</h3><p><span id="clinical-dp">—</span><small> cmH₂O</small></p></article>
+</div>
+<div class="card waveforms clinical-waveforms">
+<div class="card-heading"><h2>Trends & waveforms</h2><span class="pill">Persistent session</span></div>
+<p class="hint">These traces come from the persistent Vent mechanics engine. Hold maneuvers remain part of the same longitudinal lung state.</p>
+<div class="plot"><h3><i class="dot pressure"></i>Airway pressure <span>cmH₂O</span></h3><svg id="clinical-pressure-chart" role="img" aria-label="Clinical session airway pressure over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3><i class="dot flow"></i>Flow <span>L/s · positive into lung</span></h3><svg id="clinical-flow-chart" role="img" aria-label="Clinical session airway flow over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>L</span></h3><svg id="clinical-volume-chart" role="img" aria-label="Clinical session modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="clinical-physiology-trends">
+<div class="card-heading"><h2>Physiologic trends</h2><span class="pill">Patient time</span></div>
+<p class="hint">Vertical markers identify ventilator interventions. All four panels use the same patient-time window.</p>
+<div class="clinical-trend-grid">
+<div class="plot"><h3>PaO₂ <span>mmHg</span></h3><svg id="clinical-pao2-trend" role="img" aria-label="PaO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>PaCO₂ <span>mmHg</span></h3><svg id="clinical-paco2-trend" role="img" aria-label="PaCO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>MAP <span>mmHg</span></h3><svg id="clinical-map-trend" role="img" aria-label="Mean arterial pressure trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>pH</h3><svg id="clinical-ph-trend" role="img" aria-label="Arterial pH trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+</div>
+</div>
+</div>
+<div class="clinical-intervention-timeline card" aria-labelledby="clinical-intervention-title">
+<div class="card-heading"><h2 id="clinical-intervention-title">Intervention timeline</h2><span class="pill">Patient clock</span></div>
+<p class="hint">Ventilator changes are timestamped against the persistent simulated patient so physiologic responses can be interpreted relative to the intervention.</p>
+<ol id="clinical-intervention-log" class="clinical-intervention-log" aria-live="polite">
+<li class="clinical-intervention-empty">No interventions yet.</li>
+</ol>
+</div>
+<div class="section-heading interventions-heading"><span class="step">03</span><h2>Bedside controls</h2></div>
+<div class="clinical-control-section">
+<h3>Patient clock</h3>
+<div class="field-grid clinical-actions-grid">
+<div><label for="clinical-run-seconds">Advance <span>s</span></label><input id="clinical-run-seconds" type="number" min="0.1" step="0.1" value="30"></div>
+</div>
+<div class="actions clinical-actions">
+<button id="clinical-run" type="button">Advance patient</button>
+<button id="clinical-run-continuous" type="button" disabled>Run continuously</button>
+<button id="clinical-pause-continuous" type="button" class="secondary" disabled>Pause</button>
+</div>
+</div>
+<div class="clinical-control-section">
+<div class="card-heading"><h3>Ventilator settings</h3><span id="clinical-settings-state" class="pill">Current</span></div>
+<p class="hint">Edit the ventilator settings in the setup panel above, then apply them here. Changes take effect at the next completed breath boundary without resetting the patient.</p>
+<div id="clinical-pending-summary" class="clinical-action-feedback" aria-live="polite">No unapplied ventilator changes.</div>
+<div class="actions clinical-actions">
+<button id="clinical-apply-vent" type="button">Apply changes</button>
+</div>
+</div>
+<div class="clinical-control-section">
+<div class="card-heading"><h3>Respiratory mechanics maneuvers</h3><span class="pill">Zero-flow holds</span></div>
+<p class="hint">Inspiratory hold measures plateau pressure. Expiratory hold measures total PEEP and intrinsic PEEP. The maneuver is performed on the same persistent patient and is visible in the pressure/flow waveform.</p>
+<div class="actions clinical-actions">
+<button id="clinical-insp-hold" type="button" class="secondary">Inspiratory hold · measure Pplat</button>
+<button id="clinical-exp-hold" type="button" class="secondary">Expiratory hold · measure total PEEP</button>
+</div>
+<div id="clinical-maneuver-result" class="clinical-action-feedback" aria-live="polite">No bedside maneuver performed yet.</div>
+<details class="clinical-advanced-actions"><summary>Advanced / research actions</summary>
+<div class="actions clinical-actions">
+<button id="clinical-measure-mechanics" type="button" class="secondary">Run both holds</button>
+<button id="clinical-export-session" type="button" class="secondary">Export clinical session</button>
+</div>
+</details>
+</div>
+<p id="clinical-coupling-note" class="hint">Live reduced HumMod mode is experimental: Vent interventions feed a reduced source-aligned gas/circulation core, but several physiologic boundaries remain explicit synthetic assumptions. Replay mode remains available for validated HumMod trajectories.</p>
+</div>
+</details>
+</section>
+<section class="controls card legacy-lab" aria-labelledby="setup-title">
+<div class="section-heading"><span class="step">01</span><h2 id="setup-title">Set up a scenario</h2></div>
+<form id="settings">
+<fieldset id="fields">
+<label for="example">Starting example</label><select id="example"><option value="reference">Reference · volume control</option><option value="recruitment">Recruitable lung · volume control</option><option value="pressure">Recruitable lung · pressure control</option></select>
+<p id="example-note" class="hint">Observe the pressure rise during filling, then the pressure drop during the inspiratory pause.</p>
+<label for="preset">Mechanical phenotype</label><select id="preset"><option value="phenotype_baseline">Reference</option><option value="phenotype_low_recruitability">Low recruitable pool</option><option value="phenotype_moderate_recruitability">Moderate recruitable pool</option><option value="phenotype_high_recruitability">High recruitable pool</option></select>
+<label for="mode">Ventilation mode</label><select id="mode"><option value="VC">Volume control</option><option value="PC">Pressure control</option></select>
+<div class="field-grid"><div><label for="peep">PEEP <span>cmH₂O</span></label><input id="peep" type="number" inputmode="decimal" min="0" max="20" step="0.5" value="5" required></div><div><label for="rr">Respiratory rate <span>/min</span></label><input id="rr" type="number" inputmode="numeric" min="6" max="40" step="1" value="14" required></div></div>
+<div id="vc-fields"><div class="field-grid"><div><label for="vt">Tidal volume <span>mL</span></label><input id="vt" type="number" inputmode="numeric" min="100" max="1000" step="10" value="480" required></div><div><label for="flow">Inspiratory flow <span>L/min</span></label><input id="flow" type="number" inputmode="decimal" min="6" max="120" step="1" value="30" required></div></div><label for="pause">Inspiratory pause <span>s</span></label><input id="pause" type="number" inputmode="decimal" min="0" max="2" step="0.1" value="0.5" required></div>
+<div id="pc-fields" hidden><div class="field-grid"><div><label for="pinsp">Pressure above PEEP <span>cmH₂O</span></label><input id="pinsp" type="number" inputmode="decimal" min="1" max="40" step="0.5" value="12" required disabled></div><div><label for="ti">Inspiratory time <span>s</span></label><input id="ti" type="number" inputmode="decimal" min="0.2" max="3" step="0.1" value="0.8" required disabled></div></div></div>
+<label for="recruitment">Initially open recruitable tissue <span>%</span></label><input id="recruitment" type="number" inputmode="numeric" min="0" max="100" step="5" value="0" required disabled aria-describedby="recruitment-note">
+<p id="recruitment-note" class="hint">The reference phenotype has no recruitable pool. Normal tissue starts open; consolidated tissue starts closed.</p>
+<details class="advanced"><summary>Run settings</summary><div class="field-grid"><div><label for="breaths">Breaths</label><input id="breaths" type="number" inputmode="numeric" min="2" max="10" step="1" value="3" required></div><div><label for="dt">Timestep</label><select id="dt"><option value="0.001">1 ms · standard</option><option value="0.0005">0.5 ms · finer</option><option value="0.002">2 ms · faster</option><option value="0.005">5 ms · exploratory</option></select></div></div><p class="hint">Smaller timesteps improve numerical resolution and take longer. Gas exchange is not enabled in this interface.</p></details>
+</fieldset>
+<div class="actions"><button id="run" type="submit">Run simulation <span aria-hidden="true">→</span></button><button id="cancel" type="button" class="secondary" hidden>Cancel</button></div>
+<progress id="progress" max="100" value="0" hidden aria-label="Simulation progress"></progress>
+<p id="status" role="status" aria-live="polite">Ready. Choose your settings and run a simulation.</p>
+<p id="error" role="alert" hidden></p>
+</form>
+</section>
+<section id="results" class="results legacy-lab" aria-labelledby="results-title" tabindex="-1">
+<div class="section-heading"><span class="step">02</span><h2 id="results-title">Explore the response</h2></div>
+<p id="result-caption" class="hint">Run a scenario to see the most recent analyzed breath.</p>
+<div class="metrics" aria-label="Breath metrics">
+<article class="metric"><h3>Peak pressure</h3><p><span id="m-ppeak">—</span><small>cmH₂O</small></p></article>
+<article class="metric"><h3>Plateau pressure</h3><p><span id="m-pplat">—</span><small>cmH₂O</small></p></article>
+<article class="metric"><h3>Driving pressure</h3><p><span id="m-dp">—</span><small>cmH₂O</small></p></article>
+<article class="metric"><h3>Inspired volume</h3><p><span id="m-vti">—</span><small>mL</small></p></article>
+<article class="metric"><h3>Expired volume</h3><p><span id="m-vte">—</span><small>mL</small></p></article>
+<article class="metric"><h3>Minute ventilation</h3><p><span id="m-mv">—</span><small>L/min</small></p></article>
+</div>
+<p id="plateau-note" class="hint">Plateau and driving pressure are shown only when a suitable volume-control pause is available.</p>
+<div class="card waveforms"><div class="card-heading"><h2>Breath waveforms</h2><span class="pill">All simulated breaths</span></div><p class="hint">Time runs left to right. Volume is total modeled compartment volume, not absolute anatomical lung volume.</p>
+<div class="plot"><h3><i class="dot pressure"></i>Airway pressure <span>cmH₂O</span></h3><svg id="pressure-chart" role="img" aria-label="Airway pressure over time" viewBox="0 0 720 180" preserveAspectRatio="none"><text x="50%" y="50%" text-anchor="middle">Run a simulation to draw waveforms</text></svg></div>
+<div class="plot"><h3><i class="dot flow"></i>Flow <span>L/min · positive into lung</span></h3><svg id="flow-chart" role="img" aria-label="Airway flow over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>mL</span></h3><svg id="volume-chart" role="img" aria-label="Modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+</div>
+<div class="card"><div class="card-heading"><h2>Recruitment at the end of the run</h2><span class="pill">Model state</span></div><div id="recruitment-bars"><p class="hint">Compartment states will appear here.</p></div></div>
+<details class="card"><summary>Model details and run diagnostics</summary><p class="hint">These outputs describe the mathematical model. They are not measurements from a patient.</p><pre id="diag">No completed run.</pre><button id="download" class="secondary" disabled>Download run data</button></details>
+<details class="card"><summary>What can I learn here?</summary><p>In volume control, compare the filling pressure with the pressure during a low-flow pause. In pressure control, change the pressure target and observe the volume that emerges. Change one setting at a time.</p><p>For recruitment, select an injury phenotype and explicitly choose its starting open fraction. Each run restarts the scenario; changing PEEP does not continue a previous pressure history.</p><p>The three-compartment model and mechanical phenotypes are simplified teaching constructs. Gas exchange, spontaneous effort, clinical calibration, and learning outcomes are outside this release. Driving pressure here uses airway PEEP; it does not measure intrinsic PEEP.</p></details>
+</section>
+</main>
+<footer>ARDS Clinical Twin · v0.6 preview · <a href="https://github.com/DrFillster/medical-vent-twin">Project source</a><span>Computational prototype. Not peer reviewed.</span></footer>
+<noscript><p class="noscript">Enable JavaScript to run the simulator.</p></noscript>
+</body></html>

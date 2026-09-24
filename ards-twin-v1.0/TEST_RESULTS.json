@@ -1,0 +1,398 @@
+{
+  "version": "0.4.5",
+  "runtime": "v26.8.2",
+  "date": "2026-09-24T12:20:10.602Z",
+  "files": [
+    {
+      "file": "a_initialization.test.js",
+      "passed": 12,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "b_jacobian.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "bedside_measurements.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "berlin_case_catalog.test.js",
+      "passed": 10,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "c_small_signal.test.js",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "clinical_case_manifest.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "clinical_case_readiness.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "clinical_scenarios.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "clinical_session_record.test.js",
+      "passed": 2,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "clinical_twin_live_hummod_session.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "clinical_twin_runtime.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "clinical_twin_session.test.js",
+      "passed": 10,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "conservation.test.js",
+      "passed": 8,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "d_low_resistance.test.js",
+      "passed": 2,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "deterministic.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "digital_twin_contract.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "f_recruitment.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "g_multi_breath.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "h_dt_convergence.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hold_maneuvers.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_adapter.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_autonomic_controller.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_breathing.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_chemistry.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_circulation.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_combined_runtime.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_coupling.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_gas_exchange.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_hemodynamic_runtime.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_hemodynamics.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_runtime.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_core_thorax.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_export_contract.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_native_reduced_calibration.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_native_scenario.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_native_solution.test.js",
+      "passed": 12,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_native_sweep.test.js",
+      "passed": 3,
+      "failed": 2,
+      "status": "failed"
+    },
+    {
+      "file": "hummod_raw_series_adapter.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_remote_request.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_runner_contract.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_scripted_export.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_standalone_binding.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_standalone_manifest.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_tracking_script.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "i_failure_semantics.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "j_instrumentation.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "mobile_release.test.js",
+      "passed": 16,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p0_central_airway.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p0_single_compartment.test.js",
+      "passed": 9,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p1_gas_toggle.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p2_metrics.test.js",
+      "passed": 10,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p3_pc_ac.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p4_recruitment.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "p5_gas_exchange.test.js",
+      "passed": 11,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "recruitment_history.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "reference_case_calibration.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "setting_changes.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "single_rc.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "solver_near_closed_regression.test.js",
+      "passed": 1,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "strict_vc_ac.test.js",
+      "passed": 8,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "v0_6_product_smoke.test.js",
+      "passed": 0,
+      "failed": 0,
+      "status": "failed"
+    },
+    {
+      "file": "vc_ac.test.js",
+      "passed": 6,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "ventilator_change.test.js",
+      "passed": 4,
+      "failed": 0,
+      "status": "passed"
+    }
+  ],
+  "passed": 347,
+  "failed": 2,
+  "failedFiles": [
+    "hummod_native_sweep.test.js",
+    "v0_6_product_smoke.test.js"
+  ],
+  "success": false
+}
