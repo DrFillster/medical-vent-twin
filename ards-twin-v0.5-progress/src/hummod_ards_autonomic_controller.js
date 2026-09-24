@@ -149,9 +149,9 @@ function createHumModArdsAutonomicController({
     const empiricalHcaConductanceTarget =
       baseline.systemicArterialConductanceMlPerMinPerMmHg *
       (1 + hcaSeverity * (empiricalHcaConductanceRatio - 1));
-    const arterialConductanceTarget =
-      reflexArterialConductanceTarget * (1 - hcaSeverity) +
-      empiricalHcaConductanceTarget * hcaSeverity;
+    const arterialConductanceTarget = hcaSeverity > 0
+      ? Math.max(reflexArterialConductanceTarget, empiricalHcaConductanceTarget)
+      : reflexArterialConductanceTarget;
     arterialConductance = lag(
       arterialConductance,
       arterialConductanceTarget,
