@@ -111,6 +111,30 @@ function createHumModArdsCardiopulmonaryRuntime({
     });
     circ=circulation.snapshot();
 
+    if(circ.mechanicalPumpFailure){
+      const terminalDecomp=decompensation.forceArrest({
+        reason:'mechanical-pump-failure',
+        rhythm:'PEA',
+      });
+      timeSec+=dtSec;
+      last=Object.freeze({
+        meanAirwayPressureCmH2O:meanPaw,
+        thorax:thoraxState,
+        thoracicPressureMmHg,
+        pericardialPressureMmHg,
+        circulation:circ,
+        autonomic:control,
+        decompensation:terminalDecomp,
+        effectiveHeartRatePerMin:0,
+        effectiveContractilityMultiplier:0,
+        gas:last && last.gas ? last.gas : gasRuntime.snapshot(),
+        adapterDiagnostics:last && last.adapterDiagnostics
+          ? last.adapterDiagnostics
+          : null,
+      });
+      return snapshot();
+    }
+
     const cardiacOutputMlPerMin=circ.flowsMlPerMin.leftVentricular;
     positive(cardiacOutputMlPerMin,'left ventricular cardiac output');
 
