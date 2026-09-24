@@ -73,7 +73,7 @@ test('hypercapnic acidemia raises HR and pulmonary load while lowering systemic 
   for(let i=0;i<30;i++) acidotic=c.step({
     dtSec:1, meanArterialPressureMmHg:82,
     thoracicPressureMmHg:0, arterialPo2MmHg:90,
-    arterialPco2MmHg:116.8, arterialPh:7.10,
+    arterialPco2MmHg:100, arterialPh:7.10,
   });
   assert(acidotic.hypercapnicAcidosisSeverity>0.99,'HCA severity should reach challenge anchor');
   assert(acidotic.heartRatePerMin>baseline.heartRatePerMin,'HR should rise with HCA');
@@ -83,6 +83,18 @@ test('hypercapnic acidemia raises HR and pulmonary load while lowering systemic 
   assert(acidotic.pulmonaryArterialConductanceMultiplier<
     baseline.pulmonaryArterialConductanceMultiplier,
     'pulmonary conductance should fall as PVR rises with HCA');
+
+  let milder=baseline;
+  for(let i=0;i<30;i++) milder=c.step({
+    dtSec:1, meanArterialPressureMmHg:82,
+    thoracicPressureMmHg:0, arterialPo2MmHg:90,
+    arterialPco2MmHg:60, arterialPh:7.25,
+  });
+  assert(milder.heartRatePerMin>baseline.heartRatePerMin,
+    'HR should rise with milder HCA');
+  assert(milder.systemicArterialConductanceMlPerMinPerMmHg>
+    baseline.systemicArterialConductanceMlPerMinPerMmHg,
+    'systemic conductance should already rise at milder HCA');
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
