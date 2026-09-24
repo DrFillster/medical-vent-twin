@@ -3,6 +3,9 @@
 const { createVentToArdsCoreSnapshot } = require('./hummod_ards_core_coupling.js');
 const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adapter.js');
 const { createHumModArdsAutonomicController } = require('./hummod_ards_autonomic_controller.js');
+const {
+  createHumModArdsDecompensationController,
+} = require('./hummod_ards_decompensation_controller.js');
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -42,6 +45,7 @@ function createHumModArdsCardiopulmonaryRuntime({
 
   let timeSec=0;
   let last=null;
+  const decompensation = createHumModArdsDecompensationController();
   const autonomic = createHumModArdsAutonomicController({
     baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
       heartRatePerMin: 75,
@@ -53,6 +57,15 @@ function createHumModArdsCardiopulmonaryRuntime({
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
+
+    // Once cardiovascular collapse has met the explicit experimental arrest
+    // criteria, the reduced core enters a terminal state. We preserve the last
+    // physiologic snapshot for provenance rather than continuing to integrate
+    // a circulation that is no longer physiologically meaningful.
+    if(decompensation.snapshot().cardiacArrest){
+      timeSec+=dtSec;
+      return snapshot();
+    }
 
     const meanPaw=meanAirwayPressureCmH2O(simulation);
     const thoraxState=thorax.atStaticAirwayPressure(meanPaw);
@@ -78,10 +91,14 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
+    const priorDecomp=decompensation.snapshot();
+    const effectiveContractility=
+      control.contractilityMultiplier *
+      priorDecomp.myocardialContractilityMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: control.heartRatePerMin,
-      leftContractilityMultiplier: control.contractilityMultiplier,
-      rightContractilityMultiplier: control.contractilityMultiplier,
+      leftContractilityMultiplier: effectiveContractility,
+      rightContractilityMultiplier: effectiveContractility,
       systemicArterialConductanceMlPerMinPerMmHg:
         control.systemicArterialConductanceMlPerMinPerMmHg,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
@@ -109,6 +126,19 @@ function createHumModArdsCardiopulmonaryRuntime({
       boundary:adapted.boundary,
     });
 
+    const massBalance=gas.exchange && gas.exchange.massBalance
+      ? gas.exchange.massBalance
+      : null;
+    const decomp=decompensation.step({
+      dtSec,
+      meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
+      mixedVenousO2SaturationFraction:gas.gases.venous.saturationFraction,
+      requestedTissueO2UseMlPerMin:
+        massBalance.requestedTissueO2UseMlPerMin,
+      oxygenSupplyDeficitMlPerMin:
+        massBalance.oxygenSupplyDeficitMlPerMin,
+    });
+
     timeSec+=dtSec;
     last=Object.freeze({
       meanAirwayPressureCmH2O:meanPaw,
@@ -117,6 +147,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       pericardialPressureMmHg,
       circulation:circ,
       autonomic:control,
+      decompensation:decomp,
+      effectiveContractilityMultiplier:effectiveContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
     });
@@ -133,6 +165,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         thorax:'explicit passive chest-wall phenotype',
         circulation:'reduced source-aligned HumMod circulation with dynamic autonomic control',
         gasExchange:'source-aligned HumMod reduced gas core',
+        decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
         clinicalValidation:false,
       }),
