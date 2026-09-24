@@ -94,6 +94,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     const priorDecomp=decompensation.snapshot();
     const effectiveContractility=
       control.contractilityMultiplier *
+      control.acidoticContractilityMultiplier *
       priorDecomp.myocardialContractilityMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: control.heartRatePerMin,
