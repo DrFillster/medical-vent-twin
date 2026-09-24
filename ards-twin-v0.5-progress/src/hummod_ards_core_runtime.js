@@ -44,6 +44,9 @@ const {
   solveOxygenExchange,
   solveCo2Exchange,
 } = require('./hummod_ards_core_gas_exchange.js');
+const {
+  evaluateOxygenSupplyCliff,
+} = require('./hummod_ards_oxygen_supply_cliff.js');
 
 const HUMMOD_GAS_DELAY_K_PER_MIN = 5.0;
 
@@ -391,17 +394,28 @@ function createHumModArdsGasRuntime({
       scaleForSat: venousHgbForExtraction.scaleForSat,
     });
     const requestedTissueO2UseMlPerMin = m.tissueO2UseMlPerMin;
-    const maxAerobicO2UseMlPerMin = Math.max(
+    const physicalMaxAerobicO2UseMlPerMin = Math.max(
       0,
       co * Math.max(
         0,
         state.arterialO2ContentMlPerMl - criticalVenousO2ContentMlPerMl));
-    const actualTissueO2UseMlPerMin = Math.min(
+
+    // The extraction ceiling is not constant. Canine oxygen-transport data
+    // show that severe hypercapnia moves DO2crit upward and lowers the
+    // extraction ratio available at the critical point. The reduced core uses
+    // that documented relationship as a bounded modifier of extraction
+    // reserve, while retaining the venous-PO2 physical limit independently.
+    const oxygenSupply = evaluateOxygenSupplyCliff({
+      cardiacOutputMlPerMin: co,
+      arterialO2ContentMlPerMl: state.arterialO2ContentMlPerMl,
       requestedTissueO2UseMlPerMin,
-      maxAerobicO2UseMlPerMin);
-    const oxygenSupplyDeficitMlPerMin = Math.max(
-      0,
-      requestedTissueO2UseMlPerMin - actualTissueO2UseMlPerMin);
+      arterialPco2MmHg: currentGases.arterial.pco2MmHg,
+      physicalMaxAerobicO2UseMlPerMin,
+    });
+    const actualTissueO2UseMlPerMin =
+      oxygenSupply.actualTissueO2UseMlPerMin;
+    const oxygenSupplyDeficitMlPerMin =
+      oxygenSupply.oxygenSupplyDeficitMlPerMin;
     const venousO2Target = Math.max(
       criticalVenousO2ContentMlPerMl,
       state.arterialO2ContentMlPerMl -
@@ -466,6 +480,15 @@ function createHumModArdsGasRuntime({
         requestedTissueO2UseMlPerMin,
         actualTissueO2UseMlPerMin,
         oxygenSupplyDeficitMlPerMin,
+        oxygenDeliveryMlPerMin: oxygenSupply.oxygenDeliveryMlPerMin,
+        criticalOxygenDeliveryMlPerMin:
+          oxygenSupply.criticalOxygenDeliveryMlPerMin,
+        deliveryToCriticalRatio: oxygenSupply.deliveryToCriticalRatio,
+        deliveryToDemandRatio: oxygenSupply.deliveryToDemandRatio,
+        criticalExtractionRatio: oxygenSupply.criticalExtractionRatio,
+        actualExtractionRatio: oxygenSupply.actualExtractionRatio,
+        supplyDependent: oxygenSupply.supplyDependent,
+        oxygenReserveFraction: oxygenSupply.reserveFraction,
         criticalVenousPo2MmHg: CRITICAL_VENOUS_PO2_MMHG,
         criticalVenousO2ContentMlPerMl,
         lungO2UptakeMlPerMin: oxygen.uptakeMlPerMin,
