@@ -17,6 +17,37 @@ function lag(current, target, dtSec, tauSec) {
   return current + (target - current) * (1 - Math.exp(-dtSec / tauSec));
 }
 
+// Calibration anchor for the reduced hypercapnic-acidosis response.
+// Stengl et al., Critical Care 2013, Table 2 (porcine, mechanically ventilated):
+// hypercapnic acidosis pH 7.10; HR 99 -> 200/min; SVR 1412 -> 1068
+// dyn*s/cm^5; PVR 259 -> 356 dyn*s/cm^5.
+// The browser model uses this as a transparent challenge anchor, not as a
+// claim of a universal human dose-response relationship.
+const HYPERCAPNIC_ACIDOSIS_ANCHOR = Object.freeze({
+  definitionPaco2MmHg: 45,
+  definitionPh: 7.35,
+  challengePh: 7.10,
+  heartRateBaselinePerMin: 99,
+  heartRateChallengePerMin: 200,
+  svrBaseline: 1412,
+  svrChallenge: 1068,
+  pvrBaseline: 259,
+  pvrChallenge: 356,
+  citation: 'Stengl et al. Crit Care. 2013;17:R303.',
+});
+
+function hypercapnicAcidosisSeverity({ arterialPh, arterialPco2MmHg }) {
+  finite(arterialPh, 'arterialPh');
+  finite(arterialPco2MmHg, 'arterialPco2MmHg');
+  if (arterialPco2MmHg <= HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPaco2MmHg ||
+      arterialPh >= HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPh) return 0;
+  return clamp(
+    (HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPh - arterialPh) /
+      (HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPh -
+       HYPERCAPNIC_ACIDOSIS_ANCHOR.challengePh),
+    0, 1);
+}
+
 function createHumModArdsAutonomicController({
   baseline,
   targetMapMmHg = 82,
@@ -54,6 +85,7 @@ function createHumModArdsAutonomicController({
     thoracicPressureMmHg = 0,
     arterialPo2MmHg = 90,
     arterialPco2MmHg = 40,
+    arterialPh = 7.40,
   } = {}) {
     positive(dtSec, 'dtSec');
     finite(meanArterialPressureMmHg, 'meanArterialPressureMmHg');
@@ -63,6 +95,10 @@ function createHumModArdsAutonomicController({
     const pressureError = targetMapMmHg - meanArterialPressureMmHg;
     const hypoxicDrive = clamp((70 - arterialPo2MmHg) / 45, 0, 1);
     const hypercapnicDrive = clamp((arterialPco2MmHg - 45) / 35, 0, 1);
+    const hcaSeverity = hypercapnicAcidosisSeverity({
+      arterialPh,
+      arterialPco2MmHg,
+    });
     const reflexTarget = clamp(
       0.25 + baroreflexGain * pressureError +
       0.18 * hypoxicDrive + 0.10 * hypercapnicDrive,
@@ -81,9 +117,15 @@ function createHumModArdsAutonomicController({
     // Chronotropy and inotropy are separated from vascular tone so the model
     // can express reflex tachycardia, increased contractility, or predominantly
     // vasoconstrictor compensation.
+    const reflexHrTarget =
+      baseline.heartRatePerMin + 55 * sympatheticTone - 22 * parasympatheticTone;
+    const empiricalHcaHrRatio =
+      HYPERCAPNIC_ACIDOSIS_ANCHOR.heartRateChallengePerMin /
+      HYPERCAPNIC_ACIDOSIS_ANCHOR.heartRateBaselinePerMin;
+    const empiricalHcaHrTarget = baseline.heartRatePerMin *
+      (1 + hcaSeverity * (empiricalHcaHrRatio - 1));
     const hrTarget = clamp(
-      baseline.heartRatePerMin +
-      55 * sympatheticTone - 22 * parasympatheticTone,
+      Math.max(reflexHrTarget, empiricalHcaHrTarget),
       45, 165);
     heartRatePerMin = lag(heartRatePerMin, hrTarget, dtSec, cardiacTauSec);
 
@@ -93,11 +135,23 @@ function createHumModArdsAutonomicController({
       0.7, 1.8);
     contractility = lag(contractility, contractilityTarget, dtSec, cardiacTauSec);
 
-    // Alpha-mediated arteriolar constriction is represented by falling
-    // conductance (therefore increasing SVR).
-    const arterialConductanceTarget =
+    // Alpha-mediated constriction and direct hypercapnic-acidosis vasodilation
+    // are represented as competing effects. The latter is anchored to the
+    // published HCA challenge above, in which SVR fell despite catecholaminergic
+    // activation. Interpolation is explicit and bounded between normal and the
+    // challenge state; it is not extrapolated beyond pH 7.10.
+    const reflexArterialConductanceTarget =
       baseline.systemicArterialConductanceMlPerMinPerMmHg /
       (0.86 + 1.45 * sympatheticTone);
+    const empiricalHcaConductanceRatio =
+      HYPERCAPNIC_ACIDOSIS_ANCHOR.svrBaseline /
+      HYPERCAPNIC_ACIDOSIS_ANCHOR.svrChallenge;
+    const empiricalHcaConductanceTarget =
+      baseline.systemicArterialConductanceMlPerMinPerMmHg *
+      (1 + hcaSeverity * (empiricalHcaConductanceRatio - 1));
+    const arterialConductanceTarget =
+      reflexArterialConductanceTarget * (1 - hcaSeverity) +
+      empiricalHcaConductanceTarget * hcaSeverity;
     arterialConductance = lag(
       arterialConductance,
       arterialConductanceTarget,
@@ -107,11 +161,20 @@ function createHumModArdsAutonomicController({
     const venousV0Target = baseVenousV0Ml * (1 - 0.14 * sympatheticTone);
     venousV0Ml = lag(venousV0Ml, venousV0Target, dtSec, vascularTauSec);
 
-    // Positive intrathoracic pressure plus hypoxemia can increase pulmonary
-    // vascular load. Represent this as lower pulmonary arterial conductance.
+    // Positive intrathoracic pressure and hypoxemia remain independent
+    // pulmonary loads. Hypercapnic acidemia adds an empirical resistance
+    // multiplier anchored to the same Stengl challenge. Because resistance and
+    // conductance are reciprocal, the HCA term lowers conductance.
     const pulmonaryLoad =
       0.018 * Math.max(0, thoracicPressureMmHg) + 0.28 * hypoxicDrive;
-    const pulmonaryTarget = clamp(1 / (1 + pulmonaryLoad), 0.55, 1.15);
+    const pressureHypoxiaConductance = 1 / (1 + pulmonaryLoad);
+    const empiricalHcaPvrRatio = 1 + hcaSeverity * (
+      HYPERCAPNIC_ACIDOSIS_ANCHOR.pvrChallenge /
+      HYPERCAPNIC_ACIDOSIS_ANCHOR.pvrBaseline - 1);
+    const hcaPulmonaryConductance = 1 / empiricalHcaPvrRatio;
+    const pulmonaryTarget = clamp(
+      pressureHypoxiaConductance * hcaPulmonaryConductance,
+      0.45, 1.15);
     pulmonaryConductanceMultiplier = lag(
       pulmonaryConductanceMultiplier,
       pulmonaryTarget,
@@ -125,6 +188,8 @@ function createHumModArdsAutonomicController({
       catecholamineDrive,
       hypoxicDrive,
       hypercapnicDrive,
+      hypercapnicAcidosisSeverity: hcaSeverity,
+      arterialPh,
       heartRatePerMin,
       contractilityMultiplier: contractility,
       systemicArterialConductanceMlPerMinPerMmHg: arterialConductance,
@@ -151,6 +216,7 @@ function createHumModArdsAutonomicController({
       provenance: Object.freeze({
         status: 'reduced-dynamic-engineering-control-layer',
         clinicalValidation: false,
+        hypercapnicAcidosisAnchor: HYPERCAPNIC_ACIDOSIS_ANCHOR,
       }),
     });
   }
@@ -158,4 +224,8 @@ function createHumModArdsAutonomicController({
   return Object.freeze({ kind: 'hummod-ards-autonomic-controller', step, snapshot });
 }
 
-module.exports = { createHumModArdsAutonomicController };
+module.exports = {
+  HYPERCAPNIC_ACIDOSIS_ANCHOR,
+  hypercapnicAcidosisSeverity,
+  createHumModArdsAutonomicController,
+};
