@@ -178,9 +178,34 @@ function createHumModArdsCirculation({
       stiffnessMultiplier: activeBoundaries.leftStiffnessMultiplier || 1,
     });
 
-    if (rightPump.bloodFlowMlPerMin < 0 || leftPump.bloodFlowMlPerMin < 0) {
-      throw new Error('ventricular source algebra produced negative forward flow');
+    // The pinned HumMod pumping algebra is StrokeVolume = EDV - ESV and
+    // does not clamp the equation when extreme failure drives ESV above EDV.
+    // In the reduced browser core, a negative raw stroke volume is treated as
+    // entry into a nonphysical pump domain and therefore mechanical pump
+    // failure. Preserve the raw source result, but expose zero forward flow so
+    // the coupled terminal controller can convert this state to PEA rather
+    // than crashing or propagating negative cardiac output.
+    function terminalSafePump(pump) {
+      if (pump.bloodFlowMlPerMin >= 0) {
+        return Object.freeze({
+          ...pump,
+          rawStrokeVolumeMl: pump.strokeVolumeMl,
+          rawBloodFlowMlPerMin: pump.bloodFlowMlPerMin,
+          mechanicalPumpFailure: false,
+        });
+      }
+      return Object.freeze({
+        ...pump,
+        rawStrokeVolumeMl: pump.strokeVolumeMl,
+        rawBloodFlowMlPerMin: pump.bloodFlowMlPerMin,
+        strokeVolumeMl: 0,
+        bloodFlowMlPerMin: 0,
+        ejectionFraction: 0,
+        mechanicalPumpFailure: true,
+      });
     }
+    const safeRightPump = terminalSafePump(rightPump);
+    const safeLeftPump = terminalSafePump(leftPump);
 
     return {
       pressures: {
@@ -193,16 +218,18 @@ function createHumModArdsCirculation({
         leftAtrialMmHg: p.la.pressureMmHg,
       },
       flowsMlPerMin: {
-        leftVentricular: leftPump.bloodFlowMlPerMin,
+        leftVentricular: safeLeftPump.bloodFlowMlPerMin,
         systemicOutflow,
         venousReturn,
-        rightVentricular: rightPump.bloodFlowMlPerMin,
+        rightVentricular: safeRightPump.bloodFlowMlPerMin,
         pulmonaryArterialOutflow,
         pulmonaryCapillaryOutflow,
         pulmonaryVenousOutflow,
       },
-      rightVentricle: rightPump,
-      leftVentricle: leftPump,
+      rightVentricle: safeRightPump,
+      leftVentricle: safeLeftPump,
+      mechanicalPumpFailure:
+        safeRightPump.mechanicalPumpFailure || safeLeftPump.mechanicalPumpFailure,
     };
   }
 
