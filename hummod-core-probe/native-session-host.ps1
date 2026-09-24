@@ -107,6 +107,13 @@ public static class HumModHostNative {
     }
   }
 
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+  static extern IntPtr SendText(IntPtr h, uint msg, IntPtr w, string l);
+
+  public static void SetText(long handle, string text) {
+    SendText(new IntPtr(handle), 0x000C, IntPtr.Zero, text);
+  }
+
   public static void TypeText(long handle, string text) {
     IntPtr h = new IntPtr(handle);
     SendValue(h, 0xB1, IntPtr.Zero, new IntPtr(-1));
@@ -159,14 +166,23 @@ function Save-Solution([string]$path) {
   if($dialogs.Count -ne 1) { throw 'Cannot identify unique Save dialog.' }
 
   $children = @([HumModHostNative]::Children($dialogs[0].Handle))
-  $edits = @($children | Where-Object { $_.Class -eq 'Edit' })
-  $filename = @($edits | Where-Object { $_.Id -eq 1148 -or $_.Id -eq 1001 })
+  $filename = @()
+  foreach($id in @(1148,1152,1001)) {
+    $candidate = @($children | Where-Object { $_.Id -eq $id })
+    if($candidate.Count -eq 1) { $filename = $candidate; break }
+  }
   if($filename.Count -ne 1) {
+    $edits = @($children | Where-Object { $_.Class -eq 'Edit' })
     if($edits.Count -eq 1) { $filename = $edits }
-    else { throw 'Cannot identify Save filename field.' }
+    else {
+      $summary = ($children | ForEach-Object {
+        ('class=' + $_.Class + ',id=' + $_.Id + ',text=' + $_.Text)
+      }) -join '; '
+      throw ('Cannot identify Save filename field. Controls: ' + $summary)
+    }
   }
 
-  [HumModHostNative]::TypeText($filename[0].Handle,('"' + $path + '"'))
+  [HumModHostNative]::SetText($filename[0].Handle,('"' + $path + '"'))
   $button = @($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
   if($button.Count -ne 1) { throw 'Cannot identify Save button.' }
   [HumModHostNative]::PostMessage([IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
@@ -184,14 +200,23 @@ function Load-Solution([string]$path) {
   if($dialogs.Count -ne 1) { throw 'Cannot identify unique Load dialog.' }
 
   $children = @([HumModHostNative]::Children($dialogs[0].Handle))
-  $edits = @($children | Where-Object { $_.Class -eq 'Edit' })
-  $filename = @($edits | Where-Object { $_.Id -eq 1148 -or $_.Id -eq 1001 })
+  $filename = @()
+  foreach($id in @(1148,1152,1001)) {
+    $candidate = @($children | Where-Object { $_.Id -eq $id })
+    if($candidate.Count -eq 1) { $filename = $candidate; break }
+  }
   if($filename.Count -ne 1) {
+    $edits = @($children | Where-Object { $_.Class -eq 'Edit' })
     if($edits.Count -eq 1) { $filename = $edits }
-    else { throw 'Cannot identify Load filename field.' }
+    else {
+      $summary = ($children | ForEach-Object {
+        ('class=' + $_.Class + ',id=' + $_.Id + ',text=' + $_.Text)
+      }) -join '; '
+      throw ('Cannot identify Load filename field. Controls: ' + $summary)
+    }
   }
 
-  [HumModHostNative]::TypeText($filename[0].Handle,('"' + $resolved + '"'))
+  [HumModHostNative]::SetText($filename[0].Handle,('"' + $resolved + '"'))
   $button = @($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
   if($button.Count -ne 1) { throw 'Cannot identify Load button.' }
   [HumModHostNative]::PostMessage([IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
