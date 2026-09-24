@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/physiology-regression.yml'
       - 'ards-twin-v0.5-progress/src/hummod_ards_autonomic_controller.js'
       - 'ards-twin-v0.5-progress/src/hummod_ards_cardiopulmonary_runtime.js'
       - 'ards-twin-v0.5-progress/src/hummod_ards_core_runtime.js'
