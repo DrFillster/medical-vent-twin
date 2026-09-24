@@ -1,7 +1,7 @@
 {
   "version": "0.4.5",
   "runtime": "v26.8.2",
-  "date": "2026-09-24T12:20:10.602Z",
+  "date": "2026-09-24T17:19:21.533Z",
   "files": [
     {
       "file": "a_initialization.test.js",
@@ -202,6 +202,12 @@
       "status": "passed"
     },
     {
+      "file": "hummod_ards_decompensation_controller.test.js",
+      "passed": 5,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
       "file": "hummod_export_contract.test.js",
       "passed": 6,
       "failed": 0,
@@ -388,7 +394,7 @@
       "status": "passed"
     }
   ],
-  "passed": 347,
+  "passed": 352,
   "failed": 2,
   "failedFiles": [
     "hummod_native_sweep.test.js",
