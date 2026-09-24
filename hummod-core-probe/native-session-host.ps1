@@ -138,6 +138,44 @@ function Get-Menu([string]$path) {
   return $matches[0]
 }
 
+function Wait-FileDialog([string]$purpose,[int]$timeoutSeconds=8) {
+  $deadline=(Get-Date).AddSeconds($timeoutSeconds)
+  while((Get-Date) -lt $deadline) {
+    $dialogs=@([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
+      Where-Object { $_.Class -eq '#32770' })
+
+    $scored=@()
+    foreach($dialog in $dialogs) {
+      $children=@([HumModHostNative]::Children($dialog.Handle))
+      $filenameControls=@($children | Where-Object {
+        $_.Id -eq 1148 -or $_.Id -eq 1152 -or $_.Id -eq 1001
+      })
+      if($filenameControls.Count -gt 0) {
+        $scored += [pscustomobject]@{
+          Dialog=$dialog
+          Children=$children
+          Score=$filenameControls.Count
+        }
+      }
+    }
+
+    if($scored.Count -eq 1) { return $scored[0].Dialog }
+    if($scored.Count -gt 1) {
+      $exact=@($scored | Where-Object { $_.Score -eq 1 })
+      if($exact.Count -eq 1) { return $exact[0].Dialog }
+    }
+    if($dialogs.Count -eq 1) { return $dialogs[0] }
+
+    Start-Sleep -Milliseconds 250
+  }
+
+  $windows=@([HumModHostNative]::Windows([uint32]$proc.Id,$true))
+  $summary=($windows | ForEach-Object {
+    ('class=' + $_.Class + ',id=' + $_.Id + ',text=' + $_.Text)
+  }) -join '; '
+  throw ("Timed out waiting for "+$purpose+" dialog. Windows: "+$summary)
+}
+
 function Wait-StableFile([string]$path, [int]$timeoutSeconds = 60) {
   $deadline = (Get-Date).AddSeconds($timeoutSeconds)
   $lastLength = -1
@@ -161,11 +199,8 @@ function Save-Solution([string]$path) {
   [HumModHostNative]::Command($main.Handle,$save[0].Id)
   Start-Sleep -Milliseconds 800
 
-  $dialogs = @([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
-    Where-Object { $_.Class -eq '#32770' -and $_.Text -match '(?i)save' })
-  if($dialogs.Count -ne 1) { throw 'Cannot identify unique Save dialog.' }
-
-  $children = @([HumModHostNative]::Children($dialogs[0].Handle))
+  $dialog = Wait-FileDialog 'Save Solution'
+  $children = @([HumModHostNative]::Children($dialog.Handle))
   $filename = @()
   foreach($id in @(1148,1152,1001)) {
     $candidate = @($children | Where-Object { $_.Id -eq $id })
@@ -195,11 +230,8 @@ function Load-Solution([string]$path) {
   [HumModHostNative]::Command($main.Handle,$load.Id)
   Start-Sleep -Milliseconds 800
 
-  $dialogs = @([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
-    Where-Object { $_.Class -eq '#32770' -and $_.Text -match '(?i)load|open' })
-  if($dialogs.Count -ne 1) { throw 'Cannot identify unique Load dialog.' }
-
-  $children = @([HumModHostNative]::Children($dialogs[0].Handle))
+  $dialog = Wait-FileDialog 'Load Solution'
+  $children = @([HumModHostNative]::Children($dialog.Handle))
   $filename = @()
   foreach($id in @(1148,1152,1001)) {
     $candidate = @($children | Where-Object { $_.Id -eq $id })
