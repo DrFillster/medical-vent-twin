@@ -1,0 +1,40 @@
+name: One-shot HumMod Core Native E2E
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-hummod-core-native-e2e
+
+permissions:
+  contents: read
+
+jobs:
+  native-e2e:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run native HumMod persistent E2E
+        run: node hummod-core-probe/manual-native-e2e.js hummod-standalone runtime/hummod-core-native-e2e
+
+      - name: Upload native E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-core-native-e2e
+          path: runtime/hummod-core-native-e2e/
+          if-no-files-found: warn
