@@ -2,7 +2,7 @@
 
 const {
   createHumModArdsDecompensationController,
-  END_COMPENSATION_SVO2_FRACTION,
+  LOW_SVO2_SHOCK_MARKER_FRACTION,
   CARDIOVASCULAR_COLLAPSE_MAP_SEC,
   PROFOUND_COLLAPSE_MAP_SEC,
 } = require('../src/hummod_ards_decompensation_controller.js');
@@ -36,7 +36,7 @@ test('low mixed venous oxygen marks depleted compensatory reserve',()=>{
   const s=c.step({
     dtSec:1,
     meanArterialPressureMmHg:70,
-    mixedVenousO2SaturationFraction:END_COMPENSATION_SVO2_FRACTION-0.01,
+    mixedVenousO2SaturationFraction:LOW_SVO2_SHOCK_MARKER_FRACTION-0.01,
     requestedTissueO2UseMlPerMin:250,
     oxygenSupplyDeficitMlPerMin:0,
   });
