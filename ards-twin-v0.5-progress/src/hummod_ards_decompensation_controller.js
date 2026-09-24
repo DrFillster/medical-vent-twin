@@ -7,8 +7,10 @@
 // It is NOT a mortality prediction model and is NOT a verbatim HumMod module.
 //
 // Calibration anchors:
-// - End-compensation oxygen extraction ~55% (SvO2 ~45%) during progressive
-//   central hypovolemia/hemorrhage.
+// - A low-SvO2 shock marker of 45% is used only as an engineering warning
+//   signal inside the published 30-50% range associated with critical oxygen
+//   delivery / depleted extraction reserve. It is not a universal clinical
+//   decompensation threshold.
 // - Mean cardiovascular-collapse time 35 +/- 11 min in fixed-rate porcine
 //   hemorrhage (Navarro e Lima et al., J Trauma Acute Care Surg 2012).
 // - Severe shock/lactic acidosis depressed myocardial elastance from ~2.87
@@ -21,7 +23,7 @@
 // debt into a bounded severe-shock injury signal. It is not claimed to be a
 // universal human survival time or a patient-specific death threshold.
 
-const END_COMPENSATION_SVO2_FRACTION = 0.45;
+const LOW_SVO2_SHOCK_MARKER_FRACTION = 0.45;
 const ORGAN_FLOW_RISK_MAP_MMHG = 50;
 const COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN = 35;
 const MYOCARDIAL_CONTRACTILITY_FLOOR = 0.50 / 2.87;
@@ -65,7 +67,7 @@ function classifyStage({
     return 'decompensated-shock';
   }
   if (oxygenSupplyDeficitMlPerMin > 0) return 'oxygen-debt';
-  if (svo2Fraction < END_COMPENSATION_SVO2_FRACTION ||
+  if (svo2Fraction < LOW_SVO2_SHOCK_MARKER_FRACTION ||
       mapMmHg < ORGAN_FLOW_RISK_MAP_MMHG) {
     return 'compensated-shock';
   }
@@ -147,8 +149,8 @@ function createHumModArdsDecompensationController() {
       meanArterialPressureMmHg,
       lowMapBelow30Sec,
       lowMapBelow20Sec,
-      endCompensationSvo2Fraction:
-        END_COMPENSATION_SVO2_FRACTION,
+      lowSvo2ShockMarkerFraction:
+        LOW_SVO2_SHOCK_MARKER_FRACTION,
     });
     return snapshot();
   }
@@ -164,8 +166,8 @@ function createHumModArdsDecompensationController() {
       myocardialContractilityMultiplier: 1,
       lowMapBelow30Sec,
       lowMapBelow20Sec,
-      endCompensationSvo2Fraction:
-        END_COMPENSATION_SVO2_FRACTION,
+      lowSvo2ShockMarkerFraction:
+        LOW_SVO2_SHOCK_MARKER_FRACTION,
     });
   }
 
@@ -177,7 +179,7 @@ function createHumModArdsDecompensationController() {
 }
 
 module.exports = {
-  END_COMPENSATION_SVO2_FRACTION,
+  LOW_SVO2_SHOCK_MARKER_FRACTION,
   ORGAN_FLOW_RISK_MAP_MMHG,
   COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN,
   MYOCARDIAL_CONTRACTILITY_FLOOR,
