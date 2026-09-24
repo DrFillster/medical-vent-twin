@@ -126,7 +126,7 @@ function createHumModArdsAutonomicController({
       (1 + hcaSeverity * (empiricalHcaHrRatio - 1));
     const hrTarget = clamp(
       Math.max(reflexHrTarget, empiricalHcaHrTarget),
-      45, 165);
+      45, 200);
     heartRatePerMin = lag(heartRatePerMin, hrTarget, dtSec, cardiacTauSec);
 
     const contractilityTarget = clamp(
