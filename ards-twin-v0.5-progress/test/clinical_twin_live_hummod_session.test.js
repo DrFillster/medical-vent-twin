@@ -107,6 +107,32 @@ test('FiO2/VC setting changes are applied at a breath boundary and feed the live
   assert(Number.isFinite(s.systemic.gasExchange.pao2MmHg));
 });
 
+test('prolonged profound hypoxemic hypercapnic failure decompensates instead of remaining hemodynamically normal', () => {
+  const session = makeSession();
+  session.initialize();
+  session.requestVentilationChange({
+    mode: 'VC_AC', fio2: 0.20, peep: 8, rr: 4,
+    vtL: 0.10, inspiratoryFlowLps: 0.20, inspiratoryPauseSec: 0,
+  });
+  const s = session.runFor(1200);
+  const g = s.systemic.gasExchange;
+  const h = s.systemic.hemodynamics;
+  const d = s.systemic.decompensation;
+
+  assert(g.pao2MmHg < 30, 'extremis challenge should produce profound hypoxemia');
+  assert(g.paco2MmHg > 150, 'extremis challenge should produce severe hypercapnia');
+  assert(g.pH < 6.9, 'extremis challenge should produce profound acidemia');
+  assert(d && d.oxygenDebtMl > 0, 'extremis challenge should accumulate oxygen debt');
+  assert(d.myocardialContractilityMultiplier < 1,
+    'oxygen debt should depress myocardial reserve');
+  assert(
+    d.cardiacArrest === true ||
+    h.meanArterialPressureMmHg < 60 ||
+    h.cardiacOutputMlPerMin < 3000,
+    'after 20 min of profound hypoxemic-hypercapnic failure, patient must show major hemodynamic decompensation or arrest'
+  );
+});
+
 test('live core rejects PC-AC until its Vent adapter is implemented', () => {
   let threw = false;
   try {
