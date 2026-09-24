@@ -1,0 +1,29 @@
+name: Physiology Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ards-twin-v0.5-progress/src/hummod_ards_autonomic_controller.js'
+      - 'ards-twin-v0.5-progress/src/hummod_ards_cardiopulmonary_runtime.js'
+      - 'ards-twin-v0.5-progress/src/hummod_ards_core_runtime.js'
+      - 'ards-twin-v0.5-progress/src/clinical_twin_live_hummod_session.js'
+      - 'ards-twin-v0.5-progress/test/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  physiology-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run unit and physiology regression tests
+        run: npm test
