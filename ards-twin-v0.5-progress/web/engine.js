@@ -9459,6 +9459,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     const priorDecomp=decompensation.snapshot();
     const effectiveContractility=
       control.contractilityMultiplier *
+      control.acidoticContractilityMultiplier *
       priorDecomp.myocardialContractilityMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: control.heartRatePerMin,
@@ -9924,6 +9925,38 @@ const HYPERCAPNIC_ACIDOSIS_ANCHOR = Object.freeze({
   citation: 'Stengl et al. Crit Care. 2013;17:R303.',
 });
 
+// Direct myocardial depression is deliberately separated from sympathoadrenal
+// compensation. Biais et al. (Anesthesiology 2012) found respiratory acidosis
+// at extracellular pH 7.10 reduced isolated myocardial contractile force to
+// approximately 45% of baseline. The reduced browser core linearly interpolates
+// this direct negative-inotropic component from pH 7.35 to 7.10 and then
+// bounds it; it does not invent a stronger pH-to-contractility curve below 7.10.
+const RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR = Object.freeze({
+  definitionPh: 7.35,
+  challengePh: 7.10,
+  challengeContractilityFraction: 0.45,
+  citation: 'Biais et al. Anesthesiology. 2012;117:1212-1222.',
+});
+
+function respiratoryAcidosisContractilityMultiplier({
+  arterialPh,
+  arterialPco2MmHg,
+}) {
+  finite(arterialPh, 'arterialPh');
+  finite(arterialPco2MmHg, 'arterialPco2MmHg');
+  if (arterialPco2MmHg <= HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPaco2MmHg ||
+      arterialPh >= RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.definitionPh) {
+    return 1;
+  }
+  const severity = clamp(
+    (RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.definitionPh - arterialPh) /
+      (RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.definitionPh -
+       RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.challengePh),
+    0, 1);
+  return 1 - severity *
+    (1 - RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.challengeContractilityFraction);
+}
+
 function hypercapnicAcidosisSeverity({ arterialPh, arterialPco2MmHg }) {
   finite(arterialPh, 'arterialPh');
   finite(arterialPco2MmHg, 'arterialPco2MmHg');
@@ -9987,6 +10020,11 @@ function createHumModArdsAutonomicController({
       arterialPh,
       arterialPco2MmHg,
     });
+    const acidoticContractilityMultiplier =
+      respiratoryAcidosisContractilityMultiplier({
+        arterialPh,
+        arterialPco2MmHg,
+      });
     const reflexTarget = clamp(
       0.25 + baroreflexGain * pressureError +
       0.18 * hypoxicDrive + 0.10 * hypercapnicDrive,
@@ -10080,6 +10118,7 @@ function createHumModArdsAutonomicController({
       arterialPh,
       heartRatePerMin,
       contractilityMultiplier: contractility,
+      acidoticContractilityMultiplier,
       systemicArterialConductanceMlPerMinPerMmHg: arterialConductance,
       systemicVenousV0Ml: venousV0Ml,
       pulmonaryArterialConductanceMultiplier: pulmonaryConductanceMultiplier,
@@ -10105,6 +10144,8 @@ function createHumModArdsAutonomicController({
         status: 'reduced-dynamic-engineering-control-layer',
         clinicalValidation: false,
         hypercapnicAcidosisAnchor: HYPERCAPNIC_ACIDOSIS_ANCHOR,
+        respiratoryAcidosisInotropyAnchor:
+          RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
       }),
     });
   }
@@ -10114,7 +10155,9 @@ function createHumModArdsAutonomicController({
 
 module.exports = {
   HYPERCAPNIC_ACIDOSIS_ANCHOR,
+  RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
   hypercapnicAcidosisSeverity,
+  respiratoryAcidosisContractilityMultiplier,
   createHumModArdsAutonomicController,
 };
 
