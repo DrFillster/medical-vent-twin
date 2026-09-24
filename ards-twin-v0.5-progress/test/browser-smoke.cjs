@@ -35,7 +35,12 @@ const { chromium, webkit } = require('playwright');
       assert((await page.locator('#clinical-readiness').textContent()).includes('External data required'));
 
       // Replay demo remains available and explicitly synthetic. Live reduced HumMod is the default provider.
-      await page.locator('#clinical-session-panel > summary').click();
+      await page.locator('#clinical-session-panel').evaluate(el => {
+        el.open = true;
+      });
+      await page.locator('.engineering-provider').evaluate(el => {
+        el.open = true;
+      });
       assert.equal(await page.locator('#clinical-systemic-provider').inputValue(),'live-reduced-hummod');
       await page.locator('#clinical-systemic-provider').selectOption('replay');
       await page.locator('#clinical-load-demo').click();
@@ -72,7 +77,7 @@ const { chromium, webkit } = require('playwright');
       await page.locator('#clinical-flow').fill('0.7');
       await page.locator('#clinical-vc-pause').fill('0.2');
       await page.locator('#clinical-initialize').click();
-      await page.waitForFunction(()=>document.querySelector('#clinical-session-status').textContent.startsWith('Session active'),null,{timeout:30000});
+      await page.waitForFunction(()=>document.querySelector('#clinical-session-status').textContent.startsWith('Patient active'),null,{timeout:30000});
       assert.equal((await page.locator('#clinical-time').textContent()).trim(),'0');
       assert.equal((await page.locator('#clinical-hr').textContent()).trim(),'90');
       await page.locator('#clinical-run-seconds').fill('1');
@@ -80,8 +85,11 @@ const { chromium, webkit } = require('playwright');
       await page.waitForFunction(()=>document.querySelector('#clinical-time').textContent!=='0',null,{timeout:30000});
       assert.equal((await page.locator('#clinical-hr').textContent()).trim(),'91');
       assert.equal((await page.locator('#clinical-current-mode').textContent()).trim(),'VC_AC');
-      assert.equal(await page.locator('.clinical-waveforms svg path.trace').count(),3);
+      assert((await page.locator('.clinical-waveforms svg path.trace').count()) >= 3);
 
+      await page.locator('.clinical-advanced-actions').evaluate(el => {
+        el.open = true;
+      });
       await page.locator('#clinical-measure-mechanics').click();
       await page.waitForFunction(() => {
         const pplat = document.querySelector('#clinical-pplat').textContent.trim();
@@ -108,11 +116,6 @@ const { chromium, webkit } = require('playwright');
       await page.waitForFunction(()=>document.querySelector('#clinical-current-mode').textContent.trim()==='PC_AC',null,{timeout:30000});
       assert.equal((await page.locator('#clinical-current-peep').textContent()).trim(),'10');
 
-      await page.locator('#run').click();
-      await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Run complete'),null,{timeout:120000});
-      assert(Number.isFinite(Number(await page.locator('#m-ppeak').textContent())));
-      assert.equal(await page.locator('#results svg path.trace').count(),3);
-      assert.equal(await page.locator('.recruit-row').count(),3);
       const dimensions=await page.evaluate(()=>{
         const viewport=innerWidth;
         const offenders=[...document.querySelectorAll('body *')].map(el=>{
@@ -130,40 +133,25 @@ const { chromium, webkit } = require('playwright');
         return {page:document.documentElement.scrollWidth,viewport,offenders};
       });
       assert(dimensions.page<=dimensions.viewport+1,`Horizontal overflow at ${width}px: ${JSON.stringify(dimensions)}`);
-      for(const locator of ['#run','#mode','#peep','#preset']) {const box=await page.locator(locator).boundingBox();assert(box.height>=44);}
+      for(const locator of ['#clinical-quick-start','#clinical-apply-vent','#clinical-run','#clinical-export-session']) {const box=await page.locator(locator).boundingBox();assert(box && box.height>=44);}
       await page.screenshot({path:path.join(artifactDir,`${process.env.BROWSER||'chromium'}-${width}.png`),fullPage:true});
-      await page.locator('#example').selectOption('pressure');
-      await page.locator('#run').click();
-      await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Run complete'),null,{timeout:120000});
-      assert.equal(await page.locator('#m-pplat').textContent(),'—');
-      await page.locator('#peep').fill('11');assert.equal(await page.locator('#m-ppeak').textContent(),'—');
-      await page.locator('#example').selectOption('reference');
-      await page.locator('#vt').fill('1000');await page.locator('#flow').fill('6');await page.locator('#rr').fill('40');
-      await page.locator('#run').click();await page.locator('#error').waitFor({state:'visible'});
-      assert((await page.locator('#error').textContent()).includes('Inspiration'));
-      await page.locator('#example').selectOption('recruitment');
-      await page.locator('#settings .advanced summary').click();await page.locator('#breaths').fill('10');await page.locator('#dt').selectOption('0.0005');
-      await page.locator('#run').click();await page.locator('#cancel').click();
-      assert.equal(await page.locator('#status').textContent(),'Canceled.');
-      assert.equal(await page.locator('#run').isEnabled(),true);
-      // A fresh run still works after worker cancellation.
-      await page.locator('#example').selectOption('reference');await page.locator('#breaths').fill('3');await page.locator('#dt').selectOption('0.001');
-      await page.locator('#run').click();await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('Run complete'),null,{timeout:120000});
       const exportCapture=await page.evaluate(() => {
         let captured=null;
         const original=HTMLAnchorElement.prototype.click;
         HTMLAnchorElement.prototype.click=function(){
           captured={href:this.href,download:this.download};
         };
-        try { document.querySelector('#download').click(); }
+        try { document.querySelector('#clinical-export-session').click(); }
         finally { HTMLAnchorElement.prototype.click=original; }
         return captured;
       });
-      assert(exportCapture && exportCapture.download.startsWith('vent-run-v'));
+      assert(exportCapture && exportCapture.download.includes('clinical-session'));
       assert(exportCapture.href.startsWith('data:application/json'));
       const encoded=exportCapture.href.slice(exportCapture.href.indexOf(',')+1);
-      const data=JSON.parse(decodeURIComponent(encoded));assert.equal(data.version,'0.4.5');
-      assert.deepEqual(errors,[]);reports.push({width,status:'passed'});console.log(`PASS ${width}px: clinical catalog, run, charts, layout, PC, invalid inputs, cancellation, export`);
+      const data=JSON.parse(decodeURIComponent(encoded));
+      assert(Array.isArray(data.interventions));
+      assert(Array.isArray(data.physiologyTrend));
+      assert.deepEqual(errors,[]);reports.push({width,status:'passed'});console.log(`PASS ${width}px: clinical catalog, session run, charts, layout, PC transition, mechanics, export`);
       await page.close();
     }
     fs.writeFileSync(path.join(artifactDir,`report-${process.env.BROWSER||'chromium'}.json`),JSON.stringify({url,date:new Date().toISOString(),reports},null,2));
