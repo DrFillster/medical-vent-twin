@@ -281,6 +281,8 @@ function createBerlinLiveHumModSession({
     }
     const circ = last.circulation;
     const gas = last.gas;
+    const decomp = last.decompensation || null;
+    const arrested = Boolean(decomp && decomp.cardiacArrest);
     return Object.freeze({
       source: 'reduced-source-aligned-HumMod-ARDS-core',
       status: 'live-coupled-experimental',
@@ -299,24 +301,38 @@ function createBerlinLiveHumModSession({
           gas.exchange?.massBalance?.oxygenSupplyDeficitMlPerMin ?? null,
       }),
       hemodynamics: Object.freeze({
-        heartRatePerMin:
-          circ.activeBoundaries?.heartRatePerMin ??
-          effectiveCirculationBoundaries.heartRatePerMin,
+        heartRatePerMin: arrested
+          ? 0
+          : (circ.activeBoundaries?.heartRatePerMin ??
+            effectiveCirculationBoundaries.heartRatePerMin),
         meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
         rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
         pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
-        cardiacOutputMlPerMin: circ.flowsMlPerMin.leftVentricular,
-        strokeVolumeMl: circ.leftVentricle?.strokeVolumeMl ?? null,
+        cardiacOutputMlPerMin: arrested ? 0 : circ.flowsMlPerMin.leftVentricular,
+        strokeVolumeMl: arrested ? 0 : (circ.leftVentricle?.strokeVolumeMl ?? null),
         systemicVascularResistanceMmHgMinPerL:
           circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
         pulmonaryVascularResistanceMmHgMinPerL:
           circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
         contractilityMultiplier:
+          last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
         sympatheticTone: last.autonomic?.sympatheticTone ?? null,
         parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
         catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
       }),
+      decompensation: decomp ? Object.freeze({
+        stage: decomp.stage,
+        alive: decomp.alive,
+        cardiacArrest: decomp.cardiacArrest,
+        oxygenDebtMl: decomp.oxygenDebtMl,
+        equivalentDebtMinutes: decomp.equivalentDebtMinutes,
+        metabolicFailureFraction: decomp.metabolicFailureFraction,
+        myocardialContractilityMultiplier:
+          decomp.myocardialContractilityMultiplier,
+        lowMapBelow30Sec: decomp.lowMapBelow30Sec,
+        lowMapBelow20Sec: decomp.lowMapBelow20Sec,
+      }) : null,
       thorax: Object.freeze({
         meanAirwayPressureCmH2O: last.meanAirwayPressureCmH2O,
         pleuralPressureCmH2O: last.thorax.pleuralPressureCmH2O,
