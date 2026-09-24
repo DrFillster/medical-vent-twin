@@ -541,16 +541,19 @@
     $('clinical-ph').textContent = typeof clinicalPh === 'number' && Number.isFinite(clinicalPh)
       ? clinicalPh.toFixed(2)
       : '—';
-    $('clinical-hr').textContent = displayClinicalValue(snapshot.systemic?.hemodynamics?.heartRatePerMin);
+    $('clinical-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.heartRatePerMin);
     $('clinical-map').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
     const cardiacOutputMlPerMin = snapshot.systemic?.hemodynamics?.cardiacOutputMlPerMin;
     $('clinical-co').textContent = typeof cardiacOutputMlPerMin === 'number' && Number.isFinite(cardiacOutputMlPerMin)
       ? (cardiacOutputMlPerMin / 1000).toFixed(2)
       : '—';
     const hemo = snapshot.systemic?.hemodynamics || {};
-    $('clinical-sv').textContent = displayClinicalValue(hemo.strokeVolumeMl);
-    $('clinical-svr').textContent = displayClinicalValue(hemo.systemicVascularResistanceMmHgMinPerL);
-    $('clinical-pvr').textContent = displayClinicalValue(hemo.pulmonaryVascularResistanceMmHgMinPerL);
+    $('clinical-sv').textContent = displayClinicalInteger(hemo.strokeVolumeMl);
+    $('clinical-svr').textContent = displayClinicalInteger(hemo.systemicVascularResistanceMmHgMinPerL);
+    $('clinical-pvr').textContent = typeof hemo.pulmonaryVascularResistanceMmHgMinPerL === 'number' &&
+      Number.isFinite(hemo.pulmonaryVascularResistanceMmHgMinPerL)
+      ? hemo.pulmonaryVascularResistanceMmHgMinPerL.toFixed(2)
+      : '—';
     $('clinical-sympathetic').textContent = typeof hemo.sympatheticTone === 'number'
       ? hemo.sympatheticTone.toFixed(2) : '—';
     $('clinical-catecholamine').textContent = typeof hemo.catecholamineDrive === 'number'
