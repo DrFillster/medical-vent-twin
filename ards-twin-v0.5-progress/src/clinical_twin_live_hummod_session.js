@@ -289,6 +289,14 @@ function createBerlinLiveHumModSession({
         paco2MmHg: gas.gases.arterial.pco2MmHg,
         pH: gas.gases.arterial.pH,
         sao2Fraction: gas.gases.arterial.saturationFraction,
+        pvo2MmHg: gas.gases.venous.po2MmHg,
+        svo2Fraction: gas.gases.venous.saturationFraction,
+        requestedTissueO2UseMlPerMin:
+          gas.exchange?.massBalance?.requestedTissueO2UseMlPerMin ?? null,
+        actualTissueO2UseMlPerMin:
+          gas.exchange?.massBalance?.actualTissueO2UseMlPerMin ?? null,
+        oxygenSupplyDeficitMlPerMin:
+          gas.exchange?.massBalance?.oxygenSupplyDeficitMlPerMin ?? null,
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin:
