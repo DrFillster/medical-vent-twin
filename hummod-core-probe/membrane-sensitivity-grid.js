@@ -102,10 +102,30 @@ async function main() {
 
   for (const totalAreaM2 of AREAS) {
     for (const structuralThicknessMicron of THICKNESS) {
-      await command({
+      const restoredBeforeRow = await command({
         command: 'restore',
         checkpointId: 'grid-baseline',
       });
+
+      const restoredCheck = await command({
+        command: 'read',
+        symbols,
+      });
+
+      if (Math.abs(restoredCheck.simulationTimeSec) > 1e-6) {
+        throw new Error(
+          'checkpoint restore did not reset simulation time before grid row: ' +
+          restoredCheck.simulationTimeSec
+        );
+      }
+
+      for (const symbol of symbols) {
+        if (restoredCheck.state[symbol] !== baseline.state[symbol]) {
+          throw new Error(
+            'checkpoint restore mismatch before grid row for ' + symbol
+          );
+        }
+      }
 
       const liveSet = await command({
         command: 'live-set',
@@ -124,6 +144,8 @@ async function main() {
       const after = await command({ command: 'read', symbols });
 
       rows.push({
+        restoredBeforeRowSimulationTimeSec:
+          restoredCheck.simulationTimeSec,
         totalAreaM2,
         structuralThicknessMicron,
         liveSetReadback: liveSet.state,
@@ -158,6 +180,10 @@ async function main() {
     symbol => restored.state[symbol] === baseline.state[symbol]
   );
 
+  const allRowsStartedAtBaseline = rows.every(
+    row => Math.abs(row.restoredBeforeRowSimulationTimeSec) <= 1e-6
+  );
+
   const allSettingsPersist = rows.every(row =>
     row.state['PulmonaryMembrane.TotalArea'] === row.totalAreaM2 &&
     Math.abs(
@@ -185,6 +211,7 @@ async function main() {
     restored,
     checks: {
       sameProcessSession: true,
+      allRowsStartedAtBaseline,
       allSettingsPersist,
       checkpointRestoreExact: exactRestore,
       rowCount: rows.length,
@@ -197,7 +224,10 @@ async function main() {
   );
   console.log(JSON.stringify(report, null, 2));
 
-  if (!allSettingsPersist || !exactRestore || rows.length !== 9) {
+  if (!allRowsStartedAtBaseline ||
+      !allSettingsPersist ||
+      !exactRestore ||
+      rows.length !== 9) {
     process.exitCode = 1;
   }
 }
