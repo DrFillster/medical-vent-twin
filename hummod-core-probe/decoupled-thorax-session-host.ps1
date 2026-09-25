@@ -627,8 +627,11 @@ function Apply-LiveControls($assignments) {
     $bridgeScroll=$horizontal[$horizontal.Count-1]
 
     $buttons=@($children | Where-Object {
-      $_.Class -eq 'Button' -and $_.Top -lt $bridgeScroll.Top -and
-      $_.Top -ge ($bridgeScroll.Top - 60)
+      $_.Class -eq 'Button' -and
+      $_.Top -lt $bridgeScroll.Top -and
+      $_.Top -ge ($bridgeScroll.Top - 60) -and
+      $_.Height -lt 50 -and
+      $_.Width -lt 180
     } | Sort-Object Left)
 
     if($buttons.Count -lt 2){
