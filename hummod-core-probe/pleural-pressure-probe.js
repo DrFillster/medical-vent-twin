@@ -97,7 +97,7 @@ async function main() {
   }, 60000);
 
   const setPressure = await command({
-    command: 'set',
+    command: 'live-set',
     assignments: {
       'LeftHemithorax.NormalPressure': 0,
       'RightHemithorax.NormalPressure': 0,
