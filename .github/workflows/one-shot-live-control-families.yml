@@ -1,0 +1,36 @@
+name: One-shot HumMod Live Control Families
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-live-control-families
+
+permissions:
+  contents: read
+
+jobs:
+  validate-families:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate live control families
+        run: node hummod-core-probe/validate-live-control-families.js hummod-standalone runtime/live-control-families
+      - name: Upload validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-live-control-families
+          path: runtime/live-control-families/
+          if-no-files-found: error
