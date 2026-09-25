@@ -1,0 +1,36 @@
+name: One-shot HumMod Lung Water Permeability
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-hummod-lung-water-perm
+
+permissions:
+  contents: read
+
+jobs:
+  lung-water-perm:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate lung-water permeability live control
+        run: node hummod-core-probe/lung-water-perm-validation.js hummod-standalone runtime/lung-water-perm
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-lung-water-perm
+          path: runtime/lung-water-perm/
+          if-no-files-found: error
