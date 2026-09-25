@@ -6190,6 +6190,9 @@ const {
   solveOxygenExchange,
   solveCo2Exchange,
 } = require("src/hummod_ards_core_gas_exchange.js");
+const {
+  evaluateOxygenSupplyCliff,
+} = require("src/hummod_ards_oxygen_supply_cliff.js");
 
 const HUMMOD_GAS_DELAY_K_PER_MIN = 5.0;
 
@@ -6537,17 +6540,28 @@ function createHumModArdsGasRuntime({
       scaleForSat: venousHgbForExtraction.scaleForSat,
     });
     const requestedTissueO2UseMlPerMin = m.tissueO2UseMlPerMin;
-    const maxAerobicO2UseMlPerMin = Math.max(
+    const physicalMaxAerobicO2UseMlPerMin = Math.max(
       0,
       co * Math.max(
         0,
         state.arterialO2ContentMlPerMl - criticalVenousO2ContentMlPerMl));
-    const actualTissueO2UseMlPerMin = Math.min(
+
+    // The extraction ceiling is not constant. Canine oxygen-transport data
+    // show that severe hypercapnia moves DO2crit upward and lowers the
+    // extraction ratio available at the critical point. The reduced core uses
+    // that documented relationship as a bounded modifier of extraction
+    // reserve, while retaining the venous-PO2 physical limit independently.
+    const oxygenSupply = evaluateOxygenSupplyCliff({
+      cardiacOutputMlPerMin: co,
+      arterialO2ContentMlPerMl: state.arterialO2ContentMlPerMl,
       requestedTissueO2UseMlPerMin,
-      maxAerobicO2UseMlPerMin);
-    const oxygenSupplyDeficitMlPerMin = Math.max(
-      0,
-      requestedTissueO2UseMlPerMin - actualTissueO2UseMlPerMin);
+      arterialPco2MmHg: currentGases.arterial.pco2MmHg,
+      physicalMaxAerobicO2UseMlPerMin,
+    });
+    const actualTissueO2UseMlPerMin =
+      oxygenSupply.actualTissueO2UseMlPerMin;
+    const oxygenSupplyDeficitMlPerMin =
+      oxygenSupply.oxygenSupplyDeficitMlPerMin;
     const venousO2Target = Math.max(
       criticalVenousO2ContentMlPerMl,
       state.arterialO2ContentMlPerMl -
@@ -6612,6 +6626,15 @@ function createHumModArdsGasRuntime({
         requestedTissueO2UseMlPerMin,
         actualTissueO2UseMlPerMin,
         oxygenSupplyDeficitMlPerMin,
+        oxygenDeliveryMlPerMin: oxygenSupply.oxygenDeliveryMlPerMin,
+        criticalOxygenDeliveryMlPerMin:
+          oxygenSupply.criticalOxygenDeliveryMlPerMin,
+        deliveryToCriticalRatio: oxygenSupply.deliveryToCriticalRatio,
+        deliveryToDemandRatio: oxygenSupply.deliveryToDemandRatio,
+        criticalExtractionRatio: oxygenSupply.criticalExtractionRatio,
+        actualExtractionRatio: oxygenSupply.actualExtractionRatio,
+        supplyDependent: oxygenSupply.supplyDependent,
+        oxygenReserveFraction: oxygenSupply.reserveFraction,
         criticalVenousPo2MmHg: CRITICAL_VENOUS_PO2_MMHG,
         criticalVenousO2ContentMlPerMl,
         lungO2UptakeMlPerMin: oxygen.uptakeMlPerMin,
@@ -7525,6 +7548,155 @@ module.exports = {
   mixOxygenAcrossShunt,
   solveCo2Exchange,
   mixCo2AcrossShunt,
+};
+
+},
+"src/hummod_ards_oxygen_supply_cliff.js":function(module,exports,require){
+'use strict';
+
+// Oxygen delivery / demand "cliff" for the reduced ARDS browser core.
+//
+// The governing physiology is the biphasic DO2-VO2 relationship:
+// above a critical oxygen delivery (DO2crit), VO2 is demand determined;
+// below DO2crit, VO2 becomes supply dependent.
+//
+// Hypercapnia modifies the extraction reserve. Ward (Anesthesiology 1996)
+// reported in mechanically ventilated dogs:
+//   normocapnia: DO2crit 7.8 +/- 1.5 mL/kg/min, critical extraction 0.72 +/- 0.04
+//   moderate HCA (PaCO2 72 +/- 3): no significant change
+//   severe HCA (PaCO2 118 +/- 4): DO2crit 12.5 +/- 1.8,
+//                                  critical extraction 0.54 +/- 0.035
+//
+// The reduced model therefore preserves normal extraction through the
+// moderate-hypercapnia anchor and linearly interpolates the documented loss
+// of extraction reserve from PaCO2 72 to 118 mmHg. It is bounded beyond the
+// severe anchor; no unsupported extrapolation is used.
+//
+// This module is an evidence-anchored reduced-order relation, not a verbatim
+// HumMod equation and not a validated clinical decision rule.
+
+const OXYGEN_SUPPLY_CLIFF_ANCHOR = Object.freeze({
+  normocapnicCriticalExtractionRatio: 0.72,
+  moderateHypercapniaPaco2MmHg: 72,
+  severeHypercapniaPaco2MmHg: 118,
+  severeHypercapniaCriticalExtractionRatio: 0.54,
+  citation:
+    'Ward ME. Anesthesiology. 1996;85:817-822. doi:10.1097/00000542-199610000-00017',
+});
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be finite');
+  }
+  return v;
+}
+function positive(v, label) {
+  finite(v, label);
+  if (!(v > 0)) throw new Error(label + ' must be > 0');
+  return v;
+}
+function nonNegative(v, label) {
+  finite(v, label);
+  if (v < 0) throw new Error(label + ' must be >= 0');
+  return v;
+}
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function criticalExtractionRatioForPaco2(paco2MmHg) {
+  nonNegative(paco2MmHg, 'paco2MmHg');
+  const a = OXYGEN_SUPPLY_CLIFF_ANCHOR;
+  if (paco2MmHg <= a.moderateHypercapniaPaco2MmHg) {
+    return a.normocapnicCriticalExtractionRatio;
+  }
+  if (paco2MmHg >= a.severeHypercapniaPaco2MmHg) {
+    return a.severeHypercapniaCriticalExtractionRatio;
+  }
+  const t = (paco2MmHg - a.moderateHypercapniaPaco2MmHg) /
+    (a.severeHypercapniaPaco2MmHg - a.moderateHypercapniaPaco2MmHg);
+  return a.normocapnicCriticalExtractionRatio +
+    t * (a.severeHypercapniaCriticalExtractionRatio -
+      a.normocapnicCriticalExtractionRatio);
+}
+
+function evaluateOxygenSupplyCliff({
+  cardiacOutputMlPerMin,
+  arterialO2ContentMlPerMl,
+  requestedTissueO2UseMlPerMin,
+  arterialPco2MmHg,
+  physicalMaxAerobicO2UseMlPerMin,
+} = {}) {
+  positive(cardiacOutputMlPerMin, 'cardiacOutputMlPerMin');
+  nonNegative(arterialO2ContentMlPerMl, 'arterialO2ContentMlPerMl');
+  nonNegative(requestedTissueO2UseMlPerMin,
+    'requestedTissueO2UseMlPerMin');
+  nonNegative(arterialPco2MmHg, 'arterialPco2MmHg');
+  nonNegative(physicalMaxAerobicO2UseMlPerMin,
+    'physicalMaxAerobicO2UseMlPerMin');
+
+  const oxygenDeliveryMlPerMin =
+    cardiacOutputMlPerMin * arterialO2ContentMlPerMl;
+  const criticalExtractionRatio =
+    criticalExtractionRatioForPaco2(arterialPco2MmHg);
+
+  const criticalOxygenDeliveryMlPerMin =
+    requestedTissueO2UseMlPerMin > 0
+      ? requestedTissueO2UseMlPerMin / criticalExtractionRatio
+      : 0;
+
+  const extractionLimitedMaxAerobicO2UseMlPerMin =
+    oxygenDeliveryMlPerMin * criticalExtractionRatio;
+
+  const maxAerobicO2UseMlPerMin = Math.min(
+    physicalMaxAerobicO2UseMlPerMin,
+    extractionLimitedMaxAerobicO2UseMlPerMin);
+
+  const actualTissueO2UseMlPerMin = Math.min(
+    requestedTissueO2UseMlPerMin,
+    maxAerobicO2UseMlPerMin);
+
+  const oxygenSupplyDeficitMlPerMin = Math.max(
+    0,
+    requestedTissueO2UseMlPerMin - actualTissueO2UseMlPerMin);
+
+  const deliveryToCriticalRatio = criticalOxygenDeliveryMlPerMin > 0
+    ? oxygenDeliveryMlPerMin / criticalOxygenDeliveryMlPerMin
+    : Infinity;
+
+  const deliveryToDemandRatio = requestedTissueO2UseMlPerMin > 0
+    ? oxygenDeliveryMlPerMin / requestedTissueO2UseMlPerMin
+    : Infinity;
+
+  const actualExtractionRatio = oxygenDeliveryMlPerMin > 0
+    ? actualTissueO2UseMlPerMin / oxygenDeliveryMlPerMin
+    : 0;
+
+  return Object.freeze({
+    oxygenDeliveryMlPerMin,
+    requestedTissueO2UseMlPerMin,
+    actualTissueO2UseMlPerMin,
+    oxygenSupplyDeficitMlPerMin,
+    criticalExtractionRatio,
+    actualExtractionRatio,
+    criticalOxygenDeliveryMlPerMin,
+    deliveryToCriticalRatio,
+    deliveryToDemandRatio,
+    extractionLimitedMaxAerobicO2UseMlPerMin,
+    physicalMaxAerobicO2UseMlPerMin,
+    maxAerobicO2UseMlPerMin,
+    supplyDependent:
+      oxygenSupplyDeficitMlPerMin > Math.max(1e-9,
+        requestedTissueO2UseMlPerMin * 1e-9),
+    reserveFraction: clamp(deliveryToCriticalRatio - 1, 0, 1),
+    provenance: OXYGEN_SUPPLY_CLIFF_ANCHOR,
+  });
+}
+
+module.exports = {
+  OXYGEN_SUPPLY_CLIFF_ANCHOR,
+  criticalExtractionRatioForPaco2,
+  evaluateOxygenSupplyCliff,
 };
 
 },
@@ -8673,6 +8845,18 @@ function createBerlinLiveHumModSession({
           gas.exchange?.massBalance?.actualTissueO2UseMlPerMin ?? null,
         oxygenSupplyDeficitMlPerMin:
           gas.exchange?.massBalance?.oxygenSupplyDeficitMlPerMin ?? null,
+        oxygenDeliveryMlPerMin:
+          gas.exchange?.massBalance?.oxygenDeliveryMlPerMin ?? null,
+        criticalOxygenDeliveryMlPerMin:
+          gas.exchange?.massBalance?.criticalOxygenDeliveryMlPerMin ?? null,
+        deliveryToCriticalRatio:
+          gas.exchange?.massBalance?.deliveryToCriticalRatio ?? null,
+        criticalExtractionRatio:
+          gas.exchange?.massBalance?.criticalExtractionRatio ?? null,
+        actualExtractionRatio:
+          gas.exchange?.massBalance?.actualExtractionRatio ?? null,
+        supplyDependent:
+          gas.exchange?.massBalance?.supplyDependent ?? null,
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin: arrested
@@ -8699,11 +8883,21 @@ function createBerlinLiveHumModSession({
         stage: decomp.stage,
         alive: decomp.alive,
         cardiacArrest: decomp.cardiacArrest,
+        cardiacArrestReason: decomp.cardiacArrestReason,
+        arrestRhythm: decomp.arrestRhythm,
         oxygenDebtMl: decomp.oxygenDebtMl,
         equivalentDebtMinutes: decomp.equivalentDebtMinutes,
         metabolicFailureFraction: decomp.metabolicFailureFraction,
         myocardialContractilityMultiplier:
           decomp.myocardialContractilityMultiplier,
+        chronotropicReserveMultiplier:
+          decomp.chronotropicReserveMultiplier,
+        asphyxialReserveMultiplier:
+          decomp.asphyxialReserveMultiplier,
+        asphyxialEquivalentMinutes:
+          decomp.asphyxialEquivalentMinutes,
+        respiratoryAcidosisSeverity:
+          decomp.respiratoryAcidosisSeverity,
         lowMapBelow30Sec: decomp.lowMapBelow30Sec,
         lowMapBelow20Sec: decomp.lowMapBelow20Sec,
       }) : null,
@@ -9243,9 +9437,34 @@ function createHumModArdsCirculation({
       stiffnessMultiplier: activeBoundaries.leftStiffnessMultiplier || 1,
     });
 
-    if (rightPump.bloodFlowMlPerMin < 0 || leftPump.bloodFlowMlPerMin < 0) {
-      throw new Error('ventricular source algebra produced negative forward flow');
+    // The pinned HumMod pumping algebra is StrokeVolume = EDV - ESV and
+    // does not clamp the equation when extreme failure drives ESV above EDV.
+    // In the reduced browser core, a negative raw stroke volume is treated as
+    // entry into a nonphysical pump domain and therefore mechanical pump
+    // failure. Preserve the raw source result, but expose zero forward flow so
+    // the coupled terminal controller can convert this state to PEA rather
+    // than crashing or propagating negative cardiac output.
+    function terminalSafePump(pump) {
+      if (pump.bloodFlowMlPerMin >= 0) {
+        return Object.freeze({
+          ...pump,
+          rawStrokeVolumeMl: pump.strokeVolumeMl,
+          rawBloodFlowMlPerMin: pump.bloodFlowMlPerMin,
+          mechanicalPumpFailure: false,
+        });
+      }
+      return Object.freeze({
+        ...pump,
+        rawStrokeVolumeMl: pump.strokeVolumeMl,
+        rawBloodFlowMlPerMin: pump.bloodFlowMlPerMin,
+        strokeVolumeMl: 0,
+        bloodFlowMlPerMin: 0,
+        ejectionFraction: 0,
+        mechanicalPumpFailure: true,
+      });
     }
+    const safeRightPump = terminalSafePump(rightPump);
+    const safeLeftPump = terminalSafePump(leftPump);
 
     return {
       pressures: {
@@ -9258,16 +9477,18 @@ function createHumModArdsCirculation({
         leftAtrialMmHg: p.la.pressureMmHg,
       },
       flowsMlPerMin: {
-        leftVentricular: leftPump.bloodFlowMlPerMin,
+        leftVentricular: safeLeftPump.bloodFlowMlPerMin,
         systemicOutflow,
         venousReturn,
-        rightVentricular: rightPump.bloodFlowMlPerMin,
+        rightVentricular: safeRightPump.bloodFlowMlPerMin,
         pulmonaryArterialOutflow,
         pulmonaryCapillaryOutflow,
         pulmonaryVenousOutflow,
       },
-      rightVentricle: rightPump,
-      leftVentricle: leftPump,
+      rightVentricle: safeRightPump,
+      leftVentricle: safeLeftPump,
+      mechanicalPumpFailure:
+        safeRightPump.mechanicalPumpFailure || safeLeftPump.mechanicalPumpFailure,
     };
   }
 
@@ -9461,8 +9682,11 @@ function createHumModArdsCardiopulmonaryRuntime({
       control.contractilityMultiplier *
       control.acidoticContractilityMultiplier *
       priorDecomp.myocardialContractilityMultiplier;
+    const effectiveHeartRatePerMin =
+      control.heartRatePerMin *
+      priorDecomp.chronotropicReserveMultiplier;
     circulation.setBoundaries({
-      heartRatePerMin: control.heartRatePerMin,
+      heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
       rightContractilityMultiplier: effectiveContractility,
       systemicArterialConductanceMlPerMinPerMmHg:
@@ -9472,6 +9696,30 @@ function createHumModArdsCardiopulmonaryRuntime({
         control.pulmonaryArterialConductanceMultiplier,
     });
     circ=circulation.snapshot();
+
+    if(circ.mechanicalPumpFailure){
+      const terminalDecomp=decompensation.forceArrest({
+        reason:'mechanical-pump-failure',
+        rhythm:'PEA',
+      });
+      timeSec+=dtSec;
+      last=Object.freeze({
+        meanAirwayPressureCmH2O:meanPaw,
+        thorax:thoraxState,
+        thoracicPressureMmHg,
+        pericardialPressureMmHg,
+        circulation:circ,
+        autonomic:control,
+        decompensation:terminalDecomp,
+        effectiveHeartRatePerMin:0,
+        effectiveContractilityMultiplier:0,
+        gas:last && last.gas ? last.gas : gasRuntime.snapshot(),
+        adapterDiagnostics:last && last.adapterDiagnostics
+          ? last.adapterDiagnostics
+          : null,
+      });
+      return snapshot();
+    }
 
     const cardiacOutputMlPerMin=circ.flowsMlPerMin.leftVentricular;
     positive(cardiacOutputMlPerMin,'left ventricular cardiac output');
@@ -9503,6 +9751,10 @@ function createHumModArdsCardiopulmonaryRuntime({
         massBalance.requestedTissueO2UseMlPerMin,
       oxygenSupplyDeficitMlPerMin:
         massBalance.oxygenSupplyDeficitMlPerMin,
+      arterialPh: gas.gases.arterial.pH,
+      arterialPco2MmHg: gas.gases.arterial.pco2MmHg,
+      deliveryToCriticalRatio:
+        massBalance.deliveryToCriticalRatio,
     });
 
     timeSec+=dtSec;
@@ -9514,6 +9766,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       circulation:circ,
       autonomic:control,
       decompensation:decomp,
+      effectiveHeartRatePerMin,
       effectiveContractilityMultiplier:effectiveContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
@@ -10197,6 +10450,25 @@ const CARDIOVASCULAR_COLLAPSE_MAP_SEC = 10 * 60;
 const PROFOUND_COLLAPSE_MAP_MMHG = 20;
 const PROFOUND_COLLAPSE_MAP_SEC = 10;
 
+// DeBehnke et al. standardized canine asphyxia model:
+// HR peaked at 2-3 min, systolic pressure peaked at 7 min, and aortic
+// pulsations were lost at 11.4 +/- 2.4 min. At loss of pulsations,
+// pH 7.03 +/- 0.07, PaCO2 93 +/- 19, PaO2 12 +/- 7 mmHg.
+// We do not use those gases as a deterministic death threshold. Instead,
+// severe respiratory acidosis gates the rate at which an already measured
+// oxygen-supply deficit accumulates an asphyxial-collapse clock.
+const ASPHYXIAL_COLLAPSE_ANCHOR = Object.freeze({
+  compensatoryPressurePeakMin: 7,
+  meanLossOfAorticPulsationsMin: 11.4,
+  arterialPhAtCollapse: 7.03,
+  arterialPco2AtCollapseMmHg: 93,
+  normalPhReference: 7.35,
+  normalPco2ReferenceMmHg: 45,
+  terminalRhythm: 'PEA',
+  citation:
+    'DeBehnke et al. Resuscitation. 1995;30:169-175. doi:10.1016/0300-9572(95)00873-R',
+});
+
 function finite(v, label) {
   if (typeof v !== 'number' || !Number.isFinite(v)) {
     throw new Error(label + ' must be finite');
@@ -10244,6 +10516,9 @@ function createHumModArdsDecompensationController() {
   let lowMapBelow30Sec = 0;
   let lowMapBelow20Sec = 0;
   let cardiacArrest = false;
+  let cardiacArrestReason = null;
+  let arrestRhythm = null;
+  let asphyxialEquivalentMinutes = 0;
   let last = null;
 
   function step({
@@ -10252,6 +10527,9 @@ function createHumModArdsDecompensationController() {
     mixedVenousO2SaturationFraction,
     requestedTissueO2UseMlPerMin,
     oxygenSupplyDeficitMlPerMin,
+    arterialPh = 7.40,
+    arterialPco2MmHg = 40,
+    deliveryToCriticalRatio = Infinity,
   } = {}) {
     positive(dtSec, 'dtSec');
     finite(meanArterialPressureMmHg, 'meanArterialPressureMmHg');
@@ -10261,9 +10539,37 @@ function createHumModArdsDecompensationController() {
       'requestedTissueO2UseMlPerMin');
     nonNegative(oxygenSupplyDeficitMlPerMin,
       'oxygenSupplyDeficitMlPerMin');
+    finite(arterialPh, 'arterialPh');
+    nonNegative(arterialPco2MmHg, 'arterialPco2MmHg');
+    if (!(deliveryToCriticalRatio === Infinity ||
+          (typeof deliveryToCriticalRatio === 'number' &&
+           Number.isFinite(deliveryToCriticalRatio) &&
+           deliveryToCriticalRatio >= 0))) {
+      throw new Error('deliveryToCriticalRatio must be >= 0 or Infinity');
+    }
+
+    const requested = requestedTissueO2UseMlPerMin;
+    const supplyDeficitFraction = requested > 0
+      ? clamp(oxygenSupplyDeficitMlPerMin / requested, 0, 1)
+      : 0;
+    const co2Severity = clamp(
+      (arterialPco2MmHg - ASPHYXIAL_COLLAPSE_ANCHOR.normalPco2ReferenceMmHg) /
+      (ASPHYXIAL_COLLAPSE_ANCHOR.arterialPco2AtCollapseMmHg -
+       ASPHYXIAL_COLLAPSE_ANCHOR.normalPco2ReferenceMmHg),
+      0, 1);
+    const acidSeverity = clamp(
+      (ASPHYXIAL_COLLAPSE_ANCHOR.normalPhReference - arterialPh) /
+      (ASPHYXIAL_COLLAPSE_ANCHOR.normalPhReference -
+       ASPHYXIAL_COLLAPSE_ANCHOR.arterialPhAtCollapse),
+      0, 1);
+    const respiratoryAcidosisSeverity = Math.max(co2Severity, acidSeverity);
+    const asphyxialBurdenRate =
+      supplyDeficitFraction * respiratoryAcidosisSeverity;
 
     if (!cardiacArrest) {
       oxygenDebtMl += oxygenSupplyDeficitMlPerMin * (dtSec / 60);
+      asphyxialEquivalentMinutes +=
+        asphyxialBurdenRate * (dtSec / 60);
 
       lowMapBelow30Sec = meanArterialPressureMmHg <
         CARDIOVASCULAR_COLLAPSE_MAP_MMHG
@@ -10274,9 +10580,16 @@ function createHumModArdsDecompensationController() {
         ? lowMapBelow20Sec + dtSec
         : 0;
 
-      if (lowMapBelow30Sec >= CARDIOVASCULAR_COLLAPSE_MAP_SEC ||
+      if (asphyxialEquivalentMinutes >=
+          ASPHYXIAL_COLLAPSE_ANCHOR.meanLossOfAorticPulsationsMin) {
+        cardiacArrest = true;
+        cardiacArrestReason = 'asphyxial-oxygen-delivery-collapse';
+        arrestRhythm = ASPHYXIAL_COLLAPSE_ANCHOR.terminalRhythm;
+      } else if (lowMapBelow30Sec >= CARDIOVASCULAR_COLLAPSE_MAP_SEC ||
           lowMapBelow20Sec >= PROFOUND_COLLAPSE_MAP_SEC) {
         cardiacArrest = true;
+        cardiacArrestReason = 'sustained-profound-hypotension';
+        arrestRhythm = 'PEA';
       }
     }
 
@@ -10290,9 +10603,29 @@ function createHumModArdsDecompensationController() {
     // Bounded myocardial depression calibrated to the severe-shock elastance
     // ratio above. This is deliberately applied to contractility, not HR, so
     // catecholaminergic tachycardia can coexist with progressive pump failure.
-    const myocardialContractilityMultiplier =
+    const debtMyocardialContractilityMultiplier =
       1 - metabolicFailureFraction *
         (1 - MYOCARDIAL_CONTRACTILITY_FLOOR);
+
+    // The asphyxial model demonstrates a compensated phase followed by a
+    // relatively abrupt circulatory failure. We preserve full reserve until
+    // the observed pressure peak and then interpolate to loss of mechanical
+    // reserve at the observed mean loss-of-pulsations time. This interpolation
+    // is an explicit engineering bridge between measured time landmarks, not
+    // a fitted human mortality curve.
+    const asphyxialReserveMultiplier =
+      asphyxialEquivalentMinutes <=
+        ASPHYXIAL_COLLAPSE_ANCHOR.compensatoryPressurePeakMin
+        ? 1
+        : clamp(
+            (ASPHYXIAL_COLLAPSE_ANCHOR.meanLossOfAorticPulsationsMin -
+             asphyxialEquivalentMinutes) /
+            (ASPHYXIAL_COLLAPSE_ANCHOR.meanLossOfAorticPulsationsMin -
+             ASPHYXIAL_COLLAPSE_ANCHOR.compensatoryPressurePeakMin),
+            0, 1);
+    const myocardialContractilityMultiplier =
+      debtMyocardialContractilityMultiplier * asphyxialReserveMultiplier;
+    const chronotropicReserveMultiplier = asphyxialReserveMultiplier;
 
     const stage = classifyStage({
       cardiacArrest,
@@ -10306,10 +10639,20 @@ function createHumModArdsDecompensationController() {
       stage,
       alive: !cardiacArrest,
       cardiacArrest,
+      cardiacArrestReason,
+      arrestRhythm,
       oxygenDebtMl,
       equivalentDebtMinutes,
       metabolicFailureFraction,
+      debtMyocardialContractilityMultiplier,
       myocardialContractilityMultiplier,
+      chronotropicReserveMultiplier,
+      asphyxialReserveMultiplier,
+      asphyxialEquivalentMinutes,
+      asphyxialBurdenRate,
+      respiratoryAcidosisSeverity,
+      supplyDeficitFraction,
+      deliveryToCriticalRatio,
       mixedVenousO2SaturationFraction,
       meanArterialPressureMmHg,
       lowMapBelow30Sec,
@@ -10320,15 +10663,51 @@ function createHumModArdsDecompensationController() {
     return snapshot();
   }
 
+  function forceArrest({
+    reason = 'mechanical-pump-failure',
+    rhythm = 'PEA',
+  } = {}) {
+    cardiacArrest = true;
+    cardiacArrestReason = reason;
+    arrestRhythm = rhythm;
+    const prior = snapshot();
+    last = Object.freeze({
+      ...prior,
+      stage: 'cardiac-arrest',
+      alive: false,
+      cardiacArrest: true,
+      cardiacArrestReason,
+      arrestRhythm,
+      myocardialContractilityMultiplier: 0,
+      chronotropicReserveMultiplier: 0,
+      asphyxialReserveMultiplier: Math.min(
+        prior.asphyxialReserveMultiplier == null
+          ? 1
+          : prior.asphyxialReserveMultiplier,
+        0),
+    });
+    return snapshot();
+  }
+
   function snapshot() {
     return Object.freeze(last || {
       stage: 'stable',
       alive: true,
       cardiacArrest: false,
+      cardiacArrestReason,
+      arrestRhythm,
       oxygenDebtMl,
       equivalentDebtMinutes: 0,
       metabolicFailureFraction: 0,
+      debtMyocardialContractilityMultiplier: 1,
       myocardialContractilityMultiplier: 1,
+      chronotropicReserveMultiplier: 1,
+      asphyxialReserveMultiplier: 1,
+      asphyxialEquivalentMinutes,
+      asphyxialBurdenRate: 0,
+      respiratoryAcidosisSeverity: 0,
+      supplyDeficitFraction: 0,
+      deliveryToCriticalRatio: Infinity,
       lowMapBelow30Sec,
       lowMapBelow20Sec,
       lowSvo2ShockMarkerFraction:
@@ -10339,6 +10718,7 @@ function createHumModArdsDecompensationController() {
   return Object.freeze({
     kind: 'hummod-ards-decompensation-controller',
     step,
+    forceArrest,
     snapshot,
   });
 }
@@ -10352,6 +10732,7 @@ module.exports = {
   CARDIOVASCULAR_COLLAPSE_MAP_SEC,
   PROFOUND_COLLAPSE_MAP_MMHG,
   PROFOUND_COLLAPSE_MAP_SEC,
+  ASPHYXIAL_COLLAPSE_ANCHOR,
   createHumModArdsDecompensationController,
 };
 

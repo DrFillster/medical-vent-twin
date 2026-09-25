@@ -1,7 +1,7 @@
 {
   "version": "0.4.5",
   "runtime": "v26.8.2",
-  "date": "2026-09-24T17:57:28.240Z",
+  "date": "2026-09-24T21:46:40.493Z",
   "files": [
     {
       "file": "a_initialization.test.js",
@@ -203,7 +203,13 @@
     },
     {
       "file": "hummod_ards_decompensation_controller.test.js",
-      "passed": 5,
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_oxygen_supply_cliff.test.js",
+      "passed": 3,
       "failed": 0,
       "status": "passed"
     },
@@ -394,7 +400,7 @@
       "status": "passed"
     }
   ],
-  "passed": 354,
+  "passed": 359,
   "failed": 2,
   "failedFiles": [
     "hummod_native_sweep.test.js",

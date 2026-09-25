@@ -125,12 +125,14 @@ test('prolonged profound hypoxemic hypercapnic failure decompensates instead of 
   assert(d && d.oxygenDebtMl > 0, 'extremis challenge should accumulate oxygen debt');
   assert(d.myocardialContractilityMultiplier < 1,
     'oxygen debt should depress myocardial reserve');
-  assert(
-    d.cardiacArrest === true ||
-    h.meanArterialPressureMmHg < 60 ||
-    h.cardiacOutputMlPerMin < 3000,
-    'after 20 min of profound hypoxemic-hypercapnic failure, patient must show major hemodynamic decompensation or arrest'
-  );
+  assert(d.asphyxialEquivalentMinutes > 0,
+    'combined oxygen deficit and respiratory acidosis should advance the asphyxial clock');
+  assert(d.cardiacArrest === true,
+    'after 20 min of this profound asphyxial challenge the reduced model should cross the collapse cliff');
+  assert(d.arrestRhythm === 'PEA',
+    'respiratory/asphyxial collapse should terminate as PEA in this pathway');
+  assert(h.heartRatePerMin === 0 && h.cardiacOutputMlPerMin === 0,
+    'terminal state must no longer report a perfusing circulation');
 });
 
 test('live core rejects PC-AC until its Vent adapter is implemented', () => {

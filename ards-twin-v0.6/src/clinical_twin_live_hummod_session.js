@@ -299,6 +299,18 @@ function createBerlinLiveHumModSession({
           gas.exchange?.massBalance?.actualTissueO2UseMlPerMin ?? null,
         oxygenSupplyDeficitMlPerMin:
           gas.exchange?.massBalance?.oxygenSupplyDeficitMlPerMin ?? null,
+        oxygenDeliveryMlPerMin:
+          gas.exchange?.massBalance?.oxygenDeliveryMlPerMin ?? null,
+        criticalOxygenDeliveryMlPerMin:
+          gas.exchange?.massBalance?.criticalOxygenDeliveryMlPerMin ?? null,
+        deliveryToCriticalRatio:
+          gas.exchange?.massBalance?.deliveryToCriticalRatio ?? null,
+        criticalExtractionRatio:
+          gas.exchange?.massBalance?.criticalExtractionRatio ?? null,
+        actualExtractionRatio:
+          gas.exchange?.massBalance?.actualExtractionRatio ?? null,
+        supplyDependent:
+          gas.exchange?.massBalance?.supplyDependent ?? null,
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin: arrested
@@ -325,11 +337,21 @@ function createBerlinLiveHumModSession({
         stage: decomp.stage,
         alive: decomp.alive,
         cardiacArrest: decomp.cardiacArrest,
+        cardiacArrestReason: decomp.cardiacArrestReason,
+        arrestRhythm: decomp.arrestRhythm,
         oxygenDebtMl: decomp.oxygenDebtMl,
         equivalentDebtMinutes: decomp.equivalentDebtMinutes,
         metabolicFailureFraction: decomp.metabolicFailureFraction,
         myocardialContractilityMultiplier:
           decomp.myocardialContractilityMultiplier,
+        chronotropicReserveMultiplier:
+          decomp.chronotropicReserveMultiplier,
+        asphyxialReserveMultiplier:
+          decomp.asphyxialReserveMultiplier,
+        asphyxialEquivalentMinutes:
+          decomp.asphyxialEquivalentMinutes,
+        respiratoryAcidosisSeverity:
+          decomp.respiratoryAcidosisSeverity,
         lowMapBelow30Sec: decomp.lowMapBelow30Sec,
         lowMapBelow20Sec: decomp.lowMapBelow20Sec,
       }) : null,

@@ -64,6 +64,45 @@ test('persistent oxygen supply deficit accumulates debt and depresses myocardium
   assert(s.alive===true,'decompensated shock is not yet arrest');
 });
 
+test('oxygen deficit alone does not trigger the respiratory asphyxia clock without respiratory acidosis',()=>{
+  const c=createHumModArdsDecompensationController();
+  let s;
+  for(let i=0;i<15*60;i++) s=c.step({
+    dtSec:1,
+    meanArterialPressureMmHg:65,
+    mixedVenousO2SaturationFraction:0.30,
+    requestedTissueO2UseMlPerMin:250,
+    oxygenSupplyDeficitMlPerMin:150,
+    arterialPh:7.40,
+    arterialPco2MmHg:40,
+    deliveryToCriticalRatio:0.7,
+  });
+  assert(s.asphyxialEquivalentMinutes===0,
+    'isolated nonrespiratory oxygen debt should not advance asphyxial clock');
+  assert(s.cardiacArrest===false,
+    'isolated oxygen debt should use the slower shock pathway');
+});
+
+test('severe respiratory failure crosses the evidence-anchored asphyxial cliff',()=>{
+  const c=createHumModArdsDecompensationController();
+  let s;
+  for(let i=0;i<12*60;i++) s=c.step({
+    dtSec:1,
+    meanArterialPressureMmHg:70,
+    mixedVenousO2SaturationFraction:0.10,
+    requestedTissueO2UseMlPerMin:250,
+    oxygenSupplyDeficitMlPerMin:250,
+    arterialPh:7.03,
+    arterialPco2MmHg:93,
+    deliveryToCriticalRatio:0.5,
+  });
+  assert(s.cardiacArrest===true,
+    'severe asphyxial oxygen deficit should reach collapse near 11.4 equivalent minutes');
+  assert(s.cardiacArrestReason==='asphyxial-oxygen-delivery-collapse');
+  assert(s.arrestRhythm==='PEA',
+    'asphyxial respiratory failure should default to PEA rather than invented VF');
+});
+
 test('profound hypotension sustained for experimental collapse interval triggers arrest',()=>{
   const c=createHumModArdsDecompensationController();
   let s;

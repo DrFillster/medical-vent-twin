@@ -32,6 +32,25 @@ const CARDIOVASCULAR_COLLAPSE_MAP_SEC = 10 * 60;
 const PROFOUND_COLLAPSE_MAP_MMHG = 20;
 const PROFOUND_COLLAPSE_MAP_SEC = 10;
 
+// DeBehnke et al. standardized canine asphyxia model:
+// HR peaked at 2-3 min, systolic pressure peaked at 7 min, and aortic
+// pulsations were lost at 11.4 +/- 2.4 min. At loss of pulsations,
+// pH 7.03 +/- 0.07, PaCO2 93 +/- 19, PaO2 12 +/- 7 mmHg.
+// We do not use those gases as a deterministic death threshold. Instead,
+// severe respiratory acidosis gates the rate at which an already measured
+// oxygen-supply deficit accumulates an asphyxial-collapse clock.
+const ASPHYXIAL_COLLAPSE_ANCHOR = Object.freeze({
+  compensatoryPressurePeakMin: 7,
+  meanLossOfAorticPulsationsMin: 11.4,
+  arterialPhAtCollapse: 7.03,
+  arterialPco2AtCollapseMmHg: 93,
+  normalPhReference: 7.35,
+  normalPco2ReferenceMmHg: 45,
+  terminalRhythm: 'PEA',
+  citation:
+    'DeBehnke et al. Resuscitation. 1995;30:169-175. doi:10.1016/0300-9572(95)00873-R',
+});
+
 function finite(v, label) {
   if (typeof v !== 'number' || !Number.isFinite(v)) {
     throw new Error(label + ' must be finite');
@@ -79,6 +98,9 @@ function createHumModArdsDecompensationController() {
   let lowMapBelow30Sec = 0;
   let lowMapBelow20Sec = 0;
   let cardiacArrest = false;
+  let cardiacArrestReason = null;
+  let arrestRhythm = null;
+  let asphyxialEquivalentMinutes = 0;
   let last = null;
 
   function step({
@@ -87,6 +109,9 @@ function createHumModArdsDecompensationController() {
     mixedVenousO2SaturationFraction,
     requestedTissueO2UseMlPerMin,
     oxygenSupplyDeficitMlPerMin,
+    arterialPh = 7.40,
+    arterialPco2MmHg = 40,
+    deliveryToCriticalRatio = Infinity,
   } = {}) {
     positive(dtSec, 'dtSec');
     finite(meanArterialPressureMmHg, 'meanArterialPressureMmHg');
@@ -96,9 +121,37 @@ function createHumModArdsDecompensationController() {
       'requestedTissueO2UseMlPerMin');
     nonNegative(oxygenSupplyDeficitMlPerMin,
       'oxygenSupplyDeficitMlPerMin');
+    finite(arterialPh, 'arterialPh');
+    nonNegative(arterialPco2MmHg, 'arterialPco2MmHg');
+    if (!(deliveryToCriticalRatio === Infinity ||
+          (typeof deliveryToCriticalRatio === 'number' &&
+           Number.isFinite(deliveryToCriticalRatio) &&
+           deliveryToCriticalRatio >= 0))) {
+      throw new Error('deliveryToCriticalRatio must be >= 0 or Infinity');
+    }
+
+    const requested = requestedTissueO2UseMlPerMin;
+    const supplyDeficitFraction = requested > 0
+      ? clamp(oxygenSupplyDeficitMlPerMin / requested, 0, 1)
+      : 0;
+    const co2Severity = clamp(
+      (arterialPco2MmHg - ASPHYXIAL_COLLAPSE_ANCHOR.normalPco2ReferenceMmHg) /
+      (ASPHYXIAL_COLLAPSE_ANCHOR.arterialPco2AtCollapseMmHg -
+       ASPHYXIAL_COLLAPSE_ANCHOR.normalPco2ReferenceMmHg),
+      0, 1);
+    const acidSeverity = clamp(
+      (ASPHYXIAL_COLLAPSE_ANCHOR.normalPhReference - arterialPh) /
+      (ASPHYXIAL_COLLAPSE_ANCHOR.normalPhReference -
+       ASPHYXIAL_COLLAPSE_ANCHOR.arterialPhAtCollapse),
+      0, 1);
+    const respiratoryAcidosisSeverity = Math.max(co2Severity, acidSeverity);
+    const asphyxialBurdenRate =
+      supplyDeficitFraction * respiratoryAcidosisSeverity;
 
     if (!cardiacArrest) {
       oxygenDebtMl += oxygenSupplyDeficitMlPerMin * (dtSec / 60);
+      asphyxialEquivalentMinutes +=
+        asphyxialBurdenRate * (dtSec / 60);
 
       lowMapBelow30Sec = meanArterialPressureMmHg <
         CARDIOVASCULAR_COLLAPSE_MAP_MMHG
@@ -109,9 +162,16 @@ function createHumModArdsDecompensationController() {
         ? lowMapBelow20Sec + dtSec
         : 0;
 
-      if (lowMapBelow30Sec >= CARDIOVASCULAR_COLLAPSE_MAP_SEC ||
+      if (asphyxialEquivalentMinutes >=
+          ASPHYXIAL_COLLAPSE_ANCHOR.meanLossOfAorticPulsationsMin) {
+        cardiacArrest = true;
+        cardiacArrestReason = 'asphyxial-oxygen-delivery-collapse';
+        arrestRhythm = ASPHYXIAL_COLLAPSE_ANCHOR.terminalRhythm;
+      } else if (lowMapBelow30Sec >= CARDIOVASCULAR_COLLAPSE_MAP_SEC ||
           lowMapBelow20Sec >= PROFOUND_COLLAPSE_MAP_SEC) {
         cardiacArrest = true;
+        cardiacArrestReason = 'sustained-profound-hypotension';
+        arrestRhythm = 'PEA';
       }
     }
 
@@ -125,9 +185,29 @@ function createHumModArdsDecompensationController() {
     // Bounded myocardial depression calibrated to the severe-shock elastance
     // ratio above. This is deliberately applied to contractility, not HR, so
     // catecholaminergic tachycardia can coexist with progressive pump failure.
-    const myocardialContractilityMultiplier =
+    const debtMyocardialContractilityMultiplier =
       1 - metabolicFailureFraction *
         (1 - MYOCARDIAL_CONTRACTILITY_FLOOR);
+
+    // The asphyxial model demonstrates a compensated phase followed by a
+    // relatively abrupt circulatory failure. We preserve full reserve until
+    // the observed pressure peak and then interpolate to loss of mechanical
+    // reserve at the observed mean loss-of-pulsations time. This interpolation
+    // is an explicit engineering bridge between measured time landmarks, not
+    // a fitted human mortality curve.
+    const asphyxialReserveMultiplier =
+      asphyxialEquivalentMinutes <=
+        ASPHYXIAL_COLLAPSE_ANCHOR.compensatoryPressurePeakMin
+        ? 1
+        : clamp(
+            (ASPHYXIAL_COLLAPSE_ANCHOR.meanLossOfAorticPulsationsMin -
+             asphyxialEquivalentMinutes) /
+            (ASPHYXIAL_COLLAPSE_ANCHOR.meanLossOfAorticPulsationsMin -
+             ASPHYXIAL_COLLAPSE_ANCHOR.compensatoryPressurePeakMin),
+            0, 1);
+    const myocardialContractilityMultiplier =
+      debtMyocardialContractilityMultiplier * asphyxialReserveMultiplier;
+    const chronotropicReserveMultiplier = asphyxialReserveMultiplier;
 
     const stage = classifyStage({
       cardiacArrest,
@@ -141,10 +221,20 @@ function createHumModArdsDecompensationController() {
       stage,
       alive: !cardiacArrest,
       cardiacArrest,
+      cardiacArrestReason,
+      arrestRhythm,
       oxygenDebtMl,
       equivalentDebtMinutes,
       metabolicFailureFraction,
+      debtMyocardialContractilityMultiplier,
       myocardialContractilityMultiplier,
+      chronotropicReserveMultiplier,
+      asphyxialReserveMultiplier,
+      asphyxialEquivalentMinutes,
+      asphyxialBurdenRate,
+      respiratoryAcidosisSeverity,
+      supplyDeficitFraction,
+      deliveryToCriticalRatio,
       mixedVenousO2SaturationFraction,
       meanArterialPressureMmHg,
       lowMapBelow30Sec,
@@ -155,15 +245,51 @@ function createHumModArdsDecompensationController() {
     return snapshot();
   }
 
+  function forceArrest({
+    reason = 'mechanical-pump-failure',
+    rhythm = 'PEA',
+  } = {}) {
+    cardiacArrest = true;
+    cardiacArrestReason = reason;
+    arrestRhythm = rhythm;
+    const prior = snapshot();
+    last = Object.freeze({
+      ...prior,
+      stage: 'cardiac-arrest',
+      alive: false,
+      cardiacArrest: true,
+      cardiacArrestReason,
+      arrestRhythm,
+      myocardialContractilityMultiplier: 0,
+      chronotropicReserveMultiplier: 0,
+      asphyxialReserveMultiplier: Math.min(
+        prior.asphyxialReserveMultiplier == null
+          ? 1
+          : prior.asphyxialReserveMultiplier,
+        0),
+    });
+    return snapshot();
+  }
+
   function snapshot() {
     return Object.freeze(last || {
       stage: 'stable',
       alive: true,
       cardiacArrest: false,
+      cardiacArrestReason,
+      arrestRhythm,
       oxygenDebtMl,
       equivalentDebtMinutes: 0,
       metabolicFailureFraction: 0,
+      debtMyocardialContractilityMultiplier: 1,
       myocardialContractilityMultiplier: 1,
+      chronotropicReserveMultiplier: 1,
+      asphyxialReserveMultiplier: 1,
+      asphyxialEquivalentMinutes,
+      asphyxialBurdenRate: 0,
+      respiratoryAcidosisSeverity: 0,
+      supplyDeficitFraction: 0,
+      deliveryToCriticalRatio: Infinity,
       lowMapBelow30Sec,
       lowMapBelow20Sec,
       lowSvo2ShockMarkerFraction:
@@ -174,6 +300,7 @@ function createHumModArdsDecompensationController() {
   return Object.freeze({
     kind: 'hummod-ards-decompensation-controller',
     step,
+    forceArrest,
     snapshot,
   });
 }
@@ -187,5 +314,6 @@ module.exports = {
   CARDIOVASCULAR_COLLAPSE_MAP_SEC,
   PROFOUND_COLLAPSE_MAP_MMHG,
   PROFOUND_COLLAPSE_MAP_SEC,
+  ASPHYXIAL_COLLAPSE_ANCHOR,
   createHumModArdsDecompensationController,
 };

@@ -96,8 +96,11 @@ function createHumModArdsCardiopulmonaryRuntime({
       control.contractilityMultiplier *
       control.acidoticContractilityMultiplier *
       priorDecomp.myocardialContractilityMultiplier;
+    const effectiveHeartRatePerMin =
+      control.heartRatePerMin *
+      priorDecomp.chronotropicReserveMultiplier;
     circulation.setBoundaries({
-      heartRatePerMin: control.heartRatePerMin,
+      heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
       rightContractilityMultiplier: effectiveContractility,
       systemicArterialConductanceMlPerMinPerMmHg:
@@ -107,6 +110,30 @@ function createHumModArdsCardiopulmonaryRuntime({
         control.pulmonaryArterialConductanceMultiplier,
     });
     circ=circulation.snapshot();
+
+    if(circ.mechanicalPumpFailure){
+      const terminalDecomp=decompensation.forceArrest({
+        reason:'mechanical-pump-failure',
+        rhythm:'PEA',
+      });
+      timeSec+=dtSec;
+      last=Object.freeze({
+        meanAirwayPressureCmH2O:meanPaw,
+        thorax:thoraxState,
+        thoracicPressureMmHg,
+        pericardialPressureMmHg,
+        circulation:circ,
+        autonomic:control,
+        decompensation:terminalDecomp,
+        effectiveHeartRatePerMin:0,
+        effectiveContractilityMultiplier:0,
+        gas:last && last.gas ? last.gas : gasRuntime.snapshot(),
+        adapterDiagnostics:last && last.adapterDiagnostics
+          ? last.adapterDiagnostics
+          : null,
+      });
+      return snapshot();
+    }
 
     const cardiacOutputMlPerMin=circ.flowsMlPerMin.leftVentricular;
     positive(cardiacOutputMlPerMin,'left ventricular cardiac output');
@@ -138,6 +165,10 @@ function createHumModArdsCardiopulmonaryRuntime({
         massBalance.requestedTissueO2UseMlPerMin,
       oxygenSupplyDeficitMlPerMin:
         massBalance.oxygenSupplyDeficitMlPerMin,
+      arterialPh: gas.gases.arterial.pH,
+      arterialPco2MmHg: gas.gases.arterial.pco2MmHg,
+      deliveryToCriticalRatio:
+        massBalance.deliveryToCriticalRatio,
     });
 
     timeSec+=dtSec;
@@ -149,6 +180,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       circulation:circ,
       autonomic:control,
       decompensation:decomp,
+      effectiveHeartRatePerMin,
       effectiveContractilityMultiplier:effectiveContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
