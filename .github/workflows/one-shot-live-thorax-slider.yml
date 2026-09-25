@@ -1,0 +1,37 @@
+name: One-shot Live Thorax Slider
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-live-thorax-slider
+
+permissions:
+  contents: read
+
+jobs:
+  live-thorax:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+      - name: Probe live thorax slider
+        shell: powershell
+        run: |
+          ./hummod-core-probe/live-thorax-slider-probe.ps1 `
+            -HumModRoot ./hummod-standalone `
+            -OutputDirectory ./runtime/live-thorax-slider
+      - name: Upload probe artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-thorax-slider
+          path: runtime/live-thorax-slider/
+          if-no-files-found: error
