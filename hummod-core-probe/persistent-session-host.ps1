@@ -325,6 +325,638 @@ function Set-FileDialogFilename([long]$dialogHandle,[string]$filename,[string]$s
   [HumModHostNative]::TypeText($native.Handle,$filename)
 }
 
+
+function Set-FileDialogPathAndConfirm([long]$dialogHandle,[string]$path,[string]$mode) {
+  Add-Type -AssemblyName UIAutomationClient
+  Add-Type -AssemblyName UIAutomationTypes
+
+  $root=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$dialogHandle)
+  if(-not $root){ throw 'Cannot bind UI Automation to file dialog.' }
+
+  $desc=$root.FindAll(
+    [System.Windows.Automation.TreeScope]::Descendants,
+    [System.Windows.Automation.Condition]::TrueCondition
+  )
+
+  $edits=@()
+  $buttons=@()
+  foreach($el in $desc){
+    if($el.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit){
+      $edits += $el
+    }
+    elseif($el.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button){
+      $buttons += $el
+    }
+  }
+
+  $candidate=$null
+
+  # Prefer the canonical filename edit AutomationId when present.
+  foreach($el in $edits){
+    if($el.Current.AutomationId -eq '1001' -or $el.Current.AutomationId -eq '1148'){
+      $candidate=$el
+      break
+    }
+  }
+
+  # Otherwise choose the first writable ValuePattern edit.
+  if(-not $candidate){
+    foreach($el in $edits){
+      try{
+        $vp=$el.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+        if(-not $vp.Current.IsReadOnly){
+          $candidate=$el
+          break
+        }
+      } catch {}
+    }
+  }
+
+  if(-not $candidate){
+    throw 'Cannot identify writable filename field by UI Automation.'
+  }
+
+  $valuePattern=$candidate.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+  $valuePattern.SetValue($path)
+
+  $confirm=$null
+  foreach($button in $buttons){
+    $name=[string]$button.Current.Name
+    if($mode -eq 'save' -and $name -match '^(Save|Open)([string]$path, [int]$timeoutSeconds = 20) {
+  $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+  $lastLength = -1
+  while((Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 300
+    if(Test-Path $path) {
+      $length = (Get-Item $path).Length
+      if($length -gt 0 -and $length -eq $lastLength) { return }
+      $lastLength = $length
+    }
+  }
+  throw "Timed out waiting for file: $path; inspect dialog diagnostics in $sessionDir"
+}
+
+function Save-Solution([string]$path) {
+  if(Test-Path $path) { Remove-Item -Force $path }
+
+  $save=@([HumModHostNative]::Menu($main.Handle) |
+    Where-Object { $_.Path -match '(?i)/File/.*save.*sol' })
+  if($save.Count -ne 1){ throw 'Cannot identify unique Save Solution command.' }
+
+  [HumModHostNative]::Command($main.Handle,$save[0].Id)
+  # Proven native exporter timing for this exact pinned HumMod executable.
+  Start-Sleep -Seconds 3
+
+  $dialogs=@([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
+    Where-Object { $_.Class -eq '#32770' -and $_.Text -match '(?i)save' })
+  if($dialogs.Count -ne 1){ throw 'Cannot identify unique native Save dialog.' }
+
+  $dialog=$dialogs[0]
+  Save-DialogDiagnostics $dialog.Handle 'save'
+  $filename=Wait-FilenameEdit $dialog.Handle 'Save Solution'
+
+  # This exact WM_CHAR path produced the verified native HumMod export.
+  $filenameText='"' + $path + '"'
+  [HumModHostNative]::TypeText($filename.Handle,$filenameText)
+
+  $children=@([HumModHostNative]::Children($dialog.Handle))
+  $button=@($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
+  if($button.Count -ne 1){ throw 'Cannot identify Save button.' }
+  [HumModHostNative]::PostMessage(
+    [IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
+
+  Wait-StableFile $path 60
+}
+
+function Load-Solution([string]$path) {
+  $resolved=(Resolve-Path $path).Path
+  $load=Get-Menu '/File/Load Solution'
+  [HumModHostNative]::Command($main.Handle,$load.Id)
+  Start-Sleep -Seconds 3
+
+  $dialogs=@([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
+    Where-Object { $_.Class -eq '#32770' -and $_.Text -match '(?i)load|open' })
+  if($dialogs.Count -ne 1){ throw 'Cannot identify unique native Load Solution dialog.' }
+
+  $dialog=$dialogs[0]
+  Save-DialogDiagnostics $dialog.Handle 'load'
+  $filename=Wait-FilenameEdit $dialog.Handle 'Load Solution'
+  [HumModHostNative]::TypeText($filename.Handle,('"' + $resolved + '"'))
+
+  $children=@([HumModHostNative]::Children($dialog.Handle))
+  $button=@($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
+  if($button.Count -ne 1){ throw 'Cannot identify Load button.' }
+  [HumModHostNative]::PostMessage(
+    [IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
+
+  Start-Sleep -Seconds 8
+  $errors=@([HumModHostNative]::Windows([uint32]$proc.Id,$true) |
+    Where-Object { $_.Text -match 'PARSER REPORT|Parsing Error' })
+  if($errors.Count){ throw 'HumMod reported a solution-load parser error.' }
+}
+
+function Get-LatestValue([string]$text,[string]$symbol) {
+  $escaped = [Regex]::Escape($symbol)
+  $m = [Regex]::Match($text,"<var>\s*<name>\s*$escaped\s*</name>([\s\S]*?)</var>")
+  if(-not $m.Success) { throw "HumMod symbol not found: $symbol" }
+  $vals = [Regex]::Matches($m.Groups[1].Value,'<val>\s*([^<]+?)\s*</val>')
+  if($vals.Count -eq 0) { throw "No values for HumMod symbol: $symbol" }
+  $value = 0.0
+  if(-not [double]::TryParse(
+      $vals[$vals.Count-1].Groups[1].Value.Trim(),
+      [Globalization.NumberStyles]::Float,
+      [Globalization.CultureInfo]::InvariantCulture,
+      [ref]$value)) {
+    throw "Non-numeric value for HumMod symbol: $symbol"
+  }
+  return $value
+}
+
+function Snapshot([string[]]$symbols) {
+  $script:readCounter += 1
+  $path = Join-Path $sessionDir ("read-" + $script:readCounter + ".SOLN")
+  Save-Solution $path
+  $text = [IO.File]::ReadAllText($path)
+  $state = [ordered]@{}
+  foreach($symbol in $symbols) { $state[$symbol] = Get-LatestValue $text $symbol }
+  $systemX = Get-LatestValue $text 'System.X'
+  return [ordered]@{
+    simulationTimeSec = $systemX * 60.0
+    state = $state
+  }
+}
+
+function Replace-SolutionSeries([string]$text,[string]$symbol,[double]$value) {
+  $escaped=[Regex]::Escape($symbol)
+  $pattern="(<var>\s*<name>\s*$escaped\s*</name>)([\s\S]*?)(</var>)"
+  $m=[Regex]::Match($text,$pattern)
+  if(-not $m.Success){ throw "HumMod parameter not found in solution: $symbol" }
+  $vals=[Regex]::Matches($m.Groups[2].Value,'<val>\s*[^<]+?\s*</val>')
+  if($vals.Count -eq 0){ throw "HumMod parameter has no solution values: $symbol" }
+  $formatted=$value.ToString("R",[Globalization.CultureInfo]::InvariantCulture)
+  $replacement="`n"+(("<val> "+$formatted+" </val>`n")*$vals.Count)
+  return $text.Substring(0,$m.Index)+$m.Groups[1].Value+$replacement+$m.Groups[3].Value+$text.Substring($m.Index+$m.Length)
+}
+
+$allowedSetSymbols=@{
+  'Ventilator.Switch'=@{min=0.0;max=1.0;integer=$true}
+  'Ventilator.Rate'=@{min=0.0;max=[double]::PositiveInfinity;integer=$false}
+  'Ventilator.TidalVolume'=@{min=0.0;max=[double]::PositiveInfinity;integer=$false}
+  'AirSupply-GasTanks.Switch'=@{min=0.0;max=1.0;integer=$true}
+  'AirSupply-GasTanks.O2Valve(%)'=@{min=0.0;max=100.0;integer=$false}
+  'AirSupply-GasTanks.N2Valve(%)'=@{min=0.0;max=100.0;integer=$false}
+  'AirSupply-GasTanks.CO2Valve(%)'=@{min=0.0;max=100.0;integer=$false}
+}
+
+function Apply-Assignments($assignments) {
+  if($null -eq $assignments){ throw 'set requires assignments' }
+  $script:readCounter += 1
+  $source=Join-Path $sessionDir ("set-source-"+$script:readCounter+".SOLN")
+  $target=Join-Path $sessionDir ("set-target-"+$script:readCounter+".SOLN")
+  Save-Solution $source
+  $text=[IO.File]::ReadAllText($source)
+  $requested=[ordered]@{}
+  foreach($p in $assignments.PSObject.Properties){
+    $symbol=[string]$p.Name
+    if(-not $allowedSetSymbols.ContainsKey($symbol)){ throw "unapproved native HumMod assignment: $symbol" }
+    $value=[double]$p.Value
+    if([double]::IsNaN($value)-or [double]::IsInfinity($value)){ throw "$symbol must be finite" }
+    $meta=$allowedSetSymbols[$symbol]
+    if($value -lt $meta.min -or $value -gt $meta.max){ throw "$symbol outside allowed range" }
+    if($meta.integer -and $value -ne [math]::Round($value)){ throw "$symbol must be 0 or 1" }
+    $text=Replace-SolutionSeries $text $symbol $value
+    $requested[$symbol]=$value
+  }
+  [IO.File]::WriteAllText($target,$text,[Text.Encoding]::ASCII)
+  Load-Solution $target
+  $verify=Snapshot @($requested.Keys)
+  foreach($symbol in $requested.Keys){
+    if([math]::Abs([double]$verify.state[$symbol]-[double]$requested[$symbol]) -gt 1e-9){
+      throw "native assignment verification failed for $symbol"
+    }
+  }
+  return $verify
+}
+
+function Advance-Seconds([int]$seconds) {
+  if($seconds -lt 1) { throw 'durationSec must be an integer >= 1 for native host v1' }
+  $one = Get-Menu '/Go/1 Sec'
+  for($i=0; $i -lt $seconds; $i++) {
+    [HumModHostNative]::Command($main.Handle,$one.Id)
+    Start-Sleep -Milliseconds 200
+  }
+}
+
+try {
+  $proc = Start-Process -FilePath $exe -WorkingDirectory $hm -ArgumentList '<model> HumMod.DES </model>' -PassThru
+  Start-Sleep -Seconds 8
+  $main = @([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
+    Where-Object { $_.Class -eq 'HumMod' }) | Select-Object -First 1
+  if(-not $main) { throw 'HumMod main window did not load.' }
+
+  $errors = @([HumModHostNative]::Windows([uint32]$proc.Id,$true) |
+    Where-Object { $_.Text -match 'PARSER REPORT|Parsing Error' })
+  if($errors.Count) { throw 'HumMod model parsing failed.' }
+
+  Emit ([ordered]@{
+    ok = $true
+    event = 'ready'
+    processId = $proc.Id
+    executableSha256 = (Get-FileHash $exe -Algorithm SHA256).Hash
+    upstreamRevision = '8dab57e05631f779bf5020fe0dd51874d8ae98c1'
+    mainWindowHandle = $main.Handle
+  })
+
+  while($true) {
+    $line = [Console]::In.ReadLine()
+    if($null -eq $line) { break }
+    if([string]::IsNullOrWhiteSpace($line)) { continue }
+
+    try {
+      $cmd = $line | ConvertFrom-Json
+      switch([string]$cmd.command) {
+        'initialize' {
+          $snap=Snapshot @('Heart-Rate.Rate','SystemicArtys.Pressure','CardiacOutput.Flow(L/Min)','PO2Artys.Pressure','CO2Artys.Pressure','BloodPh.ArtysPh')
+          Emit ([ordered]@{ok=$true;command='initialize';simulationTimeSec=$snap.simulationTimeSec;state=$snap.state})
+        }
+        'advance' {
+          $seconds = [int]$cmd.durationSec
+          if([double]$cmd.durationSec -ne [double]$seconds) {
+            throw 'native host v1 supports whole-second advances only'
+          }
+          Advance-Seconds $seconds
+          $snap = Snapshot @('System.X')
+          Emit ([ordered]@{ok=$true;command='advance';simulationTimeSec=$snap.simulationTimeSec})
+        }
+        'read' {
+          $symbols = @($cmd.symbols | ForEach-Object { [string]$_ })
+          if($symbols.Count -eq 0) { throw 'read requires symbols' }
+          $snap = Snapshot $symbols
+          Emit ([ordered]@{
+            ok=$true
+            command='read'
+            simulationTimeSec=$snap.simulationTimeSec
+            state=$snap.state
+          })
+        }
+        'checkpoint' {
+          $id = [string]$cmd.checkpointId
+          if($id -notmatch '^[A-Za-z0-9_.-]+$') { throw 'invalid checkpointId' }
+          $path = Join-Path $sessionDir ("checkpoint-" + $id + ".SOLN")
+          Save-Solution $path
+          $text = [IO.File]::ReadAllText($path)
+          $systemX = Get-LatestValue $text 'System.X'
+          Emit ([ordered]@{
+            ok=$true
+            command='checkpoint'
+            checkpointId=$id
+            simulationTimeSec=$systemX*60.0
+          })
+        }
+        'restore' {
+          $id = [string]$cmd.checkpointId
+          if($id -notmatch '^[A-Za-z0-9_.-]+$') { throw 'invalid checkpointId' }
+          $path = Join-Path $sessionDir ("checkpoint-" + $id + ".SOLN")
+          if(-not (Test-Path $path)) { throw "unknown checkpoint: $id" }
+          Load-Solution $path
+          $snap = Snapshot @('System.X')
+          Emit ([ordered]@{
+            ok=$true
+            command='restore'
+            checkpointId=$id
+            simulationTimeSec=$snap.simulationTimeSec
+          })
+        }
+        'set' {
+          $snap=Apply-Assignments $cmd.assignments
+          Emit ([ordered]@{ok=$true;command='set';simulationTimeSec=$snap.simulationTimeSec;state=$snap.state})
+        }
+        'terminate' {
+          Emit ([ordered]@{ok=$true;command='terminate'})
+          break
+        }
+        default {
+          throw ('unsupported command: ' + [string]$cmd.command)
+        }
+      }
+      if([string]$cmd.command -eq 'terminate') { break }
+    }
+    catch {
+      Emit ([ordered]@{
+        ok=$false
+        error=$_.Exception.Message
+      })
+    }
+  }
+}
+finally {
+  if($proc) {
+    $proc.Refresh()
+    if(-not $proc.HasExited) {
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+){
+      $confirm=$button
+      if($name -eq 'Save'){ break }
+    }
+    elseif($mode -eq 'load' -and $name -match '^(Open|Load)([string]$path, [int]$timeoutSeconds = 20) {
+  $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+  $lastLength = -1
+  while((Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 300
+    if(Test-Path $path) {
+      $length = (Get-Item $path).Length
+      if($length -gt 0 -and $length -eq $lastLength) { return }
+      $lastLength = $length
+    }
+  }
+  throw "Timed out waiting for file: $path; inspect dialog diagnostics in $sessionDir"
+}
+
+function Save-Solution([string]$path) {
+  if(Test-Path $path) { Remove-Item -Force $path }
+
+  $save=@([HumModHostNative]::Menu($main.Handle) |
+    Where-Object { $_.Path -match '(?i)/File/.*save.*sol' })
+  if($save.Count -ne 1){ throw 'Cannot identify unique Save Solution command.' }
+
+  [HumModHostNative]::Command($main.Handle,$save[0].Id)
+  # Proven native exporter timing for this exact pinned HumMod executable.
+  Start-Sleep -Seconds 3
+
+  $dialogs=@([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
+    Where-Object { $_.Class -eq '#32770' -and $_.Text -match '(?i)save' })
+  if($dialogs.Count -ne 1){ throw 'Cannot identify unique native Save dialog.' }
+
+  $dialog=$dialogs[0]
+  Save-DialogDiagnostics $dialog.Handle 'save'
+  $filename=Wait-FilenameEdit $dialog.Handle 'Save Solution'
+
+  # This exact WM_CHAR path produced the verified native HumMod export.
+  $filenameText='"' + $path + '"'
+  [HumModHostNative]::TypeText($filename.Handle,$filenameText)
+
+  $children=@([HumModHostNative]::Children($dialog.Handle))
+  $button=@($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
+  if($button.Count -ne 1){ throw 'Cannot identify Save button.' }
+  [HumModHostNative]::PostMessage(
+    [IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
+
+  Wait-StableFile $path 60
+}
+
+function Load-Solution([string]$path) {
+  $resolved=(Resolve-Path $path).Path
+  $load=Get-Menu '/File/Load Solution'
+  [HumModHostNative]::Command($main.Handle,$load.Id)
+  Start-Sleep -Seconds 3
+
+  $dialogs=@([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
+    Where-Object { $_.Class -eq '#32770' -and $_.Text -match '(?i)load|open' })
+  if($dialogs.Count -ne 1){ throw 'Cannot identify unique native Load Solution dialog.' }
+
+  $dialog=$dialogs[0]
+  Save-DialogDiagnostics $dialog.Handle 'load'
+  $filename=Wait-FilenameEdit $dialog.Handle 'Load Solution'
+  [HumModHostNative]::TypeText($filename.Handle,('"' + $resolved + '"'))
+
+  $children=@([HumModHostNative]::Children($dialog.Handle))
+  $button=@($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
+  if($button.Count -ne 1){ throw 'Cannot identify Load button.' }
+  [HumModHostNative]::PostMessage(
+    [IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
+
+  Start-Sleep -Seconds 8
+  $errors=@([HumModHostNative]::Windows([uint32]$proc.Id,$true) |
+    Where-Object { $_.Text -match 'PARSER REPORT|Parsing Error' })
+  if($errors.Count){ throw 'HumMod reported a solution-load parser error.' }
+}
+
+function Get-LatestValue([string]$text,[string]$symbol) {
+  $escaped = [Regex]::Escape($symbol)
+  $m = [Regex]::Match($text,"<var>\s*<name>\s*$escaped\s*</name>([\s\S]*?)</var>")
+  if(-not $m.Success) { throw "HumMod symbol not found: $symbol" }
+  $vals = [Regex]::Matches($m.Groups[1].Value,'<val>\s*([^<]+?)\s*</val>')
+  if($vals.Count -eq 0) { throw "No values for HumMod symbol: $symbol" }
+  $value = 0.0
+  if(-not [double]::TryParse(
+      $vals[$vals.Count-1].Groups[1].Value.Trim(),
+      [Globalization.NumberStyles]::Float,
+      [Globalization.CultureInfo]::InvariantCulture,
+      [ref]$value)) {
+    throw "Non-numeric value for HumMod symbol: $symbol"
+  }
+  return $value
+}
+
+function Snapshot([string[]]$symbols) {
+  $script:readCounter += 1
+  $path = Join-Path $sessionDir ("read-" + $script:readCounter + ".SOLN")
+  Save-Solution $path
+  $text = [IO.File]::ReadAllText($path)
+  $state = [ordered]@{}
+  foreach($symbol in $symbols) { $state[$symbol] = Get-LatestValue $text $symbol }
+  $systemX = Get-LatestValue $text 'System.X'
+  return [ordered]@{
+    simulationTimeSec = $systemX * 60.0
+    state = $state
+  }
+}
+
+function Replace-SolutionSeries([string]$text,[string]$symbol,[double]$value) {
+  $escaped=[Regex]::Escape($symbol)
+  $pattern="(<var>\s*<name>\s*$escaped\s*</name>)([\s\S]*?)(</var>)"
+  $m=[Regex]::Match($text,$pattern)
+  if(-not $m.Success){ throw "HumMod parameter not found in solution: $symbol" }
+  $vals=[Regex]::Matches($m.Groups[2].Value,'<val>\s*[^<]+?\s*</val>')
+  if($vals.Count -eq 0){ throw "HumMod parameter has no solution values: $symbol" }
+  $formatted=$value.ToString("R",[Globalization.CultureInfo]::InvariantCulture)
+  $replacement="`n"+(("<val> "+$formatted+" </val>`n")*$vals.Count)
+  return $text.Substring(0,$m.Index)+$m.Groups[1].Value+$replacement+$m.Groups[3].Value+$text.Substring($m.Index+$m.Length)
+}
+
+$allowedSetSymbols=@{
+  'Ventilator.Switch'=@{min=0.0;max=1.0;integer=$true}
+  'Ventilator.Rate'=@{min=0.0;max=[double]::PositiveInfinity;integer=$false}
+  'Ventilator.TidalVolume'=@{min=0.0;max=[double]::PositiveInfinity;integer=$false}
+  'AirSupply-GasTanks.Switch'=@{min=0.0;max=1.0;integer=$true}
+  'AirSupply-GasTanks.O2Valve(%)'=@{min=0.0;max=100.0;integer=$false}
+  'AirSupply-GasTanks.N2Valve(%)'=@{min=0.0;max=100.0;integer=$false}
+  'AirSupply-GasTanks.CO2Valve(%)'=@{min=0.0;max=100.0;integer=$false}
+}
+
+function Apply-Assignments($assignments) {
+  if($null -eq $assignments){ throw 'set requires assignments' }
+  $script:readCounter += 1
+  $source=Join-Path $sessionDir ("set-source-"+$script:readCounter+".SOLN")
+  $target=Join-Path $sessionDir ("set-target-"+$script:readCounter+".SOLN")
+  Save-Solution $source
+  $text=[IO.File]::ReadAllText($source)
+  $requested=[ordered]@{}
+  foreach($p in $assignments.PSObject.Properties){
+    $symbol=[string]$p.Name
+    if(-not $allowedSetSymbols.ContainsKey($symbol)){ throw "unapproved native HumMod assignment: $symbol" }
+    $value=[double]$p.Value
+    if([double]::IsNaN($value)-or [double]::IsInfinity($value)){ throw "$symbol must be finite" }
+    $meta=$allowedSetSymbols[$symbol]
+    if($value -lt $meta.min -or $value -gt $meta.max){ throw "$symbol outside allowed range" }
+    if($meta.integer -and $value -ne [math]::Round($value)){ throw "$symbol must be 0 or 1" }
+    $text=Replace-SolutionSeries $text $symbol $value
+    $requested[$symbol]=$value
+  }
+  [IO.File]::WriteAllText($target,$text,[Text.Encoding]::ASCII)
+  Load-Solution $target
+  $verify=Snapshot @($requested.Keys)
+  foreach($symbol in $requested.Keys){
+    if([math]::Abs([double]$verify.state[$symbol]-[double]$requested[$symbol]) -gt 1e-9){
+      throw "native assignment verification failed for $symbol"
+    }
+  }
+  return $verify
+}
+
+function Advance-Seconds([int]$seconds) {
+  if($seconds -lt 1) { throw 'durationSec must be an integer >= 1 for native host v1' }
+  $one = Get-Menu '/Go/1 Sec'
+  for($i=0; $i -lt $seconds; $i++) {
+    [HumModHostNative]::Command($main.Handle,$one.Id)
+    Start-Sleep -Milliseconds 200
+  }
+}
+
+try {
+  $proc = Start-Process -FilePath $exe -WorkingDirectory $hm -ArgumentList '<model> HumMod.DES </model>' -PassThru
+  Start-Sleep -Seconds 8
+  $main = @([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
+    Where-Object { $_.Class -eq 'HumMod' }) | Select-Object -First 1
+  if(-not $main) { throw 'HumMod main window did not load.' }
+
+  $errors = @([HumModHostNative]::Windows([uint32]$proc.Id,$true) |
+    Where-Object { $_.Text -match 'PARSER REPORT|Parsing Error' })
+  if($errors.Count) { throw 'HumMod model parsing failed.' }
+
+  Emit ([ordered]@{
+    ok = $true
+    event = 'ready'
+    processId = $proc.Id
+    executableSha256 = (Get-FileHash $exe -Algorithm SHA256).Hash
+    upstreamRevision = '8dab57e05631f779bf5020fe0dd51874d8ae98c1'
+    mainWindowHandle = $main.Handle
+  })
+
+  while($true) {
+    $line = [Console]::In.ReadLine()
+    if($null -eq $line) { break }
+    if([string]::IsNullOrWhiteSpace($line)) { continue }
+
+    try {
+      $cmd = $line | ConvertFrom-Json
+      switch([string]$cmd.command) {
+        'initialize' {
+          $snap=Snapshot @('Heart-Rate.Rate','SystemicArtys.Pressure','CardiacOutput.Flow(L/Min)','PO2Artys.Pressure','CO2Artys.Pressure','BloodPh.ArtysPh')
+          Emit ([ordered]@{ok=$true;command='initialize';simulationTimeSec=$snap.simulationTimeSec;state=$snap.state})
+        }
+        'advance' {
+          $seconds = [int]$cmd.durationSec
+          if([double]$cmd.durationSec -ne [double]$seconds) {
+            throw 'native host v1 supports whole-second advances only'
+          }
+          Advance-Seconds $seconds
+          $snap = Snapshot @('System.X')
+          Emit ([ordered]@{ok=$true;command='advance';simulationTimeSec=$snap.simulationTimeSec})
+        }
+        'read' {
+          $symbols = @($cmd.symbols | ForEach-Object { [string]$_ })
+          if($symbols.Count -eq 0) { throw 'read requires symbols' }
+          $snap = Snapshot $symbols
+          Emit ([ordered]@{
+            ok=$true
+            command='read'
+            simulationTimeSec=$snap.simulationTimeSec
+            state=$snap.state
+          })
+        }
+        'checkpoint' {
+          $id = [string]$cmd.checkpointId
+          if($id -notmatch '^[A-Za-z0-9_.-]+$') { throw 'invalid checkpointId' }
+          $path = Join-Path $sessionDir ("checkpoint-" + $id + ".SOLN")
+          Save-Solution $path
+          $text = [IO.File]::ReadAllText($path)
+          $systemX = Get-LatestValue $text 'System.X'
+          Emit ([ordered]@{
+            ok=$true
+            command='checkpoint'
+            checkpointId=$id
+            simulationTimeSec=$systemX*60.0
+          })
+        }
+        'restore' {
+          $id = [string]$cmd.checkpointId
+          if($id -notmatch '^[A-Za-z0-9_.-]+$') { throw 'invalid checkpointId' }
+          $path = Join-Path $sessionDir ("checkpoint-" + $id + ".SOLN")
+          if(-not (Test-Path $path)) { throw "unknown checkpoint: $id" }
+          Load-Solution $path
+          $snap = Snapshot @('System.X')
+          Emit ([ordered]@{
+            ok=$true
+            command='restore'
+            checkpointId=$id
+            simulationTimeSec=$snap.simulationTimeSec
+          })
+        }
+        'set' {
+          $snap=Apply-Assignments $cmd.assignments
+          Emit ([ordered]@{ok=$true;command='set';simulationTimeSec=$snap.simulationTimeSec;state=$snap.state})
+        }
+        'terminate' {
+          Emit ([ordered]@{ok=$true;command='terminate'})
+          break
+        }
+        default {
+          throw ('unsupported command: ' + [string]$cmd.command)
+        }
+      }
+      if([string]$cmd.command -eq 'terminate') { break }
+    }
+    catch {
+      Emit ([ordered]@{
+        ok=$false
+        error=$_.Exception.Message
+      })
+    }
+  }
+}
+finally {
+  if($proc) {
+    $proc.Refresh()
+    if(-not $proc.HasExited) {
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    }
+  }
+}
+){
+      $confirm=$button
+      if($name -eq 'Open'){ break }
+    }
+  }
+
+  if(-not $confirm){
+    foreach($button in $buttons){
+      if($button.Current.AutomationId -eq '1'){
+        $confirm=$button
+        break
+      }
+    }
+  }
+
+  if(-not $confirm){ throw 'Cannot identify file-dialog confirmation button.' }
+
+  $invoke=$confirm.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+  $invoke.Invoke()
+}
+
 function Wait-StableFile([string]$path, [int]$timeoutSeconds = 20) {
   $deadline = (Get-Date).AddSeconds($timeoutSeconds)
   $lastLength = -1
