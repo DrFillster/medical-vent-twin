@@ -40,7 +40,9 @@ function patchThorax(root) {
   const originalStructure = fs.readFileSync(structurePath, 'utf8');
   const originalDisplay = fs.readFileSync(displayPath, 'utf8');
 
-  let structure = originalStructure;
+  // GitHub Windows runners may materialize CRLF working-tree files.
+  // Normalize only the working copies used for deterministic source matching.
+  let structure = originalStructure.replace(/\r\n/g, '\n');
 
   structure = replaceExactly(
     structure,
@@ -92,7 +94,7 @@ function patchThorax(root) {
     'Thorax.AvePressure definition'
   );
 
-  let display = originalDisplay;
+  let display = originalDisplay.replace(/\r\n/g, '\n');
 
   const panelEnd = '</panel>';
   const bridgeControls = [
