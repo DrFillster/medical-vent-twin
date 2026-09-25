@@ -397,9 +397,29 @@ function Save-Solution([string]$path) {
   # Proven native exporter timing for this exact pinned HumMod executable.
   Start-Sleep -Seconds 3
 
-  $dialogs=@([HumModHostNative]::Windows([uint32]$proc.Id,$false) |
+  $topWindows=@([HumModHostNative]::Windows([uint32]$proc.Id,$false))
+  $dialogs=@($topWindows |
     Where-Object { $_.Class -eq '#32770' -and $_.Text -match '(?i)save' })
-  if($dialogs.Count -ne 1){ throw 'Cannot identify unique native Save dialog.' }
+  if($dialogs.Count -ne 1){
+    $diag=@($topWindows | ForEach-Object {
+      [ordered]@{
+        handle=$_.Handle
+        class=$_.Class
+        text=$_.Text
+        id=$_.Id
+        left=$_.Left
+        top=$_.Top
+        width=$_.Width
+        height=$_.Height
+      }
+    })
+    $diag | ConvertTo-Json -Depth 5 |
+      Set-Content (Join-Path $sessionDir 'missing-save-dialog-windows.json')
+    $summary=($diag | ForEach-Object {
+      "class=$($_.class),text=$($_.text)"
+    }) -join '; '
+    throw "Cannot identify unique native Save dialog. Windows: $summary"
+  }
 
   $dialog=$dialogs[0]
   Save-DialogDiagnostics $dialog.Handle 'save'
