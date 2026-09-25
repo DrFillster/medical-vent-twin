@@ -155,6 +155,10 @@ public static class HumModHostNative {
     }
   }
 
+  public static void CommandSync(long handle, uint command) {
+    SendRaw(new IntPtr(handle), 0x111, new IntPtr(command), IntPtr.Zero);
+  }
+
   [DllImport("user32.dll", EntryPoint="SendMessageW", CharSet=CharSet.Unicode)]
   static extern IntPtr SendText(IntPtr h, uint msg, IntPtr w, string l);
 
