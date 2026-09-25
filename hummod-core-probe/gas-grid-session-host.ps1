@@ -500,6 +500,7 @@ $allowedSetSymbols=@{
   'RightHemithorax.NormalPressure'=@{min=[double]::NegativeInfinity;max=[double]::PositiveInfinity;integer=$false}
   'PulmonaryMembrane.TotalArea'=@{min=0.0;max=200.0;integer=$false}
   'PulmonaryMembrane.Thickness-Structure'=@{min=0.1;max=5.0;integer=$false}
+  'ExcessLungWater.Perm'=@{min=0.0;max=20.0;integer=$false}
 }
 
 
@@ -630,6 +631,48 @@ function Apply-LiveControls($assignments) {
       $diag['PulmonaryMembrane.Thickness-Structure']=
         Set-LiveScrollByPosition 4318 $position 'PulmonaryMembrane.Thickness-Structure'
     }
+  }
+
+  $lungWaterNames=@('ExcessLungWater.Perm')
+  if(@($assignments.PSObject.Properties | Where-Object { $lungWaterNames -contains $_.Name }).Count){
+    Write-LiveControlStage 'lung-fluids-panel-opening'
+    Open-Panel '/Physiology/Lungs/Lung Fluids'
+    Write-LiveControlStage 'lung-fluids-panel-open'
+    $children=@([HumModHostNative]::Children($main.Handle))
+    $scrolls=@($children | Where-Object {
+      $_.Class -eq 'ScrollBar' -and $_.Width -gt $_.Height
+    } | Sort-Object Top)
+    if($scrolls.Count -ne 1){
+      $summary=($scrolls | ForEach-Object { "id=$($_.Id),left=$($_.Left),top=$($_.Top)" }) -join '; '
+      throw "Expected exactly one Lung Fluids horizontal scrollbar; found $($scrolls.Count): $summary"
+    }
+    $target=$scrolls[0]
+    $v=[double]$assignments.'ExcessLungWater.Perm'
+
+    # Search the native repeat-list positions by applying a position and reading
+    # the actual parameter from a native snapshot. This avoids guessing the
+    # repeatlist's position-to-value encoding.
+    $range=[HumModHostNative]::ScrollRange($target.Handle)
+    $matched=$false
+    for($pos=$range[0]; $pos -le $range[1]; $pos++){
+      [HumModHostNative]::SetScroll($target.Handle,$pos)
+      Start-Sleep -Milliseconds 100
+      $snap=Snapshot @('ExcessLungWater.Perm')
+      $actual=[double]$snap.state['ExcessLungWater.Perm']
+      if([math]::Abs($actual-$v) -lt 1e-9){
+        $diag['ExcessLungWater.Perm']=[ordered]@{
+          id=$target.Id
+          requestedValue=$v
+          actualValue=$actual
+          position=$pos
+          minimumPosition=$range[0]
+          maximumPosition=$range[1]
+        }
+        $matched=$true
+        break
+      }
+    }
+    if(-not $matched){ throw "ExcessLungWater.Perm value $v is not available on the native repeat list" }
   }
 
   # Air Supply controls are discovered dynamically by class/geometry after opening
