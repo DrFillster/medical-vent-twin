@@ -15,12 +15,12 @@
 
 <p><em class="safety">EDUCATIONAL / RESEARCH SIMULATION &middot; SYNTHETIC PATIENT &middot; NOT CLINICALLY VALIDATED &middot; NOT FOR PATIENT CARE</em></p>
 
-<p>The v0.6 release extends earlier browser Vent builds into a persistent synthetic-patient environment: a single synthetic aspiration-ARDS teaching phenotype that survives repeated ventilator changes, mechanics maneuvers, holds, and time advances on one shared timeline. Recruitment history, intervention log, mechanical state, and gas-exchange / hemodynamic state remain associated with the same patient rather than resetting between experiments.</p>
+<p>The v1.0 release extends earlier browser Vent builds into a persistent synthetic-patient environment and restores the full decompensation model: a single synthetic aspiration-ARDS teaching phenotype that survives repeated ventilator changes, mechanics maneuvers, holds, and time advances on one shared timeline. Recruitment history, intervention log, mechanical state, and gas-exchange / hemodynamic state remain associated with the same patient rather than resetting between experiments.</p>
 
 <h2>Run v1.0 in browser</h2>
 <ul>
-  <li><strong><a href="ards-twin-v1.0/web/">Open the frozen v1.0 Clinical Twin</a></strong> — archived public release of the persistent aspiration-ARDS teaching patient.</li>
-  <li><strong><a href="ards-twin-v0.6/web/">Open the v0.6 Clinical Twin</a></strong> — current release with full decompensation model (oxygen debt, acidemia-myocardial depression, progressive shock/collapse, extremis regression).</li>
+  <li><strong><a href="ards-twin-v1.0/web/">Open the v1.0 Clinical Twin</a></strong> — current archive with full decompensation model (oxygen debt, acidemia-myocardial depression, progressive shock/collapse, terminal PEA arrest).</li>
+  <li><strong><a href="ards-twin-v0.6/web/">Open the v0.6 Clinical Twin</a></strong> — prior deployable preview retained for comparison.</li>
   <li><strong>One patient, one timeline</strong> &mdash; after initialization, ventilator and recruitment changes do not create a new patient. Pre/post-intervention physiology can be compared on a common patient clock.</li>
   <li><strong>Ventilator controls</strong> &mdash; mode (VC-AC, PC-AC), PEEP, FiO<sub>2</sub>, respiratory rate, tidal volume or inspiratory pressure, inspiratory flow, inspiratory pause, inspiratory time.</li>
   <li><strong>Mechanics maneuvers</strong> &mdash; inspiratory and expiratory holds, passive-mechanics derivation (plateau pressure, total and intrinsic PEEP, driving pressure).</li>
@@ -30,7 +30,7 @@
   <li><strong>Session export</strong> &mdash; JSON record of the clinical session includes the intervention timeline and the per-variable physiology trend for inspection or downstream analysis.</li>
 </ul>
 
-<h2>What v0.6 is &mdash; and what it is not</h2>
+<h2>What v1.0 is &mdash; and what it is not</h2>
 <ul>
   <li><strong>Educational / research simulator</strong> &mdash; the reference case is a synthetic aspiration-ARDS teaching phenotype, not a deidentified clinical record or patient-specific model.</li>
   <li><strong>No native HumMod executable is bundled</strong> &mdash; the browser product routes through a reduced, source-aligned HumMod-derived cardiopulmonary model; the native HumMod runtime remains a separate research workbench.</li>
@@ -45,13 +45,13 @@
   <li><strong>Browser smoke: 4 / 4 widths green at 320 / 390 / 768 / 1440 CSS px.</strong> Live bedside smoke: 72 / 72 checks pass across the same widths.</li>
   <li><strong>v1.0 checksums</strong> &mdash; see <a href="ards-twin-v1.0/SHA256SUMS.txt">SHA256SUMS.txt</a>.</li>
   <li><strong>Engine.js hash on production</strong>: <code>269373713e4a63a3feba8985dd8126ffbe97606501893f346e287834a188af37</code> &mdash; matches the rebuilt v1.0 archive bundle.</li>
-  <li><strong>Reproducibility</strong> &mdash; in <code>ards-twin-v0.5-progress/</code>: <code>npm install &amp;&amp; npm run build &amp;&amp; npm test &amp;&amp; npm run verify:deploy</code>. Tests fail loudly on crashed / timed-out / signaled / empty processes; <code>verify:deploy</code> returns <code>deployable=true, failures=[]</code>.</li>
+  <li><strong>Reproducibility</strong> &mdash; in <code>ards-twin-v1.0/</code>: <code>npm install &amp;&amp; npm run build &amp;&amp; npm run verify:deploy</code>; <code>npm test</code> records the two known research-workbench <code>hummod_native_sweep</code> assertions separately from the deployable path. Tests fail loudly on crashed / timed-out / signaled / empty processes; <code>verify:deploy</code> returns <code>deployable=true, failures=[]</code>.</li>
 </ul>
 
 <h2>Deployment model</h2>
 <ul>
-  <li>Cloudflare static HTTPS serves the archived <code>ards-twin-v1.0/web/</code> tree and the working <code>ards-twin-v0.5-progress/web/</code> tree from this repository &mdash; no server API, no native HumMod executable, no patient data.</li>
-  <li><strong>v1.0 Git tag</strong>: <code>v1.0.0</code>; source baseline <code>6c36a6345498385d8c4b96616684a4ea4c3572ec</code>; rebuilt deploy artifact commit <code>7453906282023fac33ada30957ee704f41a587ed</code>.</li>
+  <li>Cloudflare static HTTPS serves the archived <code>ards-twin-v1.0/web/</code> tree and prior comparison builds from this repository &mdash; no server API, no native HumMod executable, no patient data.</li>
+  <li><strong>v1.0 Git tag</strong>: <code>v1.0.0</code>; source baseline is the <code>ards-twin-v1.0/</code> archive in this repository after the decompensation promotion.</li>
   <li><strong>Deployment path</strong>: each runtime file is served straight from the working tree of the launchd-managed origin at <code>127.0.0.1:8770</code>.</li>
 </ul>
 

@@ -1,0 +1,20 @@
+{
+  "name": "ards-clinical-twin",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-clinical-manifest.js && node scripts/build.js",
+    "test": "node test/runner.js",
+    "test:browser": "node test/browser-smoke.cjs",
+    "serve": "node scripts/serve.js",
+    "benchmark:reference": "node scripts/reference-case-benchmark.js",
+    "hummod:core-graph": "node scripts/build-hummod-ards-core-graph.js",
+    "benchmark:live-core-target": "node scripts/live-core-peep-target.js",
+    "benchmark:cardiopulmonary-target": "node scripts/live-cardiopulmonary-peep-target.js",
+    "benchmark:recruitability-challenge": "node scripts/recruitability-phenotype-challenge.js",
+    "verify:deploy": "node scripts/verify-deployable-web.js"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

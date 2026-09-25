@@ -1,0 +1,235 @@
+{
+  "schema": "vent-hummod-native-sweep/v1",
+  "id": "pulmonary-injury-mechanism-sweep-001",
+  "purpose": "Engineering sensitivity sweep to identify which native HumMod pulmonary mechanisms materially change gas exchange and systemic physiology before any Berlin ARDS calibration.",
+  "clinicalValidation": false,
+  "baseline": {
+    "description": "Native HumMod with explicit mechanical ventilation and a fixed source-native oxygen/nitrogen gas-tank mixture; no pulmonary injury perturbation.",
+    "assignments": {
+      "Ventilator.Switch": 1,
+      "Ventilator.Rate": 16,
+      "Ventilator.TidalVolume": 450,
+      "AirSupply-GasTanks.Switch": 1,
+      "AirSupply-GasTanks.O2Valve(%)": 50,
+      "AirSupply-GasTanks.N2Valve(%)": 50,
+      "AirSupply-GasTanks.CO2Valve(%)": 0,
+      "AirSupply-GasTanks.COValve(PPM)": 0,
+      "AirSupply-GasTanks.AnestheticValve(%)": 0
+    }
+  },
+  "cases": [
+    {
+      "id": "water-250",
+      "mechanism": "excess-lung-water",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "ExcessLungWater.Volume": 250,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
+      }
+    },
+    {
+      "id": "pleural-0-bilateral",
+      "mechanism": "reduced-lung-inflation-and-alveolar-shunt",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "RightHemithorax.NormalPressure": 0,
+        "LeftHemithorax.NormalPressure": 0,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
+      }
+    },
+    {
+      "id": "membrane-area-40",
+      "mechanism": "reduced-pulmonary-membrane-area",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "PulmonaryMembrane.TotalArea": 40,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
+      }
+    },
+    {
+      "id": "basic-shunt-1000",
+      "mechanism": "increased-basic-right-left-shunt",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "LungBloodFlow.BasicR-LShunt": 1000,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
+      }
+    },
+    {
+      "id": "combined-injury-a",
+      "mechanism": "combined-exploratory-pulmonary-injury",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "ExcessLungWater.Volume": 250,
+        "RightHemithorax.NormalPressure": -2,
+        "LeftHemithorax.NormalPressure": -2,
+        "PulmonaryMembrane.TotalArea": 60,
+        "LungBloodFlow.BasicR-LShunt": 500,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0
+      }
+    },
+    {
+      "id": "water-100",
+      "mechanism": "excess-lung-water",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0,
+        "ExcessLungWater.Volume": 100
+      }
+    },
+    {
+      "id": "water-500",
+      "mechanism": "excess-lung-water",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0,
+        "ExcessLungWater.Volume": 500
+      }
+    },
+    {
+      "id": "pleural-minus2-bilateral",
+      "mechanism": "reduced-lung-inflation-and-alveolar-shunt",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0,
+        "RightHemithorax.NormalPressure": -2,
+        "LeftHemithorax.NormalPressure": -2
+      }
+    },
+    {
+      "id": "membrane-area-70",
+      "mechanism": "reduced-pulmonary-membrane-area",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0,
+        "PulmonaryMembrane.TotalArea": 70
+      }
+    },
+    {
+      "id": "basic-shunt-500",
+      "mechanism": "increased-basic-right-left-shunt",
+      "assignments": {
+        "Ventilator.Switch": 1,
+        "Ventilator.Rate": 16,
+        "Ventilator.TidalVolume": 450,
+        "AirSupply-GasTanks.Switch": 1,
+        "AirSupply-GasTanks.O2Valve(%)": 50,
+        "AirSupply-GasTanks.N2Valve(%)": 50,
+        "AirSupply-GasTanks.CO2Valve(%)": 0,
+        "AirSupply-GasTanks.COValve(PPM)": 0,
+        "AirSupply-GasTanks.AnestheticValve(%)": 0,
+        "LungBloodFlow.BasicR-LShunt": 500
+      }
+    }
+  ],
+  "provenance": {
+    "upstreamRepository": "riliescu/hummod-standalone",
+    "upstreamRevision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1",
+    "rationale": "Each perturbation targets a source-verified HumMod pulmonary parameter. Ventilation and inspired-gas controls are held identical across baseline and injury cases. The expanded one-shot sweep includes small dose-response families so a single Windows execution can test monotonicity as well as direction. Values remain exploratory engineering probes, not clinically calibrated ARDS settings.",
+    "berlinArdsCalibration": false,
+    "peepRepresentation": "not-available-in-pinned-native-HumMod-ventilator; Berlin classification is therefore prohibited for this sweep",
+    "inspiredGas": "source-native gas-tank controls fixed at O2 valve 50%, N2 valve 50%, CO2/CO/anesthetic zero; resulting inspired-gas variables must be verified in exported HumMod output before interpretation"
+  },
+  "doseResponseFamilies": [
+    {
+      "id": "excess-lung-water",
+      "controlSymbol": "ExcessLungWater.Volume",
+      "caseIds": [
+        "water-100",
+        "water-250",
+        "water-500"
+      ],
+      "engineeringDirection": "increasing"
+    },
+    {
+      "id": "membrane-area",
+      "controlSymbol": "PulmonaryMembrane.TotalArea",
+      "caseIds": [
+        "membrane-area-70",
+        "membrane-area-40"
+      ],
+      "engineeringDirection": "decreasing"
+    },
+    {
+      "id": "basic-right-left-shunt",
+      "controlSymbol": "LungBloodFlow.BasicR-LShunt",
+      "caseIds": [
+        "basic-shunt-500",
+        "basic-shunt-1000"
+      ],
+      "engineeringDirection": "increasing"
+    },
+    {
+      "id": "bilateral-hemithorax-pressure",
+      "controlSymbol": "RightHemithorax.NormalPressure",
+      "caseIds": [
+        "pleural-minus2-bilateral",
+        "pleural-0-bilateral"
+      ],
+      "engineeringDirection": "increasing-toward-zero"
+    }
+  ]
+}

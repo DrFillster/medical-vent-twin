@@ -1,7 +1,7 @@
 {
   "version": "0.4.5",
   "runtime": "v26.8.2",
-  "date": "2026-09-24T12:20:10.602Z",
+  "date": "2026-09-25T22:39:29.162Z",
   "files": [
     {
       "file": "a_initialization.test.js",
@@ -59,7 +59,7 @@
     },
     {
       "file": "clinical_twin_live_hummod_session.test.js",
-      "passed": 6,
+      "passed": 7,
       "failed": 0,
       "status": "passed"
     },
@@ -131,7 +131,7 @@
     },
     {
       "file": "hummod_ards_autonomic_controller.test.js",
-      "passed": 3,
+      "passed": 4,
       "failed": 0,
       "status": "passed"
     },
@@ -197,6 +197,18 @@
     },
     {
       "file": "hummod_ards_core_thorax.test.js",
+      "passed": 3,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_decompensation_controller.test.js",
+      "passed": 7,
+      "failed": 0,
+      "status": "passed"
+    },
+    {
+      "file": "hummod_ards_oxygen_supply_cliff.test.js",
       "passed": 3,
       "failed": 0,
       "status": "passed"
@@ -370,10 +382,10 @@
       "status": "passed"
     },
     {
-      "file": "v0_6_product_smoke.test.js",
-      "passed": 0,
+      "file": "v1_0_product_smoke.test.js",
+      "passed": 1,
       "failed": 0,
-      "status": "failed"
+      "status": "passed"
     },
     {
       "file": "vc_ac.test.js",
@@ -388,11 +400,10 @@
       "status": "passed"
     }
   ],
-  "passed": 347,
+  "passed": 360,
   "failed": 2,
   "failedFiles": [
-    "hummod_native_sweep.test.js",
-    "v0_6_product_smoke.test.js"
+    "hummod_native_sweep.test.js"
   ],
   "success": false
 }

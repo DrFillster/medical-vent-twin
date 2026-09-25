@@ -127,7 +127,7 @@
   async function initializeClinicalPreview() {
     const select = $('clinical-case');
     try {
-      const response = await fetch('./clinical-cases.json?v=0.6', { cache: 'no-store' });
+      const response = await fetch('./clinical-cases.json?v=1.0.0', { cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       clinicalManifest = await response.json();
       if (!clinicalManifest || !Array.isArray(clinicalManifest.cases) ||
@@ -664,7 +664,7 @@
     clinicalPhysiologyTrend = [];
     renderClinicalInterventions();
     renderClinicalPhysiologyTrends();
-    clinicalWorker = new Worker('./clinical-worker.js?v=0.6');
+    clinicalWorker = new Worker('./clinical-worker.js?v=1.0.0');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {

@@ -1,0 +1,22 @@
+{
+  "schema": "vent-hummod-remote-request/v1",
+  "runtimeVerified": false,
+  "runtimeVerificationStatus": "pinned-runtime-rejects-remote-control",
+  "outputFile": "VentHumMod-output.txt",
+  "logFile": "VentHumMod-done.log",
+  "roster": [
+    "System.X",
+    "PO2Artys.Pressure",
+    "CO2Artys.Pressure",
+    "BloodPh.ArtysPh",
+    "Heart-Rate.Rate",
+    "SystemicArtys.Pressure",
+    "CardiacOutput.Flow(L/Min)"
+  ],
+  "scenarioApplied": false,
+  "intendedFutureScenarioId": "berlin-moderate-moderate-aspiration",
+  "documentationBasis": [
+    "HumMod/documentation@1cd093c001ea5af72e666a20e51542dce2304b38:schema/3_control/remote.html",
+    "HumMod/documentation@1cd093c001ea5af72e666a20e51542dce2304b38:schema/3_control/scripted.html"
+  ]
+}

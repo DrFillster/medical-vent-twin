@@ -1,0 +1,17 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "pulmonary-injury-sensitivity-water-001",
+  "scenarioClass": "engineering-pulmonary-injury-sensitivity",
+  "description": "Non-clinically-calibrated HumMod sensitivity perturbation isolating persisted excess lung water while holding native ventilator transport settings explicit.",
+  "assignments": {
+    "Ventilator.Switch": 1,
+    "Ventilator.Rate": 16,
+    "Ventilator.TidalVolume": 450,
+    "ExcessLungWater.Volume": 250
+  },
+  "provenance": {
+    "clinicalValidation": false,
+    "ardsScenario": false,
+    "rationale": "Engineering sensitivity case only. ExcessLungWater directly enters HumMod tidal-volume and pulmonary-membrane thickness calculations. The magnitude is exploratory and is not a Berlin ARDS calibration."
+  }
+}
