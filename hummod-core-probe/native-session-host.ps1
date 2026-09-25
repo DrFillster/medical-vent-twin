@@ -197,6 +197,33 @@ function Wait-FileDialog([string]$purpose,[int]$timeoutSeconds=8) {
   throw ("Timed out waiting for "+$purpose+" dialog. Windows: "+$summary)
 }
 
+function Describe-Children([long]$dialogHandle) {
+  return @([HumModHostNative]::Children($dialogHandle) | ForEach-Object {
+    [ordered]@{Handle=$_.Handle;Id=$_.Id;Class=$_.Class;Text=$_.Text}
+  })
+}
+
+function Find-FilenameEdit([long]$dialogHandle) {
+  $children=@([HumModHostNative]::Children($dialogHandle))
+  $edits=@($children | Where-Object { $_.Class -eq 'Edit' })
+  $preferred=@($edits | Where-Object { $_.Id -eq 1148 -or $_.Id -eq 1001 })
+  if($preferred.Count -eq 1){ return $preferred[0] }
+
+  # Common Windows file-dialog layouts can expose several Edit controls.
+  # Prefer a nonempty edit whose text resembles a filename/path field.
+  $textual=@($edits | Where-Object {
+    $_.Text -and ($_.Text -match '\\|/|\.SOLN|File name|filename')
+  })
+  if($textual.Count -eq 1){ return $textual[0] }
+
+  # Fall back to the largest/direct filename candidate by control id ordering.
+  # We still fail loudly if no Edit exists.
+  if($edits.Count -gt 0){
+    return ($edits | Sort-Object Id -Descending | Select-Object -First 1)
+  }
+  throw 'Cannot identify filename edit control.'
+}
+
 function Wait-StableFile([string]$path, [int]$timeoutSeconds = 20) {
   $deadline = (Get-Date).AddSeconds($timeoutSeconds)
   $lastLength = -1
@@ -357,6 +384,7 @@ try {
     processId = $proc.Id
     executableSha256 = (Get-FileHash $exe -Algorithm SHA256).Hash
     upstreamRevision = '8dab57e05631f779bf5020fe0dd51874d8ae98c1'
+    mainWindowHandle = $main.Handle
   })
 
   while($true) {
