@@ -767,11 +767,29 @@ function Apply-Assignments($assignments) {
 }
 
 function Advance-Seconds([int]$seconds) {
-  if($seconds -lt 1) { throw 'durationSec must be an integer >= 1 for native host v1' }
-  $one = Get-Menu '/Go/1 Sec'
-  for($i=0; $i -lt $seconds; $i++) {
-    [HumModHostNative]::Command($main.Handle,$one.Id)
-    Start-Sleep -Milliseconds 200
+  if($seconds -lt 1) {
+    throw 'durationSec must be an integer >= 1 for native host v1'
+  }
+
+  # Use HumMod's own exact-duration Go menu commands synchronously.
+  # PostMessage can queue overlapping advances; SendMessage blocks until
+  # the native menu handler returns.
+  $go10 = Get-Menu '/Go/10 Sec'
+  $go5  = Get-Menu '/Go/5 Sec'
+  $go1  = Get-Menu '/Go/1 Sec'
+
+  $remaining=$seconds
+  while($remaining -ge 10){
+    [HumModHostNative]::CommandSync($main.Handle,$go10.Id)
+    $remaining -= 10
+  }
+  while($remaining -ge 5){
+    [HumModHostNative]::CommandSync($main.Handle,$go5.Id)
+    $remaining -= 5
+  }
+  while($remaining -ge 1){
+    [HumModHostNative]::CommandSync($main.Handle,$go1.Id)
+    $remaining -= 1
   }
 }
 
