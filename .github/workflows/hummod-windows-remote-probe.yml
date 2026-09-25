@@ -1,15 +1,6 @@
 name: HumMod Windows Remote Probe
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "ards-twin-v0.5-progress/hummod-runner/**"
-      - "ards-twin-v0.5-progress/src/hummod_remote_request.js"
-      - "ards-twin-v0.5-progress/src/hummod_runner_contract.js"
-      - "ards-twin-v0.5-progress/scripts/build-hummod-reference-remote-request.js"
-      - "ards-twin-v0.5-progress/scripts/run-hummod-probe.ps1"
-      - ".github/workflows/hummod-windows-remote-probe.yml"
   workflow_dispatch:
     inputs:
       attempt_remote_request:

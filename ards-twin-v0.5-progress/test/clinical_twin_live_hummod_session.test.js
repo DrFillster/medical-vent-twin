@@ -53,6 +53,47 @@ test('PEEP intervention persists and live systemic state advances rather than re
   assert(Number.isFinite(after.systemic.hemodynamics.meanArterialPressureMmHg));
 });
 
+test('PEEP challenge produces dynamic cardiopulmonary and autonomic response', () => {
+  const session = makeSession();
+  session.initialize();
+  const baseline = session.runFor(20);
+  const b = baseline.systemic.hemodynamics;
+  session.setPEEP(18);
+  const early = session.runFor(5);
+  const late = session.runFor(20);
+  const e = early.systemic.hemodynamics;
+  const l = late.systemic.hemodynamics;
+
+  [
+    b.heartRatePerMin, b.meanArterialPressureMmHg, b.cardiacOutputMlPerMin,
+    b.strokeVolumeMl, b.systemicVascularResistanceMmHgMinPerL,
+    b.pulmonaryVascularResistanceMmHgMinPerL, b.sympatheticTone,
+    l.heartRatePerMin, l.meanArterialPressureMmHg, l.cardiacOutputMlPerMin,
+    l.strokeVolumeMl, l.systemicVascularResistanceMmHgMinPerL,
+    l.pulmonaryVascularResistanceMmHgMinPerL, l.sympatheticTone,
+  ].forEach(v => assert(Number.isFinite(v), 'challenge outputs must remain finite'));
+
+  assert(late.systemic.thorax.meanAirwayPressureCmH2O >
+    baseline.systemic.thorax.meanAirwayPressureCmH2O,
+    'higher PEEP should increase mean airway pressure in this fixed challenge');
+  assert(Math.abs(l.cardiacOutputMlPerMin - b.cardiacOutputMlPerMin) > 1,
+    'cardiac output should not remain static after PEEP challenge');
+  assert(Math.abs(l.strokeVolumeMl - b.strokeVolumeMl) > 0.01,
+    'stroke volume should not remain static after PEEP challenge');
+  assert(Math.abs(l.meanArterialPressureMmHg - b.meanArterialPressureMmHg) > 0.01,
+    'MAP should not remain static after PEEP challenge');
+  assert(Math.abs(l.sympatheticTone - b.sympatheticTone) > 0.0001,
+    'autonomic state should respond to the challenge');
+  assert(Math.abs(l.systemicVascularResistanceMmHgMinPerL -
+    b.systemicVascularResistanceMmHgMinPerL) > 0.001,
+    'SVR should evolve during the challenge');
+  assert(Math.abs(l.pulmonaryVascularResistanceMmHgMinPerL -
+    b.pulmonaryVascularResistanceMmHgMinPerL) > 0.001,
+    'PVR should evolve during the challenge');
+  assert(e.cardiacOutputMlPerMin !== l.cardiacOutputMlPerMin,
+    'early and late cardiac output should differ as feedback evolves');
+});
+
 test('FiO2/VC setting changes are applied at a breath boundary and feed the live core', () => {
   const session = makeSession();
   session.initialize();
@@ -64,6 +105,32 @@ test('FiO2/VC setting changes are applied at a breath boundary and feed the live
   assert(s.ventilator.fio2 === 0.80);
   assert(s.ventilatorChangePending === false);
   assert(Number.isFinite(s.systemic.gasExchange.pao2MmHg));
+});
+
+test('prolonged profound hypoxemic hypercapnic failure decompensates instead of remaining hemodynamically normal', () => {
+  const session = makeSession();
+  session.initialize();
+  session.requestVentilationChange({
+    mode: 'VC_AC', fio2: 0.20, peep: 8, rr: 4,
+    vtL: 0.10, inspiratoryFlowLps: 0.20, inspiratoryPauseSec: 0,
+  });
+  const s = session.runFor(1200);
+  const g = s.systemic.gasExchange;
+  const h = s.systemic.hemodynamics;
+  const d = s.systemic.decompensation;
+
+  assert(g.pao2MmHg < 30, 'extremis challenge should produce profound hypoxemia');
+  assert(g.paco2MmHg > 150, 'extremis challenge should produce severe hypercapnia');
+  assert(g.pH < 6.9, 'extremis challenge should produce profound acidemia');
+  assert(d && d.oxygenDebtMl > 0, 'extremis challenge should accumulate oxygen debt');
+  assert(d.myocardialContractilityMultiplier < 1,
+    'oxygen debt should depress myocardial reserve');
+  assert(
+    d.cardiacArrest === true ||
+    h.meanArterialPressureMmHg < 60 ||
+    h.cardiacOutputMlPerMin < 3000,
+    'after 20 min of profound hypoxemic-hypercapnic failure, patient must show major hemodynamic decompensation or arrest'
+  );
 });
 
 test('live core rejects PC-AC until its Vent adapter is implemented', () => {

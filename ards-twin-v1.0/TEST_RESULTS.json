@@ -1,7 +1,7 @@
 {
   "version": "0.4.5",
   "runtime": "v26.8.2",
-  "date": "2026-09-24T17:57:28.240Z",
+  "date": "2026-09-24T12:20:10.602Z",
   "files": [
     {
       "file": "a_initialization.test.js",
@@ -59,7 +59,7 @@
     },
     {
       "file": "clinical_twin_live_hummod_session.test.js",
-      "passed": 7,
+      "passed": 6,
       "failed": 0,
       "status": "passed"
     },
@@ -131,7 +131,7 @@
     },
     {
       "file": "hummod_ards_autonomic_controller.test.js",
-      "passed": 4,
+      "passed": 3,
       "failed": 0,
       "status": "passed"
     },
@@ -198,12 +198,6 @@
     {
       "file": "hummod_ards_core_thorax.test.js",
       "passed": 3,
-      "failed": 0,
-      "status": "passed"
-    },
-    {
-      "file": "hummod_ards_decompensation_controller.test.js",
-      "passed": 5,
       "failed": 0,
       "status": "passed"
     },
@@ -394,7 +388,7 @@
       "status": "passed"
     }
   ],
-  "passed": 354,
+  "passed": 347,
   "failed": 2,
   "failedFiles": [
     "hummod_native_sweep.test.js",

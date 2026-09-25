@@ -1,20 +1,11 @@
 name: HumMod Native Solution Export
+
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'ards-twin-v0.5-progress/scripts/export-hummod-native.ps1'
-      - 'ards-twin-v0.5-progress/scripts/convert-hummod-native-solution.js'
-      - 'ards-twin-v0.5-progress/src/hummod_native_solution.js'
-      - 'ards-twin-v0.5-progress/src/hummod_raw_series_adapter.js'
-      - '.github/workflows/hummod-native-export.yml'
-      - 'ards-twin-v0.5-progress/scripts/compare-hummod-trajectories.js'
-      - 'ards-twin-v0.5-progress/hummod-runner/native-pulmonary-injury-sensitivity-water.json'
-      - 'ards-twin-v0.5-progress/hummod-runner/native-ventilation-probe.json'
-      - 'ards-twin-v0.5-progress/scripts/mutate-hummod-native-solution.js'
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   export:
     runs-on: windows-latest

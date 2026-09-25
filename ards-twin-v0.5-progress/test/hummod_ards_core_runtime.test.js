@@ -137,5 +137,30 @@ test('runtime refuses hidden defaults for dead space and physiology boundaries',
   assert(threw);
 });
 
+
+test('oxygen extraction becomes supply-limited before venous oxygen reaches zero', () => {
+  const stressed = boundary({ fio2: 0.21, rr: 20 });
+  stressed.circulation.cardiacOutputMlPerMin = 1000;
+  stressed.pulmonary.ventilatedPulmonaryBloodFlowMlPerMin = 1000;
+  stressed.metabolism.tissueO2UseMlPerMin = 1000;
+  const runtime = createHumModArdsGasRuntime({
+    initialState: { ...HUMMOD_SOURCE_INITIAL_GAS_STATE },
+    boundary: stressed,
+  });
+
+  let snap;
+  for (let i = 0; i < 60; i += 1) snap = runtime.step({ dtSec: 1 });
+
+  assert(snap.gases.venous.po2MmHg > 0,
+    'mixed venous PO2 must remain positive');
+  assert(snap.gases.venous.saturationFraction > 0,
+    'mixed venous oxygen saturation must remain positive');
+  assert(snap.exchange.massBalance.oxygenSupplyDeficitMlPerMin > 0,
+    'inadequate delivery should be represented as an oxygen supply deficit');
+  assert(snap.exchange.massBalance.actualTissueO2UseMlPerMin <
+    snap.exchange.massBalance.requestedTissueO2UseMlPerMin,
+    'aerobic oxygen use should become delivery limited');
+});
+
 console.log('\nTests: passed=' + passed + ' failed=' + failed);
 process.exit(failed === 0 ? 0 : 1);

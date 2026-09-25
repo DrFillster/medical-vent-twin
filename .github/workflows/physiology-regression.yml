@@ -1,0 +1,37 @@
+name: Physiology Regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/physiology-regression.yml'
+      - 'ards-twin-v0.5-progress/src/hummod_ards_autonomic_controller.js'
+      - 'ards-twin-v0.5-progress/src/hummod_ards_cardiopulmonary_runtime.js'
+      - 'ards-twin-v0.5-progress/src/hummod_ards_decompensation_controller.js'
+      - 'ards-twin-v0.5-progress/src/hummod_ards_core_runtime.js'
+      - 'ards-twin-v0.5-progress/src/clinical_twin_live_hummod_session.js'
+      - 'ards-twin-v0.5-progress/test/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  physiology-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run acidemia/autonomic regression
+        run: node test/hummod_ards_autonomic_controller.test.js
+      - name: Run oxygen-transport regression
+        run: node test/hummod_ards_core_runtime.test.js
+      - name: Run decompensation regression
+        run: node test/hummod_ards_decompensation_controller.test.js
+      - name: Run integrated live-session regression
+        run: node test/clinical_twin_live_hummod_session.test.js

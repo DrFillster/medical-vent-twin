@@ -8655,8 +8655,6 @@ function createBerlinLiveHumModSession({
     }
     const circ = last.circulation;
     const gas = last.gas;
-    const decomp = last.decompensation || null;
-    const arrested = Boolean(decomp && decomp.cardiacArrest);
     return Object.freeze({
       source: 'reduced-source-aligned-HumMod-ARDS-core',
       status: 'live-coupled-experimental',
@@ -8675,38 +8673,24 @@ function createBerlinLiveHumModSession({
           gas.exchange?.massBalance?.oxygenSupplyDeficitMlPerMin ?? null,
       }),
       hemodynamics: Object.freeze({
-        heartRatePerMin: arrested
-          ? 0
-          : (circ.activeBoundaries?.heartRatePerMin ??
-            effectiveCirculationBoundaries.heartRatePerMin),
+        heartRatePerMin:
+          circ.activeBoundaries?.heartRatePerMin ??
+          effectiveCirculationBoundaries.heartRatePerMin,
         meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
         rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
         pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
-        cardiacOutputMlPerMin: arrested ? 0 : circ.flowsMlPerMin.leftVentricular,
-        strokeVolumeMl: arrested ? 0 : (circ.leftVentricle?.strokeVolumeMl ?? null),
+        cardiacOutputMlPerMin: circ.flowsMlPerMin.leftVentricular,
+        strokeVolumeMl: circ.leftVentricle?.strokeVolumeMl ?? null,
         systemicVascularResistanceMmHgMinPerL:
           circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
         pulmonaryVascularResistanceMmHgMinPerL:
           circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
         contractilityMultiplier:
-          last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
         sympatheticTone: last.autonomic?.sympatheticTone ?? null,
         parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
         catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
       }),
-      decompensation: decomp ? Object.freeze({
-        stage: decomp.stage,
-        alive: decomp.alive,
-        cardiacArrest: decomp.cardiacArrest,
-        oxygenDebtMl: decomp.oxygenDebtMl,
-        equivalentDebtMinutes: decomp.equivalentDebtMinutes,
-        metabolicFailureFraction: decomp.metabolicFailureFraction,
-        myocardialContractilityMultiplier:
-          decomp.myocardialContractilityMultiplier,
-        lowMapBelow30Sec: decomp.lowMapBelow30Sec,
-        lowMapBelow20Sec: decomp.lowMapBelow20Sec,
-      }) : null,
       thorax: Object.freeze({
         meanAirwayPressureCmH2O: last.meanAirwayPressureCmH2O,
         pleuralPressureCmH2O: last.thorax.pleuralPressureCmH2O,
@@ -9368,9 +9352,6 @@ module.exports = { createHumModArdsCirculation };
 const { createVentToArdsCoreSnapshot } = require("src/hummod_ards_core_coupling.js");
 const { createLiveCoreBoundaryFromVent } = require("src/hummod_ards_core_vent_adapter.js");
 const { createHumModArdsAutonomicController } = require("src/hummod_ards_autonomic_controller.js");
-const {
-  createHumModArdsDecompensationController,
-} = require("src/hummod_ards_decompensation_controller.js");
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -9410,7 +9391,6 @@ function createHumModArdsCardiopulmonaryRuntime({
 
   let timeSec=0;
   let last=null;
-  const decompensation = createHumModArdsDecompensationController();
   const autonomic = createHumModArdsAutonomicController({
     baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
       heartRatePerMin: 75,
@@ -9422,15 +9402,6 @@ function createHumModArdsCardiopulmonaryRuntime({
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
-
-    // Once cardiovascular collapse has met the explicit experimental arrest
-    // criteria, the reduced core enters a terminal state. We preserve the last
-    // physiologic snapshot for provenance rather than continuing to integrate
-    // a circulation that is no longer physiologically meaningful.
-    if(decompensation.snapshot().cardiacArrest){
-      timeSec+=dtSec;
-      return snapshot();
-    }
 
     const meanPaw=meanAirwayPressureCmH2O(simulation);
     const thoraxState=thorax.atStaticAirwayPressure(meanPaw);
@@ -9456,15 +9427,10 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
-    const priorDecomp=decompensation.snapshot();
-    const effectiveContractility=
-      control.contractilityMultiplier *
-      control.acidoticContractilityMultiplier *
-      priorDecomp.myocardialContractilityMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: control.heartRatePerMin,
-      leftContractilityMultiplier: effectiveContractility,
-      rightContractilityMultiplier: effectiveContractility,
+      leftContractilityMultiplier: control.contractilityMultiplier,
+      rightContractilityMultiplier: control.contractilityMultiplier,
       systemicArterialConductanceMlPerMinPerMmHg:
         control.systemicArterialConductanceMlPerMinPerMmHg,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
@@ -9492,19 +9458,6 @@ function createHumModArdsCardiopulmonaryRuntime({
       boundary:adapted.boundary,
     });
 
-    const massBalance=gas.exchange && gas.exchange.massBalance
-      ? gas.exchange.massBalance
-      : null;
-    const decomp=decompensation.step({
-      dtSec,
-      meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
-      mixedVenousO2SaturationFraction:gas.gases.venous.saturationFraction,
-      requestedTissueO2UseMlPerMin:
-        massBalance.requestedTissueO2UseMlPerMin,
-      oxygenSupplyDeficitMlPerMin:
-        massBalance.oxygenSupplyDeficitMlPerMin,
-    });
-
     timeSec+=dtSec;
     last=Object.freeze({
       meanAirwayPressureCmH2O:meanPaw,
@@ -9513,8 +9466,6 @@ function createHumModArdsCardiopulmonaryRuntime({
       pericardialPressureMmHg,
       circulation:circ,
       autonomic:control,
-      decompensation:decomp,
-      effectiveContractilityMultiplier:effectiveContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
     });
@@ -9531,7 +9482,6 @@ function createHumModArdsCardiopulmonaryRuntime({
         thorax:'explicit passive chest-wall phenotype',
         circulation:'reduced source-aligned HumMod circulation with dynamic autonomic control',
         gasExchange:'source-aligned HumMod reduced gas core',
-        decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
         clinicalValidation:false,
       }),
@@ -9925,38 +9875,6 @@ const HYPERCAPNIC_ACIDOSIS_ANCHOR = Object.freeze({
   citation: 'Stengl et al. Crit Care. 2013;17:R303.',
 });
 
-// Direct myocardial depression is deliberately separated from sympathoadrenal
-// compensation. Biais et al. (Anesthesiology 2012) found respiratory acidosis
-// at extracellular pH 7.10 reduced isolated myocardial contractile force to
-// approximately 45% of baseline. The reduced browser core linearly interpolates
-// this direct negative-inotropic component from pH 7.35 to 7.10 and then
-// bounds it; it does not invent a stronger pH-to-contractility curve below 7.10.
-const RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR = Object.freeze({
-  definitionPh: 7.35,
-  challengePh: 7.10,
-  challengeContractilityFraction: 0.45,
-  citation: 'Biais et al. Anesthesiology. 2012;117:1212-1222.',
-});
-
-function respiratoryAcidosisContractilityMultiplier({
-  arterialPh,
-  arterialPco2MmHg,
-}) {
-  finite(arterialPh, 'arterialPh');
-  finite(arterialPco2MmHg, 'arterialPco2MmHg');
-  if (arterialPco2MmHg <= HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPaco2MmHg ||
-      arterialPh >= RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.definitionPh) {
-    return 1;
-  }
-  const severity = clamp(
-    (RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.definitionPh - arterialPh) /
-      (RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.definitionPh -
-       RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.challengePh),
-    0, 1);
-  return 1 - severity *
-    (1 - RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.challengeContractilityFraction);
-}
-
 function hypercapnicAcidosisSeverity({ arterialPh, arterialPco2MmHg }) {
   finite(arterialPh, 'arterialPh');
   finite(arterialPco2MmHg, 'arterialPco2MmHg');
@@ -10020,11 +9938,6 @@ function createHumModArdsAutonomicController({
       arterialPh,
       arterialPco2MmHg,
     });
-    const acidoticContractilityMultiplier =
-      respiratoryAcidosisContractilityMultiplier({
-        arterialPh,
-        arterialPco2MmHg,
-      });
     const reflexTarget = clamp(
       0.25 + baroreflexGain * pressureError +
       0.18 * hypoxicDrive + 0.10 * hypercapnicDrive,
@@ -10118,7 +10031,6 @@ function createHumModArdsAutonomicController({
       arterialPh,
       heartRatePerMin,
       contractilityMultiplier: contractility,
-      acidoticContractilityMultiplier,
       systemicArterialConductanceMlPerMinPerMmHg: arterialConductance,
       systemicVenousV0Ml: venousV0Ml,
       pulmonaryArterialConductanceMultiplier: pulmonaryConductanceMultiplier,
@@ -10144,8 +10056,6 @@ function createHumModArdsAutonomicController({
         status: 'reduced-dynamic-engineering-control-layer',
         clinicalValidation: false,
         hypercapnicAcidosisAnchor: HYPERCAPNIC_ACIDOSIS_ANCHOR,
-        respiratoryAcidosisInotropyAnchor:
-          RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
       }),
     });
   }
@@ -10155,204 +10065,8 @@ function createHumModArdsAutonomicController({
 
 module.exports = {
   HYPERCAPNIC_ACIDOSIS_ANCHOR,
-  RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
   hypercapnicAcidosisSeverity,
-  respiratoryAcidosisContractilityMultiplier,
   createHumModArdsAutonomicController,
-};
-
-},
-"src/hummod_ards_decompensation_controller.js":function(module,exports,require){
-'use strict';
-
-// Progressive shock/decompensation controller for the reduced browser core.
-//
-// This layer intentionally uses physiologically interpretable state:
-//   oxygen debt (mL O2) = integral of unmet aerobic O2 demand over time.
-// It is NOT a mortality prediction model and is NOT a verbatim HumMod module.
-//
-// Calibration anchors:
-// - A low-SvO2 shock marker of 45% is used only as an engineering warning
-//   signal inside the published 30-50% range associated with critical oxygen
-//   delivery / depleted extraction reserve. It is not a universal clinical
-//   decompensation threshold.
-// - Mean cardiovascular-collapse time 35 +/- 11 min in fixed-rate porcine
-//   hemorrhage (Navarro e Lima et al., J Trauma Acute Care Surg 2012).
-// - Severe shock/lactic acidosis depressed myocardial elastance from ~2.87
-//   to ~0.50 mmHg/uL in an experimental model (Kimmoun et al.,
-//   Anesthesiology 2013); ratio ~= 0.17.
-// - Cardiovascular collapse definition from Gomez et al.:
-//   MAP <30 mmHg for 10 min or MAP <20 mmHg for 10 sec.
-//
-// The 35-minute collapse time is used only to normalize accumulated oxygen
-// debt into a bounded severe-shock injury signal. It is not claimed to be a
-// universal human survival time or a patient-specific death threshold.
-
-const LOW_SVO2_SHOCK_MARKER_FRACTION = 0.45;
-const ORGAN_FLOW_RISK_MAP_MMHG = 50;
-const COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN = 35;
-const MYOCARDIAL_CONTRACTILITY_FLOOR = 0.50 / 2.87;
-const CARDIOVASCULAR_COLLAPSE_MAP_MMHG = 30;
-const CARDIOVASCULAR_COLLAPSE_MAP_SEC = 10 * 60;
-const PROFOUND_COLLAPSE_MAP_MMHG = 20;
-const PROFOUND_COLLAPSE_MAP_SEC = 10;
-
-function finite(v, label) {
-  if (typeof v !== 'number' || !Number.isFinite(v)) {
-    throw new Error(label + ' must be finite');
-  }
-  return v;
-}
-function nonNegative(v, label) {
-  finite(v, label);
-  if (v < 0) throw new Error(label + ' must be >= 0');
-  return v;
-}
-function positive(v, label) {
-  finite(v, label);
-  if (!(v > 0)) throw new Error(label + ' must be > 0');
-  return v;
-}
-function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v));
-}
-
-function classifyStage({
-  cardiacArrest,
-  equivalentDebtMinutes,
-  svo2Fraction,
-  mapMmHg,
-  oxygenSupplyDeficitMlPerMin,
-}) {
-  if (cardiacArrest) return 'cardiac-arrest';
-  if (equivalentDebtMinutes >= COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN) {
-    return 'refractory-shock';
-  }
-  if (equivalentDebtMinutes >= COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN * 0.5) {
-    return 'decompensated-shock';
-  }
-  if (oxygenSupplyDeficitMlPerMin > 0) return 'oxygen-debt';
-  if (svo2Fraction < LOW_SVO2_SHOCK_MARKER_FRACTION ||
-      mapMmHg < ORGAN_FLOW_RISK_MAP_MMHG) {
-    return 'compensated-shock';
-  }
-  return 'stable';
-}
-
-function createHumModArdsDecompensationController() {
-  let oxygenDebtMl = 0;
-  let lowMapBelow30Sec = 0;
-  let lowMapBelow20Sec = 0;
-  let cardiacArrest = false;
-  let last = null;
-
-  function step({
-    dtSec,
-    meanArterialPressureMmHg,
-    mixedVenousO2SaturationFraction,
-    requestedTissueO2UseMlPerMin,
-    oxygenSupplyDeficitMlPerMin,
-  } = {}) {
-    positive(dtSec, 'dtSec');
-    finite(meanArterialPressureMmHg, 'meanArterialPressureMmHg');
-    finite(mixedVenousO2SaturationFraction,
-      'mixedVenousO2SaturationFraction');
-    positive(requestedTissueO2UseMlPerMin,
-      'requestedTissueO2UseMlPerMin');
-    nonNegative(oxygenSupplyDeficitMlPerMin,
-      'oxygenSupplyDeficitMlPerMin');
-
-    if (!cardiacArrest) {
-      oxygenDebtMl += oxygenSupplyDeficitMlPerMin * (dtSec / 60);
-
-      lowMapBelow30Sec = meanArterialPressureMmHg <
-        CARDIOVASCULAR_COLLAPSE_MAP_MMHG
-        ? lowMapBelow30Sec + dtSec
-        : 0;
-      lowMapBelow20Sec = meanArterialPressureMmHg <
-        PROFOUND_COLLAPSE_MAP_MMHG
-        ? lowMapBelow20Sec + dtSec
-        : 0;
-
-      if (lowMapBelow30Sec >= CARDIOVASCULAR_COLLAPSE_MAP_SEC ||
-          lowMapBelow20Sec >= PROFOUND_COLLAPSE_MAP_SEC) {
-        cardiacArrest = true;
-      }
-    }
-
-    const equivalentDebtMinutes =
-      oxygenDebtMl / requestedTissueO2UseMlPerMin;
-    const metabolicFailureFraction = clamp(
-      equivalentDebtMinutes /
-        COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN,
-      0, 1);
-
-    // Bounded myocardial depression calibrated to the severe-shock elastance
-    // ratio above. This is deliberately applied to contractility, not HR, so
-    // catecholaminergic tachycardia can coexist with progressive pump failure.
-    const myocardialContractilityMultiplier =
-      1 - metabolicFailureFraction *
-        (1 - MYOCARDIAL_CONTRACTILITY_FLOOR);
-
-    const stage = classifyStage({
-      cardiacArrest,
-      equivalentDebtMinutes,
-      svo2Fraction: mixedVenousO2SaturationFraction,
-      mapMmHg: meanArterialPressureMmHg,
-      oxygenSupplyDeficitMlPerMin,
-    });
-
-    last = Object.freeze({
-      stage,
-      alive: !cardiacArrest,
-      cardiacArrest,
-      oxygenDebtMl,
-      equivalentDebtMinutes,
-      metabolicFailureFraction,
-      myocardialContractilityMultiplier,
-      mixedVenousO2SaturationFraction,
-      meanArterialPressureMmHg,
-      lowMapBelow30Sec,
-      lowMapBelow20Sec,
-      lowSvo2ShockMarkerFraction:
-        LOW_SVO2_SHOCK_MARKER_FRACTION,
-    });
-    return snapshot();
-  }
-
-  function snapshot() {
-    return Object.freeze(last || {
-      stage: 'stable',
-      alive: true,
-      cardiacArrest: false,
-      oxygenDebtMl,
-      equivalentDebtMinutes: 0,
-      metabolicFailureFraction: 0,
-      myocardialContractilityMultiplier: 1,
-      lowMapBelow30Sec,
-      lowMapBelow20Sec,
-      lowSvo2ShockMarkerFraction:
-        LOW_SVO2_SHOCK_MARKER_FRACTION,
-    });
-  }
-
-  return Object.freeze({
-    kind: 'hummod-ards-decompensation-controller',
-    step,
-    snapshot,
-  });
-}
-
-module.exports = {
-  LOW_SVO2_SHOCK_MARKER_FRACTION,
-  ORGAN_FLOW_RISK_MAP_MMHG,
-  COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN,
-  MYOCARDIAL_CONTRACTILITY_FLOOR,
-  CARDIOVASCULAR_COLLAPSE_MAP_MMHG,
-  CARDIOVASCULAR_COLLAPSE_MAP_SEC,
-  PROFOUND_COLLAPSE_MAP_MMHG,
-  PROFOUND_COLLAPSE_MAP_SEC,
-  createHumModArdsDecompensationController,
 };
 
 },

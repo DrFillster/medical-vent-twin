@@ -57,10 +57,11 @@ function createHumModArdsCirculation({
     volumes[name] = positive(initialVolumesMl[name], 'initialVolumesMl.' + name);
   }
 
-  positive(boundaries.heartRatePerMin, 'heartRatePerMin');
-  positive(boundaries.systemicArterialConductanceMlPerMinPerMmHg,
+  let activeBoundaries = { ...boundaries };
+  positive(activeBoundaries.heartRatePerMin, 'heartRatePerMin');
+  positive(activeBoundaries.systemicArterialConductanceMlPerMinPerMmHg,
     'systemicArterialConductanceMlPerMinPerMmHg');
-  positive(boundaries.systemicVenousConductanceMlPerMinPerMmHg,
+  positive(activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg,
     'systemicVenousConductanceMlPerMinPerMmHg');
   positive(maxSubstepSec, 'maxSubstepSec');
 
@@ -79,7 +80,9 @@ function createHumModArdsCirculation({
     });
     const sv = stressedVolumePressure({
       volumeMl: volumes.systemicVeins,
-      v0Ml: VASCULAR_DEFAULTS.systemicVeins.v0Ml,
+      v0Ml: activeBoundaries.systemicVenousV0Ml == null
+        ? VASCULAR_DEFAULTS.systemicVeins.v0Ml
+        : activeBoundaries.systemicVenousV0Ml,
       complianceMlPerMmHg: VASCULAR_DEFAULTS.systemicVeins.complianceMlPerMmHg,
       externalPressureMmHg: 0,
     });
@@ -124,21 +127,22 @@ function createHumModArdsCirculation({
 
     const systemicOutflow = conductanceFlow({
       conductanceMlPerMinPerMmHg:
-        boundaries.systemicArterialConductanceMlPerMinPerMmHg,
+        activeBoundaries.systemicArterialConductanceMlPerMinPerMmHg,
       upstreamPressureMmHg: p.sa.pressureMmHg,
       downstreamPressureMmHg: p.sv.pressureMmHg,
     });
 
     const venousReturn = conductanceFlow({
       conductanceMlPerMinPerMmHg:
-        boundaries.systemicVenousConductanceMlPerMinPerMmHg,
+        activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg,
       upstreamPressureMmHg: p.sv.pressureMmHg,
       downstreamPressureMmHg: p.ra.pressureMmHg,
     });
 
     const pulmonaryArterialOutflow = conductanceFlow({
       conductanceMlPerMinPerMmHg:
-        VASCULAR_DEFAULTS.pulmonaryArtery.conductanceMlPerMinPerMmHg,
+        VASCULAR_DEFAULTS.pulmonaryArtery.conductanceMlPerMinPerMmHg *
+        (activeBoundaries.pulmonaryArterialConductanceMultiplier || 1),
       upstreamPressureMmHg: p.pa.pressureMmHg,
       downstreamPressureMmHg: p.pc.pressureMmHg,
     });
@@ -160,18 +164,18 @@ function createHumModArdsCirculation({
       atrialPressureMmHg: p.ra.pressureMmHg,
       arterialPressureMmHg: p.pa.pressureMmHg,
       pericardialPressureMmHg: boundaryNow.pericardialPressureMmHg,
-      heartRatePerMin: boundaries.heartRatePerMin,
-      contractilityMultiplier: boundaries.rightContractilityMultiplier || 1,
-      stiffnessMultiplier: boundaries.rightStiffnessMultiplier || 1,
+      heartRatePerMin: activeBoundaries.heartRatePerMin,
+      contractilityMultiplier: activeBoundaries.rightContractilityMultiplier || 1,
+      stiffnessMultiplier: activeBoundaries.rightStiffnessMultiplier || 1,
     });
     const leftPump = ventricularPump({
       side: 'left',
       atrialPressureMmHg: p.la.pressureMmHg,
       arterialPressureMmHg: p.sa.pressureMmHg,
       pericardialPressureMmHg: boundaryNow.pericardialPressureMmHg,
-      heartRatePerMin: boundaries.heartRatePerMin,
-      contractilityMultiplier: boundaries.leftContractilityMultiplier || 1,
-      stiffnessMultiplier: boundaries.leftStiffnessMultiplier || 1,
+      heartRatePerMin: activeBoundaries.heartRatePerMin,
+      contractilityMultiplier: activeBoundaries.leftContractilityMultiplier || 1,
+      stiffnessMultiplier: activeBoundaries.leftStiffnessMultiplier || 1,
     });
 
     if (rightPump.bloodFlowMlPerMin < 0 || leftPump.bloodFlowMlPerMin < 0) {
@@ -217,6 +221,24 @@ function createHumModArdsCirculation({
     };
   }
 
+  function setBoundaries(next = {}) {
+    const merged = { ...activeBoundaries, ...next };
+    positive(merged.heartRatePerMin, 'heartRatePerMin');
+    positive(merged.systemicArterialConductanceMlPerMinPerMmHg,
+      'systemicArterialConductanceMlPerMinPerMmHg');
+    positive(merged.systemicVenousConductanceMlPerMinPerMmHg,
+      'systemicVenousConductanceMlPerMinPerMmHg');
+    if (merged.systemicVenousV0Ml != null) {
+      nonNegative(merged.systemicVenousV0Ml, 'systemicVenousV0Ml');
+    }
+    if (merged.pulmonaryArterialConductanceMultiplier != null) {
+      positive(merged.pulmonaryArterialConductanceMultiplier,
+        'pulmonaryArterialConductanceMultiplier');
+    }
+    activeBoundaries = merged;
+    return Object.freeze({ ...activeBoundaries });
+  }
+
   function step({ dtSec, thoracicPressureMmHg, pericardialPressureMmHg } = {}) {
     positive(dtSec, 'dtSec');
     finite(thoracicPressureMmHg, 'thoracicPressureMmHg');
@@ -247,6 +269,19 @@ function createHumModArdsCirculation({
       timeSec,
       volumesMl: Object.freeze({ ...volumes }),
       ...(last || {}),
+      activeBoundaries: Object.freeze({ ...activeBoundaries }),
+      derivedResistance: Object.freeze({
+        systemicVascularResistanceMmHgMinPerL:
+          last && last.flowsMlPerMin.systemicOutflow > 0
+            ? (last.pressures.systemicArterialMmHg - last.pressures.systemicVenousMmHg) /
+              (last.flowsMlPerMin.systemicOutflow / 1000)
+            : null,
+        pulmonaryVascularResistanceMmHgMinPerL:
+          last && last.flowsMlPerMin.pulmonaryArterialOutflow > 0
+            ? (last.pressures.pulmonaryArteryMmHg - last.pressures.pulmonaryCapillaryMmHg) /
+              (last.flowsMlPerMin.pulmonaryArterialOutflow / 1000)
+            : null,
+      }),
       provenance: Object.freeze({
         status: 'reduced-order-source-aligned-circulation',
         detailedOrganCirculation:
@@ -256,7 +291,7 @@ function createHumModArdsCirculation({
     });
   }
 
-  return Object.freeze({ kind:'hummod-ards-circulation', step, snapshot });
+  return Object.freeze({ kind:'hummod-ards-circulation', step, snapshot, setBoundaries });
 }
 
 module.exports = { createHumModArdsCirculation };

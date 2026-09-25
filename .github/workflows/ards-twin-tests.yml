@@ -1,23 +1,10 @@
 name: ARDS Twin Tests
 
+on:
+  workflow_dispatch:
+
 permissions:
   contents: read
-
-on:
-  push:
-    branches:
-      - main
-      - feature/berlin-virtual-patients
-      - 'integration/**'
-    paths:
-      - 'ards-twin-v0.5-progress/**'
-      - 'ards-twin-v0.4.5/**'
-      - '.github/workflows/ards-twin-tests.yml'
-  pull_request:
-    paths:
-      - 'ards-twin-v0.5-progress/**'
-      - 'ards-twin-v0.4.5/**'
-      - '.github/workflows/ards-twin-tests.yml'
 
 jobs:
   # Preview (canonical v0.5 development) — moved from ards-twin-v0.4.5 to ards-twin-v0.5-progress

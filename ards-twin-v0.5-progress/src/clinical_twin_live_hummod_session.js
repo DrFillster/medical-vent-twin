@@ -281,6 +281,8 @@ function createBerlinLiveHumModSession({
     }
     const circ = last.circulation;
     const gas = last.gas;
+    const decomp = last.decompensation || null;
+    const arrested = Boolean(decomp && decomp.cardiacArrest);
     return Object.freeze({
       source: 'reduced-source-aligned-HumMod-ARDS-core',
       status: 'live-coupled-experimental',
@@ -289,15 +291,48 @@ function createBerlinLiveHumModSession({
         paco2MmHg: gas.gases.arterial.pco2MmHg,
         pH: gas.gases.arterial.pH,
         sao2Fraction: gas.gases.arterial.saturationFraction,
+        pvo2MmHg: gas.gases.venous.po2MmHg,
+        svo2Fraction: gas.gases.venous.saturationFraction,
+        requestedTissueO2UseMlPerMin:
+          gas.exchange?.massBalance?.requestedTissueO2UseMlPerMin ?? null,
+        actualTissueO2UseMlPerMin:
+          gas.exchange?.massBalance?.actualTissueO2UseMlPerMin ?? null,
+        oxygenSupplyDeficitMlPerMin:
+          gas.exchange?.massBalance?.oxygenSupplyDeficitMlPerMin ?? null,
       }),
       hemodynamics: Object.freeze({
-        heartRatePerMin:
-          effectiveCirculationBoundaries.heartRatePerMin,
+        heartRatePerMin: arrested
+          ? 0
+          : (circ.activeBoundaries?.heartRatePerMin ??
+            effectiveCirculationBoundaries.heartRatePerMin),
         meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
         rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
         pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
-        cardiacOutputMlPerMin: circ.flowsMlPerMin.leftVentricular,
+        cardiacOutputMlPerMin: arrested ? 0 : circ.flowsMlPerMin.leftVentricular,
+        strokeVolumeMl: arrested ? 0 : (circ.leftVentricle?.strokeVolumeMl ?? null),
+        systemicVascularResistanceMmHgMinPerL:
+          circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
+        pulmonaryVascularResistanceMmHgMinPerL:
+          circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
+        contractilityMultiplier:
+          last.effectiveContractilityMultiplier ??
+          circ.activeBoundaries?.leftContractilityMultiplier ?? null,
+        sympatheticTone: last.autonomic?.sympatheticTone ?? null,
+        parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
+        catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
       }),
+      decompensation: decomp ? Object.freeze({
+        stage: decomp.stage,
+        alive: decomp.alive,
+        cardiacArrest: decomp.cardiacArrest,
+        oxygenDebtMl: decomp.oxygenDebtMl,
+        equivalentDebtMinutes: decomp.equivalentDebtMinutes,
+        metabolicFailureFraction: decomp.metabolicFailureFraction,
+        myocardialContractilityMultiplier:
+          decomp.myocardialContractilityMultiplier,
+        lowMapBelow30Sec: decomp.lowMapBelow30Sec,
+        lowMapBelow20Sec: decomp.lowMapBelow20Sec,
+      }) : null,
       thorax: Object.freeze({
         meanAirwayPressureCmH2O: last.meanAirwayPressureCmH2O,
         pleuralPressureCmH2O: last.thorax.pleuralPressureCmH2O,
@@ -496,15 +531,56 @@ function createBerlinLiveHumModSession({
       return snapshot();
     },
 
-    requestInspiratoryHold(durationSec) {
+    requestInspiratoryHold(durationSec = 0.5) {
       if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(durationSec, 'durationSec');
+      if (simulation.pendingControllerChange) {
+        throw new Error('inspiratory hold requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+      const startVentTime = simulation.state.t;
+      const previousCount = simulation.measurements
+        .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
+      advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
+      const elapsed = simulation.state.t - startVentTime;
+      if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+      const mechanics = summarizeSimulationMeasurements(simulation);
+      sessionEvents.push(Object.freeze({
+        t: systemicSnapshot.timeSec,
+        kind: 'INSPIRATORY_HOLD_COMPLETED',
+        plateauPressureCmH2O: mechanics.plateauPressureCmH2O,
+        holdDurationSec: durationSec,
+      }));
       return snapshot();
     },
 
-    requestExpiratoryHold(durationSec) {
+    requestExpiratoryHold(durationSec = 0.5) {
       if (!initialized) throw new Error('session must be initialized before interventions');
+      positive(durationSec, 'durationSec');
+      if (simulation.pendingControllerChange) {
+        throw new Error('expiratory hold requires stable ventilator settings; a controller change is pending');
+      }
+      if (simulation.pendingManeuver || simulation.activeManeuver) {
+        throw new Error('a ventilator maneuver is already pending or active');
+      }
+      const startVentTime = simulation.state.t;
+      const previousCount = simulation.measurements
+        .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
+      advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
+      const elapsed = simulation.state.t - startVentTime;
+      if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+      const mechanics = summarizeSimulationMeasurements(simulation);
+      sessionEvents.push(Object.freeze({
+        t: systemicSnapshot.timeSec,
+        kind: 'EXPIRATORY_HOLD_COMPLETED',
+        totalPeepCmH2O: mechanics.totalPeepCmH2O,
+        intrinsicPeepCmH2O: mechanics.intrinsicPeepCmH2O,
+        holdDurationSec: durationSec,
+      }));
       return snapshot();
     },
 
