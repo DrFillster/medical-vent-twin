@@ -327,7 +327,9 @@ function Save-Solution([string]$path) {
     Where-Object { $_.Path -match '(?i)/File/.*save.*sol' })
   if($save.Count -ne 1) { throw 'Cannot identify unique Save Solution command.' }
   [HumModHostNative]::Command($main.Handle,$save[0].Id)
-  Start-Sleep -Milliseconds 800
+  # The native Windows common dialog builds its filename controls asynchronously.
+  # The verified legacy exporter requires ~3 s here on GitHub's Windows runner.
+  Start-Sleep -Seconds 3
 
   $dialog = Wait-FileDialog 'Save Solution'
   Set-FileDialogPath $dialog.Handle $path 'Save Solution'
@@ -342,7 +344,8 @@ function Load-Solution([string]$path) {
   $resolved = (Resolve-Path $path).Path
   $load = Get-Menu '/File/Load Solution'
   [HumModHostNative]::Command($main.Handle,$load.Id)
-  Start-Sleep -Milliseconds 800
+  # Match the timing proven by the native exporter for the common Open dialog.
+  Start-Sleep -Seconds 3
 
   $dialog = Wait-FileDialog 'Load Solution'
   Set-FileDialogPath $dialog.Handle $resolved 'Load Solution'
@@ -350,7 +353,8 @@ function Load-Solution([string]$path) {
   $button = @($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
   if($button.Count -ne 1) { throw 'Cannot identify Load button.' }
   [HumModHostNative]::PostMessage([IntPtr]$button[0].Handle,0xF5,[IntPtr]::Zero,[IntPtr]::Zero) | Out-Null
-  Start-Sleep -Milliseconds 1200
+  # Give HumMod time to deserialize and apply the complete solution state.
+  Start-Sleep -Seconds 8
 
   $errors = @([HumModHostNative]::Windows([uint32]$proc.Id,$true) |
     Where-Object { $_.Text -match 'PARSER REPORT|Parsing Error' })
