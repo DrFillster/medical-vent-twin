@@ -1,0 +1,40 @@
+name: One-shot HumMod Membrane Sensitivity Grid
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-hummod-membrane-sensitivity-grid
+
+permissions:
+  contents: read
+
+jobs:
+  membrane-grid:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run membrane sensitivity grid
+        run: node hummod-core-probe/membrane-sensitivity-grid.js hummod-standalone runtime/membrane-sensitivity-grid
+
+      - name: Upload sensitivity artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-membrane-sensitivity-grid
+          path: runtime/membrane-sensitivity-grid/
+          if-no-files-found: error
