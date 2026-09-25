@@ -21,6 +21,10 @@ public class NativeWindow {
   public int Id;
   public string Class;
   public string Text;
+  public int Left;
+  public int Top;
+  public int Width;
+  public int Height;
 }
 public class NativeMenu {
   public uint Id;
@@ -34,6 +38,12 @@ public static class HumModHostNative {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder text, int count);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder text, int count);
   [DllImport("user32.dll")] static extern int GetDlgCtrlID(IntPtr h);
+  [DllImport("user32.dll")] static extern IntPtr GetDlgItem(IntPtr h, int id);
+  [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr h);
+  [DllImport("user32.dll")] static extern int GetScrollPos(IntPtr h, int bar);
+  [DllImport("user32.dll")] static extern int SetScrollPos(IntPtr h, int bar, int pos, bool redraw);
+  [DllImport("user32.dll")] static extern bool GetScrollRange(IntPtr h, int bar, out int min, out int max);
+  [DllImport("user32.dll", EntryPoint="SendMessageW")] static extern IntPtr SendRaw(IntPtr h, uint msg, IntPtr w, IntPtr l);
   [DllImport("user32.dll")] static extern IntPtr GetMenu(IntPtr h);
   [DllImport("user32.dll")] static extern int GetMenuItemCount(IntPtr m);
   [DllImport("user32.dll")] static extern IntPtr GetSubMenu(IntPtr m, int pos);
@@ -41,6 +51,9 @@ public static class HumModHostNative {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetMenuString(IntPtr m, uint pos, StringBuilder text, int count, uint flags);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [StructLayout(LayoutKind.Sequential)]
+  struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+  [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll", EntryPoint="SendMessageW")] static extern IntPtr SendValue(IntPtr h, uint msg, IntPtr w, IntPtr l);
 
   static NativeWindow Describe(IntPtr h) {
@@ -48,11 +61,16 @@ public static class HumModHostNative {
     var cls = new StringBuilder(256);
     GetWindowText(h, text, text.Capacity);
     GetClassName(h, cls, cls.Capacity);
+    RECT r; GetWindowRect(h, out r);
     return new NativeWindow {
       Handle = h.ToInt64(),
       Id = GetDlgCtrlID(h),
       Class = cls.ToString(),
-      Text = text.ToString()
+      Text = text.ToString(),
+      Left = r.Left,
+      Top = r.Top,
+      Width = r.Right - r.Left,
+      Height = r.Bottom - r.Top
     };
   }
 
@@ -100,6 +118,35 @@ public static class HumModHostNative {
     var rows = new List<NativeMenu>();
     Walk(GetMenu(new IntPtr(handle)), "", rows);
     return rows.ToArray();
+  }
+
+  public static long Control(long parentHandle, int id) {
+    return GetDlgItem(new IntPtr(parentHandle), id).ToInt64();
+  }
+
+  public static int ScrollPos(long handle) {
+    return GetScrollPos(new IntPtr(handle), 2);
+  }
+
+  public static int[] ScrollRange(long handle) {
+    int min, max;
+    if (!GetScrollRange(new IntPtr(handle), 2, out min, out max)) {
+      throw new Exception("GetScrollRange failed");
+    }
+    return new int[]{min,max};
+  }
+
+  public static void SetScroll(long handle, int pos) {
+    IntPtr h = new IntPtr(handle);
+    IntPtr parent = GetParent(h);
+    SetScrollPos(h, 2, pos, true);
+    long thumb = ((long)(pos & 0xffff) << 16) | 4; // SB_THUMBPOSITION
+    SendRaw(parent, 0x0114, new IntPtr(thumb), h); // WM_HSCROLL
+    SendRaw(parent, 0x0114, new IntPtr(8), h);     // SB_ENDSCROLL
+  }
+
+  public static void Click(long handle) {
+    SendRaw(new IntPtr(handle), 0x00F5, IntPtr.Zero, IntPtr.Zero); // BM_CLICK
   }
 
   public static void Command(long handle, uint command) {
@@ -453,6 +500,143 @@ $allowedSetSymbols=@{
   'RightHemithorax.NormalPressure'=@{min=[double]::NegativeInfinity;max=[double]::PositiveInfinity;integer=$false}
 }
 
+
+function Open-Panel([string]$path) {
+  $menu=Get-Menu $path
+  [HumModHostNative]::Command($main.Handle,$menu.Id)
+  Start-Sleep -Milliseconds 500
+}
+
+function Native-Control([int]$id,[string]$label) {
+  $handle=[HumModHostNative]::Control($main.Handle,$id)
+  if($handle -eq 0){ throw "Cannot locate live control $label (id=$id)" }
+  return $handle
+}
+
+function Set-LiveScrollByPosition([int]$id,[int]$position,[string]$label) {
+  $handle=Native-Control $id $label
+  $range=[HumModHostNative]::ScrollRange($handle)
+  if($position -lt $range[0] -or $position -gt $range[1]){
+    throw "$label position $position outside native scrollbar range $($range[0])..$($range[1])"
+  }
+  [HumModHostNative]::SetScroll($handle,$position)
+  Start-Sleep -Milliseconds 150
+  return [ordered]@{
+    id=$id
+    requestedPosition=$position
+    actualPosition=[HumModHostNative]::ScrollPos($handle)
+    minimum=$range[0]
+    maximum=$range[1]
+  }
+}
+
+function Click-LiveButton([int]$id,[string]$label) {
+  $handle=Native-Control $id $label
+  [HumModHostNative]::Click($handle)
+  Start-Sleep -Milliseconds 150
+}
+
+function Apply-LiveControls($assignments) {
+  if($null -eq $assignments){ throw 'live-set requires assignments' }
+  $diag=[ordered]@{}
+
+  $ventNames=@(
+    'Ventilator.Switch',
+    'Ventilator.Rate',
+    'Ventilator.TidalVolume'
+  )
+  if(@($assignments.PSObject.Properties | Where-Object { $ventNames -contains $_.Name }).Count){
+    Open-Panel '/Clinic/Ventilator'
+    if($null -ne $assignments.'Ventilator.Switch'){
+      $v=[int]$assignments.'Ventilator.Switch'
+      if($v -ne 0 -and $v -ne 1){ throw 'Ventilator.Switch must be 0 or 1' }
+      Click-LiveButton ($(if($v -eq 1){15489}else{15487})) 'Ventilator.Switch'
+    }
+    if($null -ne $assignments.'Ventilator.Rate'){
+      $v=[double]$assignments.'Ventilator.Rate'
+      if($v -lt 0 -or $v -gt 49 -or $v -ne [math]::Round($v)){ throw 'Ventilator.Rate live control supports integer 0..49' }
+      $diag['Ventilator.Rate']=Set-LiveScrollByPosition 15491 ([int]$v) 'Ventilator.Rate'
+    }
+    if($null -ne $assignments.'Ventilator.TidalVolume'){
+      $v=[double]$assignments.'Ventilator.TidalVolume'
+      if($v -lt 0 -or $v -gt 1990 -or (($v/10)-ne [math]::Round($v/10))){ throw 'Ventilator.TidalVolume live control supports 10-mL steps' }
+      $diag['Ventilator.TidalVolume']=Set-LiveScrollByPosition 15494 ([int]($v/10)) 'Ventilator.TidalVolume'
+    }
+  }
+
+  $thoraxNames=@('LeftHemithorax.NormalPressure','RightHemithorax.NormalPressure')
+  if(@($assignments.PSObject.Properties | Where-Object { $thoraxNames -contains $_.Name }).Count){
+    Open-Panel '/Physiology/Lungs/Thorax'
+    if($null -ne $assignments.'RightHemithorax.NormalPressure'){
+      $v=[double]$assignments.'RightHemithorax.NormalPressure'
+      if($v -lt -10 -or $v -gt 19 -or $v -ne [math]::Round($v)){ throw 'RightHemithorax.NormalPressure live control supports integer -10..19 mmHg' }
+      $diag['RightHemithorax.NormalPressure']=Set-LiveScrollByPosition 4220 ([int]($v+10)) 'RightHemithorax.NormalPressure'
+    }
+    if($null -ne $assignments.'LeftHemithorax.NormalPressure'){
+      $v=[double]$assignments.'LeftHemithorax.NormalPressure'
+      if($v -lt -10 -or $v -gt 19 -or $v -ne [math]::Round($v)){ throw 'LeftHemithorax.NormalPressure live control supports integer -10..19 mmHg' }
+      $diag['LeftHemithorax.NormalPressure']=Set-LiveScrollByPosition 4233 ([int]($v+10)) 'LeftHemithorax.NormalPressure'
+    }
+  }
+
+  # Air Supply controls are discovered dynamically by class/geometry after opening
+  # the pinned panel because control IDs are generated by the display parser.
+  $gasNames=@(
+    'AirSupply-GasTanks.Switch',
+    'AirSupply-GasTanks.O2Valve(%)',
+    'AirSupply-GasTanks.N2Valve(%)',
+    'AirSupply-GasTanks.CO2Valve(%)'
+  )
+  if(@($assignments.PSObject.Properties | Where-Object { $gasNames -contains $_.Name }).Count){
+    Open-Panel '/Lifestyle/Air Supply'
+    $children=@([HumModHostNative]::Children($main.Handle))
+    # Gas Tanks is the upper-right group on the pinned Air Supply panel.
+    # Select native ScrollBar controls in that spatial region and order top-to-bottom:
+    # O2, N2, CO2, CO, anesthetic. This excludes the lower Pressure Chamber control.
+    $gasScrolls=@($children | Where-Object {
+      $_.Class -eq 'ScrollBar' -and
+      $_.Left -ge ($main.Left + 240) -and
+      $_.Top -lt ($main.Top + 260)
+    } | Sort-Object Top)
+    if($gasScrolls.Count -ne 5){
+      $summary=($children | Where-Object { $_.Class -eq 'ScrollBar' } |
+        ForEach-Object { "id=$($_.Id),left=$($_.Left),top=$($_.Top)" }) -join '; '
+      throw "Expected exactly 5 Gas Tanks scrollbars; found $($gasScrolls.Count). All scrollbars: $summary"
+    }
+    if($null -ne $assignments.'AirSupply-GasTanks.Switch'){
+      $firstScroll=($gasScrolls | Select-Object -First 1)
+      $candidate=@($children | Where-Object {
+        $_.Class -eq 'Button' -and
+        $_.Top -lt $firstScroll.Top -and
+        $_.Top -ge ($firstScroll.Top - 40) -and
+        $_.Left -ge ($firstScroll.Left - 10) -and
+        $_.Left -le ($firstScroll.Left + 100)
+      } | Sort-Object Left)
+      if($candidate.Count -ne 2){ throw "Cannot identify Gas Tanks switch buttons; found $($candidate.Count)" }
+      $v=[int]$assignments.'AirSupply-GasTanks.Switch'
+      Click-LiveButton ($(if($v -eq 1){$candidate[1].Id}else{$candidate[0].Id})) 'AirSupply-GasTanks.Switch'
+      $diag['AirSupply-GasTanks.Switch']=[ordered]@{offId=$candidate[0].Id;onId=$candidate[1].Id}
+    }
+    if($null -ne $assignments.'AirSupply-GasTanks.O2Valve(%)'){
+      $v=[double]$assignments.'AirSupply-GasTanks.O2Valve(%)'
+      if($v -lt 0 -or $v -gt 100 -or $v -ne [math]::Round($v)){ throw 'O2 valve live control supports integer percent' }
+      $diag['AirSupply-GasTanks.O2Valve(%)']=Set-LiveScrollByPosition $gasScrolls[0].Id ([int]$v) 'O2Valve'
+    }
+    if($null -ne $assignments.'AirSupply-GasTanks.N2Valve(%)'){
+      $v=[double]$assignments.'AirSupply-GasTanks.N2Valve(%)'
+      if($v -lt 0 -or $v -gt 100 -or $v -ne [math]::Round($v)){ throw 'N2 valve live control supports integer percent' }
+      $diag['AirSupply-GasTanks.N2Valve(%)']=Set-LiveScrollByPosition $gasScrolls[1].Id ([int]$v) 'N2Valve'
+    }
+    if($null -ne $assignments.'AirSupply-GasTanks.CO2Valve(%)'){
+      $v=[double]$assignments.'AirSupply-GasTanks.CO2Valve(%)'
+      if($v -ne 0){ throw 'live coupling v1 currently supports CO2Valve only at 0%' }
+      $diag['AirSupply-GasTanks.CO2Valve(%)']=Set-LiveScrollByPosition $gasScrolls[2].Id 0 'CO2Valve'
+    }
+  }
+
+  return $diag
+}
+
 function Apply-Assignments($assignments) {
   if($null -eq $assignments){ throw 'set requires assignments' }
   $script:readCounter += 1
@@ -575,6 +759,18 @@ try {
         'set' {
           $snap=Apply-Assignments $cmd.assignments
           Emit ([ordered]@{ok=$true;command='set';simulationTimeSec=$snap.simulationTimeSec;state=$snap.state})
+        }
+        'live-set' {
+          $diag=Apply-LiveControls $cmd.assignments
+          $symbols=@($cmd.assignments.PSObject.Properties.Name)
+          $snap=Snapshot $symbols
+          Emit ([ordered]@{ok=$true;command='live-set';simulationTimeSec=$snap.simulationTimeSec;state=$snap.state;controls=$diag})
+        }
+        'inspect-menu' {
+          $items=@([HumModHostNative]::Menu($main.Handle) | ForEach-Object {
+            [ordered]@{id=$_.Id;path=$_.Path}
+          })
+          Emit ([ordered]@{ok=$true;command='inspect-menu';items=$items})
         }
         'terminate' {
           Emit ([ordered]@{ok=$true;command='terminate'})
