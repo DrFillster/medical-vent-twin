@@ -1,0 +1,40 @@
+name: One-shot HumMod Membrane Diffusion Validation
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-hummod-membrane-diffusion-validation
+
+permissions:
+  contents: read
+
+jobs:
+  validate-membrane-diffusion:
+    runs-on: windows-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run membrane diffusion validation
+        run: node hummod-core-probe/membrane-diffusion-validation.js hummod-standalone runtime/membrane-diffusion-validation
+
+      - name: Upload validation artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-membrane-diffusion-validation
+          path: runtime/membrane-diffusion-validation/
+          if-no-files-found: error
