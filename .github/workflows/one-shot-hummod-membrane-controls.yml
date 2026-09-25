@@ -1,0 +1,40 @@
+name: One-shot HumMod Membrane Controls
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-hummod-membrane-controls
+
+permissions:
+  contents: read
+
+jobs:
+  membrane-controls:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+
+      - name: Discover membrane live controls
+        shell: powershell
+        run: |
+          ./hummod-core-probe/membrane-live-control-probe.ps1 `
+            -HumModRoot ./hummod-standalone `
+            -OutputDirectory ./runtime/membrane-controls
+
+      - name: Upload membrane control artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-membrane-controls
+          path: runtime/membrane-controls/
+          if-no-files-found: error
