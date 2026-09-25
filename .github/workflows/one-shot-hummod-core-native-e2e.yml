@@ -28,8 +28,12 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run native HumMod persistent E2E
-        run: node hummod-core-probe/manual-native-e2e.js hummod-standalone runtime/hummod-core-native-e2e
+      - name: Run noninteractive scripted HumMod probe
+        shell: pwsh
+        run: |
+          ./hummod-core-probe/scripted-native-probe.ps1 `
+            -HumModRoot ./hummod-standalone `
+            -OutputDirectory ./runtime/hummod-core-native-e2e
 
       - name: Upload native E2E artifacts
         if: always()
