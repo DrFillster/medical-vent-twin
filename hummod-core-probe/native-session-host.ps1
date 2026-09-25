@@ -40,6 +40,7 @@ public static class HumModHostNative {
   [DllImport("user32.dll")] static extern uint GetMenuItemID(IntPtr m, int pos);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetMenuString(IntPtr m, uint pos, StringBuilder text, int count, uint flags);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll", EntryPoint="SendMessageW")] static extern IntPtr SendValue(IntPtr h, uint msg, IntPtr w, IntPtr l);
 
   static NativeWindow Describe(IntPtr h) {
@@ -128,6 +129,8 @@ public static class HumModHostNative {
 }
 '@
 
+Add-Type -AssemblyName System.Windows.Forms
+
 $proc = $null
 $main = $null
 $readCounter = 0
@@ -144,11 +147,17 @@ function Get-Menu([string]$path) {
 }
 
 function Set-FileDialogPath([long]$dialogHandle,[string]$value,[string]$purpose) {
-  # Explorer-style common dialogs accept CDM_SETCONTROLTEXT even when the
-  # filename field is not exposed as a Win32 child or UIAutomation element.
-  # cmb13 = 0x047c = 1148; edt1 = 0x0480 = 1152.
-  [HumModHostNative]::DialogSetControlText($dialogHandle,1148,$value)
-  [HumModHostNative]::DialogSetControlText($dialogHandle,1152,$value)
+  if(-not [HumModHostNative]::SetForegroundWindow([IntPtr]$dialogHandle)){
+    throw "Cannot focus $purpose dialog"
+  }
+  Start-Sleep -Milliseconds 200
+  [System.Windows.Forms.SendKeys]::SendWait('%n')
+  Start-Sleep -Milliseconds 150
+  [System.Windows.Forms.SendKeys]::SendWait('^a')
+  Start-Sleep -Milliseconds 100
+  # The generated session paths contain no SendKeys metacharacters.
+  [System.Windows.Forms.SendKeys]::SendWait($value)
+  Start-Sleep -Milliseconds 200
 }
 function Wait-FileDialog([string]$purpose,[int]$timeoutSeconds=8) {
   $deadline=(Get-Date).AddSeconds($timeoutSeconds)
@@ -188,7 +197,7 @@ function Wait-FileDialog([string]$purpose,[int]$timeoutSeconds=8) {
   throw ("Timed out waiting for "+$purpose+" dialog. Windows: "+$summary)
 }
 
-function Wait-StableFile([string]$path, [int]$timeoutSeconds = 60) {
+function Wait-StableFile([string]$path, [int]$timeoutSeconds = 20) {
   $deadline = (Get-Date).AddSeconds($timeoutSeconds)
   $lastLength = -1
   while((Get-Date) -lt $deadline) {
@@ -212,7 +221,7 @@ function Save-Solution([string]$path) {
   Start-Sleep -Milliseconds 800
 
   $dialog = Wait-FileDialog 'Save Solution'
-  Set-FileDialogPath $dialog.Handle ('"' + $path + '"') 'Save Solution'
+  Set-FileDialogPath $dialog.Handle $path 'Save Solution'
   $children = @([HumModHostNative]::Children($dialog.Handle))
   $button = @($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
   if($button.Count -ne 1) { throw 'Cannot identify Save button.' }
@@ -227,7 +236,7 @@ function Load-Solution([string]$path) {
   Start-Sleep -Milliseconds 800
 
   $dialog = Wait-FileDialog 'Load Solution'
-  Set-FileDialogPath $dialog.Handle ('"' + $resolved + '"') 'Load Solution'
+  Set-FileDialogPath $dialog.Handle $resolved 'Load Solution'
   $children = @([HumModHostNative]::Children($dialog.Handle))
   $button = @($children | Where-Object { $_.Class -eq 'Button' -and $_.Id -eq 1 })
   if($button.Count -ne 1) { throw 'Cannot identify Load button.' }
