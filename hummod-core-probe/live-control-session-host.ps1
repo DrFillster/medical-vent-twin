@@ -141,12 +141,12 @@ public static class HumModHostNative {
     IntPtr parent = GetParent(h);
     SetScrollPos(h, 2, pos, true);
     long thumb = ((long)(pos & 0xffff) << 16) | 4; // SB_THUMBPOSITION
-    SendRaw(parent, 0x0114, new IntPtr(thumb), h); // WM_HSCROLL
-    SendRaw(parent, 0x0114, new IntPtr(8), h);     // SB_ENDSCROLL
+    PostMessage(parent, 0x0114, new IntPtr(thumb), h); // WM_HSCROLL / SB_THUMBPOSITION
+    PostMessage(parent, 0x0114, new IntPtr(8), h);     // SB_ENDSCROLL
   }
 
   public static void Click(long handle) {
-    SendRaw(new IntPtr(handle), 0x00F5, IntPtr.Zero, IntPtr.Zero); // BM_CLICK
+    PostMessage(new IntPtr(handle), 0x00F5, IntPtr.Zero, IntPtr.Zero); // BM_CLICK
   }
 
   public static void Command(long handle, uint command) {
@@ -536,7 +536,17 @@ function Click-LiveButton([int]$id,[string]$label) {
   Start-Sleep -Milliseconds 150
 }
 
+function Write-LiveControlStage([string]$stage,$data=$null) {
+  $row=[ordered]@{
+    timestamp=(Get-Date).ToString('o')
+    stage=$stage
+    data=$data
+  }
+  $row | ConvertTo-Json -Depth 8 | Add-Content (Join-Path $sessionDir 'live-control-stages.ndjson')
+}
+
 function Apply-LiveControls($assignments) {
+  Write-LiveControlStage 'begin'
   if($null -eq $assignments){ throw 'live-set requires assignments' }
   $diag=[ordered]@{}
 
@@ -546,27 +556,37 @@ function Apply-LiveControls($assignments) {
     'Ventilator.TidalVolume'
   )
   if(@($assignments.PSObject.Properties | Where-Object { $ventNames -contains $_.Name }).Count){
+    Write-LiveControlStage 'ventilator-panel-opening'
     Open-Panel '/Clinic/Ventilator'
+    Write-LiveControlStage 'ventilator-panel-open'
     if($null -ne $assignments.'Ventilator.Switch'){
       $v=[int]$assignments.'Ventilator.Switch'
       if($v -ne 0 -and $v -ne 1){ throw 'Ventilator.Switch must be 0 or 1' }
+      Write-LiveControlStage 'ventilator-switch-before' @{value=$v}
       Click-LiveButton ($(if($v -eq 1){15489}else{15487})) 'Ventilator.Switch'
+      Write-LiveControlStage 'ventilator-switch-after' @{value=$v}
     }
     if($null -ne $assignments.'Ventilator.Rate'){
       $v=[double]$assignments.'Ventilator.Rate'
       if($v -lt 0 -or $v -gt 49 -or $v -ne [math]::Round($v)){ throw 'Ventilator.Rate live control supports integer 0..49' }
+      Write-LiveControlStage 'ventilator-rate-before' @{value=$v}
       $diag['Ventilator.Rate']=Set-LiveScrollByPosition 15491 ([int]$v) 'Ventilator.Rate'
+      Write-LiveControlStage 'ventilator-rate-after' $diag['Ventilator.Rate']
     }
     if($null -ne $assignments.'Ventilator.TidalVolume'){
       $v=[double]$assignments.'Ventilator.TidalVolume'
       if($v -lt 0 -or $v -gt 1990 -or (($v/10)-ne [math]::Round($v/10))){ throw 'Ventilator.TidalVolume live control supports 10-mL steps' }
+      Write-LiveControlStage 'ventilator-vt-before' @{value=$v}
       $diag['Ventilator.TidalVolume']=Set-LiveScrollByPosition 15494 ([int]($v/10)) 'Ventilator.TidalVolume'
+      Write-LiveControlStage 'ventilator-vt-after' $diag['Ventilator.TidalVolume']
     }
   }
 
   $thoraxNames=@('LeftHemithorax.NormalPressure','RightHemithorax.NormalPressure')
   if(@($assignments.PSObject.Properties | Where-Object { $thoraxNames -contains $_.Name }).Count){
+    Write-LiveControlStage 'thorax-panel-opening'
     Open-Panel '/Physiology/Lungs/Thorax'
+    Write-LiveControlStage 'thorax-panel-open'
     if($null -ne $assignments.'RightHemithorax.NormalPressure'){
       $v=[double]$assignments.'RightHemithorax.NormalPressure'
       if($v -lt -10 -or $v -gt 19 -or $v -ne [math]::Round($v)){ throw 'RightHemithorax.NormalPressure live control supports integer -10..19 mmHg' }
@@ -588,7 +608,9 @@ function Apply-LiveControls($assignments) {
     'AirSupply-GasTanks.CO2Valve(%)'
   )
   if(@($assignments.PSObject.Properties | Where-Object { $gasNames -contains $_.Name }).Count){
+    Write-LiveControlStage 'air-supply-panel-opening'
     Open-Panel '/Lifestyle/Air Supply'
+    Write-LiveControlStage 'air-supply-panel-open'
     $children=@([HumModHostNative]::Children($main.Handle))
     # Gas Tanks is the upper-right group on the pinned Air Supply panel.
     # Select native ScrollBar controls in that spatial region and order top-to-bottom:
@@ -634,6 +656,7 @@ function Apply-LiveControls($assignments) {
     }
   }
 
+  Write-LiveControlStage 'complete' $diag
   return $diag
 }
 
