@@ -1,0 +1,40 @@
+name: One-shot HumMod Runtime Write Audit
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-hummod-runtime-write-audit
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Audit live persistence and menu
+        run: node hummod-core-probe/audit-solution-write-and-menu.js hummod-standalone runtime/runtime-write-audit
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-runtime-write-audit
+          path: runtime/runtime-write-audit/
+          if-no-files-found: error
