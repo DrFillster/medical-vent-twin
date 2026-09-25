@@ -224,6 +224,88 @@ function Find-FilenameEdit([long]$dialogHandle) {
   throw 'Cannot identify filename edit control.'
 }
 
+
+function Save-DialogDiagnostics([long]$dialogHandle,[string]$stage) {
+  $data=[ordered]@{
+    stage=$stage
+    nativeChildren=@(Describe-Children $dialogHandle)
+    automationFields=@()
+  }
+  try {
+    Add-Type -AssemblyName UIAutomationClient
+    Add-Type -AssemblyName UIAutomationTypes
+    $root=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$dialogHandle)
+    $desc=$root.FindAll(
+      [System.Windows.Automation.TreeScope]::Descendants,
+      [System.Windows.Automation.Condition]::TrueCondition)
+    foreach($el in $desc){
+      if($el.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit -or
+         $el.Current.ControlType -eq [System.Windows.Automation.ControlType]::ComboBox -or
+         $el.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button){
+        $row=[ordered]@{
+          name=$el.Current.Name
+          automationId=$el.Current.AutomationId
+          className=$el.Current.ClassName
+          controlType=$el.Current.ControlType.ProgrammaticName
+          enabled=$el.Current.IsEnabled
+        }
+        try {
+          $row.value=$el.GetCurrentPattern(
+            [System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+        } catch {}
+        $data.automationFields += $row
+      }
+    }
+  } catch {
+    $data.automationError=$_.Exception.Message
+  }
+  $path=Join-Path $sessionDir ("dialog-"+$stage+".json")
+  $data | ConvertTo-Json -Depth 8 | Set-Content $path
+}
+
+function Set-FileDialogFilename([long]$dialogHandle,[string]$filename,[string]$stage) {
+  Save-DialogDiagnostics $dialogHandle $stage
+  try {
+    Add-Type -AssemblyName UIAutomationClient
+    Add-Type -AssemblyName UIAutomationTypes
+    $root=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$dialogHandle)
+    $desc=$root.FindAll(
+      [System.Windows.Automation.TreeScope]::Descendants,
+      [System.Windows.Automation.Condition]::TrueCondition)
+
+    $edits=@()
+    foreach($el in $desc){
+      if($el.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit){
+        try {
+          $pattern=$el.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+          if($pattern){ $edits += $el }
+        } catch {}
+      }
+    }
+
+    $preferred=@($edits | Where-Object {
+      $_.Current.AutomationId -eq '1001' -or
+      $_.Current.AutomationId -eq '1148' -or
+      $_.Current.Name -match '(?i)file\s*name|filename'
+    })
+
+    $target=$null
+    if($preferred.Count -eq 1){ $target=$preferred[0] }
+    elseif($edits.Count -eq 1){ $target=$edits[0] }
+    elseif($preferred.Count -gt 1){ $target=$preferred[0] }
+
+    if($null -ne $target){
+      $vp=$target.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+      $vp.SetValue($filename)
+      return
+    }
+  } catch {}
+
+  # Fallback to the native edit-control path proven by the earlier exporter.
+  $native=Find-FilenameEdit $dialogHandle
+  [HumModHostNative]::TypeText($native.Handle,$filename)
+}
+
 function Wait-StableFile([string]$path, [int]$timeoutSeconds = 20) {
   $deadline = (Get-Date).AddSeconds($timeoutSeconds)
   $lastLength = -1
@@ -235,7 +317,7 @@ function Wait-StableFile([string]$path, [int]$timeoutSeconds = 20) {
       $lastLength = $length
     }
   }
-  throw "Timed out waiting for file: $path"
+  throw "Timed out waiting for file: $path; inspect dialog diagnostics in $sessionDir"
 }
 
 function Save-Solution([string]$path) {
