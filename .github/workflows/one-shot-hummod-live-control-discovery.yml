@@ -11,9 +11,9 @@ permissions:
   contents: read
 
 jobs:
-  discover:
+  discover-controls:
     runs-on: windows-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -24,14 +24,14 @@ jobs:
           ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
           path: hummod-standalone
 
-      - name: Discover live HumMod controls
-        shell: pwsh
+      - name: Discover writable HumMod controls
+        shell: powershell
         run: |
           ./hummod-core-probe/discover-live-controls.ps1 `
             -HumModRoot ./hummod-standalone `
             -OutputDirectory ./runtime/live-control-discovery
 
-      - name: Upload discovery artifacts
+      - name: Upload control discovery artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
