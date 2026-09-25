@@ -1,0 +1,40 @@
+name: One-shot Persistent HumMod Session
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-persistent-hummod-session
+
+permissions:
+  contents: read
+
+jobs:
+  persistent-session:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run persistent HumMod session E2E
+        run: node hummod-core-probe/persistent-manual-e2e.js hummod-standalone runtime/persistent-hummod-session
+
+      - name: Upload persistent-session artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: persistent-hummod-session
+          path: runtime/persistent-hummod-session/
+          if-no-files-found: warn
