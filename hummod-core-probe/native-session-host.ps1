@@ -114,6 +114,11 @@ public static class HumModHostNative {
     SendText(new IntPtr(handle), 0x000C, IntPtr.Zero, text);
   }
 
+  public static void DialogSetControlText(long handle, int controlId, string text) {
+    // CDM_SETCONTROLTEXT = WM_USER + 100 + 4 = 0x0468.
+    SendText(new IntPtr(handle), 0x0468, new IntPtr(controlId), text);
+  }
+
   public static void TypeText(long handle, string text) {
     IntPtr h = new IntPtr(handle);
     SendValue(h, 0xB1, IntPtr.Zero, new IntPtr(-1));
@@ -122,9 +127,6 @@ public static class HumModHostNative {
   }
 }
 '@
-
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
 
 $proc = $null
 $main = $null
@@ -142,74 +144,11 @@ function Get-Menu([string]$path) {
 }
 
 function Set-FileDialogPath([long]$dialogHandle,[string]$value,[string]$purpose) {
-  $root=[System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$dialogHandle)
-  if($null -eq $root){ throw "Cannot access $purpose dialog through UI Automation" }
-
-  $elements=$root.FindAll(
-    [System.Windows.Automation.TreeScope]::Descendants,
-    [System.Windows.Automation.Condition]::TrueCondition
-  )
-
-  $candidates=@()
-  foreach($el in $elements){
-    $type=$el.Current.ControlType
-    if($type -ne [System.Windows.Automation.ControlType]::Edit -and
-       $type -ne [System.Windows.Automation.ControlType]::ComboBox){
-      continue
-    }
-
-    try {
-      $pattern=$el.GetCurrentPattern(
-        [System.Windows.Automation.ValuePattern]::Pattern
-      )
-      if($null -eq $pattern -or $pattern.Current.IsReadOnly){ continue }
-
-      $name=[string]$el.Current.Name
-      $automationId=[string]$el.Current.AutomationId
-      $score=0
-      if($name -match '(?i)file\s*name|filename'){ $score += 100 }
-      if($automationId -match '^(1001|1148|1152)$'){ $score += 50 }
-      if($type -eq [System.Windows.Automation.ControlType]::Edit){ $score += 10 }
-
-      $candidates += [pscustomobject]@{
-        Element=$el
-        Pattern=$pattern
-        Name=$name
-        AutomationId=$automationId
-        Score=$score
-      }
-    } catch {}
-  }
-
-  if($candidates.Count -eq 0){
-    $names=@()
-    foreach($el in $elements){
-      if($el.Current.Name){
-        $names += (
-          $el.Current.ControlType.ProgrammaticName + ':' +
-          $el.Current.AutomationId + ':' +
-          $el.Current.Name
-        )
-      }
-    }
-    throw (
-      "Cannot find writable filename control in $purpose dialog. UIA: " +
-      ($names -join '; ')
-    )
-  }
-
-  $best=@($candidates | Sort-Object Score -Descending)
-  if($best.Count -gt 1 -and $best[0].Score -eq $best[1].Score){
-    $summary=($best | ForEach-Object {
-      ('name=' + $_.Name + ',automationId=' + $_.AutomationId +
-       ',score=' + $_.Score)
-    }) -join '; '
-    throw (
-      "Ambiguous writable filename controls in $purpose dialog: " + $summary
-    )
-  }
-
-  $best[0].Pattern.SetValue($value)
+  # Explorer-style common dialogs accept CDM_SETCONTROLTEXT even when the
+  # filename field is not exposed as a Win32 child or UIAutomation element.
+  # cmb13 = 0x047c = 1148; edt1 = 0x0480 = 1152.
+  [HumModHostNative]::DialogSetControlText($dialogHandle,1148,$value)
+  [HumModHostNative]::DialogSetControlText($dialogHandle,1152,$value)
 }
 function Wait-FileDialog([string]$purpose,[int]$timeoutSeconds=8) {
   $deadline=(Get-Date).AddSeconds($timeoutSeconds)
