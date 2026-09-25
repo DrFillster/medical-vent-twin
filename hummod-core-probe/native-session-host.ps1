@@ -107,7 +107,7 @@ public static class HumModHostNative {
     }
   }
 
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+  [DllImport("user32.dll", EntryPoint="SendMessageW", CharSet=CharSet.Unicode)]
   static extern IntPtr SendText(IntPtr h, uint msg, IntPtr w, string l);
 
   public static void SetText(long handle, string text) {
