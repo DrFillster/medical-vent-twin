@@ -1,0 +1,36 @@
+name: One-shot HumMod Isolated Membrane Grid
+
+on:
+  push:
+    branches:
+      - probe/hummod-core-native-e2e-20260924
+    paths:
+      - .run-hummod-isolated-membrane-grid
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-grid:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned upstream HumMod
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run process-isolated membrane grid
+        run: node hummod-core-probe/membrane-sensitivity-grid-isolated.js hummod-standalone runtime/membrane-sensitivity-grid-isolated
+      - name: Upload sensitivity artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hummod-isolated-membrane-grid
+          path: runtime/membrane-sensitivity-grid-isolated/
+          if-no-files-found: error
