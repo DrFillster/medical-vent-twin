@@ -41,7 +41,16 @@
 </div>
 <p id="clinical-calibration-note" class="hint"></p>
 </div>
-<details class="advanced product-provenance"><summary>Model provenance and safeguards</summary><p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. Vent owns detailed pulmonary mechanics. The default live session uses a reduced, source-aligned HumMod cardiopulmonary core in the browser; it is not the full HumMod executable and is not clinically validated. Research mode can instead replay an externally produced HumMod trajectory.</p></details>
+<details class="advanced product-provenance" open><summary>Model provenance and safeguards</summary>
+<p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. Vent owns detailed pulmonary mechanics. The default live session uses a reduced, source-aligned HumMod cardiopulmonary core in the browser; it is not the full HumMod executable and is not clinically validated. Research mode can instead replay an externally produced HumMod trajectory.</p>
+<p class="hint"><strong>Scientific transparency:</strong> every physiologically meaningful variable, equation, threshold, condition, transition, and scenario value is being assigned machine-readable provenance. The current model is a hybrid of HumMod-exact/adapted physiology, published literature anchors, and explicitly labeled engineering or scenario assumptions.</p>
+<ul>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/MODEL_PROVENANCE_AUDIT.md" target="_blank" rel="noopener">Model provenance audit and critique</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/PROVENANCE_STANDARD.md" target="_blank" rel="noopener">Provenance standard</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/PROVENANCE_IMPLEMENTATION_PLAN.md" target="_blank" rel="noopener">Implementation and scientific-upgrade plan</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/issues/6" target="_blank" rel="noopener">Live provenance coverage tracker</a></li>
+</ul>
+</details>
 
 <details class="clinical-session advanced" id="clinical-session-panel" open>
 <summary>Ventilator setup</summary>
@@ -252,6 +261,6 @@
 <details class="card"><summary>What can I learn here?</summary><p>In volume control, compare the filling pressure with the pressure during a low-flow pause. In pressure control, change the pressure target and observe the volume that emerges. Change one setting at a time.</p><p>For recruitment, select an injury phenotype and explicitly choose its starting open fraction. Each run restarts the scenario; changing PEEP does not continue a previous pressure history.</p><p>The three-compartment model and mechanical phenotypes are simplified teaching constructs. Gas exchange, spontaneous effort, clinical calibration, and learning outcomes are outside this release. Driving pressure here uses airway PEEP; it does not measure intrinsic PEEP.</p></details>
 </section>
 </main>
-<footer>ARDS Clinical Twin · v1.0 · <a href="https://github.com/DrFillster/medical-vent-twin">Project source</a><span>Computational prototype. Not peer reviewed.</span></footer>
+<footer>ARDS Clinical Twin · v1.0 · <a href="https://github.com/DrFillster/medical-vent-twin">Project source</a> · <a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/MODEL_PROVENANCE_AUDIT.md">Model provenance</a><span>Computational prototype. Not peer reviewed.</span></footer>
 <noscript><p class="noscript">Enable JavaScript to run the simulator.</p></noscript>
 </body></html>
