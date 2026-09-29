@@ -17,6 +17,7 @@ const {
 } = require('./hummod_ards_cardiopulmonary_runtime.js');
 const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adapter.js');
 const { cmH2OToMmHg } = require('./clinical_units.js');
+const { provenanceSummary } = require('./model_provenance.js');
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
 
@@ -425,6 +426,7 @@ function createBerlinLiveHumModSession({
           circulationStateApplied: Boolean(nativeCirculationVolumes),
         }) : null,
       }),
+      modelProvenance: provenanceSummary(),
       provenance: Object.freeze({
         pulmonary: 'Vent mechanistic engine',
         systemic: 'reduced source-aligned HumMod ARDS cardiopulmonary core',
