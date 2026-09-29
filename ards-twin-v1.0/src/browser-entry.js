@@ -1,4 +1,6 @@
 module.exports = {
+  ...require('./model_provenance.js'),
+  ...require('./live_provenance_bindings.js'),
   ...require('./simulation.js'),
   ...require('./presets.js'),
   ...require('./clinical_scenarios.js'),
