@@ -1,4 +1,5 @@
 module.exports = {
+  ...require('./model_provenance.js'),
   ...require('./simulation.js'),
   ...require('./presets.js'),
   ...require('./clinical_scenarios.js'),
