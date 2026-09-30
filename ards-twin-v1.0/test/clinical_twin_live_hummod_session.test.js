@@ -37,6 +37,12 @@ test('live session initializes with finite HumMod-derived gas and circulation ou
   assert(Number.isFinite(s.systemic.gasExchange.paco2MmHg));
   assert(Number.isFinite(s.systemic.hemodynamics.meanArterialPressureMmHg));
   assert(Number.isFinite(s.systemic.hemodynamics.cardiacOutputMlPerMin));
+  assert(s.systemic.hemodynamics.autonomicAuthority &&
+    s.systemic.hemodynamics.autonomicAuthority.heartRate.includes('HumMod source-aligned'),
+    'live v1.2 session must use source-aligned HR authority');
+  assert(s.systemic.hemodynamics.sourceAlignedAutonomic &&
+    s.systemic.hemodynamics.sourceAlignedAutonomic.provenance.status === 'source-aligned-acute-subset',
+    'live v1.2 session must expose source-aligned autonomic state');
   assert(s.provenance.boundaryStatus.includes('synthetic-engineering'));
 });
 
