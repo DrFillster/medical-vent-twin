@@ -1,0 +1,58 @@
+name: v1.1 RC Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ards-twin-v1.0/**'
+      - '.github/workflows/v11-rc-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rc-gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ards-twin-v1.0/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Unit and regression tests
+        run: npm test
+      - name: Verify deployable web
+        run: npm run verify:deploy
+      - name: Verify v1.1 release-candidate gates
+        run: npm run verify:v1.1-rc
+
+  browser-smoke:
+    needs: rc-gates
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
+      - name: Browser smoke
+        env:
+          BROWSER: chromium
+        run: npm run test:browser
