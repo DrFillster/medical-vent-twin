@@ -1,7 +1,10 @@
 'use strict';
 
 const {
+  HUMMOD_PINNED_REPOSITORY,
   HUMMOD_PINNED_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
   inventoryHumModDesSource,
   assertInventorySupported,
 } = require('../src/hummod_des_inventory.js');
@@ -17,7 +20,12 @@ test('inventories include/create directives and normalizes Windows paths',()=>{
   });
   assert(x.createTokens[0]==='SHOWCONTEXT');
   assert(x.includes[0]==='Structure/Structure.DES');
+  assert(HUMMOD_PINNED_REPOSITORY==='HumMod/hummod-standalone');
+  assert(x.source.repository===HUMMOD_PINNED_REPOSITORY);
   assert(x.source.revision===HUMMOD_PINNED_REVISION);
+  assert(x.source.revision===null);
+  assert(x.source.mirrorRepository===HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY);
+  assert(x.source.mirrorRevision===HUMMOD_REPRODUCIBILITY_MIRROR_REVISION);
 });
 
 test('inventories variables curves blocks and structure name',()=>{
