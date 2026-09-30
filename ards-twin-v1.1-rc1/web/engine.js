@@ -540,6 +540,55 @@ const MODEL_PROVENANCE = Object.freeze({
     description:'Projection preserving finite-capacity volume feasibility during derecruitment.',
     source:Object.freeze([{type:'project',statement:'Numerical/physical invariant rule preventing silent destruction of trapped elastic gas volume.'}]),
   }),
+  'autonomic.v12.baroreflex_source': record({
+    id:'autonomic.v12.baroreflex_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'Baroreflex + SympsCNS acute subset',
+    description:'HumMod baroreflex adaptation/pressure-effect and CNS baroreflex mapping, with omitted non-baroreflex CNS inputs held neutral for the acute ventilator slice.',
+    source:Object.freeze([
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Nerves/Baroreflex.DES',symbol:'Baroreflex'},
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Nerves/SympsCNS.DES',symbol:'BaroEffect/NA(Hz)'},
+      {type:'project',statement:'LowPressureReceptors, Mechanoreceptors, ExerciseSymps, CushingResponse, brain fuel/function, A2Pool, and CNSTrophicFactor are neutralized in this acute subset.'},
+    ]),
+  }),
+  'autonomic.v12.vagus_source': record({
+    id:'autonomic.v12.vagus_source', kind:'equation',
+    class:'HUMMOD_EXACT', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'VagusNerve.NA(Hz)',
+    description:'HumMod vagal firing-rate response to SympsCNS firing rate, with no vagal block or clamp applied.',
+    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Nerves/VagusNerve.DES',symbol:'VagusNerve.NA(Hz)'}]),
+  }),
+  'autonomic.v12.sa_node_source': record({
+    id:'autonomic.v12.sa_node_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'SANode-Rate.Rate',
+    description:'HumMod SA-node parasympathetic and beta-receptor sympathetic chronotropy, using a normalized humoral beta boundary in place of the full catecholamine pools.',
+    source:Object.freeze([
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Heart/SANode-Rate.DES',symbol:'SANode-Rate.Rate'},
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Heart/SANode-BetaReceptors.DES',symbol:'SANode-BetaReceptors.Activity'},
+    ]),
+  }),
+  'autonomic.v12.ventricular_beta_source': record({
+    id:'autonomic.v12.ventricular_beta_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'ventricularBetaActivity',
+    description:'HumMod ventricular beta-receptor agonism used as the contractility multiplier, with normalized humoral beta boundary.',
+    source:Object.freeze([
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/LeftHeart/LeftHeart-BetaReceptors.DES',symbol:'Activity'},
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/RightHeart/RightHeart-BetaReceptors.DES',symbol:'Activity'},
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/LeftHeartPumping/LeftHeartPumping-Systole.DES',symbol:'Contractility'},
+    ]),
+  }),
+  'autonomic.v12.venous_alpha_source': record({
+    id:'autonomic.v12.venous_alpha_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'SystemicVeins.V0',
+    description:'HumMod systemic venous alpha-receptor activity and V0 alpha-effect curve, with normalized humoral alpha boundary and neutralized A2 effect.',
+    source:Object.freeze([
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Nerves/SystemicVeins-AlphaReceptors.DES',symbol:'Activity'},
+      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/VascularCompartments/SystemicVeins.DES',symbol:'V0_Alpha_Effect/V0'},
+    ]),
+  }),
   'autonomic.target_map': record({
     id:'autonomic.target_map', kind:'boundary',
     class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
@@ -742,6 +791,11 @@ const LIVE_CLINICAL_PROVENANCE_IDS = Object.freeze([
   'ards.phenotype.high_recruitability',
   'vent.recruitment.defaults',
   'vent.recruitment.feasibility_projection',
+  'autonomic.v12.baroreflex_source',
+  'autonomic.v12.vagus_source',
+  'autonomic.v12.sa_node_source',
+  'autonomic.v12.ventricular_beta_source',
+  'autonomic.v12.venous_alpha_source',
   'autonomic.target_map',
   'autonomic.autonomic_tau',
   'autonomic.vascular_tau',
@@ -10621,6 +10675,7 @@ module.exports = { createHumModArdsCirculation };
 const { createVentToArdsCoreSnapshot } = require("src/hummod_ards_core_coupling.js");
 const { createLiveCoreBoundaryFromVent } = require("src/hummod_ards_core_vent_adapter.js");
 const { createHumModArdsAutonomicController } = require("src/hummod_ards_autonomic_controller.js");
+const { createHumModSourceAlignedAutonomicController } = require("src/hummod_ards_autonomic_source_aligned.js");
 const {
   createHumModArdsDecompensationController,
 } = require("src/hummod_ards_decompensation_controller.js");
@@ -10651,6 +10706,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   bloodBoundaries,
   environmentBoundaries,
   pericardialTmpMmHg=0,
+  autonomicMode='legacy',
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -10660,17 +10716,26 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('validated pressureAdapter.cmH2OToMmHg is required');
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
+  if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
 
   let timeSec=0;
   let last=null;
   const decompensation = createHumModArdsDecompensationController();
+  const autonomicBaseline = circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
+    heartRatePerMin: 75,
+    systemicArterialConductanceMlPerMinPerMmHg: 60,
+    systemicVenousConductanceMlPerMinPerMmHg: 692,
+    systemicVenousV0Ml: 1700,
+    leftContractilityMultiplier: 1,
+  };
   const autonomic = createHumModArdsAutonomicController({
-    baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
-      heartRatePerMin: 75,
-      systemicArterialConductanceMlPerMinPerMmHg: 60,
-      systemicVenousConductanceMlPerMinPerMmHg: 692,
-      leftContractilityMultiplier: 1,
-    },
+    baseline: autonomicBaseline,
+  });
+  const sourceAlignedAutonomic = createHumModSourceAlignedAutonomicController({
+    initialCarotidPressureMmHg: 97,
+    saNodeBasicRatePerMin: 82,
+    systemicVenousV0BasicMl:
+      autonomicBaseline.systemicVenousV0Ml == null ? 1700 : autonomicBaseline.systemicVenousV0Ml,
   });
 
   function step({dtSec}={}){
@@ -10701,7 +10766,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     const priorGas = last && last.gas && last.gas.gases
       ? last.gas.gases.arterial
       : null;
-    const control = autonomic.step({
+    const legacyControl = autonomic.step({
       dtSec,
       meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
       thoracicPressureMmHg,
@@ -10709,6 +10774,27 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
+    const sourceControl = sourceAlignedAutonomic.step({
+      dtSec,
+      carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
+    });
+    const control = autonomicMode==='source-aligned'
+      ? Object.freeze({
+          ...legacyControl,
+          sourceAligned: sourceControl,
+          heartRatePerMin: sourceControl.heartRatePerMin,
+          contractilityMultiplier: sourceControl.contractilityMultiplier,
+          systemicVenousV0Ml: sourceControl.systemicVenousV0Ml,
+          authority: Object.freeze({
+            heartRate:'HumMod source-aligned acute subset',
+            contractility:'HumMod source-aligned beta-receptor pathway',
+            venousV0:'HumMod source-aligned venous alpha pathway',
+            systemicArterialConductance:'legacy reduced controller',
+            pulmonaryArterialConductance:'legacy reduced controller',
+            acidoticContractility:'literature-calibrated legacy modifier',
+          }),
+        })
+      : legacyControl;
     const priorDecomp=decompensation.snapshot();
     const effectiveContractility=
       control.contractilityMultiplier *
@@ -10818,6 +10904,10 @@ function createHumModArdsCardiopulmonaryRuntime({
         gasExchange:'source-aligned HumMod reduced gas core',
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
+        autonomicMode,
+        autonomicAuthority: autonomicMode==='source-aligned'
+          ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
+          : 'legacy reduced engineering autonomic controller',
         clinicalValidation:false,
       }),
     });
@@ -11444,6 +11534,261 @@ module.exports = {
   hypercapnicAcidosisSeverity,
   respiratoryAcidosisContractilityMultiplier,
   createHumModArdsAutonomicController,
+};
+
+},
+"src/hummod_ards_autonomic_source_aligned.js":function(module,exports,require){
+'use strict';
+
+// Acute source-aligned HumMod autonomic subset for v1.2.
+//
+// Source revision:
+// riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+//
+// Preserved source relations:
+// - Baroreflex adaptation/pressure-effect structure
+// - SympsCNS baroreflex effect
+// - GangliaGeneral neural activity scaling
+// - VagusNerve response
+// - SANode-BetaReceptors neural/humoral weighting
+// - SANode-Rate parasympathetic/sympathetic response
+// - SystemicVeins alpha-receptor weighting and V0 effect
+// - ventricular beta-receptor contractility relation
+//
+// Deliberate reductions:
+// - low-pressure/mechanoreceptor/exercise/Cushing/brain-fuel terms fixed at
+//   neutral values for the acute ventilator slice;
+// - humoral alpha/beta pool effects are explicit normalized boundaries;
+// - DES curve interpolation is reproduced with local cubic Hermite segments;
+// - distributed organ vascular control is not represented here.
+
+const HUMMOD_AUTONOMIC_SOURCE_REVISION =
+  '8dab57e05631f779bf5020fe0dd51874d8ae98c1';
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){ finite(v,label); if(!(v>0)) throw new Error(label+' must be > 0'); return v; }
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(!Array.isArray(points)||points.length<2) throw new Error('curve requires >= 2 points');
+  if(x<=points[0].x) return points[0].y + points[0].slope*(x-points[0].x);
+  const last=points[points.length-1];
+  if(x>=last.x) return last.y + last.slope*(x-last.x);
+  let i=0;
+  while(i+1<points.length && x>points[i+1].x) i++;
+  const a=points[i], b=points[i+1];
+  const h=b.x-a.x;
+  const t=(x-a.x)/h;
+  const h00=2*t*t*t-3*t*t+1;
+  const h10=t*t*t-2*t*t+t;
+  const h01=-2*t*t*t+3*t*t;
+  const h11=t*t*t-t*t;
+  return h00*a.y+h10*h*a.slope+h01*b.y+h11*h*b.slope;
+}
+
+const CURVES=Object.freeze({
+  baroreflexPressureEffect:Object.freeze([
+    Object.freeze({x:-50,y:0,slope:0}),
+    Object.freeze({x:0,y:1,slope:0.02}),
+    Object.freeze({x:50,y:2,slope:0}),
+  ]),
+  sympsCnsBaroEffect:Object.freeze([
+    Object.freeze({x:0,y:1.5,slope:0}),
+    Object.freeze({x:1,y:1,slope:-0.5}),
+    Object.freeze({x:2,y:0.5,slope:0}),
+  ]),
+  vagusHz:Object.freeze([
+    Object.freeze({x:0,y:8,slope:0}),
+    Object.freeze({x:1.5,y:2,slope:-2}),
+    Object.freeze({x:4.5,y:0,slope:0}),
+  ]),
+  saParasympatheticEffect:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:2,y:-20,slope:-8}),
+    Object.freeze({x:8,y:-40,slope:0}),
+  ]),
+  saSympatheticEffect:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:1,y:10,slope:10}),
+    Object.freeze({x:5,y:120,slope:0}),
+  ]),
+  systemicVeinsV0AlphaEffect:Object.freeze([
+    Object.freeze({x:0,y:1.2,slope:0}),
+    Object.freeze({x:1,y:1,slope:-0.30}),
+    Object.freeze({x:3,y:0.6,slope:0}),
+  ]),
+});
+
+const SOURCE_CONSTANTS=Object.freeze({
+  baroreflexTauMin:10,
+  sympsCnsHzScale:1.5,
+  gangliaNaScale:0.667,
+  vagusNaScale:0.667,
+  receptorNeuralK:0.333,
+  receptorHumoralK:0.5,
+  saNodeBasicRatePerMin:82,
+  systemicVeinsV0BasicMl:1700,
+});
+
+function receptorActivity({
+  gangliaHz,
+  humoralPoolEffect=1,
+  neuralK=SOURCE_CONSTANTS.receptorNeuralK,
+  humoralK=SOURCE_CONSTANTS.receptorHumoralK,
+}={}){
+  finite(gangliaHz,'gangliaHz');
+  finite(humoralPoolEffect,'humoralPoolEffect');
+  return neuralK*gangliaHz + humoralK*humoralPoolEffect;
+}
+
+function createHumModSourceAlignedAutonomicController({
+  initialCarotidPressureMmHg=97,
+  humoralAlphaPoolEffect=1,
+  humoralBetaPoolEffect=1,
+  baroSensitivity=1,
+  saNodeBasicRatePerMin=SOURCE_CONSTANTS.saNodeBasicRatePerMin,
+  systemicVenousV0BasicMl=SOURCE_CONSTANTS.systemicVeinsV0BasicMl,
+}={}){
+  positive(initialCarotidPressureMmHg,'initialCarotidPressureMmHg');
+  finite(humoralAlphaPoolEffect,'humoralAlphaPoolEffect');
+  finite(humoralBetaPoolEffect,'humoralBetaPoolEffect');
+  finite(baroSensitivity,'baroSensitivity');
+  positive(saNodeBasicRatePerMin,'saNodeBasicRatePerMin');
+  positive(systemicVenousV0BasicMl,'systemicVenousV0BasicMl');
+
+  let adaptedPressureMmHg=initialCarotidPressureMmHg;
+  let last=null;
+
+  function step({
+    dtSec,
+    carotidPressureMmHg,
+  }={}){
+    positive(dtSec,'dtSec');
+    finite(carotidPressureMmHg,'carotidPressureMmHg');
+
+    // HumMod Baroreflex: RateConst = 1/(60*Tau), Tau=10 min.
+    const tauSec=60*SOURCE_CONSTANTS.baroreflexTauMin;
+    adaptedPressureMmHg +=
+      (carotidPressureMmHg-adaptedPressureMmHg)*
+      (1-Math.exp(-dtSec/tauSec));
+
+    const pressureChangeMmHg=carotidPressureMmHg-adaptedPressureMmHg;
+    const baroreflexNa=hermite(CURVES.baroreflexPressureEffect,pressureChangeMmHg);
+
+    // Acute subset keeps the omitted HumMod CNS inputs neutral (=1 multiplier,
+    // zero additive drive), preserving the source baroreflex mapping itself.
+    const sourceBaroEffect=hermite(CURVES.sympsCnsBaroEffect,baroreflexNa);
+    const sympsCnsBaroEffect=1+baroSensitivity*(sourceBaroEffect-1);
+    const sympsCnsNa=sympsCnsBaroEffect;
+    const sympsCnsHz=SOURCE_CONSTANTS.sympsCnsHzScale*sympsCnsNa;
+
+    const gangliaHz=sympsCnsHz;
+    const gangliaNa=SOURCE_CONSTANTS.gangliaNaScale*gangliaHz;
+
+    const vagusHz=clamp(hermite(CURVES.vagusHz,sympsCnsHz),0,8);
+    const vagusNa=SOURCE_CONSTANTS.vagusNaScale*vagusHz;
+
+    const saBetaActivity=receptorActivity({
+      gangliaHz,
+      humoralPoolEffect:humoralBetaPoolEffect,
+    });
+    const parasympatheticEffectPerMin=
+      hermite(CURVES.saParasympatheticEffect,vagusHz);
+    const sympatheticEffectPerMin=
+      hermite(CURVES.saSympatheticEffect,saBetaActivity);
+    const heartRatePerMin=clamp(
+      saNodeBasicRatePerMin+
+      parasympatheticEffectPerMin+
+      sympatheticEffectPerMin,
+      0,260);
+
+    const ventricularBetaActivity=receptorActivity({
+      gangliaHz,
+      humoralPoolEffect:humoralBetaPoolEffect,
+    });
+
+    const venousAlphaActivity=receptorActivity({
+      gangliaHz,
+      humoralPoolEffect:humoralAlphaPoolEffect,
+    });
+    const systemicVenousV0AlphaEffect=
+      hermite(CURVES.systemicVeinsV0AlphaEffect,venousAlphaActivity);
+    const systemicVenousV0Ml=
+      systemicVenousV0BasicMl*systemicVenousV0AlphaEffect;
+
+    last=Object.freeze({
+      carotidPressureMmHg,
+      adaptedPressureMmHg,
+      pressureChangeMmHg,
+      baroreflexNa,
+      sympsCnsBaroEffect,
+      sympsCnsNa,
+      sympsCnsHz,
+      gangliaHz,
+      gangliaNa,
+      vagusHz,
+      vagusNa,
+      saBetaActivity,
+      parasympatheticEffectPerMin,
+      sympatheticEffectPerMin,
+      heartRatePerMin,
+      ventricularBetaActivity,
+      contractilityMultiplier:ventricularBetaActivity,
+      venousAlphaActivity,
+      systemicVenousV0AlphaEffect,
+      systemicVenousV0Ml,
+    });
+    return snapshot();
+  }
+
+  function snapshot(){
+    return Object.freeze({
+      schema:'hummod-source-aligned-autonomic/v1.2',
+      ...(last||{
+        adaptedPressureMmHg,
+        heartRatePerMin:null,
+        contractilityMultiplier:null,
+        systemicVenousV0Ml:null,
+      }),
+      provenance:Object.freeze({
+        status:'source-aligned-acute-subset',
+        sourceRepository:'riliescu/hummod-standalone',
+        sourceRevision:HUMMOD_AUTONOMIC_SOURCE_REVISION,
+        clinicalValidation:false,
+        neutralizedDependencies:Object.freeze([
+          'LowPressureReceptors',
+          'Mechanoreceptors',
+          'ExerciseSymps',
+          'CushingResponse',
+          'Brain-Fuel/Brain-Function',
+          'A2Pool/CNSTrophicFactor',
+        ]),
+        normalizedHumoralBoundaries:Object.freeze({
+          alphaPoolEffect:humoralAlphaPoolEffect,
+          betaPoolEffect:humoralBetaPoolEffect,
+        }),
+      }),
+    });
+  }
+
+  return Object.freeze({
+    kind:'hummod-source-aligned-autonomic',
+    step,
+    snapshot,
+  });
+}
+
+module.exports={
+  HUMMOD_AUTONOMIC_SOURCE_REVISION,
+  CURVES,
+  SOURCE_CONSTANTS,
+  hermite,
+  receptorActivity,
+  createHumModSourceAlignedAutonomicController,
 };
 
 },
