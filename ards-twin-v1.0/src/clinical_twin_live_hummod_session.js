@@ -19,6 +19,7 @@ const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adap
 const { cmH2OToMmHg } = require('./clinical_units.js');
 const { provenanceSummary } = require('./model_provenance.js');
 const { liveProvenanceBindings } = require('./live_provenance_bindings.js');
+const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('./v11_provenance_manifest.js');
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
 
@@ -429,7 +430,9 @@ function createBerlinLiveHumModSession({
       }),
       modelProvenance: Object.freeze({
         ...provenanceSummary(),
+        releaseGate: validateV11RcProvenanceManifest(),
         bindings: liveProvenanceBindings(),
+        outputProvenance: V11_RC_OUTPUT_PROVENANCE,
       }),
       provenance: Object.freeze({
         pulmonary: 'Vent mechanistic engine',

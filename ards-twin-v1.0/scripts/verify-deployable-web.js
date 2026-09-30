@@ -4,6 +4,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
+const pkg=require(path.join(root,'package.json'));
 const web=path.join(root,'web');
 const required=['index.html','styles.css','app.js','worker.js','clinical-worker.js','engine.js','clinical-cases.json'];
 const failures=[];
@@ -23,6 +24,8 @@ if(failures.length===0){
     [html.includes('EDUCATIONAL SIMULATION'),'educational safety banner missing'],
     [html.includes('Not clinically validated'),'clinical-validation warning missing'],
     [html.includes('Not for patient care'),'patient-care warning missing'],
+    [html.includes('MODEL_PROVENANCE_AUDIT.md'),'model provenance audit link missing'],
+    [html.includes('V1_1_RELEASE_CANDIDATE.md'),'v1.1 release-candidate notes link missing'],
     [app.includes("clinical-quick-start"),'quick-start behavior missing'],
     [html.includes('id="clinical-run-continuous"'),'continuous-run control missing'],
     [html.includes('id="clinical-pause-continuous"'),'continuous-pause control missing'],
@@ -55,7 +58,7 @@ if(failures.length===0){
 }
 const report={
   schema:'vent-deployable-web-verification/v1',
-  version:'1.0.0',
+  version:pkg.version,
   webRoot:'web/',
   requiredFiles:required,
   deployable:failures.length===0,
