@@ -16,9 +16,12 @@ The current HumMod distribution separates:
 
 The physiological source therefore exists independently of the legacy GUI executable. Our long-term objective should be to preserve the model semantics, not the Windows interface.
 
-Pinned reference source:
-- repository: `riliescu/hummod-standalone`
-- revision: `8dab57e05631f779bf5020fe0dd51874d8ae98c1`
+Canonical HumMod source:
+- official repository: `HumMod/hummod-standalone`
+- official revision: **unresolved in the current GitHub API surface**
+- reproducibility mirror: `riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1`
+
+Scientific provenance must name the official HumMod repository. The mirror SHA is retained only as a byte-addressable snapshot until an official upstream SHA can be independently resolved.
 
 ## Production options
 
