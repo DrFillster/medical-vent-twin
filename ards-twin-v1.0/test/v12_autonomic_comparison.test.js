@@ -74,8 +74,10 @@ test('source-aligned pathway is not numerically identical to legacy engineering 
 
 test('source-aligned subset exposes exact HumMod source identity',()=>{
   const s=makeSource().step({dtSec:1,carotidPressureMmHg:97});
-  assert(s.provenance.sourceRepository==='riliescu/hummod-standalone');
-  assert(s.provenance.sourceRevision==='8dab57e05631f779bf5020fe0dd51874d8ae98c1');
+  assert(s.provenance.sourceRepository==='HumMod/hummod-standalone');
+  assert(s.provenance.sourceRevision===null);
+  assert(s.provenance.reproducibilityMirrorRepository==='riliescu/hummod-standalone');
+  assert(s.provenance.reproducibilityMirrorRevision==='8dab57e05631f779bf5020fe0dd51874d8ae98c1');
   assert(s.provenance.status==='source-aligned-acute-subset');
 });
 
