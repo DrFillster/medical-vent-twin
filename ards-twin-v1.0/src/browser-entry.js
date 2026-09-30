@@ -6,6 +6,7 @@ module.exports = {
   ...require('./clinical_scenarios.js'),
   ...require('./berlin_case_catalog.js'),
   ...require('./digital_twin_contract.js'),
+  ...require('./native_hummod_provider_contract.js'),
   ...require('./hummod_adapter.js'),
   ...require('./hummod_standalone_manifest.js'),
   ...require('./hummod_standalone_binding.js'),
