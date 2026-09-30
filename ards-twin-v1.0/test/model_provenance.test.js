@@ -31,5 +31,30 @@ test('HumMod exact records pin revision and source path',()=>{
   }
 });
 
+test('autonomic coverage registry includes control equations and constants',()=>{
+  const expected=[
+    'autonomic.target_map',
+    'autonomic.baroreflex_gain',
+    'autonomic.autonomic_tau',
+    'autonomic.vascular_tau',
+    'autonomic.cardiac_tau',
+    'autonomic.hypoxic_drive_curve',
+    'autonomic.hypercapnic_drive_curve',
+    'autonomic.reflex_target_equation',
+    'autonomic.parasympathetic_target_equation',
+    'autonomic.reflex_hr_equation',
+    'autonomic.contractility_equation',
+    'autonomic.systemic_conductance_equation',
+    'autonomic.venous_v0_equation',
+    'autonomic.pulmonary_load_equation',
+    'autonomic.respiratory_acidosis_inotropy',
+    'autonomic.hypercapnic_acidosis_anchor',
+  ];
+  for(const id of expected){
+    assert(MODEL_PROVENANCE[id], 'missing autonomic provenance '+id);
+    assert(LIVE_CLINICAL_PROVENANCE_IDS.includes(id), 'autonomic provenance not active '+id);
+  }
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);
