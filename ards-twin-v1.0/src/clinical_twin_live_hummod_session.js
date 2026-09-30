@@ -249,6 +249,7 @@ function createBerlinLiveHumModSession({
     environmentBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
+    autonomicMode: 'source-aligned',
   });
 
   const sessionEvents = [];
@@ -335,6 +336,8 @@ function createBerlinLiveHumModSession({
         sympatheticTone: last.autonomic?.sympatheticTone ?? null,
         parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
         catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
+        autonomicAuthority: last.autonomic?.authority ?? null,
+        sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
       }),
       decompensation: decomp ? Object.freeze({
         stage: decomp.stage,
