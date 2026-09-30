@@ -197,6 +197,8 @@ module.exports = {
 "src/model_provenance.js":function(module,exports,require){
 'use strict';
 
+const { humModSource } = require("src/hummod_source_identity.js");
+
 const PROVENANCE_SCHEMA = 'vent-model-provenance/v1';
 
 const PROVENANCE_CLASSES = Object.freeze([
@@ -250,28 +252,28 @@ const MODEL_PROVENANCE = Object.freeze({
     class:'HUMMOD_EXACT', module:'hummod_ards_core_breathing.js',
     symbol:'humModLegacyDeadSpaceMl',
     description:'DeadSpace = 0.20 * TidalVolume + 60 mL.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/Breathing.DES',symbol:'Breathing.DeadSpace'}]),
+    source:Object.freeze([humModSource('Structure/Lungs/Breathing.DES','Breathing.DeadSpace')]),
   }),
   'hummod.bronchi.water_vapor_pressure': record({
     id:'hummod.bronchi.water_vapor_pressure', kind:'constant',
     class:'HUMMOD_EXACT', module:'hummod_ards_core_breathing.js',
     symbol:'BRONCHI_VAPOR_PRESSURE_MMHG',
     description:'Bronchial saturated water-vapor pressure boundary.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/Bronchi.DES',symbol:'Bronchi.VaporPressure'}]),
+    source:Object.freeze([humModSource('Structure/Lungs/Bronchi.DES','Bronchi.VaporPressure')]),
   }),
   'hummod.hemoglobin.p50_model': record({
     id:'hummod.hemoglobin.p50_model', kind:'equation',
     class:'HUMMOD_EXACT', module:'hummod_ards_core_chemistry.js',
     symbol:'hemoglobinProperties',
     description:'HumMod hemoglobin P50 response to temperature, pH, PCO2, and carboxyhemoglobin.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Hemoglobin/HgbProps.DES',symbol:'HgbProps.Setup'}]),
+    source:Object.freeze([humModSource('Structure/Hemoglobin/HgbProps.DES','HgbProps.Setup')]),
   }),
   'hummod.acid_base.ph_sid_pco2': record({
     id:'hummod.acid_base.ph_sid_pco2', kind:'equation',
     class:'HUMMOD_EXACT', module:'hummod_ards_core_chemistry.js',
     symbol:'phFromPco2Sid',
     description:'HumMod pH relation using pK + log10(SID/PCO2) with source boundary cases.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/AcidBase/PhGeneral.DES',symbol:'PhGeneral.Calc'}]),
+    source:Object.freeze([humModSource('Structure/AcidBase/PhGeneral.DES','PhGeneral.Calc')]),
   }),
   'hummod.pulmonary_membrane.interpolation': record({
     id:'hummod.pulmonary_membrane.interpolation', kind:'interpolation',
@@ -279,7 +281,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'hermiteSegment',
     description:'Piecewise cubic Hermite interpolation across HumMod pulmonary-membrane recruitment points/slopes.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/PulmonaryMembrane.DES',symbol:'PulmonaryMembrane.Recruitment'},
+      humModSource('Structure/Lungs/PulmonaryMembrane.DES','PulmonaryMembrane.Recruitment'),
       {type:'project',statement:'Interpolation algorithm is a browser implementation choice because the DES runtime interpolation was not independently reproduced.'},
     ]),
   }),
@@ -317,7 +319,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'reduced pulmonary O2 exchange runtime',
     description:'Reduced browser execution of source-aligned HumMod oxygen transport/exchange equations.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/LungO2.DES',symbol:'LungO2'},
+      humModSource('Structure/Lungs/LungO2.DES','LungO2'),
       {type:'project',statement:'Runtime topology, solver numerics, and Vent-derived perfusion/recruitment boundaries are adapted for browser execution.'},
     ]),
   }),
@@ -327,7 +329,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'reduced pulmonary CO2 exchange runtime',
     description:'Reduced browser execution of source-aligned HumMod carbon-dioxide transport/exchange equations.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/LungCO2.DES',symbol:'LungCO2'},
+      humModSource('Structure/Lungs/LungCO2.DES','LungCO2'),
       {type:'project',statement:'Runtime topology and numerical execution are adapted for browser execution.'},
     ]),
   }),
@@ -336,14 +338,14 @@ const MODEL_PROVENANCE = Object.freeze({
     class:'HUMMOD_EXACT', module:'hummod_ards_core_hemodynamics.js',
     symbol:'VASCULAR_DEFAULTS/stressedVolumePressure/conductanceFlow',
     description:'Source-preserved vascular V0/compliance/conductance constants and pressure/flow primitives.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/VascularCompartments',symbol:'SystemicArtys/SystemicVeins/RightAtrium/PulmArty/PulmCapys/PulmVeins/LeftAtrium'}]),
+    source:Object.freeze([humModSource('Structure/VascularCompartments','SystemicArtys/SystemicVeins/RightAtrium/PulmArty/PulmCapys/PulmVeins/LeftAtrium')]),
   }),
   'hummod.hemodynamics.ventricular_pump': record({
     id:'hummod.hemodynamics.ventricular_pump', kind:'equation',
     class:'HUMMOD_EXACT', module:'hummod_ards_core_hemodynamics.js',
     symbol:'ventricularPump/PUMP_DEFAULTS',
     description:'Source-preserved right/left ventricular diastolic/systolic pressure-volume and stroke-volume equations.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/RightHeartPumping and Structure/LeftHeartPumping',symbol:'Diastole/Systole/Pumping'}]),
+    source:Object.freeze([humModSource('Structure/RightHeartPumping and Structure/LeftHeartPumping','Diastole/Systole/Pumping')]),
   }),
   'live.circulation.reference_boundaries': record({
     id:'live.circulation.reference_boundaries', kind:'boundary',
@@ -351,7 +353,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation',
     description:'Reference-case initial volumes, heart rate, conductances, and pump multipliers used to initialize the reduced circulation.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/VascularCompartments',symbol:'source initial volumes/conductances where available'},
+      humModSource('Structure/VascularCompartments','source initial volumes/conductances where available'),
       {type:'project',statement:'Systemic venous initial volume and reduced-network boundary composition are adapted engineering boundaries.'},
     ]),
   }),
@@ -376,7 +378,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'createHumModArdsCirculation',
     description:'Seven-compartment closed-loop circulation using HumMod vascular/pump primitives with organ beds lumped into effective conductances.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/VascularCompartments',symbol:'vascular compartments'},
+      humModSource('Structure/VascularCompartments','vascular compartments'),
       {type:'project',statement:'Detailed organ circulations are reduced/lumped for the browser runtime.'},
     ]),
   }),
@@ -546,8 +548,8 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'Baroreflex + SympsCNS acute subset',
     description:'HumMod baroreflex adaptation/pressure-effect and CNS baroreflex mapping, with omitted non-baroreflex CNS inputs held neutral for the acute ventilator slice.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Nerves/Baroreflex.DES',symbol:'Baroreflex'},
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Nerves/SympsCNS.DES',symbol:'BaroEffect/NA(Hz)'},
+      humModSource('Structure/Nerves/Baroreflex.DES','Baroreflex'),
+      humModSource('Structure/Nerves/SympsCNS.DES','BaroEffect/NA(Hz)'),
       {type:'project',statement:'LowPressureReceptors, Mechanoreceptors, ExerciseSymps, CushingResponse, brain fuel/function, A2Pool, and CNSTrophicFactor are neutralized in this acute subset.'},
     ]),
   }),
@@ -556,7 +558,7 @@ const MODEL_PROVENANCE = Object.freeze({
     class:'HUMMOD_EXACT', module:'hummod_ards_autonomic_source_aligned.js',
     symbol:'VagusNerve.NA(Hz)',
     description:'HumMod vagal firing-rate response to SympsCNS firing rate, with no vagal block or clamp applied.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Nerves/VagusNerve.DES',symbol:'VagusNerve.NA(Hz)'}]),
+    source:Object.freeze([humModSource('Structure/Nerves/VagusNerve.DES','VagusNerve.NA(Hz)')]),
   }),
   'autonomic.v12.sa_node_source': record({
     id:'autonomic.v12.sa_node_source', kind:'equation',
@@ -564,8 +566,8 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'SANode-Rate.Rate',
     description:'HumMod SA-node parasympathetic and beta-receptor sympathetic chronotropy, using a normalized humoral beta boundary in place of the full catecholamine pools.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Heart/SANode-Rate.DES',symbol:'SANode-Rate.Rate'},
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Heart/SANode-BetaReceptors.DES',symbol:'SANode-BetaReceptors.Activity'},
+      humModSource('Structure/Heart/SANode-Rate.DES','SANode-Rate.Rate'),
+      humModSource('Structure/Heart/SANode-BetaReceptors.DES','SANode-BetaReceptors.Activity'),
     ]),
   }),
   'autonomic.v12.ventricular_beta_source': record({
@@ -574,9 +576,9 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'ventricularBetaActivity',
     description:'HumMod ventricular beta-receptor agonism used as the contractility multiplier, with normalized humoral beta boundary.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/LeftHeart/LeftHeart-BetaReceptors.DES',symbol:'Activity'},
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/RightHeart/RightHeart-BetaReceptors.DES',symbol:'Activity'},
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/LeftHeartPumping/LeftHeartPumping-Systole.DES',symbol:'Contractility'},
+      humModSource('Structure/LeftHeart/LeftHeart-BetaReceptors.DES','Activity'),
+      humModSource('Structure/RightHeart/RightHeart-BetaReceptors.DES','Activity'),
+      humModSource('Structure/LeftHeartPumping/LeftHeartPumping-Systole.DES','Contractility'),
     ]),
   }),
   'autonomic.v12.venous_alpha_source': record({
@@ -585,8 +587,8 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'SystemicVeins.V0',
     description:'HumMod systemic venous alpha-receptor activity and V0 alpha-effect curve, with normalized humoral alpha boundary and neutralized A2 effect.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Nerves/SystemicVeins-AlphaReceptors.DES',symbol:'Activity'},
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/VascularCompartments/SystemicVeins.DES',symbol:'V0_Alpha_Effect/V0'},
+      humModSource('Structure/Nerves/SystemicVeins-AlphaReceptors.DES','Activity'),
+      humModSource('Structure/VascularCompartments/SystemicVeins.DES','V0_Alpha_Effect/V0'),
     ]),
   }),
   'autonomic.target_map': record({
@@ -846,6 +848,66 @@ module.exports = {
   provenanceSummary,
 };
 },
+"src/hummod_source_identity.js":function(module,exports,require){
+'use strict';
+
+// Canonical HumMod source identity.
+//
+// Scientific authority:
+//   HumMod/hummod-standalone
+//
+// Reproducibility mirror:
+//   riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+//
+// The canonical repository is currently not resolvable through GitHub API
+// access in this environment. Until an official commit SHA is independently
+// resolved, do not claim that the mirror SHA is an official upstream SHA.
+
+const HUMMOD_CANONICAL_REPOSITORY = 'HumMod/hummod-standalone';
+const HUMMOD_CANONICAL_REVISION = null;
+
+const HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY =
+  'riliescu/hummod-standalone';
+const HUMMOD_REPRODUCIBILITY_MIRROR_REVISION =
+  '8dab57e05631f779bf5020fe0dd51874d8ae98c1';
+
+const HUMMOD_SOURCE_IDENTITY = Object.freeze({
+  canonicalRepository: HUMMOD_CANONICAL_REPOSITORY,
+  canonicalRevision: HUMMOD_CANONICAL_REVISION,
+  canonicalStatus: 'official-upstream-identity-confirmed-revision-unresolved',
+  reproducibilityMirrorRepository:
+    HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  reproducibilityMirrorRevision:
+    HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+  reproducibilityStatus:
+    'public-mirror-snapshot-used-for-byte-addressable-source-references',
+  rule:
+    'Scientific provenance names the official upstream. Exact file/line reproduction may use the pinned mirror until the official revision is independently resolved.',
+});
+
+function humModSource(path, symbol) {
+  return Object.freeze({
+    type: 'HumMod',
+    repository: HUMMOD_CANONICAL_REPOSITORY,
+    revision: HUMMOD_CANONICAL_REVISION,
+    path,
+    symbol,
+    mirrorRepository: HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+    mirrorRevision: HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+    canonicalStatus: HUMMOD_SOURCE_IDENTITY.canonicalStatus,
+  });
+}
+
+module.exports = {
+  HUMMOD_CANONICAL_REPOSITORY,
+  HUMMOD_CANONICAL_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+  HUMMOD_SOURCE_IDENTITY,
+  humModSource,
+};
+
+},
 "src/hummod_runtime_provider_contract.js":function(module,exports,require){
 'use strict';
 
@@ -920,8 +982,15 @@ module.exports={
 // This is intentionally NOT a solver. It inventories language constructs and
 // source metadata so unsupported semantics are explicit before execution work.
 
-const HUMMOD_PINNED_REPOSITORY = 'riliescu/hummod-standalone';
-const HUMMOD_PINNED_REVISION = '8dab57e05631f779bf5020fe0dd51874d8ae98c1';
+const {
+  HUMMOD_CANONICAL_REPOSITORY,
+  HUMMOD_CANONICAL_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+} = require("src/hummod_source_identity.js");
+
+const HUMMOD_PINNED_REPOSITORY = HUMMOD_CANONICAL_REPOSITORY;
+const HUMMOD_PINNED_REVISION = HUMMOD_CANONICAL_REVISION;
 
 const KNOWN_TAGS = Object.freeze(new Set([
   'model','title','basic','navigator','math','context','parms','dervs','wrapup',
@@ -939,11 +1008,15 @@ function inventoryHumModDesSource({
   content,
   repository=HUMMOD_PINNED_REPOSITORY,
   revision=HUMMOD_PINNED_REVISION,
+  mirrorRepository=HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  mirrorRevision=HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
 }={}){
   if(typeof path!=='string'||!path.length) throw new Error('path is required');
   if(typeof content!=='string') throw new Error('content must be a string');
   if(typeof repository!=='string'||!repository.length) throw new Error('repository is required');
-  if(typeof revision!=='string'||!revision.length) throw new Error('revision is required');
+  if(revision!=null && (typeof revision!=='string'||!revision.length)) throw new Error('revision must be null or non-empty string');
+  if(typeof mirrorRepository!=='string'||!mirrorRepository.length) throw new Error('mirrorRepository is required');
+  if(typeof mirrorRevision!=='string'||!mirrorRevision.length) throw new Error('mirrorRevision is required');
 
   const createTokens=[];
   const includes=[];
@@ -999,7 +1072,14 @@ function inventoryHumModDesSource({
 
   return Object.freeze({
     schema:'hummod-des-source-inventory/v1',
-    source:Object.freeze({repository,revision,path}),
+    source:Object.freeze({
+      repository,
+      revision,
+      path,
+      mirrorRepository,
+      mirrorRevision,
+      canonicalRevisionResolved: revision != null,
+    }),
     modelPresent,
     structureName:structureMatch?structureMatch[1].trim():null,
     directives:Object.freeze(directives),
@@ -1034,6 +1114,8 @@ function assertInventorySupported(inventory){
 module.exports={
   HUMMOD_PINNED_REPOSITORY,
   HUMMOD_PINNED_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
   KNOWN_TAGS,
   inventoryHumModDesSource,
   assertInventorySupported,
@@ -11557,7 +11639,8 @@ module.exports = {
 
 // Acute source-aligned HumMod autonomic subset for v1.2.
 //
-// Source revision:
+// Canonical source: HumMod/hummod-standalone
+// Reproducibility mirror snapshot:
 // riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
 //
 // Preserved source relations:
@@ -11577,8 +11660,12 @@ module.exports = {
 // - DES curve interpolation is reproduced with local cubic Hermite segments;
 // - distributed organ vascular control is not represented here.
 
+const {
+  HUMMOD_SOURCE_IDENTITY,
+} = require("src/hummod_source_identity.js");
+
 const HUMMOD_AUTONOMIC_SOURCE_REVISION =
-  '8dab57e05631f779bf5020fe0dd51874d8ae98c1';
+  HUMMOD_SOURCE_IDENTITY.canonicalRevision;
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -11771,8 +11858,13 @@ function createHumModSourceAlignedAutonomicController({
       }),
       provenance:Object.freeze({
         status:'source-aligned-acute-subset',
-        sourceRepository:'riliescu/hummod-standalone',
+        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
         sourceRevision:HUMMOD_AUTONOMIC_SOURCE_REVISION,
+        sourceCanonicalStatus:HUMMOD_SOURCE_IDENTITY.canonicalStatus,
+        reproducibilityMirrorRepository:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
+        reproducibilityMirrorRevision:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
         clinicalValidation:false,
         neutralizedDependencies:Object.freeze([
           'LowPressureReceptors',
