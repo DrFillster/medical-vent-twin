@@ -9959,6 +9959,18 @@ function createBerlinLiveHumModSession({
         sympatheticTone: last.autonomic?.sympatheticTone ?? null,
         parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
         catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
+        sympatheticFiringHz:
+          last.autonomic?.sourceAligned?.sympsCnsHz ?? null,
+        vagalFiringHz:
+          last.autonomic?.sourceAligned?.vagusHz ?? null,
+        baroreflexNa:
+          last.autonomic?.sourceAligned?.baroreflexNa ?? null,
+        saBetaReceptorActivity:
+          last.autonomic?.sourceAligned?.saBetaActivity ?? null,
+        ventricularBetaReceptorActivity:
+          last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
+        venousAlphaReceptorActivity:
+          last.autonomic?.sourceAligned?.venousAlphaActivity ?? null,
         autonomicAuthority: last.autonomic?.authority ?? null,
         sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
       }),
