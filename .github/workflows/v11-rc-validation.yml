@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   rc-gates:
@@ -40,6 +40,26 @@ jobs:
           name: v1.1-rc1-static-web
           path: ards-twin-v1.0/web/
           if-no-files-found: error
+      - name: Publish preview branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin publish-v1.1-rc1-preview
+          rm -rf /tmp/v11-preview
+          git worktree add /tmp/v11-preview origin/publish-v1.1-rc1-preview
+          rm -rf /tmp/v11-preview/ards-twin-v1.1-rc1
+          mkdir -p /tmp/v11-preview/ards-twin-v1.1-rc1/web
+          cp -a web/. /tmp/v11-preview/ards-twin-v1.1-rc1/web/
+          printf '%s\n' "$GITHUB_SHA" > /tmp/v11-preview/ards-twin-v1.1-rc1/PREVIEW_SOURCE_COMMIT.txt
+          cd /tmp/v11-preview
+          git add ards-twin-v1.1-rc1
+          if git diff --cached --quiet; then
+            echo "Preview bundle already current."
+          else
+            git commit -m "preview: publish validated v1.1 RC1 web bundle"
+            git push origin HEAD:publish-v1.1-rc1-preview
+          fi
 
   browser-smoke:
     needs: rc-gates
