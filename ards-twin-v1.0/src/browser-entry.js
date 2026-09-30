@@ -1,4 +1,5 @@
 module.exports = {
+  ...require('./v11_provenance_manifest.js'),
   ...require('./hummod_runtime_provider_contract.js'),
   ...require('./hummod_des_inventory.js'),
   ...require('./model_provenance.js'),
