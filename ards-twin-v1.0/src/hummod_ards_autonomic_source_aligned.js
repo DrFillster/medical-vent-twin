@@ -2,7 +2,8 @@
 
 // Acute source-aligned HumMod autonomic subset for v1.2.
 //
-// Source revision:
+// Canonical source: HumMod/hummod-standalone
+// Reproducibility mirror snapshot:
 // riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
 //
 // Preserved source relations:
@@ -22,8 +23,12 @@
 // - DES curve interpolation is reproduced with local cubic Hermite segments;
 // - distributed organ vascular control is not represented here.
 
+const {
+  HUMMOD_SOURCE_IDENTITY,
+} = require('./hummod_source_identity.js');
+
 const HUMMOD_AUTONOMIC_SOURCE_REVISION =
-  '8dab57e05631f779bf5020fe0dd51874d8ae98c1';
+  HUMMOD_SOURCE_IDENTITY.canonicalRevision;
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -216,8 +221,13 @@ function createHumModSourceAlignedAutonomicController({
       }),
       provenance:Object.freeze({
         status:'source-aligned-acute-subset',
-        sourceRepository:'riliescu/hummod-standalone',
+        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
         sourceRevision:HUMMOD_AUTONOMIC_SOURCE_REVISION,
+        sourceCanonicalStatus:HUMMOD_SOURCE_IDENTITY.canonicalStatus,
+        reproducibilityMirrorRepository:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
+        reproducibilityMirrorRevision:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
         clinicalValidation:false,
         neutralizedDependencies:Object.freeze([
           'LowPressureReceptors',
