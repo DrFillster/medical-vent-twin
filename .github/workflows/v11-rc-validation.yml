@@ -34,6 +34,12 @@ jobs:
         run: npm run verify:deploy
       - name: Verify v1.1 release-candidate gates
         run: npm run verify:v1.1-rc
+      - name: Upload built RC web
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.1-rc1-static-web
+          path: ards-twin-v1.0/web/
+          if-no-files-found: error
 
   browser-smoke:
     needs: rc-gates
