@@ -359,6 +359,8 @@ function createBerlinLiveHumModSession({
         autonomicAuthority: last.autonomic?.authority ?? null,
         sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
         catecholamines: last.autonomic?.catecholamines ?? null,
+        vascularSympatheticComponents:
+          last.autonomic?.vascularSympatheticComponents ?? null,
       }),
       decompensation: decomp ? Object.freeze({
         stage: decomp.stage,
