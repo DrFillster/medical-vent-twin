@@ -39,6 +39,7 @@ function nonEmptyString(value, label) {
  */
 function createHumModStandaloneExportMapper({
   hummodRevision,
+  hummodMirrorRevision,
   exporterVersion,
   timestampPath,
   exportPaths,
@@ -48,7 +49,11 @@ function createHumModStandaloneExportMapper({
 } = {}) {
   if (hummodRevision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
     throw new Error(
-      `HumMod revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.revision}, got ${hummodRevision || 'missing'}`);
+      `HumMod canonical revision mismatch: expected ${String(HUMMOD_STANDALONE_UPSTREAM.revision)}, got ${String(hummodRevision)}`);
+  }
+  if (hummodMirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error(
+      `HumMod mirror revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.mirrorRevision}, got ${String(hummodMirrorRevision)}`);
   }
   nonEmptyString(exporterVersion, 'exporterVersion');
   nonEmptyString(timestampPath, 'timestampPath');
@@ -80,7 +85,10 @@ function createHumModStandaloneExportMapper({
   });
 
   return createHumModSnapshotMapper({
-    modelVersion: `${HUMMOD_STANDALONE_UPSTREAM.repository}@${hummodRevision}; exporter=${exporterVersion}`,
+    modelVersion:
+      `${HUMMOD_STANDALONE_UPSTREAM.repository}@${String(hummodRevision)}` +
+      `; mirror=${HUMMOD_STANDALONE_UPSTREAM.mirrorRepository}@${hummodMirrorRevision}` +
+      `; exporter=${exporterVersion}`,
     fields,
     requiredTargets,
     subjectId,
