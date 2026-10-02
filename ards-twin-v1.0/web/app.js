@@ -15,8 +15,10 @@
     schema: 'vent-hummod-trajectory/v1',
     trajectoryId: 'synthetic-demo-fixture-not-real-hummod',
     source: Object.freeze({
-      repository: 'riliescu/hummod-standalone',
-      revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+      repository: 'HumMod/hummod-standalone',
+      revision: null,
+      mirrorRepository: 'riliescu/hummod-standalone',
+      mirrorRevision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
       exporterVersion: 'synthetic-demo-fixture/1',
     }),
     symbols: Object.freeze([
