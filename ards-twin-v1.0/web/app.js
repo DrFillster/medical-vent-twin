@@ -584,10 +584,22 @@
       Number.isFinite(hemo.pulmonaryVascularResistanceMmHgMinPerL)
       ? hemo.pulmonaryVascularResistanceMmHgMinPerL.toFixed(2)
       : '—';
-    $('clinical-sympathetic').textContent = typeof hemo.sympatheticTone === 'number'
-      ? hemo.sympatheticTone.toFixed(2) : '—';
-    $('clinical-catecholamine').textContent = typeof hemo.catecholamineDrive === 'number'
-      ? hemo.catecholamineDrive.toFixed(2) : '—';
+    $('clinical-sympathetic-hz').textContent =
+      typeof hemo.sympatheticFiringHz === 'number' && Number.isFinite(hemo.sympatheticFiringHz)
+        ? hemo.sympatheticFiringHz.toFixed(2) : '—';
+    $('clinical-vagal-hz').textContent =
+      typeof hemo.vagalFiringHz === 'number' && Number.isFinite(hemo.vagalFiringHz)
+        ? hemo.vagalFiringHz.toFixed(2) : '—';
+    $('clinical-sa-beta').textContent =
+      typeof hemo.saBetaReceptorActivity === 'number' && Number.isFinite(hemo.saBetaReceptorActivity)
+        ? hemo.saBetaReceptorActivity.toFixed(2) : '—';
+    const catecholamines = hemo.catecholamines || {};
+    $('clinical-ne').textContent =
+      typeof catecholamines.nePgPerMl === 'number' && Number.isFinite(catecholamines.nePgPerMl)
+        ? Math.round(catecholamines.nePgPerMl) : '—';
+    $('clinical-epi').textContent =
+      typeof catecholamines.epiPgPerMl === 'number' && Number.isFinite(catecholamines.epiPgPerMl)
+        ? Math.round(catecholamines.epiPgPerMl) : '—';
     $('clinical-ppeak').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.peakPressureCmH2O);
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
