@@ -52,7 +52,13 @@ function validateHumModRawSeries(raw) {
     throw new Error('unexpected HumMod repository: ' + String(source.repository || 'missing'));
   }
   if (source.revision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
-    throw new Error('HumMod revision mismatch');
+    throw new Error('HumMod canonical revision mismatch');
+  }
+  if (source.mirrorRepository !== HUMMOD_STANDALONE_UPSTREAM.mirrorRepository) {
+    throw new Error('HumMod mirror repository mismatch');
+  }
+  if (source.mirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error('HumMod mirror revision mismatch');
   }
   nonEmptyString(source.exporterVersion, 'source.exporterVersion');
   nonEmptyString(raw.trajectoryId, 'trajectoryId');
@@ -115,6 +121,8 @@ function convertHumModRawSeries(raw) {
     source: {
       repository: raw.source.repository,
       revision: raw.source.revision,
+      mirrorRepository: raw.source.mirrorRepository,
+      mirrorRevision: raw.source.mirrorRevision,
       exporterVersion: raw.source.exporterVersion,
     },
     symbols: raw.symbols.slice(),
