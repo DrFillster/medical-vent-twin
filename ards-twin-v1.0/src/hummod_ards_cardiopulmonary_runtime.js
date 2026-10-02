@@ -4,6 +4,7 @@ const { createVentToArdsCoreSnapshot } = require('./hummod_ards_core_coupling.js
 const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adapter.js');
 const { createHumModArdsAutonomicController } = require('./hummod_ards_autonomic_controller.js');
 const { createHumModSourceAlignedAutonomicController } = require('./hummod_ards_autonomic_source_aligned.js');
+const { createHumModSourceAlignedCatecholamines } = require('./hummod_ards_catecholamines_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -35,6 +36,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   environmentBoundaries,
   pericardialTmpMmHg=0,
   autonomicMode='legacy',
+  catecholamineEcfvMl=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -44,6 +46,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('validated pressureAdapter.cmH2OToMmHg is required');
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
+  if(catecholamineEcfvMl!=null) positive(catecholamineEcfvMl,'catecholamineEcfvMl');
   if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
 
   let timeSec=0;
@@ -65,6 +68,9 @@ function createHumModArdsCardiopulmonaryRuntime({
     systemicVenousV0BasicMl:
       autonomicBaseline.systemicVenousV0Ml == null ? 1700 : autonomicBaseline.systemicVenousV0Ml,
   });
+  const catecholamines = catecholamineEcfvMl == null
+    ? null
+    : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -102,14 +108,27 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
+    const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
+      humoralAlphaPoolEffect:
+        currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
+      humoralBetaPoolEffect:
+        currentCatecholamines ? currentCatecholamines.betaEffect : 1,
     });
+    const updatedCatecholamines = catecholamines
+      ? catecholamines.step({
+          dtSec,
+          adrenalNerveHz: sourceControl.sympsCnsHz,
+          generalGangliaHz: sourceControl.gangliaHz,
+        })
+      : null;
     const control = autonomicMode==='source-aligned'
       ? Object.freeze({
           ...legacyControl,
           sourceAligned: sourceControl,
+          catecholamines: updatedCatecholamines,
           heartRatePerMin: sourceControl.heartRatePerMin,
           contractilityMultiplier: sourceControl.contractilityMultiplier,
           systemicVenousV0Ml: sourceControl.systemicVenousV0Ml,
@@ -120,6 +139,9 @@ function createHumModArdsCardiopulmonaryRuntime({
             systemicArterialConductance:'legacy reduced controller',
             pulmonaryArterialConductance:'legacy reduced controller',
             acidoticContractility:'literature-calibrated legacy modifier',
+            humoralAlphaBeta: catecholamines
+              ? 'HumMod source-aligned dynamic NE/Epi pools'
+              : 'normalized HumMod humoral fallback (ECFV unavailable)',
           }),
         })
       : legacyControl;
@@ -236,6 +258,9 @@ function createHumModArdsCardiopulmonaryRuntime({
         autonomicAuthority: autonomicMode==='source-aligned'
           ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
+        catecholamineAuthority: catecholamines
+          ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
+          : 'normalized humoral fallback; dynamic catecholamine pools disabled because ECFV unavailable',
         clinicalValidation:false,
       }),
     });
