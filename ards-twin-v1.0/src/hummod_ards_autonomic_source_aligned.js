@@ -17,8 +17,8 @@
 // - ventricular beta-receptor contractility relation
 //
 // Deliberate reductions:
-// - low-pressure/mechanoreceptor/exercise/Cushing/brain-fuel terms fixed at
-//   neutral values for the acute ventilator slice;
+// - LowPressureReceptors source pathway is preserved from average atrial TMP;
+// - mechanoreceptor/exercise/Cushing/brain-fuel terms remain neutral for the acute ventilator slice;
 // - humoral alpha/beta pool effects are explicit normalized boundaries;
 // - DES curve interpolation is reproduced with local cubic Hermite segments;
 // - distributed organ vascular control is not represented here.
@@ -66,6 +66,16 @@ const CURVES=Object.freeze({
     Object.freeze({x:1,y:1,slope:-0.5}),
     Object.freeze({x:2,y:0.5,slope:0}),
   ]),
+  lowPressurePressureChangeOnNa:Object.freeze([
+    Object.freeze({x:-4,y:0,slope:0}),
+    Object.freeze({x:0,y:1,slope:0.3}),
+    Object.freeze({x:12,y:4,slope:0}),
+  ]),
+  sympsCnsLowPressureEffect:Object.freeze([
+    Object.freeze({x:0,y:1.1,slope:0}),
+    Object.freeze({x:1,y:1,slope:-0.1}),
+    Object.freeze({x:4,y:0.9,slope:0}),
+  ]),
   vagusHz:Object.freeze([
     Object.freeze({x:0,y:8,slope:0}),
     Object.freeze({x:1.5,y:2,slope:-2}),
@@ -89,7 +99,9 @@ const CURVES=Object.freeze({
 });
 
 const SOURCE_CONSTANTS=Object.freeze({
-  baroreflexTauMin:10,
+  baroreflexTauSourceHours:10,
+  lowPressureTauSourceDays:30,
+  lowPressureInitialAdaptedPressureMmHg:6,
   sympsCnsHzScale:1.5,
   gangliaNaScale:0.667,
   vagusNaScale:0.667,
@@ -126,33 +138,58 @@ function createHumModSourceAlignedAutonomicController({
   positive(systemicVenousV0BasicMl,'systemicVenousV0BasicMl');
 
   let adaptedPressureMmHg=initialCarotidPressureMmHg;
+  let adaptedLowPressureMmHg=SOURCE_CONSTANTS.lowPressureInitialAdaptedPressureMmHg;
   let last=null;
 
   function step({
     dtSec,
     carotidPressureMmHg,
+    averageAtrialTmpMmHg=SOURCE_CONSTANTS.lowPressureInitialAdaptedPressureMmHg,
     humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect=humoralAlphaPoolEffect,
     humoralBetaPoolEffect:stepHumoralBetaPoolEffect=humoralBetaPoolEffect,
   }={}){
     positive(dtSec,'dtSec');
     finite(carotidPressureMmHg,'carotidPressureMmHg');
+    finite(averageAtrialTmpMmHg,'averageAtrialTmpMmHg');
     finite(stepHumoralAlphaPoolEffect,'humoralAlphaPoolEffect');
     finite(stepHumoralBetaPoolEffect,'humoralBetaPoolEffect');
 
-    // HumMod Baroreflex: RateConst = 1/(60*Tau), Tau=10 min.
-    const tauSec=60*SOURCE_CONSTANTS.baroreflexTauMin;
+    // HumMod circulation and dynamic equations use a minute-based timebase.
+    // Baroreflex.DES: RateConst = 1/(60*Tau), Tau=10 -> 600 min = 10 h.
+    const baroreflexTauSec=
+      60 * 60 * SOURCE_CONSTANTS.baroreflexTauSourceHours;
     adaptedPressureMmHg +=
       (carotidPressureMmHg-adaptedPressureMmHg)*
-      (1-Math.exp(-dtSec/tauSec));
+      (1-Math.exp(-dtSec/baroreflexTauSec));
 
     const pressureChangeMmHg=carotidPressureMmHg-adaptedPressureMmHg;
     const baroreflexNa=hermite(CURVES.baroreflexPressureEffect,pressureChangeMmHg);
 
-    // Acute subset keeps the omitted HumMod CNS inputs neutral (=1 multiplier,
-    // zero additive drive), preserving the source baroreflex mapping itself.
+    // LowPressureReceptors.DES:
+    // AvePressure=(RightAtrium.TMP+LeftAtrium.TMP)/2
+    // RateConst=1/(1440*Tau), Tau=30 -> 30 days.
+    const lowPressureTauSec=
+      24 * 60 * 60 * SOURCE_CONSTANTS.lowPressureTauSourceDays;
+    adaptedLowPressureMmHg +=
+      (averageAtrialTmpMmHg-adaptedLowPressureMmHg)*
+      (1-Math.exp(-dtSec/lowPressureTauSec));
+    const lowPressureChangeMmHg=
+      averageAtrialTmpMmHg-adaptedLowPressureMmHg;
+    const lowPressureNa=
+      hermite(CURVES.lowPressurePressureChangeOnNa,lowPressureChangeMmHg);
+
     const sourceBaroEffect=hermite(CURVES.sympsCnsBaroEffect,baroreflexNa);
     const sympsCnsBaroEffect=1+baroSensitivity*(sourceBaroEffect-1);
-    const sympsCnsNa=sympsCnsBaroEffect;
+    const sympsCnsLowPressureEffect=
+      hermite(CURVES.sympsCnsLowPressureEffect,lowPressureNa);
+
+    // SympsCNS.ReflexNA = BaroEffect * LowPressureEffect *
+    // MechanoEffect * SympsChemo.Effect. In this source snapshot,
+    // Mechanoreceptors.FiringRate=0 -> MechanoEffect=1 and
+    // SympsChemo.Effect=1, so the retained reflex product is exact here.
+    const sympsCnsReflexNa=
+      sympsCnsBaroEffect * sympsCnsLowPressureEffect;
+    const sympsCnsNa=sympsCnsReflexNa;
     const sympsCnsHz=SOURCE_CONSTANTS.sympsCnsHzScale*sympsCnsNa;
 
     const gangliaHz=sympsCnsHz;
@@ -194,7 +231,13 @@ function createHumModSourceAlignedAutonomicController({
       adaptedPressureMmHg,
       pressureChangeMmHg,
       baroreflexNa,
+      averageAtrialTmpMmHg,
+      adaptedLowPressureMmHg,
+      lowPressureChangeMmHg,
+      lowPressureNa,
       sympsCnsBaroEffect,
+      sympsCnsLowPressureEffect,
+      sympsCnsReflexNa,
       sympsCnsNa,
       sympsCnsHz,
       gangliaHz,
@@ -221,6 +264,7 @@ function createHumModSourceAlignedAutonomicController({
       schema:'hummod-source-aligned-autonomic/v1.2',
       ...(last||{
         adaptedPressureMmHg,
+        adaptedLowPressureMmHg,
         heartRatePerMin:null,
         contractilityMultiplier:null,
         systemicVenousV0Ml:null,
@@ -236,7 +280,6 @@ function createHumModSourceAlignedAutonomicController({
           HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
         clinicalValidation:false,
         neutralizedDependencies:Object.freeze([
-          'LowPressureReceptors',
           'Mechanoreceptors',
           'ExerciseSymps',
           'CushingResponse',
