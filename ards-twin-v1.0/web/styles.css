@@ -89,3 +89,10 @@ input[type="file"]::file-selector-button{max-width:100%;margin-right:6px}
   .clinical-control-section { padding: .8rem; }
   .clinical-control-section .clinical-actions button { width: 100%; }
 }
+
+.clinical-arrest-banner{margin:0 0 18px;padding:16px 18px;border:2px solid var(--danger);border-radius:12px;background:#fff1f1;color:var(--danger);display:grid;grid-template-columns:auto auto;gap:4px 12px;align-items:baseline}
+.clinical-arrest-banner strong{font-size:20px;letter-spacing:.03em}
+.clinical-arrest-banner span{font-size:20px;font-weight:800}
+.clinical-arrest-banner small{grid-column:1/-1;font-size:12px;font-weight:650;color:#7c2028}
+.clinical-arrest-banner[data-rhythm="PEA"]{background:#ffe8e8;border-width:3px}
+@media(max-width:700px){.clinical-arrest-banner{grid-template-columns:1fr;gap:2px}.clinical-arrest-banner small{grid-column:auto}}
