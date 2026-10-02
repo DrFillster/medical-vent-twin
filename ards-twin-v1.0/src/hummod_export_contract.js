@@ -60,7 +60,13 @@ function validateHumModTrajectoryExport(exportObject) {
   }
   if (source.revision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
     throw new Error(
-      `HumMod revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.revision}, got ${source.revision || 'missing'}`);
+      `HumMod canonical revision mismatch: expected ${String(HUMMOD_STANDALONE_UPSTREAM.revision)}, got ${String(source.revision)}`);
+  }
+  if (source.mirrorRepository !== HUMMOD_STANDALONE_UPSTREAM.mirrorRepository) {
+    throw new Error('HumMod mirror repository mismatch');
+  }
+  if (source.mirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error('HumMod mirror revision mismatch');
   }
   nonEmptyString(source.exporterVersion, 'source.exporterVersion');
   nonEmptyString(exportObject.trajectoryId, 'trajectoryId');
@@ -148,6 +154,7 @@ function normalizeHumModTrajectoryExport(exportObject, { subjectId = null, runId
   const exportPaths = makeCanonicalExportPaths(exportObject.symbols);
   const mapper = createHumModStandaloneExportMapper({
     hummodRevision: exportObject.source.revision,
+    hummodMirrorRevision: exportObject.source.mirrorRevision,
     exporterVersion: exportObject.source.exporterVersion,
     timestampPath: 'timestampSec',
     exportPaths,
