@@ -45,6 +45,8 @@ function rawFixture() {
     source: {
       repository: HUMMOD_STANDALONE_UPSTREAM.repository,
       revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+      mirrorRepository: HUMMOD_STANDALONE_UPSTREAM.mirrorRepository,
+      mirrorRevision: HUMMOD_STANDALONE_UPSTREAM.mirrorRevision,
       exporterVersion: 'raw-fixture/1',
     },
     clock: {
