@@ -119,6 +119,8 @@ function createHumModScriptedExportRequest({
     source: Object.freeze({
       repository: HUMMOD_STANDALONE_UPSTREAM.repository,
       revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+      mirrorRepository: HUMMOD_STANDALONE_UPSTREAM.mirrorRepository,
+      mirrorRevision: HUMMOD_STANDALONE_UPSTREAM.mirrorRevision,
     }),
     clock: HUMMOD_SOURCE_CLOCK,
     requestedSymbols: Object.freeze(requestedSymbols.slice()),
