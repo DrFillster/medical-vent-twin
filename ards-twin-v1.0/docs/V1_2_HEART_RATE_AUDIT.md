@@ -68,3 +68,16 @@ That omission is particularly relevant when PEEP or shock reduces cardiac fillin
 - Do not create a chemoreflex tachycardia path from `Chemoreceptors`; in this HumMod snapshot `SympsChemo.Effect` is fixed at 1.0.
 - Do not replace HumMod's SA-node curves with empirical hand tuning simply to make HR "look better".
 
+
+## Implemented correction
+
+v1.2 now:
+
+- preserves the HumMod baroreflex delay using the source minute-based time semantics: `RateConst = 1/(60*10)` corresponds to a 600-minute (10-hour) adaptation constant;
+- ports `LowPressureReceptors` from average right/left atrial transmural pressure and feeds `SympsCNS.LowPressureEffect` into the reflex product;
+- leaves `Mechanoreceptors.FiringRate = 0` and `SympsChemo.Effect = 1.0` as represented in the pinned source snapshot;
+- uses `SANode-Rate` directly as pre-arrest sinus HR;
+- no longer multiplies pre-arrest sinus HR by the project-authored asphyxial `chronotropicReserveMultiplier`;
+- retains explicit terminal arrest behavior, where PEA/asystole-equivalent state sets HR and cardiac output to zero.
+
+The legacy chronotropic reserve value remains export-visible only as a diagnostic while the decompensation controller is being further separated from HumMod cardiac-rate authority.
