@@ -93,6 +93,13 @@ function derivePassiveRespiratoryMechanics({
   return Object.freeze(result);
 }
 
+function latestBreathMetrics(simulation) {
+  if (!simulation || typeof simulation.metrics !== 'function') return null;
+  const metrics = simulation.metrics();
+  if (!Array.isArray(metrics) || metrics.length === 0) return null;
+  return metrics[metrics.length - 1] || null;
+}
+
 function latestMeasurement(measurements, kind) {
   if (!Array.isArray(measurements)) return null;
   for (let i = measurements.length - 1; i >= 0; i--) {
@@ -108,6 +115,7 @@ function summarizeSimulationMeasurements(simulation) {
 
   const inspiratory = latestMeasurement(simulation.measurements, 'INSPIRATORY_HOLD');
   const expiratory = latestMeasurement(simulation.measurements, 'EXPIRATORY_HOLD');
+  const latestBreath = latestBreathMetrics(simulation);
   const aop = simulation.params
     ? finiteOrNull(simulation.params.airwayOpeningPressure)
     : null;
@@ -121,6 +129,9 @@ function summarizeSimulationMeasurements(simulation) {
 
   return Object.freeze({
     ...derived,
+    peakPressureCmH2O: latestBreath ? finiteOrNull(latestBreath.Ppeak) : null,
+    breathPeepCmH2O: latestBreath ? finiteOrNull(latestBreath.PEEP) : null,
+    latestBreath,
     inspiratoryHold: inspiratory,
     expiratoryHold: expiratory,
   });
