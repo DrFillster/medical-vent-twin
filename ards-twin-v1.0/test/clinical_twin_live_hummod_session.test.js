@@ -43,6 +43,13 @@ test('live session initializes with finite HumMod-derived gas and circulation ou
   assert(s.systemic.hemodynamics.sourceAlignedAutonomic &&
     s.systemic.hemodynamics.sourceAlignedAutonomic.provenance.status === 'source-aligned-acute-subset',
     'live v1.2 session must expose source-aligned autonomic state');
+  assert(Math.abs(
+    s.systemic.hemodynamics.heartRatePerMin -
+    s.systemic.hemodynamics.sourceSaNodeHeartRatePerMin
+  ) < 1e-9,
+    'pre-arrest displayed HR must follow HumMod SA-node rate directly');
+  assert(Number.isFinite(s.systemic.hemodynamics.averageAtrialTmpMmHg),
+    'live session must expose atrial TMP for HumMod low-pressure reflex');
   assert(s.coupling.nativeEcfvApplied===false);
   assert(s.coupling.humoralAutonomicMode==='normalized-humoral-fallback-no-ecfv');
   assert(s.systemic.hemodynamics.catecholamines===null);
