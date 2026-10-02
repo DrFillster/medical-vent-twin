@@ -5358,6 +5358,13 @@ module.exports = {
 "src/hummod_standalone_manifest.js":function(module,exports,require){
 'use strict';
 
+const {
+  HUMMOD_CANONICAL_REPOSITORY,
+  HUMMOD_CANONICAL_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+} = require("src/hummod_source_identity.js");
+
 // hummod_standalone_manifest.js
 //
 // Source-of-truth manifest for HumMod standalone symbols that have been
@@ -5369,9 +5376,13 @@ module.exports = {
 // Verify the defining .DES file in the pinned revision first.
 
 const HUMMOD_STANDALONE_UPSTREAM = Object.freeze({
-  repository: 'riliescu/hummod-standalone',
-  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  repository: HUMMOD_CANONICAL_REPOSITORY,
+  revision: HUMMOD_CANONICAL_REVISION,
+  mirrorRepository: HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  mirrorRevision: HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
   schemaFamily: 'DES V1.0 / HumMod standalone',
+  authorityPolicy:
+    'official HumMod repository is canonical; pinned public mirror is retained only for exact reproducibility while official revision is unresolved',
 });
 
 const HUMMOD_STANDALONE_SYMBOLS = Object.freeze({
@@ -5537,6 +5548,7 @@ function nonEmptyString(value, label) {
  */
 function createHumModStandaloneExportMapper({
   hummodRevision,
+  hummodMirrorRevision,
   exporterVersion,
   timestampPath,
   exportPaths,
@@ -5546,7 +5558,11 @@ function createHumModStandaloneExportMapper({
 } = {}) {
   if (hummodRevision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
     throw new Error(
-      `HumMod revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.revision}, got ${hummodRevision || 'missing'}`);
+      `HumMod canonical revision mismatch: expected ${String(HUMMOD_STANDALONE_UPSTREAM.revision)}, got ${String(hummodRevision)}`);
+  }
+  if (hummodMirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error(
+      `HumMod mirror revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.mirrorRevision}, got ${String(hummodMirrorRevision)}`);
   }
   nonEmptyString(exporterVersion, 'exporterVersion');
   nonEmptyString(timestampPath, 'timestampPath');
@@ -5578,7 +5594,10 @@ function createHumModStandaloneExportMapper({
   });
 
   return createHumModSnapshotMapper({
-    modelVersion: `${HUMMOD_STANDALONE_UPSTREAM.repository}@${hummodRevision}; exporter=${exporterVersion}`,
+    modelVersion:
+      `${HUMMOD_STANDALONE_UPSTREAM.repository}@${String(hummodRevision)}` +
+      `; mirror=${HUMMOD_STANDALONE_UPSTREAM.mirrorRepository}@${hummodMirrorRevision}` +
+      `; exporter=${exporterVersion}`,
     fields,
     requiredTargets,
     subjectId,
@@ -5652,7 +5671,13 @@ function validateHumModTrajectoryExport(exportObject) {
   }
   if (source.revision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
     throw new Error(
-      `HumMod revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.revision}, got ${source.revision || 'missing'}`);
+      `HumMod canonical revision mismatch: expected ${String(HUMMOD_STANDALONE_UPSTREAM.revision)}, got ${String(source.revision)}`);
+  }
+  if (source.mirrorRepository !== HUMMOD_STANDALONE_UPSTREAM.mirrorRepository) {
+    throw new Error('HumMod mirror repository mismatch');
+  }
+  if (source.mirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error('HumMod mirror revision mismatch');
   }
   nonEmptyString(source.exporterVersion, 'source.exporterVersion');
   nonEmptyString(exportObject.trajectoryId, 'trajectoryId');
@@ -5740,6 +5765,7 @@ function normalizeHumModTrajectoryExport(exportObject, { subjectId = null, runId
   const exportPaths = makeCanonicalExportPaths(exportObject.symbols);
   const mapper = createHumModStandaloneExportMapper({
     hummodRevision: exportObject.source.revision,
+    hummodMirrorRevision: exportObject.source.mirrorRevision,
     exporterVersion: exportObject.source.exporterVersion,
     timestampPath: 'timestampSec',
     exportPaths,
@@ -5948,7 +5974,13 @@ function validateHumModRawSeries(raw) {
     throw new Error('unexpected HumMod repository: ' + String(source.repository || 'missing'));
   }
   if (source.revision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
-    throw new Error('HumMod revision mismatch');
+    throw new Error('HumMod canonical revision mismatch');
+  }
+  if (source.mirrorRepository !== HUMMOD_STANDALONE_UPSTREAM.mirrorRepository) {
+    throw new Error('HumMod mirror repository mismatch');
+  }
+  if (source.mirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error('HumMod mirror revision mismatch');
   }
   nonEmptyString(source.exporterVersion, 'source.exporterVersion');
   nonEmptyString(raw.trajectoryId, 'trajectoryId');
@@ -6011,6 +6043,8 @@ function convertHumModRawSeries(raw) {
     source: {
       repository: raw.source.repository,
       revision: raw.source.revision,
+      mirrorRepository: raw.source.mirrorRepository,
+      mirrorRevision: raw.source.mirrorRevision,
       exporterVersion: raw.source.exporterVersion,
     },
     symbols: raw.symbols.slice(),
@@ -6057,8 +6091,8 @@ module.exports = {
 "src/hummod_native_solution.js":function(module,exports,require){
 'use strict';
 
-// Strict parser for native HumMod .SOLN files produced by the pinned
-// riliescu/hummod-standalone runtime. This parser intentionally extracts only
+// Strict parser for native HumMod .SOLN files produced from the pinned
+// reproducibility mirror of the official HumMod standalone model. This parser intentionally extracts only
 // the verified direct-export symbols already approved by the Vent mapping layer.
 
 const {
@@ -6088,6 +6122,7 @@ const HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS = Object.freeze([
 ]);
 
 const HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS = Object.freeze([
+  'ECFV.Vol',
   'PulmonaryMembrane.Permeability',
   'LungBloodFlow.AlveolarVentilated',
   'O2Total.Outflow',
@@ -6263,6 +6298,8 @@ function parseHumModNativeSolution(text, {
     source: {
       repository: HUMMOD_STANDALONE_UPSTREAM.repository,
       revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+      mirrorRepository: HUMMOD_STANDALONE_UPSTREAM.mirrorRepository,
+      mirrorRevision: HUMMOD_STANDALONE_UPSTREAM.mirrorRevision,
       exporterVersion,
     },
     clock: {
