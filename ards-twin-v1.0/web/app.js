@@ -531,7 +531,11 @@
     $('clinical-live').hidden = false;
     $('clinical-time').textContent = displayClinicalValue(snapshot.timeSec);
     $('clinical-current-mode').textContent = snapshot.ventilator?.mode || '—';
-    $('clinical-current-peep').textContent = displayClinicalValue(snapshot.ventilator?.peepCmH2O);
+    const peepValue = snapshot.ventilator?.peepCmH2O;
+    const peepTile = $('clinical-pressure-peep');
+    if (peepTile) peepTile.textContent = displayClinicalValue(peepValue);
+    const legacyPeepTile = $('clinical-current-peep');
+    if (legacyPeepTile) legacyPeepTile.textContent = displayClinicalValue(peepValue);
     $('clinical-current-fio2').textContent = typeof snapshot.ventilator?.fio2 === 'number'
       ? snapshot.ventilator.fio2.toFixed(2) : '—';
     $('clinical-current-rr').textContent = displayClinicalValue(snapshot.ventilator?.rrPerMin ?? snapshot.ventilator?.rr);
