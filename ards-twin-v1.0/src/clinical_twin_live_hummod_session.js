@@ -339,9 +339,6 @@ function createBerlinLiveHumModSession({
           last.leftAtrialTmpMmHg ?? null,
         averageAtrialTmpMmHg:
           last.averageAtrialTmpMmHg ?? null,
-        sourceHeartRatePerMin: last.sourceHeartRatePerMin ?? null,
-        chronotropicReserveMultiplier:
-          last.chronotropicReserveMultiplier ?? null,
         meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
         rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
         pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
