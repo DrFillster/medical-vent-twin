@@ -565,9 +565,8 @@
       ? hemo.sympatheticTone.toFixed(2) : '—';
     $('clinical-catecholamine').textContent = typeof hemo.catecholamineDrive === 'number'
       ? hemo.catecholamineDrive.toFixed(2) : '—';
+    $('clinical-ppeak').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.peakPressureCmH2O);
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
-    $('clinical-total-peep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.totalPeepCmH2O);
-    $('clinical-autopeep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.intrinsicPeepCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
     const clinicalWaveform = snapshot.pulmonary?.recentWaveform || [];
     drawClinicalTrace('clinical-pressure-chart', clinicalWaveform, 'pressureCmH2O');
