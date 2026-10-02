@@ -156,9 +156,12 @@ function createHumModArdsCardiopulmonaryRuntime({
       control.contractilityMultiplier *
       control.acidoticContractilityMultiplier *
       priorDecomp.myocardialContractilityMultiplier;
-    const effectiveHeartRatePerMin =
-      control.heartRatePerMin *
+    const sourceSaNodeHeartRatePerMin = control.heartRatePerMin;
+    const chronotropicReserveMultiplier =
       priorDecomp.chronotropicReserveMultiplier;
+    const effectiveHeartRatePerMin =
+      sourceSaNodeHeartRatePerMin *
+      chronotropicReserveMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
@@ -240,7 +243,16 @@ function createHumModArdsCardiopulmonaryRuntime({
       circulation:circ,
       autonomic:control,
       decompensation:decomp,
+      sourceSaNodeHeartRatePerMin,
+      chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
+      rightAtrialTmpMmHg:
+        circ.pressures.rightAtrialMmHg - pericardialPressureMmHg,
+      leftAtrialTmpMmHg:
+        circ.pressures.leftAtrialMmHg - pericardialPressureMmHg,
+      averageAtrialTmpMmHg:
+        ((circ.pressures.rightAtrialMmHg - pericardialPressureMmHg) +
+         (circ.pressures.leftAtrialMmHg - pericardialPressureMmHg)) / 2,
       effectiveContractilityMultiplier:effectiveContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
