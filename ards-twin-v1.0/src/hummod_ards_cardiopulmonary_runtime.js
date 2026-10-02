@@ -5,6 +5,7 @@ const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adap
 const { createHumModArdsAutonomicController } = require('./hummod_ards_autonomic_controller.js');
 const { createHumModSourceAlignedAutonomicController } = require('./hummod_ards_autonomic_source_aligned.js');
 const { createHumModSourceAlignedCatecholamines } = require('./hummod_ards_catecholamines_source_aligned.js');
+const { sourceSympatheticVascularComponents } = require('./hummod_ards_vascular_sympathetic_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -124,11 +125,16 @@ function createHumModArdsCardiopulmonaryRuntime({
           generalGangliaHz: sourceControl.gangliaHz,
         })
       : null;
+    const vascularSympatheticComponents = sourceSympatheticVascularComponents({
+      gangliaHz: sourceControl.gangliaHz,
+      alphaPoolEffect: currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
+    });
     const control = autonomicMode==='source-aligned'
       ? Object.freeze({
           ...legacyControl,
           sourceAligned: sourceControl,
           catecholamines: updatedCatecholamines,
+          vascularSympatheticComponents,
           heartRatePerMin: sourceControl.heartRatePerMin,
           contractilityMultiplier: sourceControl.contractilityMultiplier,
           systemicVenousV0Ml: sourceControl.systemicVenousV0Ml,
