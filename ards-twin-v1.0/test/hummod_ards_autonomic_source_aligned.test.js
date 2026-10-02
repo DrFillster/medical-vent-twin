@@ -49,11 +49,31 @@ test('acute carotid pressure fall produces source-direction tachycardia inotropy
   assert(low.systemicVenousV0Ml<baseline.systemicVenousV0Ml,'venous V0 should fall');
 });
 
-test('baroreflex adaptation is slow on acute ventilator timescale',()=>{
+test('baroreflex adaptation preserves HumMod 10-hour source time constant',()=>{
   const c=createHumModSourceAlignedAutonomicController();
   c.step({dtSec:1,carotidPressureMmHg:60});
   const s=c.snapshot();
-  assert(s.adaptedPressureMmHg>96.8,'10-minute source adaptation should move only slightly after 1 sec');
+  assert(s.adaptedPressureMmHg>96.99,'10-hour source adaptation should barely move after 1 sec');
+});
+
+test('falling atrial TMP activates HumMod low-pressure sympathetic reflex',()=>{
+  const c=createHumModSourceAlignedAutonomicController();
+  let baseline;
+  for(let i=0;i<20;i++) baseline=c.step({
+    dtSec:1,carotidPressureMmHg:97,averageAtrialTmpMmHg:6,
+  });
+  let low=baseline;
+  for(let i=0;i<20;i++) low=c.step({
+    dtSec:1,carotidPressureMmHg:97,averageAtrialTmpMmHg:2,
+  });
+  assert(low.lowPressureNa<baseline.lowPressureNa,
+    'low-pressure receptor NA should fall when atrial TMP falls');
+  assert(low.sympsCnsLowPressureEffect>baseline.sympsCnsLowPressureEffect,
+    'HumMod low-pressure effect should increase sympathetic drive');
+  assert(low.sympsCnsHz>baseline.sympsCnsHz,
+    'sympathetic firing should rise with reduced atrial TMP');
+  assert(low.heartRatePerMin>baseline.heartRatePerMin,
+    'SA-node rate should rise through HumMod low-pressure reflex');
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
