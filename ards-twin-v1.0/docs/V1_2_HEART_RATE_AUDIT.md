@@ -81,3 +81,16 @@ v1.2 now:
 - retains explicit terminal arrest behavior, where PEA/asystole-equivalent state sets HR and cardiac output to zero.
 
 The legacy chronotropic reserve value remains export-visible only as a diagnostic while the decompensation controller is being further separated from HumMod cardiac-rate authority.
+
+## Remaining reduced-CNS limitation
+
+After the source timebase, low-pressure reflex, pre-arrest HR authority, and dynamic catecholamine corrections, the reduced v1.2 CNS still does not execute two HumMod inputs that can amplify `SympsCNS.NA`:
+
+- `Brain-Fuel.FractUseDelay`, which feeds the additive `FuelEffect`;
+- `A2Pool.Log10Conc`, which feeds the multiplicative `A2Effect`.
+
+The current reduced runtime lacks HumMod's brain-flow/substrate metabolism and renin-angiotensin state required to calculate those quantities. They are therefore not replaced by PaO2, MAP, oxygen debt, or another heuristic proxy.
+
+For the authored reference patient, catecholamine dynamics now use HumMod's checked-in resting benchmark ECFV of 15,000 mL when native `ECFV.Vol` is unavailable. Native ECFV still takes precedence.
+
+This means persistent under-tachycardia after these corrections should be interpreted as a limitation of the reduced HumMod CNS path, not as justification to increase sympathetic or SA-node gains by hand.
