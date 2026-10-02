@@ -384,6 +384,7 @@
       pao2: Number(snapshot?.systemic?.gasExchange?.pao2MmHg),
       paco2: Number(snapshot?.systemic?.gasExchange?.paco2MmHg),
       map: Number(snapshot?.systemic?.hemodynamics?.meanArterialPressureMmHg),
+      heartRate: Number(snapshot?.systemic?.hemodynamics?.heartRatePerMin),
       pH: Number(snapshot?.systemic?.gasExchange?.pH),
     };
     if (!Number.isFinite(point.timeSec)) return;
@@ -452,6 +453,7 @@
     drawClinicalTrend('clinical-pao2-trend', 'pao2', 0);
     drawClinicalTrend('clinical-paco2-trend', 'paco2', 0);
     drawClinicalTrend('clinical-map-trend', 'map', 0);
+    drawClinicalTrend('clinical-hr-trend', 'heartRate', 0);
     drawClinicalTrend('clinical-ph-trend', 'pH', 2);
   }
 
