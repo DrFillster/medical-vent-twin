@@ -110,9 +110,16 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
     const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
+    const rightAtrialTmpMmHg =
+      circ.pressures.rightAtrialMmHg - pericardialPressureMmHg;
+    const leftAtrialTmpMmHg =
+      circ.pressures.leftAtrialMmHg - pericardialPressureMmHg;
+    const averageAtrialTmpMmHg =
+      (rightAtrialTmpMmHg + leftAtrialTmpMmHg) / 2;
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
+      averageAtrialTmpMmHg,
       humoralAlphaPoolEffect:
         currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
       humoralBetaPoolEffect:
@@ -159,9 +166,10 @@ function createHumModArdsCardiopulmonaryRuntime({
     const sourceSaNodeHeartRatePerMin = control.heartRatePerMin;
     const chronotropicReserveMultiplier =
       priorDecomp.chronotropicReserveMultiplier;
-    const effectiveHeartRatePerMin =
-      sourceSaNodeHeartRatePerMin *
-      chronotropicReserveMultiplier;
+    // HumMod sinus HR follows SANode-Rate through Heart-Ventricles.Rate.
+    // Do not apply the project-authored decompensation multiplier before
+    // an explicit arrest/asystole/VF-equivalent terminal state.
+    const effectiveHeartRatePerMin = sourceSaNodeHeartRatePerMin;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
@@ -246,13 +254,9 @@ function createHumModArdsCardiopulmonaryRuntime({
       sourceSaNodeHeartRatePerMin,
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
-      rightAtrialTmpMmHg:
-        circ.pressures.rightAtrialMmHg - pericardialPressureMmHg,
-      leftAtrialTmpMmHg:
-        circ.pressures.leftAtrialMmHg - pericardialPressureMmHg,
-      averageAtrialTmpMmHg:
-        ((circ.pressures.rightAtrialMmHg - pericardialPressureMmHg) +
-         (circ.pressures.leftAtrialMmHg - pericardialPressureMmHg)) / 2,
+      rightAtrialTmpMmHg,
+      leftAtrialTmpMmHg,
+      averageAtrialTmpMmHg,
       effectiveContractilityMultiplier:effectiveContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
