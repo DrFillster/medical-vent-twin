@@ -329,6 +329,16 @@ function createBerlinLiveHumModSession({
           ? 0
           : (circ.activeBoundaries?.heartRatePerMin ??
             effectiveCirculationBoundaries.heartRatePerMin),
+        sourceSaNodeHeartRatePerMin:
+          last.sourceSaNodeHeartRatePerMin ?? null,
+        chronotropicReserveMultiplier:
+          last.chronotropicReserveMultiplier ?? null,
+        rightAtrialTmpMmHg:
+          last.rightAtrialTmpMmHg ?? null,
+        leftAtrialTmpMmHg:
+          last.leftAtrialTmpMmHg ?? null,
+        averageAtrialTmpMmHg:
+          last.averageAtrialTmpMmHg ?? null,
         sourceHeartRatePerMin: last.sourceHeartRatePerMin ?? null,
         chronotropicReserveMultiplier:
           last.chronotropicReserveMultiplier ?? null,
