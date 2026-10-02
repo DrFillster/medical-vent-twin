@@ -364,10 +364,11 @@ const MODEL_PROVENANCE = Object.freeze({
     id:'autonomic.v12.ecfv_boundary', kind:'boundary',
     class:'HUMMOD_ADAPTED', module:'hummod_native_reduced_calibration.js',
     symbol:'ECFV.Vol -> catecholamineEcfvMl',
-    description:'Explicit extracellular-fluid-volume boundary required to convert HumMod catecholamine pool mass to concentration. Native ECFV is used when present; no synthetic default is permitted.',
+    description:'Explicit extracellular-fluid-volume boundary required to convert HumMod catecholamine pool mass to concentration. Native ECFV is preferred when present; the authored reference case otherwise uses HumMod\'s checked-in 15,000 mL catecholamine benchmark rather than a synthetic patient default.',
     source:Object.freeze([
       humModSource('Structure/H2O/ECFV.DES','ECFV.Vol'),
-      {type:'project',statement:'Reduced live runtime imports ECFV as an external boundary instead of executing the full body-water subsystem.'},
+      humModSource("Benchmarks/Tom's July 28 2007 Benchmarks.TXT",'resting ECFV = 15,000 mL'),
+      {type:'project',statement:'The 15,000 mL benchmark is restricted to the authored HumMod reference case; native ECFV.Vol overrides it when available.'},
     ]),
   }),
   'autonomic.v12.catecholamine_pools': record({
@@ -388,6 +389,20 @@ const MODEL_PROVENANCE = Object.freeze({
       {type:'project',statement:'Uses analytic linear backward-Euler pool update with ECFV held fixed over each coupled step; midodrine branch omitted.'},
     ]),
     dependsOn:Object.freeze(['autonomic.v12.ecfv_boundary','autonomic.v12.baroreflex_source']),
+  }),
+  'autonomic.v12.cns_drive_limitations': record({
+    id:'autonomic.v12.cns_drive_limitations', kind:'boundary',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'SympsCNS omitted additive/modulatory inputs',
+    description:'Reduced v1.2 SympsCNS does not yet execute HumMod Brain-Fuel or A2Pool because their required brain substrate/perfusion and renin-angiotensin state dependencies are not present. CushingResponse is zero and CNSTrophicFactor is constant one in the pinned source snapshot.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/SympsCNS.DES','NA'),
+      humModSource('Structure/Brain/Brain-Fuel.DES','FractUseDelay'),
+      humModSource('Structure/Renin/A2Pool.DES','Log10Conc'),
+      humModSource('Structure/Nerves/CushingResponse.DES','Effect'),
+      humModSource('Structure/Nerves/CNSTrophicFactor.DES','Effect'),
+      {type:'project',statement:'No PaO2/MAP/oxygen-debt proxy is substituted for Brain-Fuel or A2Pool.'},
+    ]),
   }),
   'autonomic.v12.low_pressure_receptors': record({
     id:'autonomic.v12.low_pressure_receptors', kind:'equation',
@@ -656,6 +671,7 @@ const LIVE_CLINICAL_PROVENANCE_IDS = Object.freeze([
   'autonomic.v12.sympathetic_vascular_components',
   'autonomic.v12.ecfv_boundary',
   'autonomic.v12.catecholamine_pools',
+  'autonomic.v12.cns_drive_limitations',
   'autonomic.v12.low_pressure_receptors',
   'autonomic.v12.baroreflex_source',
   'autonomic.v12.vagus_source',
