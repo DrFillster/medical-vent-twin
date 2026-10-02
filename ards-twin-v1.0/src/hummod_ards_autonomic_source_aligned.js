@@ -131,9 +131,13 @@ function createHumModSourceAlignedAutonomicController({
   function step({
     dtSec,
     carotidPressureMmHg,
+    humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect=humoralAlphaPoolEffect,
+    humoralBetaPoolEffect:stepHumoralBetaPoolEffect=humoralBetaPoolEffect,
   }={}){
     positive(dtSec,'dtSec');
     finite(carotidPressureMmHg,'carotidPressureMmHg');
+    finite(stepHumoralAlphaPoolEffect,'humoralAlphaPoolEffect');
+    finite(stepHumoralBetaPoolEffect,'humoralBetaPoolEffect');
 
     // HumMod Baroreflex: RateConst = 1/(60*Tau), Tau=10 min.
     const tauSec=60*SOURCE_CONSTANTS.baroreflexTauMin;
@@ -159,7 +163,7 @@ function createHumModSourceAlignedAutonomicController({
 
     const saBetaActivity=receptorActivity({
       gangliaHz,
-      humoralPoolEffect:humoralBetaPoolEffect,
+      humoralPoolEffect:stepHumoralBetaPoolEffect,
     });
     const parasympatheticEffectPerMin=
       hermite(CURVES.saParasympatheticEffect,vagusHz);
@@ -173,12 +177,12 @@ function createHumModSourceAlignedAutonomicController({
 
     const ventricularBetaActivity=receptorActivity({
       gangliaHz,
-      humoralPoolEffect:humoralBetaPoolEffect,
+      humoralPoolEffect:stepHumoralBetaPoolEffect,
     });
 
     const venousAlphaActivity=receptorActivity({
       gangliaHz,
-      humoralPoolEffect:humoralAlphaPoolEffect,
+      humoralPoolEffect:stepHumoralAlphaPoolEffect,
     });
     const systemicVenousV0AlphaEffect=
       hermite(CURVES.systemicVeinsV0AlphaEffect,venousAlphaActivity);
@@ -204,6 +208,8 @@ function createHumModSourceAlignedAutonomicController({
       ventricularBetaActivity,
       contractilityMultiplier:ventricularBetaActivity,
       venousAlphaActivity,
+      humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect,
+      humoralBetaPoolEffect:stepHumoralBetaPoolEffect,
       systemicVenousV0AlphaEffect,
       systemicVenousV0Ml,
     });
@@ -237,9 +243,10 @@ function createHumModSourceAlignedAutonomicController({
           'Brain-Fuel/Brain-Function',
           'A2Pool/CNSTrophicFactor',
         ]),
-        normalizedHumoralBoundaries:Object.freeze({
+        defaultHumoralBoundaries:Object.freeze({
           alphaPoolEffect:humoralAlphaPoolEffect,
           betaPoolEffect:humoralBetaPoolEffect,
+          note:'step-level dynamic HumMod pool effects may override these defaults',
         }),
       }),
     });
