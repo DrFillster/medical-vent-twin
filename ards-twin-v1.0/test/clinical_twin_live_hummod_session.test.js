@@ -51,8 +51,12 @@ test('live session initializes with finite HumMod-derived gas and circulation ou
   assert(Number.isFinite(s.systemic.hemodynamics.averageAtrialTmpMmHg),
     'live session must expose atrial TMP for HumMod low-pressure reflex');
   assert(s.coupling.nativeEcfvApplied===false);
-  assert(s.coupling.humoralAutonomicMode==='normalized-humoral-fallback-no-ecfv');
-  assert(s.systemic.hemodynamics.catecholamines===null);
+  assert(s.coupling.benchmarkEcfvApplied===true);
+  assert(s.coupling.catecholamineEcfvMl===15000);
+  assert(s.coupling.humoralAutonomicMode===
+    'dynamic-source-aligned-catecholamines-hummod-benchmark-ecfv');
+  assert(s.systemic.hemodynamics.catecholamines &&
+    s.systemic.hemodynamics.catecholamines.provenance.status==='source-aligned-acute-subset');
   assert(s.provenance.boundaryStatus.includes('synthetic-engineering'));
 });
 
@@ -75,7 +79,8 @@ test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   });
   const s = session.initialize();
   assert(s.coupling.nativeEcfvApplied===true);
-  assert(s.coupling.humoralAutonomicMode==='dynamic-source-aligned-catecholamines');
+  assert(s.coupling.humoralAutonomicMode===
+    'dynamic-source-aligned-catecholamines-native-ecfv');
   assert(s.systemic.hemodynamics.catecholamines &&
     s.systemic.hemodynamics.catecholamines.provenance.status==='source-aligned-acute-subset');
   assert(Number.isFinite(s.systemic.hemodynamics.catecholamines.nePgPerMl));
