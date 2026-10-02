@@ -22,11 +22,14 @@ test('all declared live provenance ids exist',()=>{
   for(const id of LIVE_CLINICAL_PROVENANCE_IDS) assert(MODEL_PROVENANCE[id], 'missing '+id);
 });
 
-test('HumMod exact records pin revision and source path',()=>{
+test('HumMod exact records name official upstream and preserve reproducible mirror pin',()=>{
   for(const x of Object.values(MODEL_PROVENANCE).filter(x=>x.class==='HUMMOD_EXACT')){
     const h=x.source.find(s=>s.type==='HumMod');
     assert(h,'missing HumMod source '+x.id);
-    assert(h.revision==='8dab57e05631f779bf5020fe0dd51874d8ae98c1','unpinned revision '+x.id);
+    assert(h.repository==='HumMod/hummod-standalone','noncanonical repository '+x.id);
+    assert(h.revision===null,'unverified official revision must remain null '+x.id);
+    assert(h.mirrorRepository==='riliescu/hummod-standalone','missing reproducibility mirror '+x.id);
+    assert(h.mirrorRevision==='8dab57e05631f779bf5020fe0dd51874d8ae98c1','unpinned mirror revision '+x.id);
     assert(typeof h.path==='string'&&h.path.length>0,'missing source path '+x.id);
   }
 });

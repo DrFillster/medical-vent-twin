@@ -19,6 +19,8 @@ function makeExport() {
     source: {
       repository: HUMMOD_STANDALONE_UPSTREAM.repository,
       revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+      mirrorRepository: HUMMOD_STANDALONE_UPSTREAM.mirrorRepository,
+      mirrorRevision: HUMMOD_STANDALONE_UPSTREAM.mirrorRevision,
       exporterVersion: 'fixture-exporter/1',
     },
     symbols: [

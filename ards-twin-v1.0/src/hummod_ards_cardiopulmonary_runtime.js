@@ -3,6 +3,9 @@
 const { createVentToArdsCoreSnapshot } = require('./hummod_ards_core_coupling.js');
 const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adapter.js');
 const { createHumModArdsAutonomicController } = require('./hummod_ards_autonomic_controller.js');
+const { createHumModSourceAlignedAutonomicController } = require('./hummod_ards_autonomic_source_aligned.js');
+const { createHumModSourceAlignedCatecholamines } = require('./hummod_ards_catecholamines_source_aligned.js');
+const { sourceSympatheticVascularComponents } = require('./hummod_ards_vascular_sympathetic_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -33,6 +36,8 @@ function createHumModArdsCardiopulmonaryRuntime({
   bloodBoundaries,
   environmentBoundaries,
   pericardialTmpMmHg=0,
+  autonomicMode='legacy',
+  catecholamineEcfvMl=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -42,18 +47,31 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('validated pressureAdapter.cmH2OToMmHg is required');
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
+  if(catecholamineEcfvMl!=null) positive(catecholamineEcfvMl,'catecholamineEcfvMl');
+  if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
 
   let timeSec=0;
   let last=null;
   const decompensation = createHumModArdsDecompensationController();
+  const autonomicBaseline = circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
+    heartRatePerMin: 75,
+    systemicArterialConductanceMlPerMinPerMmHg: 60,
+    systemicVenousConductanceMlPerMinPerMmHg: 692,
+    systemicVenousV0Ml: 1700,
+    leftContractilityMultiplier: 1,
+  };
   const autonomic = createHumModArdsAutonomicController({
-    baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
-      heartRatePerMin: 75,
-      systemicArterialConductanceMlPerMinPerMmHg: 60,
-      systemicVenousConductanceMlPerMinPerMmHg: 692,
-      leftContractilityMultiplier: 1,
-    },
+    baseline: autonomicBaseline,
   });
+  const sourceAlignedAutonomic = createHumModSourceAlignedAutonomicController({
+    initialCarotidPressureMmHg: 97,
+    saNodeBasicRatePerMin: 82,
+    systemicVenousV0BasicMl:
+      autonomicBaseline.systemicVenousV0Ml == null ? 1700 : autonomicBaseline.systemicVenousV0Ml,
+  });
+  const catecholamines = catecholamineEcfvMl == null
+    ? null
+    : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -83,7 +101,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     const priorGas = last && last.gas && last.gas.gases
       ? last.gas.gases.arterial
       : null;
-    const control = autonomic.step({
+    const legacyControl = autonomic.step({
       dtSec,
       meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
       thoracicPressureMmHg,
@@ -91,6 +109,48 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
+    const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
+    const sourceControl = sourceAlignedAutonomic.step({
+      dtSec,
+      carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
+      humoralAlphaPoolEffect:
+        currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
+      humoralBetaPoolEffect:
+        currentCatecholamines ? currentCatecholamines.betaEffect : 1,
+    });
+    const updatedCatecholamines = catecholamines
+      ? catecholamines.step({
+          dtSec,
+          adrenalNerveHz: sourceControl.sympsCnsHz,
+          generalGangliaHz: sourceControl.gangliaHz,
+        })
+      : null;
+    const vascularSympatheticComponents = sourceSympatheticVascularComponents({
+      gangliaHz: sourceControl.gangliaHz,
+      alphaPoolEffect: currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
+    });
+    const control = autonomicMode==='source-aligned'
+      ? Object.freeze({
+          ...legacyControl,
+          sourceAligned: sourceControl,
+          catecholamines: updatedCatecholamines,
+          vascularSympatheticComponents,
+          heartRatePerMin: sourceControl.heartRatePerMin,
+          contractilityMultiplier: sourceControl.contractilityMultiplier,
+          systemicVenousV0Ml: sourceControl.systemicVenousV0Ml,
+          authority: Object.freeze({
+            heartRate:'HumMod source-aligned acute subset',
+            contractility:'HumMod source-aligned beta-receptor pathway',
+            venousV0:'HumMod source-aligned venous alpha pathway',
+            systemicArterialConductance:'legacy reduced controller',
+            pulmonaryArterialConductance:'legacy reduced controller',
+            acidoticContractility:'literature-calibrated legacy modifier',
+            humoralAlphaBeta: catecholamines
+              ? 'HumMod source-aligned dynamic NE/Epi pools'
+              : 'normalized HumMod humoral fallback (ECFV unavailable)',
+          }),
+        })
+      : legacyControl;
     const priorDecomp=decompensation.snapshot();
     const effectiveContractility=
       control.contractilityMultiplier *
@@ -200,6 +260,13 @@ function createHumModArdsCardiopulmonaryRuntime({
         gasExchange:'source-aligned HumMod reduced gas core',
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
+        autonomicMode,
+        autonomicAuthority: autonomicMode==='source-aligned'
+          ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
+          : 'legacy reduced engineering autonomic controller',
+        catecholamineAuthority: catecholamines
+          ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
+          : 'normalized humoral fallback; dynamic catecholamine pools disabled because ECFV unavailable',
         clinicalValidation:false,
       }),
     });

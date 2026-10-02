@@ -14,9 +14,11 @@ function test(name, fn) {
 }
 function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
 
-test('pins an exact upstream HumMod revision', () => {
-  assert(HUMMOD_STANDALONE_UPSTREAM.repository === 'riliescu/hummod-standalone');
-  assert(/^[0-9a-f]{40}$/.test(HUMMOD_STANDALONE_UPSTREAM.revision), 'expected full commit SHA');
+test('uses official HumMod upstream and separately pins reproducibility mirror', () => {
+  assert(HUMMOD_STANDALONE_UPSTREAM.repository === 'HumMod/hummod-standalone');
+  assert(HUMMOD_STANDALONE_UPSTREAM.revision === null);
+  assert(HUMMOD_STANDALONE_UPSTREAM.mirrorRepository === 'riliescu/hummod-standalone');
+  assert(/^[0-9a-f]{40}$/.test(HUMMOD_STANDALONE_UPSTREAM.mirrorRevision), 'expected full mirror commit SHA');
 });
 
 test('direct mappings contain only source-verified compatible units', () => {

@@ -165,7 +165,14 @@ function createBerlinLiveHumModSession({
     nativeCalibrationTarget.nativeCirculationState.available
       ? nativeCalibrationTarget.nativeCirculationState.initialVolumesMl
       : null;
+  const nativeEcfvMl = nativeCalibrationTarget &&
+    nativeCalibrationTarget.nativeReducedBoundary &&
+    nativeCalibrationTarget.nativeReducedBoundary.values &&
+    Number.isFinite(nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl)
+      ? nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl
+      : null;
   if (nativeHeartRate != null) positive(nativeHeartRate, 'nativeCalibrationTarget.endpoints.heartRatePerMin');
+  if (nativeEcfvMl != null) positive(nativeEcfvMl, 'nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl');
   const effectiveCirculationBoundaries = Object.freeze({
     ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries,
     heartRatePerMin: nativeHeartRate == null
@@ -249,6 +256,8 @@ function createBerlinLiveHumModSession({
     environmentBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
+    autonomicMode: 'source-aligned',
+    catecholamineEcfvMl: nativeEcfvMl,
   });
 
   const sessionEvents = [];
@@ -335,6 +344,23 @@ function createBerlinLiveHumModSession({
         sympatheticTone: last.autonomic?.sympatheticTone ?? null,
         parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
         catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
+        sympatheticFiringHz:
+          last.autonomic?.sourceAligned?.sympsCnsHz ?? null,
+        vagalFiringHz:
+          last.autonomic?.sourceAligned?.vagusHz ?? null,
+        baroreflexNa:
+          last.autonomic?.sourceAligned?.baroreflexNa ?? null,
+        saBetaReceptorActivity:
+          last.autonomic?.sourceAligned?.saBetaActivity ?? null,
+        ventricularBetaReceptorActivity:
+          last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
+        venousAlphaReceptorActivity:
+          last.autonomic?.sourceAligned?.venousAlphaActivity ?? null,
+        autonomicAuthority: last.autonomic?.authority ?? null,
+        sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
+        catecholamines: last.autonomic?.catecholamines ?? null,
+        vascularSympatheticComponents:
+          last.autonomic?.vascularSympatheticComponents ?? null,
       }),
       decompensation: decomp ? Object.freeze({
         stage: decomp.stage,
@@ -413,6 +439,10 @@ function createBerlinLiveHumModSession({
         nativeCalibrationApplied: Boolean(nativeCalibrationTarget),
         nativeGasStateApplied: Boolean(nativeState),
         nativeCirculationStateApplied: Boolean(nativeCirculationVolumes),
+        nativeEcfvApplied: nativeEcfvMl != null,
+        humoralAutonomicMode: nativeEcfvMl != null
+          ? 'dynamic-source-aligned-catecholamines'
+          : 'normalized-humoral-fallback-no-ecfv',
       }),
       events: Object.freeze(sessionEvents.slice()),
       engineeringBoundaries: Object.freeze({
@@ -426,6 +456,7 @@ function createBerlinLiveHumModSession({
           heartRateApplied: nativeHeartRate,
           gasStateApplied: Boolean(nativeState),
           circulationStateApplied: Boolean(nativeCirculationVolumes),
+          ecfvMlApplied: nativeEcfvMl,
         }) : null,
       }),
       modelProvenance: Object.freeze({

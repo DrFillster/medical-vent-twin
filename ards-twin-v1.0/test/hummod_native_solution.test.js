@@ -33,6 +33,7 @@ const vars = {
   'PulmCapys.Vol':[200,201,202],
   'PulmVeins.Vol':[211,212,213],
   'LeftAtrium.Vol':[51,50,49],
+  'ECFV.Vol':[14000,14010,14020],
   'LungBloodFlow.AlveolarVentilated':[5154,5149,5147],
   'O2Total.Outflow':[209,209.5,210],
   'CO2Total.Inflow':[7.45,6.7,6.08],
@@ -90,6 +91,7 @@ test('native SOLN retains exact reduced-core gas state when exported',()=>{
 
 test('native SOLN retains reduced-core equation boundaries',()=>{
   const raw=parseHumModNativeSolution(fixture());
+  assert(raw.nativeSolution.reducedBoundary['ECFV.Vol'].final===14020);
   assert(raw.nativeSolution.reducedBoundary['LungBloodFlow.AlveolarVentilated'].final===5147);
   assert(raw.nativeSolution.reducedBoundary['O2Total.Outflow'].final===210);
   assert(raw.nativeSolution.reducedBoundary['BloodIons.[SID]'].final===0.04067);

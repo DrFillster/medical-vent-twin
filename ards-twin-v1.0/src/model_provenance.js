@@ -1,5 +1,7 @@
 'use strict';
 
+const { humModSource } = require('./hummod_source_identity.js');
+
 const PROVENANCE_SCHEMA = 'vent-model-provenance/v1';
 
 const PROVENANCE_CLASSES = Object.freeze([
@@ -53,28 +55,28 @@ const MODEL_PROVENANCE = Object.freeze({
     class:'HUMMOD_EXACT', module:'hummod_ards_core_breathing.js',
     symbol:'humModLegacyDeadSpaceMl',
     description:'DeadSpace = 0.20 * TidalVolume + 60 mL.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/Breathing.DES',symbol:'Breathing.DeadSpace'}]),
+    source:Object.freeze([humModSource('Structure/Lungs/Breathing.DES','Breathing.DeadSpace')]),
   }),
   'hummod.bronchi.water_vapor_pressure': record({
     id:'hummod.bronchi.water_vapor_pressure', kind:'constant',
     class:'HUMMOD_EXACT', module:'hummod_ards_core_breathing.js',
     symbol:'BRONCHI_VAPOR_PRESSURE_MMHG',
     description:'Bronchial saturated water-vapor pressure boundary.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/Bronchi.DES',symbol:'Bronchi.VaporPressure'}]),
+    source:Object.freeze([humModSource('Structure/Lungs/Bronchi.DES','Bronchi.VaporPressure')]),
   }),
   'hummod.hemoglobin.p50_model': record({
     id:'hummod.hemoglobin.p50_model', kind:'equation',
     class:'HUMMOD_EXACT', module:'hummod_ards_core_chemistry.js',
     symbol:'hemoglobinProperties',
     description:'HumMod hemoglobin P50 response to temperature, pH, PCO2, and carboxyhemoglobin.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Hemoglobin/HgbProps.DES',symbol:'HgbProps.Setup'}]),
+    source:Object.freeze([humModSource('Structure/Hemoglobin/HgbProps.DES','HgbProps.Setup')]),
   }),
   'hummod.acid_base.ph_sid_pco2': record({
     id:'hummod.acid_base.ph_sid_pco2', kind:'equation',
     class:'HUMMOD_EXACT', module:'hummod_ards_core_chemistry.js',
     symbol:'phFromPco2Sid',
     description:'HumMod pH relation using pK + log10(SID/PCO2) with source boundary cases.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/AcidBase/PhGeneral.DES',symbol:'PhGeneral.Calc'}]),
+    source:Object.freeze([humModSource('Structure/AcidBase/PhGeneral.DES','PhGeneral.Calc')]),
   }),
   'hummod.pulmonary_membrane.interpolation': record({
     id:'hummod.pulmonary_membrane.interpolation', kind:'interpolation',
@@ -82,7 +84,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'hermiteSegment',
     description:'Piecewise cubic Hermite interpolation across HumMod pulmonary-membrane recruitment points/slopes.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/PulmonaryMembrane.DES',symbol:'PulmonaryMembrane.Recruitment'},
+      humModSource('Structure/Lungs/PulmonaryMembrane.DES','PulmonaryMembrane.Recruitment'),
       {type:'project',statement:'Interpolation algorithm is a browser implementation choice because the DES runtime interpolation was not independently reproduced.'},
     ]),
   }),
@@ -120,7 +122,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'reduced pulmonary O2 exchange runtime',
     description:'Reduced browser execution of source-aligned HumMod oxygen transport/exchange equations.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/LungO2.DES',symbol:'LungO2'},
+      humModSource('Structure/Lungs/LungO2.DES','LungO2'),
       {type:'project',statement:'Runtime topology, solver numerics, and Vent-derived perfusion/recruitment boundaries are adapted for browser execution.'},
     ]),
   }),
@@ -130,7 +132,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'reduced pulmonary CO2 exchange runtime',
     description:'Reduced browser execution of source-aligned HumMod carbon-dioxide transport/exchange equations.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/Lungs/LungCO2.DES',symbol:'LungCO2'},
+      humModSource('Structure/Lungs/LungCO2.DES','LungCO2'),
       {type:'project',statement:'Runtime topology and numerical execution are adapted for browser execution.'},
     ]),
   }),
@@ -139,14 +141,14 @@ const MODEL_PROVENANCE = Object.freeze({
     class:'HUMMOD_EXACT', module:'hummod_ards_core_hemodynamics.js',
     symbol:'VASCULAR_DEFAULTS/stressedVolumePressure/conductanceFlow',
     description:'Source-preserved vascular V0/compliance/conductance constants and pressure/flow primitives.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/VascularCompartments',symbol:'SystemicArtys/SystemicVeins/RightAtrium/PulmArty/PulmCapys/PulmVeins/LeftAtrium'}]),
+    source:Object.freeze([humModSource('Structure/VascularCompartments','SystemicArtys/SystemicVeins/RightAtrium/PulmArty/PulmCapys/PulmVeins/LeftAtrium')]),
   }),
   'hummod.hemodynamics.ventricular_pump': record({
     id:'hummod.hemodynamics.ventricular_pump', kind:'equation',
     class:'HUMMOD_EXACT', module:'hummod_ards_core_hemodynamics.js',
     symbol:'ventricularPump/PUMP_DEFAULTS',
     description:'Source-preserved right/left ventricular diastolic/systolic pressure-volume and stroke-volume equations.',
-    source:Object.freeze([{type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/RightHeartPumping and Structure/LeftHeartPumping',symbol:'Diastole/Systole/Pumping'}]),
+    source:Object.freeze([humModSource('Structure/RightHeartPumping and Structure/LeftHeartPumping','Diastole/Systole/Pumping')]),
   }),
   'live.circulation.reference_boundaries': record({
     id:'live.circulation.reference_boundaries', kind:'boundary',
@@ -154,7 +156,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation',
     description:'Reference-case initial volumes, heart rate, conductances, and pump multipliers used to initialize the reduced circulation.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/VascularCompartments',symbol:'source initial volumes/conductances where available'},
+      humModSource('Structure/VascularCompartments','source initial volumes/conductances where available'),
       {type:'project',statement:'Systemic venous initial volume and reduced-network boundary composition are adapted engineering boundaries.'},
     ]),
   }),
@@ -179,7 +181,7 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'createHumModArdsCirculation',
     description:'Seven-compartment closed-loop circulation using HumMod vascular/pump primitives with organ beds lumped into effective conductances.',
     source:Object.freeze([
-      {type:'HumMod',repository:'riliescu/hummod-standalone',revision:'8dab57e05631f779bf5020fe0dd51874d8ae98c1',path:'Structure/VascularCompartments',symbol:'vascular compartments'},
+      humModSource('Structure/VascularCompartments','vascular compartments'),
       {type:'project',statement:'Detailed organ circulations are reduced/lumped for the browser runtime.'},
     ]),
   }),
@@ -342,6 +344,99 @@ const MODEL_PROVENANCE = Object.freeze({
     symbol:'stepRecruitmentWithFloor',
     description:'Projection preserving finite-capacity volume feasibility during derecruitment.',
     source:Object.freeze([{type:'project',statement:'Numerical/physical invariant rule preventing silent destruction of trapped elastic gas volume.'}]),
+  }),
+  'autonomic.v12.sympathetic_vascular_components': record({
+    id:'autonomic.v12.sympathetic_vascular_components', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_vascular_sympathetic_source_aligned.js',
+    symbol:'organ-bed alpha-receptor sympathetic conductance components',
+    description:'Source-aligned sympathetic conductance multipliers for visceral/other, skeletal-muscle, and cardiac vascular beds. Diagnostic only; not treated as full systemic vascular conductance because local PO2, ADH, angiotensin, metabolic, viscosity, skin, kidney, and brain controls remain outside this reduced component.',
+    source:Object.freeze([
+      humModSource('Structure/GITract/GITract-Flow.DES','SympsOnConductance'),
+      humModSource('Structure/OtherTissue/OtherTissue-Flow.DES','SympsOnConductance'),
+      humModSource('Structure/SkeletalMuscle/SkeletalMuscle-Flow.DES','SympsOnConductance'),
+      humModSource('Structure/LeftHeart/LeftHeart-Flow.DES','SympsOnConductance'),
+      humModSource('Structure/RightHeart/RightHeart-Flow.DES','SympsOnConductance'),
+      {type:'project',statement:'Reduced module exposes component multipliers only and deliberately does not aggregate them into full SVR.'},
+    ]),
+    dependsOn:Object.freeze(['autonomic.v12.baroreflex_source','autonomic.v12.catecholamine_pools']),
+  }),
+  'autonomic.v12.ecfv_boundary': record({
+    id:'autonomic.v12.ecfv_boundary', kind:'boundary',
+    class:'HUMMOD_ADAPTED', module:'hummod_native_reduced_calibration.js',
+    symbol:'ECFV.Vol -> catecholamineEcfvMl',
+    description:'Explicit extracellular-fluid-volume boundary required to convert HumMod catecholamine pool mass to concentration. Native ECFV is used when present; no synthetic default is permitted.',
+    source:Object.freeze([
+      humModSource('Structure/H2O/ECFV.DES','ECFV.Vol'),
+      {type:'project',statement:'Reduced live runtime imports ECFV as an external boundary instead of executing the full body-water subsystem.'},
+    ]),
+  }),
+  'autonomic.v12.catecholamine_pools': record({
+    id:'autonomic.v12.catecholamine_pools', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_catecholamines_source_aligned.js',
+    symbol:'NEPool/EpiPool + secretion/clearance + AlphaPool/BetaPool',
+    description:'Source-aligned acute NE/Epi pool dynamics and alpha/beta humoral effects with explicit ECFV and fixed-ECFV backward-Euler reduced stepping.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/AdrenalNerve.DES','AdrenalNerve.NA(Hz)'),
+      humModSource('Structure/Catechols/NESecretion.DES','Rate/Spillover'),
+      humModSource('Structure/Catechols/EpiSecretion.DES','Rate'),
+      humModSource('Structure/Catechols/NEPool.DES','Mass/[NE]'),
+      humModSource('Structure/Catechols/EpiPool.DES','Mass/[Epi]'),
+      humModSource('Structure/Catechols/NEClearance.DES','Rate'),
+      humModSource('Structure/Catechols/EpiClearance.DES','Rate'),
+      humModSource('Structure/Catechols/AlphaPool.DES','Effect'),
+      humModSource('Structure/Catechols/BetaPool.DES','Effect'),
+      {type:'project',statement:'Uses analytic linear backward-Euler pool update with ECFV held fixed over each coupled step; midodrine branch omitted.'},
+    ]),
+    dependsOn:Object.freeze(['autonomic.v12.ecfv_boundary','autonomic.v12.baroreflex_source']),
+  }),
+  'autonomic.v12.baroreflex_source': record({
+    id:'autonomic.v12.baroreflex_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'Baroreflex + SympsCNS acute subset',
+    description:'HumMod baroreflex adaptation/pressure-effect and CNS baroreflex mapping, with omitted non-baroreflex CNS inputs held neutral for the acute ventilator slice.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/Baroreflex.DES','Baroreflex'),
+      humModSource('Structure/Nerves/SympsCNS.DES','BaroEffect/NA(Hz)'),
+      {type:'project',statement:'LowPressureReceptors, Mechanoreceptors, ExerciseSymps, CushingResponse, brain fuel/function, A2Pool, and CNSTrophicFactor are neutralized in this acute subset.'},
+    ]),
+  }),
+  'autonomic.v12.vagus_source': record({
+    id:'autonomic.v12.vagus_source', kind:'equation',
+    class:'HUMMOD_EXACT', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'VagusNerve.NA(Hz)',
+    description:'HumMod vagal firing-rate response to SympsCNS firing rate, with no vagal block or clamp applied.',
+    source:Object.freeze([humModSource('Structure/Nerves/VagusNerve.DES','VagusNerve.NA(Hz)')]),
+  }),
+  'autonomic.v12.sa_node_source': record({
+    id:'autonomic.v12.sa_node_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'SANode-Rate.Rate',
+    description:'HumMod SA-node parasympathetic and beta-receptor sympathetic chronotropy. Dynamic HumMod beta-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used.',
+    source:Object.freeze([
+      humModSource('Structure/Heart/SANode-Rate.DES','SANode-Rate.Rate'),
+      humModSource('Structure/Heart/SANode-BetaReceptors.DES','SANode-BetaReceptors.Activity'),
+    ]),
+  }),
+  'autonomic.v12.ventricular_beta_source': record({
+    id:'autonomic.v12.ventricular_beta_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'ventricularBetaActivity',
+    description:'HumMod ventricular beta-receptor agonism used as the contractility multiplier. Dynamic HumMod beta-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used.',
+    source:Object.freeze([
+      humModSource('Structure/LeftHeart/LeftHeart-BetaReceptors.DES','Activity'),
+      humModSource('Structure/RightHeart/RightHeart-BetaReceptors.DES','Activity'),
+      humModSource('Structure/LeftHeartPumping/LeftHeartPumping-Systole.DES','Contractility'),
+    ]),
+  }),
+  'autonomic.v12.venous_alpha_source': record({
+    id:'autonomic.v12.venous_alpha_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'SystemicVeins.V0',
+    description:'HumMod systemic venous alpha-receptor activity and V0 alpha-effect curve. Dynamic HumMod alpha-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used; A2 effect remains neutralized.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/SystemicVeins-AlphaReceptors.DES','Activity'),
+      humModSource('Structure/VascularCompartments/SystemicVeins.DES','V0_Alpha_Effect/V0'),
+    ]),
   }),
   'autonomic.target_map': record({
     id:'autonomic.target_map', kind:'boundary',
@@ -545,6 +640,14 @@ const LIVE_CLINICAL_PROVENANCE_IDS = Object.freeze([
   'ards.phenotype.high_recruitability',
   'vent.recruitment.defaults',
   'vent.recruitment.feasibility_projection',
+  'autonomic.v12.sympathetic_vascular_components',
+  'autonomic.v12.ecfv_boundary',
+  'autonomic.v12.catecholamine_pools',
+  'autonomic.v12.baroreflex_source',
+  'autonomic.v12.vagus_source',
+  'autonomic.v12.sa_node_source',
+  'autonomic.v12.ventricular_beta_source',
+  'autonomic.v12.venous_alpha_source',
   'autonomic.target_map',
   'autonomic.autonomic_tau',
   'autonomic.vascular_tau',

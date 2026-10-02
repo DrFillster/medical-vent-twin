@@ -60,6 +60,7 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
   const rb=trajectory.nativeSolution && trajectory.nativeSolution.reducedBoundary
     ? trajectory.nativeSolution.reducedBoundary : {};
   const boundaryMap={
+    ecfvMl:'ECFV.Vol',
     membranePermeabilityMlPerMinPerMmHg:'PulmonaryMembrane.Permeability',
     ventilatedPulmonaryBloodFlowMlPerMin:'LungBloodFlow.AlveolarVentilated',
     tissueO2UseMlPerMin:'O2Total.Outflow',
@@ -131,6 +132,13 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
     mapping:Object.freeze({
       circulation:Object.freeze({
         heartRatePerMin:Object.freeze({sourceSymbol:'Heart-Rate.Rate',targetPath:'circulation.boundaries.heartRatePerMin'}),
+      }),
+      humoral:Object.freeze({
+        ecfvMl:Object.freeze({
+          sourceSymbol:'ECFV.Vol',
+          targetPath:'systemicRuntime.catecholamines.ecfvMl',
+          policy:'required for dynamic NE/Epi pool concentrations; do not synthesize when unavailable',
+        }),
       }),
       gas:Object.freeze({
         initializationEndpoints:Object.freeze({

@@ -34,6 +34,8 @@ function makeExport() {
     source: {
       repository: HUMMOD_STANDALONE_UPSTREAM.repository,
       revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+      mirrorRepository: HUMMOD_STANDALONE_UPSTREAM.mirrorRepository,
+      mirrorRevision: HUMMOD_STANDALONE_UPSTREAM.mirrorRevision,
       exporterVersion: 'fixture-exporter/1',
     },
     symbols: [
@@ -88,7 +90,8 @@ test('normalization preserves exact mapped systemic values and model provenance'
   assert(snapshots[0].hemodynamics.cardiacOutputLPerMin === 5);
   assert(snapshots[0].source.subjectId === 'case-1');
   assert(snapshots[0].source.runId === 'fixture-moderate-ards-systemic-001');
-  assert(snapshots[0].source.modelVersion.includes(HUMMOD_STANDALONE_UPSTREAM.revision));
+  assert(snapshots[0].source.modelVersion.includes(HUMMOD_STANDALONE_UPSTREAM.repository));
+  assert(snapshots[0].source.modelVersion.includes(HUMMOD_STANDALONE_UPSTREAM.mirrorRevision));
 });
 
 test('canonical export becomes a deterministic replay provider', () => {

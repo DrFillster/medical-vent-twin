@@ -1,7 +1,7 @@
 'use strict';
 
-// Strict parser for native HumMod .SOLN files produced by the pinned
-// riliescu/hummod-standalone runtime. This parser intentionally extracts only
+// Strict parser for native HumMod .SOLN files produced from the pinned
+// reproducibility mirror of the official HumMod standalone model. This parser intentionally extracts only
 // the verified direct-export symbols already approved by the Vent mapping layer.
 
 const {
@@ -31,6 +31,7 @@ const HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS = Object.freeze([
 ]);
 
 const HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS = Object.freeze([
+  'ECFV.Vol',
   'PulmonaryMembrane.Permeability',
   'LungBloodFlow.AlveolarVentilated',
   'O2Total.Outflow',
@@ -206,6 +207,8 @@ function parseHumModNativeSolution(text, {
     source: {
       repository: HUMMOD_STANDALONE_UPSTREAM.repository,
       revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+      mirrorRepository: HUMMOD_STANDALONE_UPSTREAM.mirrorRepository,
+      mirrorRevision: HUMMOD_STANDALONE_UPSTREAM.mirrorRevision,
       exporterVersion,
     },
     clock: {

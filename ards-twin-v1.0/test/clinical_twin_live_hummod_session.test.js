@@ -37,7 +37,43 @@ test('live session initializes with finite HumMod-derived gas and circulation ou
   assert(Number.isFinite(s.systemic.gasExchange.paco2MmHg));
   assert(Number.isFinite(s.systemic.hemodynamics.meanArterialPressureMmHg));
   assert(Number.isFinite(s.systemic.hemodynamics.cardiacOutputMlPerMin));
+  assert(s.systemic.hemodynamics.autonomicAuthority &&
+    s.systemic.hemodynamics.autonomicAuthority.heartRate.includes('HumMod source-aligned'),
+    'live v1.2 session must use source-aligned HR authority');
+  assert(s.systemic.hemodynamics.sourceAlignedAutonomic &&
+    s.systemic.hemodynamics.sourceAlignedAutonomic.provenance.status === 'source-aligned-acute-subset',
+    'live v1.2 session must expose source-aligned autonomic state');
+  assert(s.coupling.nativeEcfvApplied===false);
+  assert(s.coupling.humoralAutonomicMode==='normalized-humoral-fallback-no-ecfv');
+  assert(s.systemic.hemodynamics.catecholamines===null);
   assert(s.provenance.boundaryStatus.includes('synthetic-engineering'));
+});
+
+
+test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
+  const session = makeSession({
+    nativeCalibrationTarget: {
+      schema: 'vent-native-reduced-hummod-calibration-target/v1',
+      targetId: 'ecfv-only-fixture',
+      nativeTrajectoryId: 'fixture',
+      endpoints: null,
+      nativeReducedState: { available: false, initialState: {}, missingSymbols: [] },
+      nativeCirculationState: { available: false, initialVolumesMl: {}, missingSymbols: [] },
+      nativeReducedBoundary: {
+        available: false,
+        values: { ecfvMl: 14000 },
+        missingSymbols: [],
+      },
+    },
+  });
+  const s = session.initialize();
+  assert(s.coupling.nativeEcfvApplied===true);
+  assert(s.coupling.humoralAutonomicMode==='dynamic-source-aligned-catecholamines');
+  assert(s.systemic.hemodynamics.catecholamines &&
+    s.systemic.hemodynamics.catecholamines.provenance.status==='source-aligned-acute-subset');
+  assert(Number.isFinite(s.systemic.hemodynamics.catecholamines.nePgPerMl));
+  assert(Number.isFinite(s.systemic.hemodynamics.catecholamines.epiPgPerMl));
+  assert(s.systemic.hemodynamics.autonomicAuthority.humoralAlphaBeta.includes('HumMod source-aligned'));
 });
 
 test('PEEP intervention persists and live systemic state advances rather than replaying a fixed row', () => {

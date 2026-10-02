@@ -4,8 +4,15 @@
 // This is intentionally NOT a solver. It inventories language constructs and
 // source metadata so unsupported semantics are explicit before execution work.
 
-const HUMMOD_PINNED_REPOSITORY = 'riliescu/hummod-standalone';
-const HUMMOD_PINNED_REVISION = '8dab57e05631f779bf5020fe0dd51874d8ae98c1';
+const {
+  HUMMOD_CANONICAL_REPOSITORY,
+  HUMMOD_CANONICAL_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+} = require('./hummod_source_identity.js');
+
+const HUMMOD_PINNED_REPOSITORY = HUMMOD_CANONICAL_REPOSITORY;
+const HUMMOD_PINNED_REVISION = HUMMOD_CANONICAL_REVISION;
 
 const KNOWN_TAGS = Object.freeze(new Set([
   'model','title','basic','navigator','math','context','parms','dervs','wrapup',
@@ -23,11 +30,15 @@ function inventoryHumModDesSource({
   content,
   repository=HUMMOD_PINNED_REPOSITORY,
   revision=HUMMOD_PINNED_REVISION,
+  mirrorRepository=HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  mirrorRevision=HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
 }={}){
   if(typeof path!=='string'||!path.length) throw new Error('path is required');
   if(typeof content!=='string') throw new Error('content must be a string');
   if(typeof repository!=='string'||!repository.length) throw new Error('repository is required');
-  if(typeof revision!=='string'||!revision.length) throw new Error('revision is required');
+  if(revision!=null && (typeof revision!=='string'||!revision.length)) throw new Error('revision must be null or non-empty string');
+  if(typeof mirrorRepository!=='string'||!mirrorRepository.length) throw new Error('mirrorRepository is required');
+  if(typeof mirrorRevision!=='string'||!mirrorRevision.length) throw new Error('mirrorRevision is required');
 
   const createTokens=[];
   const includes=[];
@@ -83,7 +94,14 @@ function inventoryHumModDesSource({
 
   return Object.freeze({
     schema:'hummod-des-source-inventory/v1',
-    source:Object.freeze({repository,revision,path}),
+    source:Object.freeze({
+      repository,
+      revision,
+      path,
+      mirrorRepository,
+      mirrorRevision,
+      canonicalRevisionResolved: revision != null,
+    }),
     modelPresent,
     structureName:structureMatch?structureMatch[1].trim():null,
     directives:Object.freeze(directives),
@@ -118,6 +136,8 @@ function assertInventorySupported(inventory){
 module.exports={
   HUMMOD_PINNED_REPOSITORY,
   HUMMOD_PINNED_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
   KNOWN_TAGS,
   inventoryHumModDesSource,
   assertInventorySupported,

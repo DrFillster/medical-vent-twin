@@ -4,8 +4,13 @@
 
 This spike evaluates whether the pinned official HumMod `.DES` tree can serve as the canonical source for a modern headless runtime.
 
-Pinned source:
+Canonical source:
+`HumMod/hummod-standalone`
+
+Reproducibility mirror snapshot:
 `riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1`
+
+The mirror is not the scientific authority; it is retained only for exact source reproduction until the official upstream revision is independently resolved.
 
 ## Initial source observations
 
