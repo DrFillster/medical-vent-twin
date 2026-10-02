@@ -542,6 +542,35 @@ const MODEL_PROVENANCE = Object.freeze({
     description:'Projection preserving finite-capacity volume feasibility during derecruitment.',
     source:Object.freeze([{type:'project',statement:'Numerical/physical invariant rule preventing silent destruction of trapped elastic gas volume.'}]),
   }),
+  'autonomic.v12.ecfv_boundary': record({
+    id:'autonomic.v12.ecfv_boundary', kind:'boundary',
+    class:'HUMMOD_ADAPTED', module:'hummod_native_reduced_calibration.js',
+    symbol:'ECFV.Vol -> catecholamineEcfvMl',
+    description:'Explicit extracellular-fluid-volume boundary required to convert HumMod catecholamine pool mass to concentration. Native ECFV is used when present; no synthetic default is permitted.',
+    source:Object.freeze([
+      humModSource('Structure/H2O/ECFV.DES','ECFV.Vol'),
+      {type:'project',statement:'Reduced live runtime imports ECFV as an external boundary instead of executing the full body-water subsystem.'},
+    ]),
+  }),
+  'autonomic.v12.catecholamine_pools': record({
+    id:'autonomic.v12.catecholamine_pools', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_catecholamines_source_aligned.js',
+    symbol:'NEPool/EpiPool + secretion/clearance + AlphaPool/BetaPool',
+    description:'Source-aligned acute NE/Epi pool dynamics and alpha/beta humoral effects with explicit ECFV and fixed-ECFV backward-Euler reduced stepping.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/AdrenalNerve.DES','AdrenalNerve.NA(Hz)'),
+      humModSource('Structure/Catechols/NESecretion.DES','Rate/Spillover'),
+      humModSource('Structure/Catechols/EpiSecretion.DES','Rate'),
+      humModSource('Structure/Catechols/NEPool.DES','Mass/[NE]'),
+      humModSource('Structure/Catechols/EpiPool.DES','Mass/[Epi]'),
+      humModSource('Structure/Catechols/NEClearance.DES','Rate'),
+      humModSource('Structure/Catechols/EpiClearance.DES','Rate'),
+      humModSource('Structure/Catechols/AlphaPool.DES','Effect'),
+      humModSource('Structure/Catechols/BetaPool.DES','Effect'),
+      {type:'project',statement:'Uses analytic linear backward-Euler pool update with ECFV held fixed over each coupled step; midodrine branch omitted.'},
+    ]),
+    dependsOn:Object.freeze(['autonomic.v12.ecfv_boundary','autonomic.v12.baroreflex_source']),
+  }),
   'autonomic.v12.baroreflex_source': record({
     id:'autonomic.v12.baroreflex_source', kind:'equation',
     class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
@@ -564,7 +593,7 @@ const MODEL_PROVENANCE = Object.freeze({
     id:'autonomic.v12.sa_node_source', kind:'equation',
     class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
     symbol:'SANode-Rate.Rate',
-    description:'HumMod SA-node parasympathetic and beta-receptor sympathetic chronotropy, using a normalized humoral beta boundary in place of the full catecholamine pools.',
+    description:'HumMod SA-node parasympathetic and beta-receptor sympathetic chronotropy. Dynamic HumMod beta-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used.',
     source:Object.freeze([
       humModSource('Structure/Heart/SANode-Rate.DES','SANode-Rate.Rate'),
       humModSource('Structure/Heart/SANode-BetaReceptors.DES','SANode-BetaReceptors.Activity'),
@@ -574,7 +603,7 @@ const MODEL_PROVENANCE = Object.freeze({
     id:'autonomic.v12.ventricular_beta_source', kind:'equation',
     class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
     symbol:'ventricularBetaActivity',
-    description:'HumMod ventricular beta-receptor agonism used as the contractility multiplier, with normalized humoral beta boundary.',
+    description:'HumMod ventricular beta-receptor agonism used as the contractility multiplier. Dynamic HumMod beta-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used.',
     source:Object.freeze([
       humModSource('Structure/LeftHeart/LeftHeart-BetaReceptors.DES','Activity'),
       humModSource('Structure/RightHeart/RightHeart-BetaReceptors.DES','Activity'),
@@ -585,7 +614,7 @@ const MODEL_PROVENANCE = Object.freeze({
     id:'autonomic.v12.venous_alpha_source', kind:'equation',
     class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
     symbol:'SystemicVeins.V0',
-    description:'HumMod systemic venous alpha-receptor activity and V0 alpha-effect curve, with normalized humoral alpha boundary and neutralized A2 effect.',
+    description:'HumMod systemic venous alpha-receptor activity and V0 alpha-effect curve. Dynamic HumMod alpha-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used; A2 effect remains neutralized.',
     source:Object.freeze([
       humModSource('Structure/Nerves/SystemicVeins-AlphaReceptors.DES','Activity'),
       humModSource('Structure/VascularCompartments/SystemicVeins.DES','V0_Alpha_Effect/V0'),
@@ -793,6 +822,8 @@ const LIVE_CLINICAL_PROVENANCE_IDS = Object.freeze([
   'ards.phenotype.high_recruitability',
   'vent.recruitment.defaults',
   'vent.recruitment.feasibility_projection',
+  'autonomic.v12.ecfv_boundary',
+  'autonomic.v12.catecholamine_pools',
   'autonomic.v12.baroreflex_source',
   'autonomic.v12.vagus_source',
   'autonomic.v12.sa_node_source',
@@ -9870,7 +9901,14 @@ function createBerlinLiveHumModSession({
     nativeCalibrationTarget.nativeCirculationState.available
       ? nativeCalibrationTarget.nativeCirculationState.initialVolumesMl
       : null;
+  const nativeEcfvMl = nativeCalibrationTarget &&
+    nativeCalibrationTarget.nativeReducedBoundary &&
+    nativeCalibrationTarget.nativeReducedBoundary.values &&
+    Number.isFinite(nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl)
+      ? nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl
+      : null;
   if (nativeHeartRate != null) positive(nativeHeartRate, 'nativeCalibrationTarget.endpoints.heartRatePerMin');
+  if (nativeEcfvMl != null) positive(nativeEcfvMl, 'nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl');
   const effectiveCirculationBoundaries = Object.freeze({
     ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation.boundaries,
     heartRatePerMin: nativeHeartRate == null
@@ -9955,6 +9993,7 @@ function createBerlinLiveHumModSession({
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
     autonomicMode: 'source-aligned',
+    catecholamineEcfvMl: nativeEcfvMl,
   });
 
   const sessionEvents = [];
@@ -10055,6 +10094,7 @@ function createBerlinLiveHumModSession({
           last.autonomic?.sourceAligned?.venousAlphaActivity ?? null,
         autonomicAuthority: last.autonomic?.authority ?? null,
         sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
+        catecholamines: last.autonomic?.catecholamines ?? null,
       }),
       decompensation: decomp ? Object.freeze({
         stage: decomp.stage,
@@ -10133,6 +10173,10 @@ function createBerlinLiveHumModSession({
         nativeCalibrationApplied: Boolean(nativeCalibrationTarget),
         nativeGasStateApplied: Boolean(nativeState),
         nativeCirculationStateApplied: Boolean(nativeCirculationVolumes),
+        nativeEcfvApplied: nativeEcfvMl != null,
+        humoralAutonomicMode: nativeEcfvMl != null
+          ? 'dynamic-source-aligned-catecholamines'
+          : 'normalized-humoral-fallback-no-ecfv',
       }),
       events: Object.freeze(sessionEvents.slice()),
       engineeringBoundaries: Object.freeze({
@@ -10146,6 +10190,7 @@ function createBerlinLiveHumModSession({
           heartRateApplied: nativeHeartRate,
           gasStateApplied: Boolean(nativeState),
           circulationStateApplied: Boolean(nativeCirculationVolumes),
+          ecfvMlApplied: nativeEcfvMl,
         }) : null,
       }),
       modelProvenance: Object.freeze({
@@ -10773,6 +10818,7 @@ const { createVentToArdsCoreSnapshot } = require("src/hummod_ards_core_coupling.
 const { createLiveCoreBoundaryFromVent } = require("src/hummod_ards_core_vent_adapter.js");
 const { createHumModArdsAutonomicController } = require("src/hummod_ards_autonomic_controller.js");
 const { createHumModSourceAlignedAutonomicController } = require("src/hummod_ards_autonomic_source_aligned.js");
+const { createHumModSourceAlignedCatecholamines } = require("src/hummod_ards_catecholamines_source_aligned.js");
 const {
   createHumModArdsDecompensationController,
 } = require("src/hummod_ards_decompensation_controller.js");
@@ -10804,6 +10850,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   environmentBoundaries,
   pericardialTmpMmHg=0,
   autonomicMode='legacy',
+  catecholamineEcfvMl=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -10813,6 +10860,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('validated pressureAdapter.cmH2OToMmHg is required');
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
+  if(catecholamineEcfvMl!=null) positive(catecholamineEcfvMl,'catecholamineEcfvMl');
   if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
 
   let timeSec=0;
@@ -10834,6 +10882,9 @@ function createHumModArdsCardiopulmonaryRuntime({
     systemicVenousV0BasicMl:
       autonomicBaseline.systemicVenousV0Ml == null ? 1700 : autonomicBaseline.systemicVenousV0Ml,
   });
+  const catecholamines = catecholamineEcfvMl == null
+    ? null
+    : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -10871,14 +10922,27 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
+    const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
+      humoralAlphaPoolEffect:
+        currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
+      humoralBetaPoolEffect:
+        currentCatecholamines ? currentCatecholamines.betaEffect : 1,
     });
+    const updatedCatecholamines = catecholamines
+      ? catecholamines.step({
+          dtSec,
+          adrenalNerveHz: sourceControl.sympsCnsHz,
+          generalGangliaHz: sourceControl.gangliaHz,
+        })
+      : null;
     const control = autonomicMode==='source-aligned'
       ? Object.freeze({
           ...legacyControl,
           sourceAligned: sourceControl,
+          catecholamines: updatedCatecholamines,
           heartRatePerMin: sourceControl.heartRatePerMin,
           contractilityMultiplier: sourceControl.contractilityMultiplier,
           systemicVenousV0Ml: sourceControl.systemicVenousV0Ml,
@@ -10889,6 +10953,9 @@ function createHumModArdsCardiopulmonaryRuntime({
             systemicArterialConductance:'legacy reduced controller',
             pulmonaryArterialConductance:'legacy reduced controller',
             acidoticContractility:'literature-calibrated legacy modifier',
+            humoralAlphaBeta: catecholamines
+              ? 'HumMod source-aligned dynamic NE/Epi pools'
+              : 'normalized HumMod humoral fallback (ECFV unavailable)',
           }),
         })
       : legacyControl;
@@ -11005,6 +11072,9 @@ function createHumModArdsCardiopulmonaryRuntime({
         autonomicAuthority: autonomicMode==='source-aligned'
           ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
+        catecholamineAuthority: catecholamines
+          ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
+          : 'normalized humoral fallback; dynamic catecholamine pools disabled because ECFV unavailable',
         clinicalValidation:false,
       }),
     });
@@ -11768,9 +11838,13 @@ function createHumModSourceAlignedAutonomicController({
   function step({
     dtSec,
     carotidPressureMmHg,
+    humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect=humoralAlphaPoolEffect,
+    humoralBetaPoolEffect:stepHumoralBetaPoolEffect=humoralBetaPoolEffect,
   }={}){
     positive(dtSec,'dtSec');
     finite(carotidPressureMmHg,'carotidPressureMmHg');
+    finite(stepHumoralAlphaPoolEffect,'humoralAlphaPoolEffect');
+    finite(stepHumoralBetaPoolEffect,'humoralBetaPoolEffect');
 
     // HumMod Baroreflex: RateConst = 1/(60*Tau), Tau=10 min.
     const tauSec=60*SOURCE_CONSTANTS.baroreflexTauMin;
@@ -11796,7 +11870,7 @@ function createHumModSourceAlignedAutonomicController({
 
     const saBetaActivity=receptorActivity({
       gangliaHz,
-      humoralPoolEffect:humoralBetaPoolEffect,
+      humoralPoolEffect:stepHumoralBetaPoolEffect,
     });
     const parasympatheticEffectPerMin=
       hermite(CURVES.saParasympatheticEffect,vagusHz);
@@ -11810,12 +11884,12 @@ function createHumModSourceAlignedAutonomicController({
 
     const ventricularBetaActivity=receptorActivity({
       gangliaHz,
-      humoralPoolEffect:humoralBetaPoolEffect,
+      humoralPoolEffect:stepHumoralBetaPoolEffect,
     });
 
     const venousAlphaActivity=receptorActivity({
       gangliaHz,
-      humoralPoolEffect:humoralAlphaPoolEffect,
+      humoralPoolEffect:stepHumoralAlphaPoolEffect,
     });
     const systemicVenousV0AlphaEffect=
       hermite(CURVES.systemicVeinsV0AlphaEffect,venousAlphaActivity);
@@ -11841,6 +11915,8 @@ function createHumModSourceAlignedAutonomicController({
       ventricularBetaActivity,
       contractilityMultiplier:ventricularBetaActivity,
       venousAlphaActivity,
+      humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect,
+      humoralBetaPoolEffect:stepHumoralBetaPoolEffect,
       systemicVenousV0AlphaEffect,
       systemicVenousV0Ml,
     });
@@ -11874,9 +11950,10 @@ function createHumModSourceAlignedAutonomicController({
           'Brain-Fuel/Brain-Function',
           'A2Pool/CNSTrophicFactor',
         ]),
-        normalizedHumoralBoundaries:Object.freeze({
+        defaultHumoralBoundaries:Object.freeze({
           alphaPoolEffect:humoralAlphaPoolEffect,
           betaPoolEffect:humoralBetaPoolEffect,
+          note:'step-level dynamic HumMod pool effects may override these defaults',
         }),
       }),
     });
@@ -11896,6 +11973,162 @@ module.exports={
   hermite,
   receptorActivity,
   createHumModSourceAlignedAutonomicController,
+};
+
+},
+"src/hummod_ards_catecholamines_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const { HUMMOD_SOURCE_IDENTITY } = require("src/hummod_source_identity.js");
+
+function finite(v,l){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(l+' must be finite');return v;}
+function positive(v,l){finite(v,l);if(!(v>0))throw new Error(l+' must be > 0');return v;}
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(x<=points[0].x)return points[0].y+points[0].slope*(x-points[0].x);
+  const z=points[points.length-1];
+  if(x>=z.x)return z.y+z.slope*(x-z.x);
+  let i=0; while(i+1<points.length&&x>points[i+1].x)i++;
+  const a=points[i],b=points[i+1],h=b.x-a.x,t=(x-a.x)/h;
+  return (2*t*t*t-3*t*t+1)*a.y+(t*t*t-2*t*t+t)*h*a.slope+
+    (-2*t*t*t+3*t*t)*b.y+(t*t*t-t*t)*h*b.slope;
+}
+
+const ADRENAL_EFFECT=Object.freeze([
+  Object.freeze({x:2,y:1,slope:0}),
+  Object.freeze({x:8,y:20,slope:0}),
+]);
+
+const SOURCE_CONSTANTS=Object.freeze({
+  neTargetNgPerMl:0.240,
+  epiTargetNgPerMl:0.040,
+  neSecretionBase:220,
+  epiSecretionBase:375,
+  neSpilloverK:570,
+  neClearanceK:4.5,
+  epiClearanceK:9.4,
+  alphaNeScale:0.021,
+  alphaEpiScale:0.125,
+  betaNeScale:0.021,
+  betaEpiScale:0.125,
+});
+
+function poolEffects({nePgPerMl,epiPgPerMl}={}){
+  finite(nePgPerMl,'nePgPerMl'); finite(epiPgPerMl,'epiPgPerMl');
+  const alphaTotal=
+    nePgPerMl*SOURCE_CONSTANTS.alphaNeScale+
+    epiPgPerMl*SOURCE_CONSTANTS.alphaEpiScale;
+  const betaTotal=
+    nePgPerMl*SOURCE_CONSTANTS.betaNeScale+
+    epiPgPerMl*SOURCE_CONSTANTS.betaEpiScale;
+  return Object.freeze({
+    alphaTotal,
+    betaTotal,
+    alphaEffect:alphaTotal>1?Math.log10(alphaTotal):0,
+    betaEffect:betaTotal>1?Math.log10(betaTotal):0,
+  });
+}
+
+function createHumModSourceAlignedCatecholamines({
+  ecfvMl,
+  initialNeNgPerMl=SOURCE_CONSTANTS.neTargetNgPerMl,
+  initialEpiNgPerMl=SOURCE_CONSTANTS.epiTargetNgPerMl,
+}={}){
+  positive(ecfvMl,'ecfvMl');
+  positive(initialNeNgPerMl,'initialNeNgPerMl');
+  positive(initialEpiNgPerMl,'initialEpiNgPerMl');
+
+  let neMass=initialNeNgPerMl*ecfvMl;
+  let epiMass=initialEpiNgPerMl*ecfvMl;
+  let last=null;
+
+  function step({
+    dtSec,
+    adrenalNerveHz,
+    generalGangliaHz,
+    otherTissueFunctionEffect=1,
+  }={}){
+    positive(dtSec,'dtSec');
+    finite(adrenalNerveHz,'adrenalNerveHz');
+    finite(generalGangliaHz,'generalGangliaHz');
+    finite(otherTissueFunctionEffect,'otherTissueFunctionEffect');
+
+    const adrenalEffect=hermite(ADRENAL_EFFECT,adrenalNerveHz);
+    const neSecretion=
+      SOURCE_CONSTANTS.neSecretionBase*adrenalEffect*otherTissueFunctionEffect;
+    const neSpillover=
+      SOURCE_CONSTANTS.neSpilloverK*generalGangliaHz;
+    const epiSecretion=
+      SOURCE_CONSTANTS.epiSecretionBase*adrenalEffect*otherTissueFunctionEffect;
+
+    // Native DES uses backward Euler. With ECFV fixed over this acute reduced
+    // step, each linear pool has an analytic backward-Euler update.
+    const dtMin=dtSec/60;
+    const neF2=1000*SOURCE_CONSTANTS.neClearanceK/ecfvMl;
+    const epiF2=1000*SOURCE_CONSTANTS.epiClearanceK/ecfvMl;
+    neMass=(neMass+dtMin*(neSecretion+neSpillover))/(1+dtMin*neF2);
+    epiMass=(epiMass+dtMin*epiSecretion)/(1+dtMin*epiF2);
+
+    const nePgPerMl=1000*(neMass/ecfvMl);
+    const epiPgPerMl=1000*(epiMass/ecfvMl);
+    const effects=poolEffects({nePgPerMl,epiPgPerMl});
+    last=Object.freeze({
+      ecfvMl,
+      adrenalNerveHz,
+      generalGangliaHz,
+      adrenalEffect,
+      neMass,
+      epiMass,
+      nePgPerMl,
+      epiPgPerMl,
+      neSecretion,
+      neSpillover,
+      epiSecretion,
+      neClearance:SOURCE_CONSTANTS.neClearanceK*nePgPerMl,
+      epiClearance:SOURCE_CONSTANTS.epiClearanceK*epiPgPerMl,
+      ...effects,
+    });
+    return snapshot();
+  }
+
+  function snapshot(){
+    const nePgPerMl=1000*(neMass/ecfvMl);
+    const epiPgPerMl=1000*(epiMass/ecfvMl);
+    return Object.freeze({
+      schema:'hummod-source-aligned-catecholamines/v1.2',
+      ...(last||{
+        ecfvMl,neMass,epiMass,nePgPerMl,epiPgPerMl,
+        ...poolEffects({nePgPerMl,epiPgPerMl}),
+      }),
+      provenance:Object.freeze({
+        status:'source-aligned-acute-subset',
+        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
+        sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
+        reproducibilityMirrorRepository:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
+        reproducibilityMirrorRevision:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
+        ecfvBoundary:'explicit-required',
+        solverAdaptation:
+          'linear backward-Euler pool update with fixed ECFV over coupled step',
+        clinicalValidation:false,
+      }),
+    });
+  }
+
+  return Object.freeze({
+    kind:'hummod-source-aligned-catecholamines',
+    step,
+    snapshot,
+  });
+}
+
+module.exports={
+  ADRENAL_EFFECT,
+  SOURCE_CONSTANTS,
+  poolEffects,
+  createHumModSourceAlignedCatecholamines,
 };
 
 },
