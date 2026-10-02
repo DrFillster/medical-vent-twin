@@ -1,5 +1,12 @@
 'use strict';
 
+const {
+  HUMMOD_CANONICAL_REPOSITORY,
+  HUMMOD_CANONICAL_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+} = require('./hummod_source_identity.js');
+
 // hummod_standalone_manifest.js
 //
 // Source-of-truth manifest for HumMod standalone symbols that have been
@@ -11,9 +18,13 @@
 // Verify the defining .DES file in the pinned revision first.
 
 const HUMMOD_STANDALONE_UPSTREAM = Object.freeze({
-  repository: 'riliescu/hummod-standalone',
-  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  repository: HUMMOD_CANONICAL_REPOSITORY,
+  revision: HUMMOD_CANONICAL_REVISION,
+  mirrorRepository: HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  mirrorRevision: HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
   schemaFamily: 'DES V1.0 / HumMod standalone',
+  authorityPolicy:
+    'official HumMod repository is canonical; pinned public mirror is retained only for exact reproducibility while official revision is unresolved',
 });
 
 const HUMMOD_STANDALONE_SYMBOLS = Object.freeze({
