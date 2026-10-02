@@ -101,5 +101,23 @@ test('simulation summary uses the latest hold of each type and modeled AOP', () 
   assert(nearlyEqual(result.drivingPressureCmH2O, 14));
 });
 
+
+test('simulation summary exposes latest breath peak airway pressure', () => {
+  const simulation = {
+    params: { airwayOpeningPressure: 4 },
+    measurements: [],
+    metrics() {
+      return [
+        { Ppeak: 28, PEEP: 8, breathIndex: 0 },
+        { Ppeak: 31, PEEP: 10, breathIndex: 1 },
+      ];
+    },
+  };
+  const result = summarizeSimulationMeasurements(simulation);
+  assert(nearlyEqual(result.peakPressureCmH2O, 31));
+  assert(nearlyEqual(result.breathPeepCmH2O, 10));
+  assert(result.latestBreath.breathIndex === 1);
+});
+
 console.log(`\nTests: passed=${passed} failed=${failed}`);
 process.exit(failed === 0 ? 0 : 1);
