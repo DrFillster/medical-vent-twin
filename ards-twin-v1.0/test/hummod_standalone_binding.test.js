@@ -14,6 +14,7 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed
 function makeMapper(extra = {}) {
   return createHumModStandaloneExportMapper({
     hummodRevision: HUMMOD_STANDALONE_UPSTREAM.revision,
+    hummodMirrorRevision: HUMMOD_STANDALONE_UPSTREAM.mirrorRevision,
     exporterVersion: 'fixture-exporter-v1',
     timestampPath: 'export.timestampSec',
     exportPaths: {
@@ -45,7 +46,8 @@ test('maps only source-verified HumMod symbols through declared export paths', (
   assert(snapshot.hemodynamics.heartRatePerMin === 101);
   assert(snapshot.hemodynamics.meanArterialPressureMmHg === 74);
   assert(snapshot.hemodynamics.cardiacOutputLPerMin === 5.2);
-  assert(snapshot.source.modelVersion.includes(HUMMOD_STANDALONE_UPSTREAM.revision));
+  assert(snapshot.source.modelVersion.includes(HUMMOD_STANDALONE_UPSTREAM.repository));
+  assert(snapshot.source.modelVersion.includes(HUMMOD_STANDALONE_UPSTREAM.mirrorRevision));
   assert(snapshot.source.modelVersion.includes('fixture-exporter-v1'));
 });
 
