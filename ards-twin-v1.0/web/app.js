@@ -529,6 +529,23 @@
 
   function renderClinicalSnapshot(snapshot) {
     clinicalSnapshot = snapshot;
+    const decomp = snapshot.systemic?.decompensation || {};
+    const arrestBanner = $('clinical-arrest-banner');
+    if (arrestBanner) {
+      const arrested = Boolean(decomp.cardiacArrest);
+      arrestBanner.hidden = !arrested;
+      if (arrested) {
+        const rhythm = decomp.arrestRhythm || 'ARREST';
+        arrestBanner.dataset.rhythm = rhythm;
+        $('clinical-arrest-title').textContent = 'CARDIAC ARREST';
+        $('clinical-arrest-rhythm').textContent = rhythm;
+        const reason = decomp.cardiacArrestReason || 'terminal circulatory failure';
+        $('clinical-arrest-detail').textContent =
+          'Patient time ' + formatClinicalClock(snapshot.timeSec) + ' · ' + reason;
+      } else {
+        arrestBanner.removeAttribute('data-rhythm');
+      }
+    }
     captureClinicalPhysiologyTrend(snapshot);
     $('clinical-live').hidden = false;
     $('clinical-time').textContent = displayClinicalValue(snapshot.timeSec);
@@ -579,12 +596,15 @@
     drawClinicalTrace('clinical-flow-chart', clinicalWaveform, 'flowLps');
     drawClinicalTrace('clinical-volume-chart', clinicalWaveform, 'volumeL');
     renderClinicalPhysiologyTrends();
-    $('clinical-session-status').textContent =
-      'Patient active · ' +
-      (snapshot.ventilatorChangePending ? 'ventilator change pending next breath boundary' : 'settings applied') +
-      (snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
-        ? ' · dynamic cardiopulmonary simulation'
-        : ' · fixed systemic trajectory replay');
+    const decompStatus = snapshot.systemic?.decompensation;
+    $('clinical-session-status').textContent = decompStatus?.cardiacArrest
+      ? 'CARDIAC ARREST · ' + (decompStatus.arrestRhythm || 'ARREST') +
+        (decompStatus.cardiacArrestReason ? ' · ' + decompStatus.cardiacArrestReason : '')
+      : 'Patient active · ' +
+        (snapshot.ventilatorChangePending ? 'ventilator change pending next breath boundary' : 'settings applied') +
+        (snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
+          ? ' · dynamic cardiopulmonary simulation'
+          : ' · fixed systemic trajectory replay');
     // The legacy 'new PEEP' draft input was removed in the bedside UX rev.
     // Sync any matching element only if it still exists; otherwise leave
     // the form inputs the user is editing untouched.
