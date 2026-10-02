@@ -389,15 +389,28 @@ const MODEL_PROVENANCE = Object.freeze({
     ]),
     dependsOn:Object.freeze(['autonomic.v12.ecfv_boundary','autonomic.v12.baroreflex_source']),
   }),
+  'autonomic.v12.low_pressure_receptors': record({
+    id:'autonomic.v12.low_pressure_receptors', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'LowPressureReceptors.NA -> SympsCNS.LowPressureEffect',
+    description:'HumMod low-pressure receptor pathway driven by mean right/left atrial transmural pressure. Source delay semantics preserve RateConst=1/(1440*Tau), Tau=30, interpreted on the minute-based HumMod timebase.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/LowPressureReceptors.DES','LowPressureReceptors.NA'),
+      humModSource('Structure/Nerves/SympsCNS.DES','LowPressureEffect/ReflexNA'),
+      humModSource('Structure/VascularCompartments/RightAtrium.DES','RightAtrium.TMP'),
+      humModSource('Structure/VascularCompartments/LeftAtrium.DES','LeftAtrium.TMP'),
+    ]),
+    dependsOn:Object.freeze(['autonomic.v12.baroreflex_source']),
+  }),
   'autonomic.v12.baroreflex_source': record({
     id:'autonomic.v12.baroreflex_source', kind:'equation',
     class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
     symbol:'Baroreflex + SympsCNS acute subset',
-    description:'HumMod baroreflex adaptation/pressure-effect and CNS baroreflex mapping, with omitted non-baroreflex CNS inputs held neutral for the acute ventilator slice.',
+    description:'HumMod baroreflex adaptation/pressure-effect and CNS baroreflex mapping with source minute-based delay semantics preserved; non-baroreflex additive CNS inputs remain neutral in the acute ventilator slice.',
     source:Object.freeze([
       humModSource('Structure/Nerves/Baroreflex.DES','Baroreflex'),
       humModSource('Structure/Nerves/SympsCNS.DES','BaroEffect/NA(Hz)'),
-      {type:'project',statement:'LowPressureReceptors, Mechanoreceptors, ExerciseSymps, CushingResponse, brain fuel/function, A2Pool, and CNSTrophicFactor are neutralized in this acute subset.'},
+      {type:'project',statement:'ExerciseSymps, CushingResponse, brain fuel/function, A2Pool, and CNSTrophicFactor remain neutralized in this acute subset.'},
     ]),
   }),
   'autonomic.v12.vagus_source': record({
@@ -643,6 +656,7 @@ const LIVE_CLINICAL_PROVENANCE_IDS = Object.freeze([
   'autonomic.v12.sympathetic_vascular_components',
   'autonomic.v12.ecfv_boundary',
   'autonomic.v12.catecholamine_pools',
+  'autonomic.v12.low_pressure_receptors',
   'autonomic.v12.baroreflex_source',
   'autonomic.v12.vagus_source',
   'autonomic.v12.sa_node_source',
