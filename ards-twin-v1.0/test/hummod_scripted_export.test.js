@@ -31,6 +31,8 @@ test('default scripted request pins source and all verified direct symbols', () 
   assert(r.schema === HUMMOD_SCRIPT_REQUEST_SCHEMA);
   assert(r.source.repository === HUMMOD_STANDALONE_UPSTREAM.repository);
   assert(r.source.revision === HUMMOD_STANDALONE_UPSTREAM.revision);
+  assert(r.source.mirrorRepository === HUMMOD_STANDALONE_UPSTREAM.mirrorRepository);
+  assert(r.source.mirrorRevision === HUMMOD_STANDALONE_UPSTREAM.mirrorRevision);
   assert(r.clock.symbol === 'System.X');
   assert(r.clock.unit === 'minute');
   assert(r.requestedSymbols.length === listVerifiedDirectMappings().length);
