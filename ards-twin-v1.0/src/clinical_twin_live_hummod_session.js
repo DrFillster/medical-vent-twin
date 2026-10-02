@@ -23,6 +23,13 @@ const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('.
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
 
+// HumMod benchmark source:
+// Benchmarks/Tom's July 28 2007 Benchmarks.TXT
+// [Epi]=40 pg/mL resting; ECFV=15,000 mL; [NE]=240 pg/mL.
+// This is a model benchmark boundary for the authored reference case, not a
+// generic patient default. Native ECFV.Vol overrides it when supplied.
+const HUMMOD_REFERENCE_ECFV_BENCHMARK_ML = 15000;
+
 const LIVE_HUMMOD_ENGINEERING_BOUNDARIES = Object.freeze({
   status: 'explicit-synthetic-engineering-boundaries-not-patient-data',
   thorax: Object.freeze({
@@ -171,6 +178,10 @@ function createBerlinLiveHumModSession({
     Number.isFinite(nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl)
       ? nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl
       : null;
+  const catecholamineEcfvMl =
+    nativeEcfvMl == null ? HUMMOD_REFERENCE_ECFV_BENCHMARK_ML : nativeEcfvMl;
+  const catecholamineEcfvSource =
+    nativeEcfvMl == null ? 'hummod-reference-benchmark' : 'native-hummod-ecfv';
   if (nativeHeartRate != null) positive(nativeHeartRate, 'nativeCalibrationTarget.endpoints.heartRatePerMin');
   if (nativeEcfvMl != null) positive(nativeEcfvMl, 'nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl');
   const effectiveCirculationBoundaries = Object.freeze({
@@ -257,7 +268,7 @@ function createBerlinLiveHumModSession({
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
     autonomicMode: 'source-aligned',
-    catecholamineEcfvMl: nativeEcfvMl,
+    catecholamineEcfvMl,
   });
 
   const sessionEvents = [];
@@ -450,9 +461,12 @@ function createBerlinLiveHumModSession({
         nativeGasStateApplied: Boolean(nativeState),
         nativeCirculationStateApplied: Boolean(nativeCirculationVolumes),
         nativeEcfvApplied: nativeEcfvMl != null,
+        benchmarkEcfvApplied: nativeEcfvMl == null,
+        catecholamineEcfvMl,
+        catecholamineEcfvSource,
         humoralAutonomicMode: nativeEcfvMl != null
-          ? 'dynamic-source-aligned-catecholamines'
-          : 'normalized-humoral-fallback-no-ecfv',
+          ? 'dynamic-source-aligned-catecholamines-native-ecfv'
+          : 'dynamic-source-aligned-catecholamines-hummod-benchmark-ecfv',
       }),
       events: Object.freeze(sessionEvents.slice()),
       engineeringBoundaries: Object.freeze({
@@ -466,7 +480,8 @@ function createBerlinLiveHumModSession({
           heartRateApplied: nativeHeartRate,
           gasStateApplied: Boolean(nativeState),
           circulationStateApplied: Boolean(nativeCirculationVolumes),
-          ecfvMlApplied: nativeEcfvMl,
+          ecfvMlApplied: catecholamineEcfvMl,
+          ecfvSource: catecholamineEcfvSource,
         }) : null,
       }),
       modelProvenance: Object.freeze({
@@ -662,6 +677,7 @@ function createBerlinLiveHumModSession({
 
 module.exports = {
   LIVE_HUMMOD_REFERENCE_CASE_ID,
+  HUMMOD_REFERENCE_ECFV_BENCHMARK_ML,
   LIVE_HUMMOD_ENGINEERING_BOUNDARIES,
   createBerlinLiveHumModSession,
 };
