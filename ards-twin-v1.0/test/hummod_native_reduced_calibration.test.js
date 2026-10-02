@@ -24,6 +24,7 @@ function fixture(){
       'PulmVeins.Vol':{first:211,final:213},
       'LeftAtrium.Vol':{first:51,final:49},
     },reducedBoundary:{
+      'ECFV.Vol':{first:14000,final:14020},
       'PulmonaryMembrane.Permeability':{first:97.6,final:97.4},
       'LungBloodFlow.AlveolarVentilated':{first:5154,final:5147},
       'O2Total.Outflow':{first:209,final:210},
@@ -82,6 +83,7 @@ test('native calibration bridge exposes complete reduced circulation state',()=>
 test('native calibration bridge exposes source-native reduced boundaries',()=>{
   const t=buildNativeReducedCalibrationTarget(fixture());
   assert(t.nativeReducedBoundary.available===true);
+  assert(t.nativeReducedBoundary.values.ecfvMl===14020);
   assert(t.nativeReducedBoundary.values.fio2===0.5);
   assert(t.nativeReducedBoundary.values.respiratoryRatePerMin===16);
   assert(t.nativeReducedBoundary.values.tidalVolumeBtpsMl===450);
