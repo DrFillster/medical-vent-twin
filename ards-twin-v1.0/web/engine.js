@@ -11262,7 +11262,7 @@ function runScenario(s, progress = () => {}) {
   return summarize(sim, s);
 }
 module.exports = { VERSION, validateScenario, createScenario, summarize, runScenario };
-,
+},
 "src/hummod_source_identity.js":function(module,exports,require){
 'use strict';
 
@@ -11882,7 +11882,7 @@ module.exports={
 };
 
 }
-}};
+};
 const cache={};
 function require(id){if(cache[id])return cache[id].exports;const m=cache[id]={exports:{}};modules[id](m,m.exports,require);return m.exports;}
 return require('src/browser-entry.js');
