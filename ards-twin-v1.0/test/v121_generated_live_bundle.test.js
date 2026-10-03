@@ -69,15 +69,26 @@ test('v1.21 generated browser bundle runs live HumMod beyond the 2-second regres
   assert(initialized.timeSec >= 1,
     'live session did not complete its initialization step');
 
-  const after = session.runFor(3);
-  assert(after.timeSec >= 4,
-    'live session failed to advance past the prior 2-second stop');
+  const baseline = session.runFor(20);
+  assert(baseline.timeSec >= 21,
+    'live session failed to advance well beyond the prior 2-second stop');
+
+  session.setPEEP(14);
+  const after = session.runFor(10);
+  assert(after.timeSec >= 31,
+    'live session failed during continued coupled execution');
+  assert(after.ventilator.peepCmH2O === 14,
+    'PEEP intervention did not persist');
   assert(Number.isFinite(after.systemic.hemodynamics.heartRatePerMin),
     'heart rate became non-finite');
   assert(Number.isFinite(after.systemic.hemodynamics.meanArterialPressureMmHg),
     'MAP became non-finite');
   assert(Number.isFinite(after.systemic.hemodynamics.cardiacOutputMlPerMin),
     'cardiac output became non-finite');
+  assert(Number.isFinite(after.systemic.gasExchange.pao2MmHg),
+    'PaO2 became non-finite');
+  assert(Number.isFinite(after.systemic.gasExchange.paco2MmHg),
+    'PaCO2 became non-finite');
   assert(after.systemic.hemodynamics.catecholamines,
     'v1.21 live bundle is missing the source-aligned catecholamine state');
 });
