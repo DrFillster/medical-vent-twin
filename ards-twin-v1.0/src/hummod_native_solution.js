@@ -10,6 +10,7 @@ const {
 } = require('./hummod_standalone_manifest.js');
 const { HUMMOD_SOURCE_CLOCK } = require('./hummod_runner_contract.js');
 const { HUMMOD_NATIVE_MUTABLE_PARAMETERS } = require('./hummod_native_scenario.js');
+const { listV13AutonomicNativeSymbols } = require('./hummod_v13_autonomic_native_symbols.js');
 const {
   HUMMOD_RAW_SERIES_SCHEMA,
   validateHumModRawSeries,
@@ -201,6 +202,20 @@ function parseHumModNativeSolution(text, {
     });
   }
 
+  const autonomicDiagnostics = {};
+  for (const symbol of listV13AutonomicNativeSymbols()) {
+    const values = variables.get(symbol);
+    if (values && values.length === expectedSamples) {
+      autonomicDiagnostics[symbol] = Object.freeze({
+        first: values[0],
+        final: values[values.length - 1],
+        min: Math.min(...values),
+        max: Math.max(...values),
+        values: Object.freeze(values.slice()),
+      });
+    }
+  }
+
   const raw = {
     schema: HUMMOD_RAW_SERIES_SCHEMA,
     trajectoryId,
@@ -225,6 +240,7 @@ function parseHumModNativeSolution(text, {
       reducedState: Object.freeze({ ...reducedState }),
       reducedBoundary: Object.freeze({ ...reducedBoundary }),
       diagnostics: Object.freeze({ ...nativeDiagnostics }),
+      autonomicDiagnostics: Object.freeze({ ...autonomicDiagnostics }),
       scenarioApplied: Boolean(scenario),
       scenario: scenario ? Object.freeze({
         id: scenario.id || null,
