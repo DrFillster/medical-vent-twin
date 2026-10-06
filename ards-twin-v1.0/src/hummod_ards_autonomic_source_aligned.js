@@ -71,6 +71,15 @@ const CURVES=Object.freeze({
     Object.freeze({x:0,y:1,slope:0.3}),
     Object.freeze({x:12,y:4,slope:0}),
   ]),
+  sympsCnsFuelEffect:Object.freeze([
+    Object.freeze({x:0.30,y:0.0,slope:0}),
+    Object.freeze({x:0.60,y:3.0,slope:0}),
+    Object.freeze({x:0.80,y:0.0,slope:0}),
+  ]),
+  sympsCnsA2Effect:Object.freeze([
+    Object.freeze({x:1.7,y:1.0,slope:0}),
+    Object.freeze({x:2.3,y:1.4,slope:0}),
+  ]),
   sympsCnsLowPressureEffect:Object.freeze([
     Object.freeze({x:0,y:1.1,slope:0}),
     Object.freeze({x:1,y:1,slope:-0.1}),
@@ -147,12 +156,20 @@ function createHumModSourceAlignedAutonomicController({
     averageAtrialTmpMmHg=SOURCE_CONSTANTS.lowPressureInitialAdaptedPressureMmHg,
     humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect=humoralAlphaPoolEffect,
     humoralBetaPoolEffect:stepHumoralBetaPoolEffect=humoralBetaPoolEffect,
+    brainFuelFractUseDelay=null,
+    a2PoolLog10Conc=null,
+    brainFunctionEffect=1,
+    exerciseSympsTotalEffect=0,
   }={}){
     positive(dtSec,'dtSec');
     finite(carotidPressureMmHg,'carotidPressureMmHg');
     finite(averageAtrialTmpMmHg,'averageAtrialTmpMmHg');
     finite(stepHumoralAlphaPoolEffect,'humoralAlphaPoolEffect');
     finite(stepHumoralBetaPoolEffect,'humoralBetaPoolEffect');
+    if(brainFuelFractUseDelay!=null) finite(brainFuelFractUseDelay,'brainFuelFractUseDelay');
+    if(a2PoolLog10Conc!=null) finite(a2PoolLog10Conc,'a2PoolLog10Conc');
+    finite(brainFunctionEffect,'brainFunctionEffect');
+    finite(exerciseSympsTotalEffect,'exerciseSympsTotalEffect');
 
     // HumMod circulation and dynamic equations use a minute-based timebase.
     // Baroreflex.DES: RateConst = 1/(60*Tau), Tau=10 -> 600 min = 10 h.
@@ -189,7 +206,20 @@ function createHumModSourceAlignedAutonomicController({
     // SympsChemo.Effect=1, so the retained reflex product is exact here.
     const sympsCnsReflexNa=
       sympsCnsBaroEffect * sympsCnsLowPressureEffect;
-    const sympsCnsNa=sympsCnsReflexNa;
+
+    // Exact HumMod SympsCNS source terms. These remain neutral unless their
+    // upstream native state is supplied; v1.3 does not infer Brain-Fuel or
+    // A2Pool state from arterial gases or MAP.
+    const sympsCnsFuelEffect = brainFuelFractUseDelay == null
+      ? 0
+      : hermite(CURVES.sympsCnsFuelEffect, brainFuelFractUseDelay);
+    const sympsCnsA2Effect = a2PoolLog10Conc == null
+      ? 1
+      : hermite(CURVES.sympsCnsA2Effect, a2PoolLog10Conc);
+    const sympsCnsNa = brainFunctionEffect > 0.1
+      ? (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
+        sympsCnsA2Effect
+      : (1 + sympsCnsFuelEffect);
     const sympsCnsHz=SOURCE_CONSTANTS.sympsCnsHzScale*sympsCnsNa;
 
     const gangliaHz=sympsCnsHz;
@@ -238,6 +268,12 @@ function createHumModSourceAlignedAutonomicController({
       sympsCnsBaroEffect,
       sympsCnsLowPressureEffect,
       sympsCnsReflexNa,
+      sympsCnsFuelEffect,
+      sympsCnsA2Effect,
+      brainFuelFractUseDelay,
+      a2PoolLog10Conc,
+      brainFunctionEffect,
+      exerciseSympsTotalEffect,
       sympsCnsNa,
       sympsCnsHz,
       gangliaHz,
@@ -283,8 +319,9 @@ function createHumModSourceAlignedAutonomicController({
           'Mechanoreceptors',
           'ExerciseSymps',
           'CushingResponse',
-          'Brain-Fuel/Brain-Function',
-          'A2Pool/CNSTrophicFactor',
+          'Brain-Fuel upstream state (hook present; native input not yet supplied)',
+          'A2Pool upstream state (hook present; native input not yet supplied)',
+          'Brain-Function upstream state (default preserved while native input unavailable)',
         ]),
         defaultHumoralBoundaries:Object.freeze({
           alphaPoolEffect:humoralAlphaPoolEffect,
