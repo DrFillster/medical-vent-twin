@@ -1,0 +1,27 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "v1.3-autonomic-extremis-probe-001",
+  "scenarioClass": "engineering-autonomic-extremis-probe",
+  "description": "Native HumMod diagnostic challenge for autonomic-pathway comparison with the v1.3 reduced browser model. This is not a Berlin ARDS calibration and native HumMod has no PEEP control in this pinned ventilator.",
+  "assignments": {
+    "Ventilator.Switch": 1,
+    "Ventilator.Rate": 4,
+    "Ventilator.TidalVolume": 100,
+    "AirSupply-GasTanks.Switch": 1,
+    "AirSupply-GasTanks.O2Valve(%)": 20,
+    "AirSupply-GasTanks.N2Valve(%)": 80,
+    "AirSupply-GasTanks.CO2Valve(%)": 0,
+    "AirSupply-GasTanks.COValve(PPM)": 0,
+    "AirSupply-GasTanks.AnestheticValve(%)": 0
+  },
+  "provenance": {
+    "clinicalValidation": false,
+    "ardsScenario": false,
+    "purpose": "Identify the first native-vs-reduced divergence in the HumMod sympathetic CNS to SA-node chain without tuning gains.",
+    "limitations": [
+      "Pinned native HumMod ventilator does not expose PEEP.",
+      "This probe matches RR, tidal volume, and nominal inspired oxygen challenge only.",
+      "Do not use this scenario as a patient-care model or Berlin ARDS calibration."
+    ]
+  }
+}
