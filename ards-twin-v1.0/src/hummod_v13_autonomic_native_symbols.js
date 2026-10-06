@@ -7,6 +7,17 @@
 
 const HUMMOD_V13_AUTONOMIC_NATIVE_SYMBOLS = Object.freeze([
   Object.freeze({ symbol:'Brain-Fuel.FractUseDelay', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'SympsCNS FuelEffect input' }),
+  Object.freeze({ symbol:'Brain-Fuel.FractUse', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'Brain-Fuel delayed input' }),
+  Object.freeze({ symbol:'Brain-Fuel.MinimumFractionalDelivery', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'minimum brain substrate delivery fraction' }),
+  Object.freeze({ symbol:'Brain-Fuel.KAFractionalDelivery', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'brain ketoacid delivery fraction' }),
+  Object.freeze({ symbol:'Brain-Fuel.AerobicGlucoseFractionalDelivery', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'brain aerobic glucose delivery fraction' }),
+  Object.freeze({ symbol:'Brain-Fuel.AnaerobicGlucoseFractionalDelivery', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'brain anaerobic glucose delivery fraction' }),
+  Object.freeze({ symbol:'Brain-Flow.BloodFlow', sourceFile:'Structure/Brain/Brain-Flow.DES', role:'brain blood flow' }),
+  Object.freeze({ symbol:'Brain-Flow.PlasmaFlow', sourceFile:'Structure/Brain/Brain-Flow.DES', role:'brain plasma flow' }),
+  Object.freeze({ symbol:'Brain-Flow.PO2', sourceFile:'Structure/Brain/Brain-Flow.DES', role:'brain tissue PO2' }),
+  Object.freeze({ symbol:'Brain-Metabolism.O2Need', sourceFile:'Structure/Brain/Brain-Metabolism.DES', role:'brain oxygen need' }),
+  Object.freeze({ symbol:'Brain-Metabolism.O2Lack', sourceFile:'Structure/Brain/Brain-Metabolism.DES', role:'brain oxygen lack' }),
+  Object.freeze({ symbol:'Brain-Lactate.[Lac-(mG/dL)]', sourceFile:'Structure/Brain/Brain-Lactate.DES', role:'brain lactate concentration' }),
   Object.freeze({ symbol:'Brain-Function.Effect', sourceFile:'Structure/Brain/Brain-Function.DES', role:'SympsCNS branch condition' }),
   Object.freeze({ symbol:'A2Pool.Log10Conc', sourceFile:'Structure/Renin/A2Pool.DES', role:'SympsCNS A2Effect input' }),
   Object.freeze({ symbol:'CNSTrophicFactor.Effect', sourceFile:'Structure/Nerves/CNSTrophicFactor.DES', role:'SympsCNS multiplicative effect' }),
