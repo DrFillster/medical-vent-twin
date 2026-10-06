@@ -151,7 +151,7 @@ function createHumModArdsCardiopulmonaryRuntime({
             venousV0:'HumMod source-aligned venous alpha pathway',
             systemicArterialConductance:'legacy reduced controller',
             pulmonaryArterialConductance:'legacy reduced controller',
-            acidoticContractility:'literature-calibrated legacy modifier',
+            acidoticContractility:'not applied to source-aligned HumMod pumping; legacy-only arterial-pH modifier',
             humoralAlphaBeta: catecholamines
               ? 'HumMod source-aligned dynamic NE/Epi pools'
               : 'normalized HumMod humoral fallback (ECFV unavailable)',
@@ -159,9 +159,19 @@ function createHumModArdsCardiopulmonaryRuntime({
         })
       : legacyControl;
     const priorDecomp=decompensation.snapshot();
+    // In the pinned HumMod source, ventricular pumping contractility is
+    // Contractility-Basic * cardiac beta-receptor activity. The separate
+    // LeftHeart/RightHeart Function pH subsystem is not multiplied into the
+    // ventricular systole contractility equation. Therefore the legacy
+    // arterial-pH respiratory-acidosis penalty must not be imposed on the
+    // source-aligned HumMod pumping path.
+    const directAcidoticContractilityMultiplier =
+      autonomicMode==='source-aligned'
+        ? 1
+        : control.acidoticContractilityMultiplier;
     const effectiveContractility=
       control.contractilityMultiplier *
-      control.acidoticContractilityMultiplier *
+      directAcidoticContractilityMultiplier *
       priorDecomp.myocardialContractilityMultiplier;
     const sourceSaNodeHeartRatePerMin = control.heartRatePerMin;
     const chronotropicReserveMultiplier =
@@ -257,6 +267,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       rightAtrialTmpMmHg,
       leftAtrialTmpMmHg,
       averageAtrialTmpMmHg,
+      directAcidoticContractilityMultiplier,
       effectiveContractilityMultiplier:effectiveContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
