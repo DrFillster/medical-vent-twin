@@ -1,0 +1,23 @@
+{
+  "schema": "vent-hummod-runtime-probe-evidence/v1",
+  "observedAt": "2026-09-20",
+  "ventCommit": "06e05c8ef13952f4aa8e187fff7f131aabf7e8b5",
+  "runUrl": "https://github.com/DrFillster/medical-vent-twin/actions/runs/35506253104",
+  "artifactId": 10603659633,
+  "upstream": {
+    "repository": "riliescu/hummod-standalone",
+    "revision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1",
+    "executableSha256": "4243E8721F77A5FABF3128FAC5AC139588B20A8285D35D2021C6852D596803CB"
+  },
+  "result": "remote-bootstrap-rejected",
+  "parser": {
+    "file": "Control\\Control.DES",
+    "element": "remote",
+    "errorNumber": 2220,
+    "expectedNextElement": "/control"
+  },
+  "completionLogObserved": false,
+  "outputFileObserved": false,
+  "runtimeVerified": false,
+  "nextStep": "Verify a compatible runtime or legacy native export route before trajectory parsing or ARDS scenario comparison."
+}

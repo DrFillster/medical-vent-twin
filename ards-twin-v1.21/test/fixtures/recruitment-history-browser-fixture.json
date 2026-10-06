@@ -1,0 +1,17 @@
+{
+  "schema": "vent-recruitment-history/v1",
+  "startingRecruitableFraction": 0.15,
+  "startingStateSource": "browser smoke fixture explicit prior state",
+  "segments": [
+    {
+      "pressureCmH2O": 35,
+      "durationSec": 10,
+      "note": "test-only high-pressure history"
+    },
+    {
+      "pressureCmH2O": 8,
+      "durationSec": 10,
+      "note": "test-only lower-pressure history"
+    }
+  ]
+}

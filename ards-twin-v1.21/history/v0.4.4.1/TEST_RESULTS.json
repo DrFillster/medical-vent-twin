@@ -1,0 +1,117 @@
+{
+  "version": "v0.4.4.1",
+  "date": "2026-09-16T20:54:26Z",
+  "host": "macOS Apple Silicon (M-series), Node v26.8.2",
+  "note": "v0.4.4.1 final label cleanup. Mechanics, solver, and phenotype parameters unchanged from v0.4.4.",
+  "test_counts": {
+    "total_pass": 127,
+    "total_fail": 0,
+    "files": [
+      {
+        "file": "a_initialization.test.js",
+        "passed": 11,
+        "failed": 0
+      },
+      {
+        "file": "b_jacobian.test.js",
+        "passed": 3,
+        "failed": 0
+      },
+      {
+        "file": "c_small_signal.test.js",
+        "passed": 1,
+        "failed": 0
+      },
+      {
+        "file": "conservation.test.js",
+        "passed": 8,
+        "failed": 0
+      },
+      {
+        "file": "d_low_resistance.test.js",
+        "passed": 2,
+        "failed": 0
+      },
+      {
+        "file": "deterministic.test.js",
+        "passed": 6,
+        "failed": 0
+      },
+      {
+        "file": "f_recruitment.test.js",
+        "passed": 4,
+        "failed": 0
+      },
+      {
+        "file": "g_multi_breath.test.js",
+        "passed": 5,
+        "failed": 0
+      },
+      {
+        "file": "h_dt_convergence.test.js",
+        "passed": 3,
+        "failed": 0
+      },
+      {
+        "file": "i_failure_semantics.test.js",
+        "passed": 7,
+        "failed": 0
+      },
+      {
+        "file": "j_instrumentation.test.js",
+        "passed": 4,
+        "failed": 0
+      },
+      {
+        "file": "p0_central_airway.test.js",
+        "passed": 7,
+        "failed": 0
+      },
+      {
+        "file": "p0_single_compartment.test.js",
+        "passed": 9,
+        "failed": 0
+      },
+      {
+        "file": "p1_gas_toggle.test.js",
+        "passed": 4,
+        "failed": 0
+      },
+      {
+        "file": "p2_metrics.test.js",
+        "passed": 10,
+        "failed": 0
+      },
+      {
+        "file": "p3_pc_ac.test.js",
+        "passed": 6,
+        "failed": 0
+      },
+      {
+        "file": "p4_recruitment.test.js",
+        "passed": 7,
+        "failed": 0
+      },
+      {
+        "file": "p5_gas_exchange.test.js",
+        "passed": 11,
+        "failed": 0
+      },
+      {
+        "file": "single_rc.test.js",
+        "passed": 5,
+        "failed": 0
+      },
+      {
+        "file": "strict_vc_ac.test.js",
+        "passed": 8,
+        "failed": 0
+      },
+      {
+        "file": "vc_ac.test.js",
+        "passed": 6,
+        "failed": 0
+      }
+    ]
+  }
+}
