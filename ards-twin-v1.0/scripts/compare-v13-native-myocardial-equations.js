@@ -74,6 +74,7 @@ function analyze(input){
         anaerobicCals:value(v,p+'-Metabolism.AnaerobicCals',i),
       });
       const flow=solveMyocardialFlow({
+        side,
         arterialPo2MmHg:value(v,'PO2Artys.Pressure',i),
         pressureGradientMmHg:value(v,p+'-Pressure.PressureGradient',i),
         alphaReceptorActivity:value(v,p+'-AlphaReceptors.Activity',i),
