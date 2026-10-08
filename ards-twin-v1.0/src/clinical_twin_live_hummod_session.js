@@ -417,6 +417,19 @@ function createBerlinLiveHumModSession({
           last.chronotropicBridgeEnvelope ?? null,
         chronotropicExposureSec:
           last.chronotropicExposureSec ?? 0,
+        brainTissuePo2MmHg:
+          last.brainHypoxia?.flow?.po2MmHg ?? null,
+        brainPo2DelayMmHg:
+          last.brainHypoxia?.po2DelayMmHg ?? null,
+        brainHypoxiaEffect:
+          last.brainHypoxia?.po2Effect ?? null,
+        brainFunctionEffect:
+          last.nativeAutonomicInputs?.brainFunctionEffect ??
+          last.brainHypoxia?.brainFunctionEffect ?? null,
+        brainFunctionFailed:
+          last.brainHypoxia?.brainFunctionFailed ?? null,
+        brainHypoxiaProvenance:
+          last.brainHypoxia?.provenance ?? null,
         sympatheticTone: last.autonomic?.sympatheticTone ?? null,
         parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
         catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
