@@ -25,8 +25,12 @@ test('v1.21 autonomic snapshot exposes complete diagnostic chain used for HR',()
     'sympatheticEffectPerMin','heartRatePerMin','humoralBetaPoolEffect'
   ].forEach(k=>assert(Number.isFinite(s[k]),k+' must be finite'));
   assert(Array.isArray(s.provenance.neutralizedDependencies),'neutralized dependency list missing');
-  assert(s.provenance.neutralizedDependencies.includes('Brain-Fuel/Brain-Function'));
-  assert(s.provenance.neutralizedDependencies.includes('A2Pool/CNSTrophicFactor'));
+  assert(s.provenance.neutralizedDependencies.some(x=>x.includes('Brain-Fuel')),
+    'Brain-Fuel upstream limitation must remain explicit');
+  assert(s.provenance.neutralizedDependencies.some(x=>x.includes('Brain-Function')),
+    'standalone controller must declare Brain-Function boundary when not supplied');
+  assert(s.provenance.neutralizedDependencies.some(x=>x.includes('A2Pool')),
+    'A2Pool upstream limitation must remain explicit');
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
