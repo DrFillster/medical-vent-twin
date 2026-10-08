@@ -2,7 +2,10 @@
 param(
   [Parameter(Mandatory)][string]$HumModRoot,
   [Parameter(Mandatory)][string]$OutputDirectory,
-  [string]$LoadSolution
+  [string]$LoadSolution,
+  [ValidateSet('5 Min','1 Sec')][string]$AdvanceMenuLabel = '5 Min',
+  [ValidateRange(1, 3600)][int]$AdvanceCount = 1,
+  [ValidateRange(0, 5000)][int]$InterAdvanceDelayMilliseconds = 250
 )
 $ErrorActionPreference = 'Stop'
 $hm = (Resolve-Path $HumModRoot).Path
@@ -89,6 +92,9 @@ $status = [ordered]@{
   scenarioApplied=$false
   outputCaptured=$false
   runtimeVerified=$false
+  advanceMenuLabel=$AdvanceMenuLabel
+  advanceCount=$AdvanceCount
+  interAdvanceDelayMilliseconds=$InterAdvanceDelayMilliseconds
 }
 $proc=$null
 function Save-Diagnostics([string]$stage) {
@@ -154,11 +160,21 @@ try {
     if($loadErrors.Count) { throw 'Native solution load reported an error; see scenario-loaded.json.' }
   }
   $menus=@([HumModNative]::Menu($script:mainWindow.Handle))
-  $advance=@($menus | Where-Object { $_.Path -match '/Go/5 Min$' })
-  if($advance.Count -ne 1) { throw 'Cannot identify unique Go / 5 Min command.' }
+  $advancePath='/Go/' + $AdvanceMenuLabel
+  $advance=@($menus | Where-Object { $_.Path -eq $advancePath })
+  if($advance.Count -ne 1) { throw "Cannot identify unique $advancePath command." }
   $status.advanceCommand=$advance[0].Path
-  [HumModNative]::Command($script:mainWindow.Handle,$advance[0].Id)
-  Start-Sleep -Seconds 15
+  for($i=0; $i -lt $AdvanceCount; $i++) {
+    [HumModNative]::Command($script:mainWindow.Handle,$advance[0].Id)
+    if($InterAdvanceDelayMilliseconds -gt 0) {
+      Start-Sleep -Milliseconds $InterAdvanceDelayMilliseconds
+    }
+  }
+  if($AdvanceMenuLabel -eq '5 Min' -and $AdvanceCount -eq 1) {
+    Start-Sleep -Seconds 15
+  } else {
+    Start-Sleep -Seconds 3
+  }
   Save-Diagnostics 'advanced'
   $save=@([HumModNative]::Menu($script:mainWindow.Handle) | Where-Object { $_.Path -match '(?i)/File/.*save.*sol' })
   if($save.Count -ne 1) { throw 'Cannot identify unique Save Solution command.' }
