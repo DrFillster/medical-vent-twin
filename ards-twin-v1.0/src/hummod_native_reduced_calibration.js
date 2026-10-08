@@ -94,6 +94,35 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
     nativeBoundaryValues.fio2=nativeBoundaryValues.inspiredO2Percent/100;
     delete nativeBoundaryValues.inspiredO2Percent;
   }
+
+  const ad=trajectory.nativeSolution && trajectory.nativeSolution.autonomicDiagnostics
+    ? trajectory.nativeSolution.autonomicDiagnostics : {};
+  const autonomicMap={
+    brainFuelFractUseDelay:'Brain-Fuel.FractUseDelay',
+    a2PoolLog10Conc:'A2Pool.Log10Conc',
+    brainFunctionEffect:'Brain-Function.Effect',
+    exerciseSympsTotalEffect:'ExerciseSymps.TotalEffect',
+  };
+  const nativeAutonomicRows=[];
+  const nativeAutonomicMissing=[];
+  const trajectoryRows=Array.isArray(trajectory.rows)?trajectory.rows:[];
+  for(const [targetName,symbol] of Object.entries(autonomicMap)){
+    const series=ad[symbol];
+    if(!series || !Array.isArray(series.values) ||
+       series.values.length!==trajectoryRows.length){
+      nativeAutonomicMissing.push(symbol);
+    }
+  }
+  if(nativeAutonomicMissing.length===0 && trajectoryRows.length>0){
+    for(let i=0;i<trajectoryRows.length;i++){
+      const item={timestampSec:finite(trajectoryRows[i].timestampSec,'native autonomic timestampSec')};
+      for(const [targetName,symbol] of Object.entries(autonomicMap)){
+        item[targetName]=finite(ad[symbol].values[i],symbol+' native autonomic value');
+      }
+      nativeAutonomicRows.push(Object.freeze(item));
+    }
+  }
+
   const target={
     schema:'vent-native-reduced-hummod-calibration-target/v1',
     targetId,
@@ -122,6 +151,13 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
       sourceSymbols:Object.freeze({ ...circulationStateMap }),
       initializationPolicy:'use final native baseline compartment volumes only when all seven reduced circulation compartments are present',
     }),
+    nativeAutonomicTrajectory:Object.freeze({
+      available:nativeAutonomicMissing.length===0 && nativeAutonomicRows.length>0,
+      rows:Object.freeze(nativeAutonomicRows.slice()),
+      missingSymbols:Object.freeze(nativeAutonomicMissing.slice()),
+      sourceSymbols:Object.freeze({ ...autonomicMap }),
+      policy:'internal model-state input only; never exposed as a human-entered control',
+    }),
     nativeReducedBoundary:Object.freeze({
       available:missingBoundaryState.length===0,
       values:Object.freeze({ ...nativeBoundaryValues }),
@@ -132,6 +168,10 @@ function buildNativeReducedCalibrationTarget(trajectory,{targetId='native-hummod
     mapping:Object.freeze({
       circulation:Object.freeze({
         heartRatePerMin:Object.freeze({sourceSymbol:'Heart-Rate.Rate',targetPath:'circulation.boundaries.heartRatePerMin'}),
+      }),
+      autonomic:Object.freeze({
+        policy:'internal native HumMod trajectory only; no user-entered autonomic controls',
+        sourceSymbols:Object.freeze({ ...autonomicMap }),
       }),
       humoral:Object.freeze({
         ecfvMl:Object.freeze({
