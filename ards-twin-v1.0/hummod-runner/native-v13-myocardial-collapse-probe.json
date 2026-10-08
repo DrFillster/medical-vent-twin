@@ -1,0 +1,28 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "v1.3-myocardial-collapse-probe-001",
+  "scenarioClass": "engineering-native-myocardial-collapse-probe",
+  "description": "Native HumMod diagnostic challenge that preserves the run06 extremis assignments and increases terminal sampling density. This is not Berlin ARDS calibration.",
+  "assignments": {
+    "Ventilator.Switch": 1,
+    "Ventilator.Rate": 4,
+    "Ventilator.TidalVolume": 100,
+    "AirSupply-GasTanks.Switch": 1,
+    "AirSupply-GasTanks.O2Valve(%)": 20,
+    "AirSupply-GasTanks.N2Valve(%)": 80,
+    "AirSupply-GasTanks.CO2Valve(%)": 0,
+    "AirSupply-GasTanks.COValve(PPM)": 0,
+    "AirSupply-GasTanks.AnestheticValve(%)": 0
+  },
+  "provenance": {
+    "clinicalValidation": false,
+    "ardsScenario": false,
+    "purpose": "Resolve the native HumMod myocardial lactate/SID/PCO2/pH/function sequence immediately before asystole without changing the run06 physiologic challenge.",
+    "limitations": [
+      "Pinned native HumMod ventilator does not expose PEEP.",
+      "This is an engineering mechanism-isolation run.",
+      "Do not tune the reduced model from this probe until native source ordering is established.",
+      "Do not use this scenario as a patient-care model or Berlin ARDS calibration."
+    ]
+  }
+}
