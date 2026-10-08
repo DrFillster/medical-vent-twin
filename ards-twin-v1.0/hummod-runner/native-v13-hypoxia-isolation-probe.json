@@ -1,0 +1,27 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "v1.3-native-hypoxia-isolation-001",
+  "scenarioClass": "engineering-hypoxia-autonomic-probe",
+  "description": "Native HumMod diagnostic probe to isolate hypoxic autonomic/cardiovascular response with near-baseline minute ventilation. Not Berlin ARDS calibration.",
+  "assignments": {
+    "Ventilator.Switch": 1,
+    "Ventilator.Rate": 12,
+    "Ventilator.TidalVolume": 500,
+    "AirSupply-GasTanks.Switch": 1,
+    "AirSupply-GasTanks.O2Valve(%)": 10,
+    "AirSupply-GasTanks.N2Valve(%)": 90,
+    "AirSupply-GasTanks.CO2Valve(%)": 0,
+    "AirSupply-GasTanks.COValve(PPM)": 0,
+    "AirSupply-GasTanks.AnestheticValve(%)": 0
+  },
+  "provenance": {
+    "clinicalValidation": false,
+    "ardsScenario": false,
+    "purpose": "Test native HumMod autonomic/heart-rate response to hypoxemia without severe hypoventilation.",
+    "limitations": [
+      "Diagnostic mechanism-isolation run only.",
+      "Inspired oxygen is intentionally low for model characterization and is not a clinical treatment recommendation.",
+      "Native HumMod ventilator does not expose PEEP."
+    ]
+  }
+}
