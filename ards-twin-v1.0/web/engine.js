@@ -9698,6 +9698,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   pericardialTmpMmHg=0,
   autonomicMode='legacy',
   catecholamineEcfvMl=null,
+  nativeAutonomicInputsProvider=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -9708,6 +9709,10 @@ function createHumModArdsCardiopulmonaryRuntime({
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
   if(catecholamineEcfvMl!=null) positive(catecholamineEcfvMl,'catecholamineEcfvMl');
+  if(nativeAutonomicInputsProvider!=null &&
+     typeof nativeAutonomicInputsProvider!=='function'){
+    throw new Error('nativeAutonomicInputsProvider must be a function or null');
+  }
   if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
 
   let timeSec=0;
@@ -9776,6 +9781,20 @@ function createHumModArdsCardiopulmonaryRuntime({
       circ.pressures.leftAtrialMmHg - pericardialPressureMmHg;
     const averageAtrialTmpMmHg =
       (rightAtrialTmpMmHg + leftAtrialTmpMmHg) / 2;
+    const nativeAutonomicInputs = nativeAutonomicInputsProvider
+      ? nativeAutonomicInputsProvider({
+          timeSec,
+          dtSec,
+          meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
+          averageAtrialTmpMmHg,
+          priorArterialGas: priorGas,
+        })
+      : null;
+    if(nativeAutonomicInputs!=null &&
+       (typeof nativeAutonomicInputs!=='object' ||
+        Array.isArray(nativeAutonomicInputs))){
+      throw new Error('nativeAutonomicInputsProvider must return an object or null');
+    }
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
@@ -9784,6 +9803,14 @@ function createHumModArdsCardiopulmonaryRuntime({
         currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
       humoralBetaPoolEffect:
         currentCatecholamines ? currentCatecholamines.betaEffect : 1,
+      brainFuelFractUseDelay:
+        nativeAutonomicInputs?.brainFuelFractUseDelay ?? null,
+      a2PoolLog10Conc:
+        nativeAutonomicInputs?.a2PoolLog10Conc ?? null,
+      brainFunctionEffect:
+        nativeAutonomicInputs?.brainFunctionEffect ?? 1,
+      exerciseSympsTotalEffect:
+        nativeAutonomicInputs?.exerciseSympsTotalEffect ?? 0,
     });
     const updatedCatecholamines = catecholamines
       ? catecholamines.step({
@@ -9843,8 +9870,16 @@ function createHumModArdsCardiopulmonaryRuntime({
     // control layer. The bridge is not folded into SANode gains and is faded
     // during the late asphyxial-collapse phase so the response can peak and
     // then deteriorate instead of remaining artificially tachycardic.
+    const nativeMetabolicAutonomicActive = Boolean(
+      nativeAutonomicInputs &&
+      (
+        nativeAutonomicInputs.brainFuelFractUseDelay != null ||
+        nativeAutonomicInputs.a2PoolLog10Conc != null ||
+        nativeAutonomicInputs.exerciseSympsTotalEffect != null
+      )
+    );
     const empiricalChronotropicBoostPerMin =
-      autonomicMode==='source-aligned'
+      autonomicMode==='source-aligned' && !nativeMetabolicAutonomicActive
         ? (legacyControl.empiricalChronotropicBoostPerMin || 0)
         : 0;
     const chronotropicExposureSec =
@@ -9944,6 +9979,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       sourceSaNodeHeartRatePerMin,
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
+      nativeAutonomicInputs,
+      nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
       chronotropicExposureSec,
       chronotropicBridgeEnvelope,
@@ -9975,6 +10012,9 @@ function createHumModArdsCardiopulmonaryRuntime({
         autonomicAuthority: autonomicMode==='source-aligned'
           ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
+        nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
+          ? 'external native HumMod autonomic input provider'
+          : 'unavailable; empirical chronotropy bridge may be used',
         catecholamineAuthority: catecholamines
           ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
           : 'normalized humoral fallback; dynamic catecholamine pools disabled because ECFV unavailable',
