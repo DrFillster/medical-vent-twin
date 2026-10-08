@@ -149,6 +149,7 @@ function createHumModArdsAutonomicController({
     baseline.systemicArterialConductanceMlPerMinPerMmHg;
   let venousV0Ml = baseVenousV0Ml;
   let pulmonaryConductanceMultiplier = 1;
+  let hypercapnicChronotropyExposureSec = 0;
   let last = null;
 
   function step({
@@ -181,6 +182,11 @@ function createHumModArdsAutonomicController({
         arterialPh,
         arterialPco2MmHg,
       });
+    if (empiricalChronotropicBoostPerMin > 0) {
+      hypercapnicChronotropyExposureSec += dtSec;
+    } else {
+      hypercapnicChronotropyExposureSec = 0;
+    }
     const reflexTarget = clamp(
       0.25 + baroreflexGain * pressureError +
       0.18 * hypoxicDrive + 0.10 * hypercapnicDrive,
@@ -273,6 +279,7 @@ function createHumModArdsAutonomicController({
       hypercapnicAcidosisSeverity: hcaSeverity,
       arterialPh,
       empiricalChronotropicBoostPerMin,
+      hypercapnicChronotropyExposureSec,
       heartRatePerMin,
       contractilityMultiplier: contractility,
       acidoticContractilityMultiplier,
