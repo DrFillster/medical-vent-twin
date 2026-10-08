@@ -8908,6 +8908,14 @@ function createBerlinLiveHumModSession({
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
+        sourceSaNodeHeartRatePerMin:
+          last.sourceSaNodeHeartRatePerMin ?? null,
+        empiricalChronotropicBoostPerMin:
+          last.appliedEmpiricalChronotropicBoostPerMin ?? 0,
+        chronotropicBridgeEnvelope:
+          last.chronotropicBridgeEnvelope ?? null,
+        chronotropicExposureSec:
+          last.chronotropicExposureSec ?? 0,
         sympatheticTone: last.autonomic?.sympatheticTone ?? null,
         parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
         catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
