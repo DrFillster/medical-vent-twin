@@ -1,6 +1,6 @@
 'use strict';
 const {
-  BASAL_CALS_USED_PER_MIN_PER_G,
+  HEART_BASAL_CALS_USED_PER_MIN_PER_G,
   CAL_TO_O2,
   O2_TO_CAL,
   HEART_WORK_CALS,
@@ -13,7 +13,8 @@ function assert(v,m){if(!v)throw new Error(m||'assertion failed');}
 function near(a,b,tol=1e-12){assert(Math.abs(a-b)<=tol,a+' not near '+b);}
 
 test('preserves HumMod metabolism constants',()=>{
-  near(BASAL_CALS_USED_PER_MIN_PER_G,0.0669);
+  near(HEART_BASAL_CALS_USED_PER_MIN_PER_G.left,0.0669);
+  near(HEART_BASAL_CALS_USED_PER_MIN_PER_G.right,0.0600);
   near(CAL_TO_O2,0.2093);
   near(O2_TO_CAL,4.778);
 });
