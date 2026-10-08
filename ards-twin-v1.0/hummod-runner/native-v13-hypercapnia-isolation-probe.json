@@ -1,0 +1,27 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "v1.3-native-hypercapnia-isolation-001",
+  "scenarioClass": "engineering-hypercapnia-autonomic-probe",
+  "description": "Native HumMod diagnostic probe to isolate low-minute-ventilation hypercapnia while minimizing early hypoxic collapse. Not a clinical ventilation regimen and not Berlin ARDS calibration.",
+  "assignments": {
+    "Ventilator.Switch": 1,
+    "Ventilator.Rate": 4,
+    "Ventilator.TidalVolume": 100,
+    "AirSupply-GasTanks.Switch": 1,
+    "AirSupply-GasTanks.O2Valve(%)": 100,
+    "AirSupply-GasTanks.N2Valve(%)": 0,
+    "AirSupply-GasTanks.CO2Valve(%)": 0,
+    "AirSupply-GasTanks.COValve(PPM)": 0,
+    "AirSupply-GasTanks.AnestheticValve(%)": 0
+  },
+  "provenance": {
+    "clinicalValidation": false,
+    "ardsScenario": false,
+    "purpose": "Test native HumMod chronotropic/autonomic response to severe hypoventilation with oxygen protection so hypercapnia can develop before hypoxic terminal failure.",
+    "limitations": [
+      "Diagnostic mechanism-isolation run only.",
+      "100% inspired oxygen is used to delay hypoxic collapse and is not intended as a clinical treatment recommendation.",
+      "Native HumMod ventilator does not expose PEEP."
+    ]
+  }
+}
