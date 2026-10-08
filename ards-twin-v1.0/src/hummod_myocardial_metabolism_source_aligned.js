@@ -24,7 +24,7 @@ function positive(v,label){
   return v;
 }
 
-const BASAL_CALS_USED_PER_MIN_PER_G=0.0669;
+const HEART_BASAL_CALS_USED_PER_MIN_PER_G=Object.freeze({left:0.0669,right:0.0600});
 const CAL_TO_O2=0.2093;
 const O2_TO_CAL=4.778;
 const HEART_WORK_CALS=Object.freeze({
@@ -52,9 +52,9 @@ function myocardialMetabolism({
   nonNegative(o2UseMlPerMin,'o2UseMlPerMin');
 
   const initialBasalCalsUsed=
-    calMultiplier*BASAL_CALS_USED_PER_MIN_PER_G*initialMyocardialMassG;
+    calMultiplier*HEART_BASAL_CALS_USED_PER_MIN_PER_G[side]*initialMyocardialMassG;
   const basalCalsUsed=
-    calMultiplier*BASAL_CALS_USED_PER_MIN_PER_G*myocardialMassG;
+    calMultiplier*HEART_BASAL_CALS_USED_PER_MIN_PER_G[side]*myocardialMassG;
   const work=HEART_WORK_CALS[side];
   const totalCalsUsed=
     (basalCalsUsed*thyroidEffect*heatMetabolismCore*structureEffect)+work.total;
@@ -78,7 +78,7 @@ function myocardialMetabolism({
     aerobicCals,
     anaerobicCals,
     source:Object.freeze({
-      basalCalsUsedPerMinPerG:BASAL_CALS_USED_PER_MIN_PER_G,
+      basalCalsUsedPerMinPerG:HEART_BASAL_CALS_USED_PER_MIN_PER_G[side],
       calToO2:CAL_TO_O2,
       o2ToCal:O2_TO_CAL,
     }),
@@ -86,7 +86,7 @@ function myocardialMetabolism({
 }
 
 module.exports={
-  BASAL_CALS_USED_PER_MIN_PER_G,
+  HEART_BASAL_CALS_USED_PER_MIN_PER_G,
   CAL_TO_O2,
   O2_TO_CAL,
   HEART_WORK_CALS,
