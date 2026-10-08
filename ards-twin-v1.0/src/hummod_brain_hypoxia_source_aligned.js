@@ -136,8 +136,8 @@ function solveBrainFlow({
   arterialPo2MmHg,
   arterialO2ContentMlPerMl,
   o2MaxMlPerMl,
-  arterialPh,
-  arterialPco2MmHg,
+  venousPh,
+  venousPco2MmHg,
   carboxyPercent=0,
   tempC=37,
   pressureGradientMmHg,
@@ -152,8 +152,8 @@ function solveBrainFlow({
   nonNegative(arterialPo2MmHg,'arterialPo2MmHg');
   nonNegative(arterialO2ContentMlPerMl,'arterialO2ContentMlPerMl');
   positive(o2MaxMlPerMl,'o2MaxMlPerMl');
-  finite(arterialPh,'arterialPh');
-  finite(arterialPco2MmHg,'arterialPco2MmHg');
+  finite(venousPh,'arterialPh');
+  finite(venousPco2MmHg,'arterialPco2MmHg');
   nonNegative(carboxyPercent,'carboxyPercent');
   finite(tempC,'tempC');
   nonNegative(pressureGradientMmHg,'pressureGradientMmHg');
@@ -166,8 +166,8 @@ function solveBrainFlow({
 
   const hgb=setupHgbProps({
     tempC,
-    pH:arterialPh,
-    pCO2MmHg:arterialPco2MmHg,
+    pH:venousPh,
+    pCO2MmHg:venousPco2MmHg,
     carboxyPercent,
   });
   const args={
