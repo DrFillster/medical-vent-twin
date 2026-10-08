@@ -125,8 +125,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
       arterialO2ContentMlPerMl: priorGas ? priorGas.o2ContentMlPerMl : 0.196,
       o2MaxMlPerMl: gasBefore?.boundary?.blood?.o2MaxMlPerMl || 0.201,
-      arterialPh: priorGas ? priorGas.pH : 7.40,
-      arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
+      venousPh: priorVenousGas ? priorVenousGas.pH : 7.38,
+      venousPco2MmHg: priorVenousGas ? priorVenousGas.pco2MmHg : 44.8,
       carboxyPercent: gasBefore?.boundary?.blood?.carboxyPercent || 0,
       tempC: gasBefore?.boundary?.blood?.tempC || 37,
       pressureGradientMmHg: Math.max(
