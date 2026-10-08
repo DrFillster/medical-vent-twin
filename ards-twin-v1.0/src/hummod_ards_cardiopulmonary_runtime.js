@@ -176,10 +176,28 @@ function createHumModArdsCardiopulmonaryRuntime({
     const sourceSaNodeHeartRatePerMin = control.heartRatePerMin;
     const chronotropicReserveMultiplier =
       priorDecomp.chronotropicReserveMultiplier;
-    // HumMod sinus HR follows SANode-Rate through Heart-Ventricles.Rate.
-    // Do not apply the project-authored decompensation multiplier before
-    // an explicit arrest/asystole/VF-equivalent terminal state.
-    const effectiveHeartRatePerMin = sourceSaNodeHeartRatePerMin;
+
+    // HumMod sinus HR remains the source baseline. While the reduced model
+    // lacks native Brain-Fuel/metaboreflex state, v1.3 may add a separately
+    // labeled, bounded in-vivo hypercapnic chronotropy bridge from the legacy
+    // control layer. The bridge is not folded into SANode gains and is faded
+    // during the late asphyxial-collapse phase so the response can peak and
+    // then deteriorate instead of remaining artificially tachycardic.
+    const empiricalChronotropicBoostPerMin =
+      autonomicMode==='source-aligned'
+        ? (legacyControl.empiricalChronotropicBoostPerMin || 0)
+        : 0;
+    const chronotropicBridgeEnvelope =
+      priorDecomp.asphyxialEquivalentMinutes <= 3
+        ? 1
+        : Math.max(
+            0,
+            (11.4 - priorDecomp.asphyxialEquivalentMinutes) /
+            (11.4 - 3));
+    const appliedEmpiricalChronotropicBoostPerMin =
+      empiricalChronotropicBoostPerMin * chronotropicBridgeEnvelope;
+    const effectiveHeartRatePerMin =
+      sourceSaNodeHeartRatePerMin + appliedEmpiricalChronotropicBoostPerMin;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
@@ -264,6 +282,9 @@ function createHumModArdsCardiopulmonaryRuntime({
       sourceSaNodeHeartRatePerMin,
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
+      empiricalChronotropicBoostPerMin,
+      chronotropicBridgeEnvelope,
+      appliedEmpiricalChronotropicBoostPerMin,
       rightAtrialTmpMmHg,
       leftAtrialTmpMmHg,
       averageAtrialTmpMmHg,
