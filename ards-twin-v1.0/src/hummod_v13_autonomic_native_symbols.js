@@ -45,6 +45,18 @@ const HUMMOD_V13_AUTONOMIC_NATIVE_SYMBOLS = Object.freeze([
   Object.freeze({ symbol:'SANode-Rate.ParasympatheticEffect', sourceFile:'Structure/Heart/SANode-Rate.DES', role:'parasympathetic HR contribution' }),
   Object.freeze({ symbol:'SANode-Rate.SympatheticEffect', sourceFile:'Structure/Heart/SANode-Rate.DES', role:'sympathetic HR contribution' }),
   Object.freeze({ symbol:'SANode-Rate.Rate', sourceFile:'Structure/Heart/SANode-Rate.DES', role:'native sinus-node rate' }),
+  Object.freeze({ symbol:'SANode-Rate.Is_SinusRhythm', sourceFile:'Structure/Heart/SANode-Rate.DES', role:'native sinus-rhythm state' }),
+  Object.freeze({ symbol:'LeftHeart-Ph.Ph', sourceFile:'Structure/LeftHeart/LeftHeart-Ph.DES', role:'left myocardial intracellular pH' }),
+  Object.freeze({ symbol:'RightHeart-Ph.Ph', sourceFile:'Structure/RightHeart/RightHeart-Ph.DES', role:'right myocardial intracellular pH' }),
+  Object.freeze({ symbol:'LeftHeart-Function.PhEffect', sourceFile:'Structure/LeftHeart/LeftHeart-Function.DES', role:'left myocardial pH function effect' }),
+  Object.freeze({ symbol:'RightHeart-Function.PhEffect', sourceFile:'Structure/RightHeart/RightHeart-Function.DES', role:'right myocardial pH function effect' }),
+  Object.freeze({ symbol:'LeftHeart-Function.FuelEffect', sourceFile:'Structure/LeftHeart/LeftHeart-Function.DES', role:'left myocardial fuel function effect' }),
+  Object.freeze({ symbol:'RightHeart-Function.FuelEffect', sourceFile:'Structure/RightHeart/RightHeart-Function.DES', role:'right myocardial fuel function effect' }),
+  Object.freeze({ symbol:'LeftHeart-Function.Effect', sourceFile:'Structure/LeftHeart/LeftHeart-Function.DES', role:'left total myocardial function effect' }),
+  Object.freeze({ symbol:'RightHeart-Function.Effect', sourceFile:'Structure/RightHeart/RightHeart-Function.DES', role:'right total myocardial function effect' }),
+  Object.freeze({ symbol:'LeftHeart-Function.Failed', sourceFile:'Structure/LeftHeart/LeftHeart-Function.DES', role:'left myocardial failure latch' }),
+  Object.freeze({ symbol:'RightHeart-Function.Failed', sourceFile:'Structure/RightHeart/RightHeart-Function.DES', role:'right myocardial failure latch' }),
+  Object.freeze({ symbol:'Heart-Asystole.Is_Asystole', sourceFile:'Structure/Heart/Heart-Asystole.DES', role:'native asystole state driven by left-heart failure' }),
   Object.freeze({ symbol:'Heart-Rate.Rate', sourceFile:'Structure/Heart/Heart-Rate.DES', role:'native displayed heart rate' }),
 ]);
 
