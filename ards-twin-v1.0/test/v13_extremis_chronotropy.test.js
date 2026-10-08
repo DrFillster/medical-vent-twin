@@ -49,4 +49,5 @@ const late=preArrest.find(r=>r.exposure>=600);
 if(late) assert(late.hr<peak.hr,'HR should decline after the early tachycardic phase');
 const last=rows[rows.length-1];
 assert(last.arrest,'extremis scenario should still reach terminal arrest');
+console.log('ok - v1.3 extremis shows bounded early tachycardia followed by decline');
 console.log(JSON.stringify({peak,last},null,2));
