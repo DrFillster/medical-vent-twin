@@ -47,8 +47,10 @@ function hermite(points,x){
   return h00*a.y+h10*h*a.slope+h01*b.y+h11*h*b.slope;
 }
 
-const SMALL_VESSEL_BASIC_CONDUCTANCE=2.2;
-const LARGE_VESSEL_BASIC_CONDUCTANCE=50;
+const HEART_FLOW_CONFIG=Object.freeze({
+  left:Object.freeze({smallVesselBasicConductance:2.2,largeVesselBasicConductance:50,initialPo2MmHg:16.8}),
+  right:Object.freeze({smallVesselBasicConductance:0.4,largeVesselBasicConductance:10,initialPo2MmHg:17.1}),
+});
 const IMPLICIT_ERROR_LIMIT_MMHG=0.17;
 
 const SYMPS_ON_CONDUCTANCE=Object.freeze([
@@ -75,6 +77,7 @@ const METABOLISM_ON_CONDUCTANCE=Object.freeze([
 ]);
 
 function stateAtPo2(po2,{
+  side,
   pressureGradientMmHg,
   alphaReceptorActivity,
   adhPoolLog10Conc,
@@ -88,14 +91,16 @@ function stateAtPo2(po2,{
   hgbP50,
   hgbScaleForSat,
 }){
+  if(side!=='left'&&side!=='right') throw new Error('side must be left or right');
+  const cfg=HEART_FLOW_CONFIG[side];
   const largeVesselConductance=
-    LARGE_VESSEL_BASIC_CONDUCTANCE*viscosityConductanceEffect;
+    cfg.largeVesselBasicConductance*viscosityConductanceEffect;
   const sympsEffect=hermite(SYMPS_ON_CONDUCTANCE,alphaReceptorActivity);
   const adhEffect=hermite(ADH_ON_CONDUCTANCE,adhPoolLog10Conc);
   const metabolismEffect=hermite(METABOLISM_ON_CONDUCTANCE,o2NeedMlPerMin);
   const po2Effect=hermite(PO2_ON_CONDUCTANCE,po2);
   const smallVesselConductance=
-    SMALL_VESSEL_BASIC_CONDUCTANCE*
+    cfg.smallVesselBasicConductance*
     sympsEffect*
     po2Effect*
     adhEffect*
@@ -138,6 +143,7 @@ function stateAtPo2(po2,{
 }
 
 function solveMyocardialFlow({
+  side,
   arterialPo2MmHg,
   pressureGradientMmHg,
   alphaReceptorActivity,
@@ -155,6 +161,7 @@ function solveMyocardialFlow({
   errorLimitMmHg=IMPLICIT_ERROR_LIMIT_MMHG,
   maxIterations=100,
 }={}){
+  if(side!=='left'&&side!=='right') throw new Error('side must be left or right');
   [
     ['arterialPo2MmHg',arterialPo2MmHg],
     ['pressureGradientMmHg',pressureGradientMmHg],
@@ -182,6 +189,7 @@ function solveMyocardialFlow({
   }
 
   const args={
+    side,
     pressureGradientMmHg,
     alphaReceptorActivity,
     adhPoolLog10Conc,
@@ -246,8 +254,7 @@ function solveMyocardialFlow({
 }
 
 module.exports={
-  SMALL_VESSEL_BASIC_CONDUCTANCE,
-  LARGE_VESSEL_BASIC_CONDUCTANCE,
+  HEART_FLOW_CONFIG,
   IMPLICIT_ERROR_LIMIT_MMHG,
   SYMPS_ON_CONDUCTANCE,
   PO2_ON_CONDUCTANCE,
