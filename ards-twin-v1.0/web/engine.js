@@ -9839,13 +9839,15 @@ function createHumModArdsCardiopulmonaryRuntime({
       autonomicMode==='source-aligned'
         ? (legacyControl.empiricalChronotropicBoostPerMin || 0)
         : 0;
+    const chronotropicExposureSec =
+      legacyControl.hypercapnicChronotropyExposureSec || 0;
     const chronotropicBridgeEnvelope =
-      priorDecomp.asphyxialEquivalentMinutes <= 3
+      chronotropicExposureSec <= 180
         ? 1
         : Math.max(
             0,
-            (11.4 - priorDecomp.asphyxialEquivalentMinutes) /
-            (11.4 - 3));
+            (684 - chronotropicExposureSec) /
+            (684 - 180));
     const appliedEmpiricalChronotropicBoostPerMin =
       empiricalChronotropicBoostPerMin * chronotropicBridgeEnvelope;
     const effectiveHeartRatePerMin =
@@ -9935,6 +9937,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       empiricalChronotropicBoostPerMin,
+      chronotropicExposureSec,
       chronotropicBridgeEnvelope,
       appliedEmpiricalChronotropicBoostPerMin,
       rightAtrialTmpMmHg,
@@ -10472,6 +10475,7 @@ function createHumModArdsAutonomicController({
     baseline.systemicArterialConductanceMlPerMinPerMmHg;
   let venousV0Ml = baseVenousV0Ml;
   let pulmonaryConductanceMultiplier = 1;
+  let hypercapnicChronotropyExposureSec = 0;
   let last = null;
 
   function step({
@@ -10504,6 +10508,11 @@ function createHumModArdsAutonomicController({
         arterialPh,
         arterialPco2MmHg,
       });
+    if (empiricalChronotropicBoostPerMin > 0) {
+      hypercapnicChronotropyExposureSec += dtSec;
+    } else {
+      hypercapnicChronotropyExposureSec = 0;
+    }
     const reflexTarget = clamp(
       0.25 + baroreflexGain * pressureError +
       0.18 * hypoxicDrive + 0.10 * hypercapnicDrive,
@@ -10596,6 +10605,7 @@ function createHumModArdsAutonomicController({
       hypercapnicAcidosisSeverity: hcaSeverity,
       arterialPh,
       empiricalChronotropicBoostPerMin,
+      hypercapnicChronotropyExposureSec,
       heartRatePerMin,
       contractilityMultiplier: contractility,
       acidoticContractilityMultiplier,
