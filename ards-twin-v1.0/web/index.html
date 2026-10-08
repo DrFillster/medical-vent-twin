@@ -158,6 +158,10 @@
 <article><h3>Mixed venous O₂ saturation</h3><p><span id="clinical-svo2">—</span><small> %</small></p></article>
 <article><h3>Mixed venous PO₂</h3><p><span id="clinical-pvo2">—</span><small> mmHg</small></p></article>
 <article><h3>Heart rate</h3><p><span id="clinical-hr">—</span></p></article>
+<article><h3>HumMod SA-node rate</h3><p><span id="clinical-source-hr">—</span><small> /min</small></p></article>
+<article><h3>Empirical HR overlay</h3><p><span id="clinical-hr-overlay">—</span><small> /min</small></p></article>
+<article><h3>Brain tissue PO₂</h3><p><span id="clinical-brain-po2">—</span><small> mmHg</small></p></article>
+<article><h3>Brain function effect</h3><p><span id="clinical-brain-function">—</span></p></article>
 <article><h3>Mean arterial pressure</h3><p><span id="clinical-map">—</span><small> mmHg</small></p></article>
 <article><h3>Cardiac output</h3><p><span id="clinical-co">—</span><small> L/min</small></p></article>
 <article><h3>Stroke volume</h3><p><span id="clinical-sv">—</span><small> mL</small></p></article>
@@ -177,12 +181,18 @@
 <div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>L</span></h3><svg id="clinical-volume-chart" role="img" aria-label="Clinical session modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="clinical-physiology-trends">
 <div class="card-heading"><h2>Physiologic trends</h2><span class="pill">Patient time</span></div>
-<p class="hint">Vertical markers identify ventilator interventions. All physiologic panels use the same patient-time window.</p>
+<p class="hint">Vertical markers identify ventilator interventions. All physiologic panels use the same patient-time window. v1.3 diagnostics separate source HumMod SA-node rate from any empirical overlay and expose the brain-hypoxia control path.</p>
 <div class="clinical-trend-grid">
 <div class="plot"><h3>PaO₂ <span>mmHg</span></h3><svg id="clinical-pao2-trend" role="img" aria-label="PaO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>PaCO₂ <span>mmHg</span></h3><svg id="clinical-paco2-trend" role="img" aria-label="PaCO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>MAP <span>mmHg</span></h3><svg id="clinical-map-trend" role="img" aria-label="Mean arterial pressure trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Heart rate <span>/min</span></h3><svg id="clinical-hr-trend" role="img" aria-label="Heart rate trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>HumMod SA-node rate <span>/min</span></h3><svg id="clinical-source-hr-trend" role="img" aria-label="Source HumMod SA-node rate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Empirical HR overlay <span>/min</span></h3><svg id="clinical-hr-overlay-trend" role="img" aria-label="Empirical heart-rate overlay contribution trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Brain tissue PO₂ <span>mmHg</span></h3><svg id="clinical-brain-po2-trend" role="img" aria-label="Source-aligned brain tissue PO2 trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Brain function effect</h3><svg id="clinical-brain-function-trend" role="img" aria-label="HumMod Brain-Function effect trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Sympathetic firing <span>Hz</span></h3><svg id="clinical-symps-trend" role="img" aria-label="HumMod sympathetic CNS firing trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Vagal firing <span>Hz</span></h3><svg id="clinical-vagus-trend" role="img" aria-label="HumMod vagal firing trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>pH</h3><svg id="clinical-ph-trend" role="img" aria-label="Arterial pH trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 </div>
 </div>
