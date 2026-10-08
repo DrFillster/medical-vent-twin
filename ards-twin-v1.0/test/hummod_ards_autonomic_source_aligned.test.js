@@ -76,5 +76,27 @@ test('falling atrial TMP activates HumMod low-pressure sympathetic reflex',()=>{
     'SA-node rate should rise through HumMod low-pressure reflex');
 });
 
+
+test('native Brain-Function <=0.1 branch suppresses normal reflex sympathetic drive',()=>{
+  const intact=createHumModSourceAlignedAutonomicController();
+  const failed=createHumModSourceAlignedAutonomicController();
+  let a,b;
+  for(let i=0;i<20;i++){
+    a=intact.step({
+      dtSec:1,carotidPressureMmHg:60,averageAtrialTmpMmHg:2,
+      brainFunctionEffect:1,
+    });
+    b=failed.step({
+      dtSec:1,carotidPressureMmHg:60,averageAtrialTmpMmHg:2,
+      brainFunctionEffect:0.05,
+    });
+  }
+  near(b.sympsCnsHz,1.5,1e-9);
+  assert(b.sympsCnsHz<a.sympsCnsHz,
+    'brain failure branch should remove normal baro/low-pressure reflex contribution');
+  assert(b.heartRatePerMin<a.heartRatePerMin,
+    'native SA-node rate should fall when Brain-Function crosses the source branch threshold');
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);
