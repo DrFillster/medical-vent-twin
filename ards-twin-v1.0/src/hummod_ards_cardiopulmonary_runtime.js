@@ -6,6 +6,7 @@ const { createHumModArdsAutonomicController } = require('./hummod_ards_autonomic
 const { createHumModSourceAlignedAutonomicController } = require('./hummod_ards_autonomic_source_aligned.js');
 const { createHumModSourceAlignedCatecholamines } = require('./hummod_ards_catecholamines_source_aligned.js');
 const { sourceSympatheticVascularComponents } = require('./hummod_ards_vascular_sympathetic_source_aligned.js');
+const { createHumModSourceAlignedBrainHypoxia } = require('./hummod_brain_hypoxia_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -77,6 +78,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   const catecholamines = catecholamineEcfvMl == null
     ? null
     : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
+  const brainHypoxia = createHumModSourceAlignedBrainHypoxia();
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -103,8 +105,12 @@ function createHumModArdsCardiopulmonaryRuntime({
       pericardialPressureMmHg,
     });
 
-    const priorGas = last && last.gas && last.gas.gases
-      ? last.gas.gases.arterial
+    const gasBefore = last && last.gas ? last.gas : gasRuntime.snapshot();
+    const priorGas = gasBefore && gasBefore.gases
+      ? gasBefore.gases.arterial
+      : null;
+    const priorVenousGas = gasBefore && gasBefore.gases
+      ? gasBefore.gases.venous
       : null;
     const legacyControl = autonomic.step({
       dtSec,
@@ -113,6 +119,21 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
+    });
+    const brainHypoxiaState = brainHypoxia.step({
+      dtSec,
+      arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
+      arterialO2ContentMlPerMl: priorGas ? priorGas.o2ContentMlPerMl : 0.196,
+      o2MaxMlPerMl: gasBefore?.boundary?.blood?.o2MaxMlPerMl || 0.201,
+      arterialPh: priorGas ? priorGas.pH : 7.40,
+      arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
+      carboxyPercent: gasBefore?.boundary?.blood?.carboxyPercent || 0,
+      tempC: gasBefore?.boundary?.blood?.tempC || 37,
+      pressureGradientMmHg: Math.max(
+        0,
+        circ.pressures.systemicArterialMmHg -
+        circ.pressures.systemicVenousMmHg),
+      brainPco2MmHg: priorVenousGas ? priorVenousGas.pco2MmHg : 46.6,
     });
     const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
     const rightAtrialTmpMmHg =
@@ -148,7 +169,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       a2PoolLog10Conc:
         nativeAutonomicInputs?.a2PoolLog10Conc ?? null,
       brainFunctionEffect:
-        nativeAutonomicInputs?.brainFunctionEffect ?? 1,
+        nativeAutonomicInputs?.brainFunctionEffect ??
+        brainHypoxiaState.brainFunctionEffect,
       exerciseSympsTotalEffect:
         nativeAutonomicInputs?.exerciseSympsTotalEffect ?? 0,
     });
@@ -204,37 +226,30 @@ function createHumModArdsCardiopulmonaryRuntime({
     const chronotropicReserveMultiplier =
       priorDecomp.chronotropicReserveMultiplier;
 
-    // HumMod sinus HR remains the source baseline. While the reduced model
-    // lacks native Brain-Fuel/metaboreflex state, v1.3 may add a separately
-    // labeled, bounded in-vivo hypercapnic chronotropy bridge from the legacy
-    // control layer. The bridge is not folded into SANode gains and is faded
-    // during the late asphyxial-collapse phase so the response can peak and
-    // then deteriorate instead of remaining artificially tachycardic.
+    // Fidelity path: source-aligned mode uses the HumMod SA-node rate only.
+    // The former empirical hypercapnic chronotropy overlay is retained in the
+    // legacy controller for comparison but is never added to source-aligned HR.
+    // Hypoxia reaches source HR through the native Brain-Flow ->
+    // BrainInsult-PO2 -> Brain-Function -> SympsCNS path above.
     const nativeMetabolicAutonomicActive = Boolean(
       nativeAutonomicInputs &&
       (
         nativeAutonomicInputs.brainFuelFractUseDelay != null ||
         nativeAutonomicInputs.a2PoolLog10Conc != null ||
-        nativeAutonomicInputs.exerciseSympsTotalEffect != null
+        nativeAutonomicInputs.exerciseSympsTotalEffect != null ||
+        nativeAutonomicInputs.brainFunctionEffect != null
       )
     );
     const empiricalChronotropicBoostPerMin =
-      autonomicMode==='source-aligned' && !nativeMetabolicAutonomicActive
-        ? (legacyControl.empiricalChronotropicBoostPerMin || 0)
-        : 0;
+      legacyControl.empiricalChronotropicBoostPerMin || 0;
     const chronotropicExposureSec =
       legacyControl.hypercapnicChronotropyExposureSec || 0;
-    const chronotropicBridgeEnvelope =
-      chronotropicExposureSec <= 180
-        ? 1
-        : Math.max(
-            0,
-            (684 - chronotropicExposureSec) /
-            (684 - 180));
-    const appliedEmpiricalChronotropicBoostPerMin =
-      empiricalChronotropicBoostPerMin * chronotropicBridgeEnvelope;
+    const chronotropicBridgeEnvelope = 0;
+    const appliedEmpiricalChronotropicBoostPerMin = 0;
     const effectiveHeartRatePerMin =
-      sourceSaNodeHeartRatePerMin + appliedEmpiricalChronotropicBoostPerMin;
+      autonomicMode==='source-aligned'
+        ? sourceSaNodeHeartRatePerMin
+        : control.heartRatePerMin;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
@@ -320,6 +335,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
+      brainHypoxia:brainHypoxiaState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
       chronotropicExposureSec,
@@ -354,7 +370,7 @@ function createHumModArdsCardiopulmonaryRuntime({
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
           ? 'external native HumMod autonomic input provider'
-          : 'unavailable; empirical chronotropy bridge may be used',
+          : 'source-aligned browser brain-hypoxia subset; no empirical chronotropy overlay',
         catecholamineAuthority: catecholamines
           ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
           : 'normalized humoral fallback; dynamic catecholamine pools disabled because ECFV unavailable',
