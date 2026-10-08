@@ -31,23 +31,48 @@ for(let elapsed=0;elapsed<1200;elapsed+=10){
     hr:h.heartRatePerMin,
     sourceHr:h.sourceSaNodeHeartRatePerMin,
     boost:h.empiricalChronotropicBoostPerMin,
-    exposure:h.chronotropicExposureSec,
+    brainPo2:h.brainTissuePo2MmHg,
+    brainFunction:h.brainFunctionEffect,
+    sympsHz:h.sympatheticFiringHz,
+    vagusHz:h.vagalFiringHz,
     map:h.meanArterialPressureMmHg,
     co:h.cardiacOutputMlPerMin,
     pH:g.pH,
     paco2:g.paco2MmHg,
+    pao2:g.pao2MmHg,
     arrest:Boolean(d.cardiacArrest),
   });
   if(d.cardiacArrest)break;
 }
+
 const preArrest=rows.filter(r=>!r.arrest);
+assert(preArrest.length>0,'extremis trajectory must contain pre-arrest samples');
+
+for(const r of preArrest){
+  assert(Math.abs((r.boost||0))<1e-12,
+    'source-aligned mode must not apply empirical HR boost');
+  assert(Math.abs(r.hr-r.sourceHr)<1e-9,
+    'effective HR must equal HumMod SA-node rate before arrest');
+}
+
+const first=preArrest[0];
 const peak=preArrest.reduce((a,b)=>b.hr>a.hr?b:a,preArrest[0]);
-assert(peak.hr>=105 && peak.hr<=130,'extremis HR peak outside v1.3 plausibility band: '+peak.hr);
-assert(peak.exposure>=90 && peak.exposure<=240,'HR peak timing outside early hypercapnic phase: '+peak.exposure);
-assert(peak.sourceHr<peak.hr,'empirical bridge must remain separable from source HumMod HR');
-const late=preArrest.find(r=>r.exposure>=600);
-if(late) assert(late.hr<peak.hr,'HR should decline after the early tachycardic phase');
+assert(peak.hr>first.hr,
+  'source HumMod autonomic response should increase HR before brain failure');
+
+const failedBrain=preArrest.find(r=>r.brainFunction<0.1);
+assert(failedBrain,'trajectory must cross native Brain-Function < 0.1 branch');
+assert(Math.abs(failedBrain.sympsHz-1.5)<1e-9,
+  'native brain-failure branch must reset SympsCNS firing to 1.5 Hz');
+assert(Math.abs(failedBrain.hr-72)<0.2,
+  'native SA-node rate should return near the HumMod baseline after brain failure');
+
+assert(Number.isFinite(failedBrain.brainPo2) && failedBrain.brainPo2<20,
+  'Brain-Function failure must occur with severe source-aligned brain hypoxia');
+
 const last=rows[rows.length-1];
 assert(last.arrest,'extremis scenario should still reach terminal arrest');
-console.log('ok - v1.3 extremis shows bounded early tachycardia followed by decline');
-console.log(JSON.stringify({peak,last},null,2));
+assert(last.hr===0,'displayed HR should be zero after terminal arrest');
+
+console.log('ok - v1.3 extremis follows source HR with native brain-hypoxia failure branch');
+console.log(JSON.stringify({first,peak,failedBrain,last},null,2));
