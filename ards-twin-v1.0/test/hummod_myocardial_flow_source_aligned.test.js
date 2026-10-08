@@ -1,7 +1,6 @@
 'use strict';
 const {
-  SMALL_VESSEL_BASIC_CONDUCTANCE,
-  LARGE_VESSEL_BASIC_CONDUCTANCE,
+  HEART_FLOW_CONFIG,
   IMPLICIT_ERROR_LIMIT_MMHG,
   SYMPS_ON_CONDUCTANCE,
   PO2_ON_CONDUCTANCE,
@@ -21,8 +20,10 @@ function assert(v,m){if(!v)throw new Error(m||'assertion failed');}
 function near(a,b,tol=1e-10){assert(Math.abs(a-b)<=tol,a+' not near '+b);}
 
 test('preserves native myocardial flow constants and curve knots',()=>{
-  near(SMALL_VESSEL_BASIC_CONDUCTANCE,2.2);
-  near(LARGE_VESSEL_BASIC_CONDUCTANCE,50);
+  near(HEART_FLOW_CONFIG.left.smallVesselBasicConductance,2.2);
+  near(HEART_FLOW_CONFIG.left.largeVesselBasicConductance,50);
+  near(HEART_FLOW_CONFIG.right.smallVesselBasicConductance,0.4);
+  near(HEART_FLOW_CONFIG.right.largeVesselBasicConductance,10);
   near(IMPLICIT_ERROR_LIMIT_MMHG,0.17);
   near(hermite(SYMPS_ON_CONDUCTANCE,1),1);
   near(hermite(PO2_ON_CONDUCTANCE,17),1);
@@ -34,6 +35,7 @@ test('preserves native myocardial flow constants and curve knots',()=>{
 test('implicit solver respects native PO2 search bounds and residual tolerance',()=>{
   const h=setupHgbProps({tempC:37,pH:7.35,pCO2MmHg:45,carboxyPercent:0.4});
   const s=solveMyocardialFlow({
+    side:'left',
     arterialPo2MmHg:90,
     pressureGradientMmHg:90,
     alphaReceptorActivity:1,
@@ -54,6 +56,7 @@ test('implicit solver respects native PO2 search bounds and residual tolerance',
 test('plasma flow follows native BloodFlow * PVCrit relation',()=>{
   const h=setupHgbProps({tempC:37,pH:7.35,pCO2MmHg:45,carboxyPercent:0.4});
   const s=solveMyocardialFlow({
+    side:'left',
     arterialPo2MmHg:90,pressureGradientMmHg:90,alphaReceptorActivity:1,
     adhPoolLog10Conc:0.8,o2NeedMlPerMin:25,
     arterialO2ContentMlPerMl:0.19,o2MaxMlPerMl:0.20,
