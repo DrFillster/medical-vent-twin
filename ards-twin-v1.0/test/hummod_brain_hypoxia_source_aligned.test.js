@@ -33,6 +33,24 @@ test('run06 baseline brain flow replay is within native implicit tolerance',()=>
     'brain tissue PO2 replay must be within HumMod error limit');
 });
 
+
+test('run06 terminal brain PO2 replay is within native implicit tolerance',()=>{
+  const s=solveBrainFlow({
+    arterialPo2MmHg:14.066113617021,
+    arterialO2ContentMlPerMl:0.0360374485928025,
+    o2MaxMlPerMl:0.199888902293675,
+    arterialPh:7.36,
+    arterialPco2MmHg:46.4076209589509,
+    carboxyPercent:0.390941669136932,
+    tempC:37.0281783660784,
+    pressureGradientMmHg:55.4181007568852,
+    brainPco2MmHg:51.1215816129238,
+    o2NeedMlPerMin:39.5553369473497,
+  });
+  assert(Math.abs(s.po2MmHg-10.3053007162417)<=0.37,
+    'terminal brain tissue PO2 replay must be within HumMod error limit');
+});
+
 test('severe arterial hypoxemia produces low brain tissue PO2',()=>{
   const s=solveBrainFlow({
     arterialPo2MmHg:14.066113617021,
