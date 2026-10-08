@@ -9828,10 +9828,28 @@ function createHumModArdsCardiopulmonaryRuntime({
     const sourceSaNodeHeartRatePerMin = control.heartRatePerMin;
     const chronotropicReserveMultiplier =
       priorDecomp.chronotropicReserveMultiplier;
-    // HumMod sinus HR follows SANode-Rate through Heart-Ventricles.Rate.
-    // Do not apply the project-authored decompensation multiplier before
-    // an explicit arrest/asystole/VF-equivalent terminal state.
-    const effectiveHeartRatePerMin = sourceSaNodeHeartRatePerMin;
+
+    // HumMod sinus HR remains the source baseline. While the reduced model
+    // lacks native Brain-Fuel/metaboreflex state, v1.3 may add a separately
+    // labeled, bounded in-vivo hypercapnic chronotropy bridge from the legacy
+    // control layer. The bridge is not folded into SANode gains and is faded
+    // during the late asphyxial-collapse phase so the response can peak and
+    // then deteriorate instead of remaining artificially tachycardic.
+    const empiricalChronotropicBoostPerMin =
+      autonomicMode==='source-aligned'
+        ? (legacyControl.empiricalChronotropicBoostPerMin || 0)
+        : 0;
+    const chronotropicBridgeEnvelope =
+      priorDecomp.asphyxialEquivalentMinutes <= 3
+        ? 1
+        : Math.max(
+            0,
+            (11.4 - priorDecomp.asphyxialEquivalentMinutes) /
+            (11.4 - 3));
+    const appliedEmpiricalChronotropicBoostPerMin =
+      empiricalChronotropicBoostPerMin * chronotropicBridgeEnvelope;
+    const effectiveHeartRatePerMin =
+      sourceSaNodeHeartRatePerMin + appliedEmpiricalChronotropicBoostPerMin;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
@@ -9916,6 +9934,9 @@ function createHumModArdsCardiopulmonaryRuntime({
       sourceSaNodeHeartRatePerMin,
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
+      empiricalChronotropicBoostPerMin,
+      chronotropicBridgeEnvelope,
+      appliedEmpiricalChronotropicBoostPerMin,
       rightAtrialTmpMmHg,
       leftAtrialTmpMmHg,
       averageAtrialTmpMmHg,
@@ -10344,6 +10365,46 @@ const HYPERCAPNIC_ACIDOSIS_ANCHOR = Object.freeze({
 // approximately 45% of baseline. The reduced browser core linearly interpolates
 // this direct negative-inotropic component from pH 7.35 to 7.10 and then
 // bounds it; it does not invent a stronger pH-to-contractility curve below 7.10.
+
+const CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR = Object.freeze({
+  definitionPaco2MmHg: 45,
+  definitionPh: 7.35,
+  challengePaco2MmHg: 73,
+  challengePh: 7.27,
+  heartRateBaselinePerMin: 93,
+  heartRateChallengePerMin: 123,
+  citation: 'Jung et al. Crit Care. 2013;17:R15. doi:10.1186/cc12486',
+  note:
+    'Bounded in-vivo hypercapnic chronotropy bridge; not a HumMod equation and not extrapolated beyond the observed HR increment.',
+});
+
+function conservativeHypercapnicChronotropicBoostPerMin({
+  arterialPh,
+  arterialPco2MmHg,
+}) {
+  finite(arterialPh, 'arterialPh');
+  finite(arterialPco2MmHg, 'arterialPco2MmHg');
+  if (arterialPco2MmHg <= CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.definitionPaco2MmHg ||
+      arterialPh >= CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.definitionPh) {
+    return 0;
+  }
+  const phSeverity = clamp(
+    (CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.definitionPh - arterialPh) /
+      (CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.definitionPh -
+       CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.challengePh),
+    0, 1);
+  const co2Severity = clamp(
+    (arterialPco2MmHg -
+     CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.definitionPaco2MmHg) /
+      (CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.challengePaco2MmHg -
+       CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.definitionPaco2MmHg),
+    0, 1);
+  const severity = Math.max(phSeverity, co2Severity);
+  return severity *
+    (CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.heartRateChallengePerMin -
+     CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR.heartRateBaselinePerMin);
+}
+
 const RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR = Object.freeze({
   definitionPh: 7.35,
   challengePh: 7.10,
@@ -10438,6 +10499,11 @@ function createHumModArdsAutonomicController({
         arterialPh,
         arterialPco2MmHg,
       });
+    const empiricalChronotropicBoostPerMin =
+      conservativeHypercapnicChronotropicBoostPerMin({
+        arterialPh,
+        arterialPco2MmHg,
+      });
     const reflexTarget = clamp(
       0.25 + baroreflexGain * pressureError +
       0.18 * hypoxicDrive + 0.10 * hypercapnicDrive,
@@ -10529,6 +10595,7 @@ function createHumModArdsAutonomicController({
       hypercapnicDrive,
       hypercapnicAcidosisSeverity: hcaSeverity,
       arterialPh,
+      empiricalChronotropicBoostPerMin,
       heartRatePerMin,
       contractilityMultiplier: contractility,
       acidoticContractilityMultiplier,
@@ -10558,7 +10625,11 @@ function createHumModArdsAutonomicController({
         clinicalValidation: false,
         hypercapnicAcidosisAnchor: HYPERCAPNIC_ACIDOSIS_ANCHOR,
         respiratoryAcidosisInotropyAnchor:
-          RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
+          CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR,
+  RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
+  conservativeHypercapnicChronotropicBoostPerMin,
+        conservativeHypercapnicChronotropyAnchor:
+          CONSERVATIVE_HYPERCAPNIC_CHRONOTROPY_ANCHOR,
       }),
     });
   }
