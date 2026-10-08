@@ -8724,6 +8724,50 @@ function createBerlinLiveHumModSession({
     Number.isFinite(nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl)
       ? nativeCalibrationTarget.nativeReducedBoundary.values.ecfvMl
       : null;
+
+  const nativeAutonomicTrajectory = nativeCalibrationTarget &&
+    nativeCalibrationTarget.nativeAutonomicTrajectory &&
+    nativeCalibrationTarget.nativeAutonomicTrajectory.available
+      ? nativeCalibrationTarget.nativeAutonomicTrajectory.rows
+      : null;
+
+  function interpolateNativeAutonomicInputs(timeSec) {
+    if (!nativeAutonomicTrajectory || nativeAutonomicTrajectory.length === 0) return null;
+    if (timeSec <= nativeAutonomicTrajectory[0].timestampSec) {
+      const r = nativeAutonomicTrajectory[0];
+      return Object.freeze({
+        brainFuelFractUseDelay: r.brainFuelFractUseDelay,
+        a2PoolLog10Conc: r.a2PoolLog10Conc,
+        brainFunctionEffect: r.brainFunctionEffect,
+        exerciseSympsTotalEffect: r.exerciseSympsTotalEffect,
+      });
+    }
+    const lastRow = nativeAutonomicTrajectory[nativeAutonomicTrajectory.length - 1];
+    if (timeSec >= lastRow.timestampSec) {
+      return Object.freeze({
+        brainFuelFractUseDelay: lastRow.brainFuelFractUseDelay,
+        a2PoolLog10Conc: lastRow.a2PoolLog10Conc,
+        brainFunctionEffect: lastRow.brainFunctionEffect,
+        exerciseSympsTotalEffect: lastRow.exerciseSympsTotalEffect,
+      });
+    }
+    let hi = 1;
+    while (hi < nativeAutonomicTrajectory.length &&
+           nativeAutonomicTrajectory[hi].timestampSec < timeSec) hi++;
+    const lo = hi - 1;
+    const a = nativeAutonomicTrajectory[lo];
+    const b = nativeAutonomicTrajectory[hi];
+    const span = b.timestampSec - a.timestampSec;
+    const w = span > 0 ? (timeSec - a.timestampSec) / span : 0;
+    const lerp = key => a[key] + (b[key] - a[key]) * w;
+    return Object.freeze({
+      brainFuelFractUseDelay: lerp('brainFuelFractUseDelay'),
+      a2PoolLog10Conc: lerp('a2PoolLog10Conc'),
+      brainFunctionEffect: lerp('brainFunctionEffect'),
+      exerciseSympsTotalEffect: lerp('exerciseSympsTotalEffect'),
+    });
+  }
+
   const catecholamineEcfvMl =
     nativeEcfvMl == null ? HUMMOD_REFERENCE_ECFV_BENCHMARK_ML : nativeEcfvMl;
   const catecholamineEcfvSource =
@@ -8815,6 +8859,9 @@ function createBerlinLiveHumModSession({
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
     autonomicMode: 'source-aligned',
     catecholamineEcfvMl,
+    nativeAutonomicInputsProvider: nativeAutonomicTrajectory
+      ? ({ timeSec }) => interpolateNativeAutonomicInputs(timeSec)
+      : null,
   });
 
   const sessionEvents = [];
@@ -9015,6 +9062,7 @@ function createBerlinLiveHumModSession({
         nativeGasStateApplied: Boolean(nativeState),
         nativeCirculationStateApplied: Boolean(nativeCirculationVolumes),
         nativeEcfvApplied: nativeEcfvMl != null,
+        nativeAutonomicTrajectoryApplied: Boolean(nativeAutonomicTrajectory),
         benchmarkEcfvApplied: nativeEcfvMl == null,
         catecholamineEcfvMl,
         catecholamineEcfvSource,
