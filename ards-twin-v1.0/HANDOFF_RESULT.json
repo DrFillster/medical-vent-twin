@@ -1,15 +1,15 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "b75024adabfb2ce2bbefa0bfe09816d73d63fede",
-  "buildCommit": "b75024adabfb2ce2bbefa0bfe09816d73d63fede",
+  "sourceCommit": "1e6b56e42c891fc046e5b80ddfb6d7ae884f9fff",
+  "buildCommit": "1e6b56e42c891fc046e5b80ddfb6d7ae884f9fff",
   "previewDeploymentCommit": null,
-  "timestampUtc": "2026-10-09T17:28:02.642Z",
+  "timestampUtc": "2026-10-09T17:37:45.448Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37966270068,
+    "runId": 37967460922,
     "nativeHumModExecuted": false
   },
   "build": {
@@ -31,6 +31,12 @@
       "hummod_simple_organ_flow_source_aligned.test.js",
       "hummod_systemic_outflow_source_aligned.test.js",
       "hummod_native_organ_flow_validation.test.js",
+      "hummod_kidney_flow_source_aligned.test.js",
+      "hummod_skin_flow_source_aligned.test.js",
+      "hummod_respiratory_muscle_flow_source_aligned.test.js",
+      "hummod_myocardial_flow_source_aligned.test.js",
+      "hummod_explicit_organ_outflow_network.test.js",
+      "hummod_ards_core_circulation.test.js",
       "v13_hr_hypoxia_fidelity_guard.test.js",
       "v13_extremis_chronotropy.test.js"
     ],
