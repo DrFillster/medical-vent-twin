@@ -1,15 +1,15 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "2b47bff94243dc35278e6e5028b107167aa6f676",
-  "buildCommit": "2b47bff94243dc35278e6e5028b107167aa6f676",
+  "sourceCommit": "6107934091b29cd932118ca30cbec811c7bb554a",
+  "buildCommit": "6107934091b29cd932118ca30cbec811c7bb554a",
   "previewDeploymentCommit": null,
-  "timestampUtc": "2026-10-09T19:46:02.039Z",
+  "timestampUtc": "2026-10-09T19:48:41.981Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37982256331,
+    "runId": 37982641139,
     "nativeHumModExecuted": false
   },
   "build": {
@@ -37,6 +37,10 @@
       "hummod_myocardial_flow_source_aligned.test.js",
       "hummod_explicit_organ_outflow_network.test.js",
       "hummod_ards_core_circulation.test.js",
+      "hummod_bone_flow_source_aligned.test.js",
+      "hummod_direct_systemic_beds_source_aligned.test.js",
+      "hummod_explicit_organ_network_readiness.test.js",
+      "v13_simulation_speed_control.test.js",
       "v13_hr_hypoxia_fidelity_guard.test.js",
       "v13_extremis_chronotropy.test.js"
     ],
