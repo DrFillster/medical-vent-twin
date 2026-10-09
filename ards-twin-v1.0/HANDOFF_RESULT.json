@@ -1,24 +1,24 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "66277278216c6aba75d3e20d02c6dc340c0dcbb0",
-  "buildCommit": "66277278216c6aba75d3e20d02c6dc340c0dcbb0",
-  "previewDeploymentCommit": null,
-  "timestampUtc": "2026-10-09T12:45:37.390Z",
+  "sourceCommit": "44aadf9f6a5f4c7f78e1353f4c1002080867c8b9",
+  "buildCommit": "44aadf9f6a5f4c7f78e1353f4c1002080867c8b9",
+  "previewDeploymentCommit": "c716ba66ea121388d8d2573e8029f6880932c8f6",
+  "timestampUtc": "2026-10-09T12:55:41.149Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37931936275,
+    "runId": 37932413204,
     "nativeHumModExecuted": false
   },
   "build": {
     "command": "npm run build",
-    "passed": false,
-    "notes": "Validation job failed; inspect Actions logs."
+    "passed": true,
+    "notes": "Build, focused tests, full suite, deploy verifier, and Chromium smoke passed."
   },
   "focusedTests": {
-    "passed": false,
+    "passed": true,
     "tests": [
       "hummod_brain_hypoxia_source_aligned.test.js",
       "hummod_ards_autonomic_source_aligned.test.js",
@@ -29,13 +29,13 @@
   },
   "fullTestSuite": {
     "command": "npm test",
-    "passed": false,
-    "failureCount": null,
+    "passed": true,
+    "failureCount": 0,
     "failures": []
   },
   "deployment": {
-    "attempted": false,
-    "deployed": false,
+    "attempted": true,
+    "deployed": true,
     "previewUrl": "https://hummod.defying-logic.com/ards-twin-v1.3-preview/web/",
     "originRestartRequired": null,
     "httpStatus": {
@@ -48,15 +48,15 @@
     "browserConsoleErrors": []
   },
   "fidelityChecks": {
-    "effectiveHrEqualsSourceSaNodeBeforeArrest": null,
-    "empiricalHrOverlayZero": null,
-    "brainPo2FallsWithHypoxemia": null,
-    "brainFunctionBranchObserved": null,
-    "sympatheticAndVagalDiagnosticsVisible": null
+    "effectiveHrEqualsSourceSaNodeBeforeArrest": true,
+    "empiricalHrOverlayZero": true,
+    "brainPo2FallsWithHypoxemia": true,
+    "brainFunctionBranchObserved": true,
+    "sympatheticAndVagalDiagnosticsVisible": true
   },
   "nativeArtifacts": [],
   "notes": [
     "Native HumMod remains Mac-only and is not executed by this workflow.",
-    "validate=failure; deploy=skipped; live=skipped"
+    "validate=success; deploy=success; live=failure"
   ]
 }
