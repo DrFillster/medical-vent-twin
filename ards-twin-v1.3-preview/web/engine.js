@@ -10431,6 +10431,12 @@ function createBerlinLiveHumModSession({
           gas.exchange?.massBalance?.actualExtractionRatio ?? null,
         supplyDependent:
           gas.exchange?.massBalance?.supplyDependent ?? null,
+        convectiveOxygenDeliveryMlPerMin:
+          last.oxygenDelivery?.globalOxygenDeliveryMlPerMin ?? null,
+        globalVenousO2ReturnMlPerMin:
+          last.oxygenDelivery?.globalVenousO2ReturnMlPerMin ?? null,
+        globalExtractionRatio:
+          last.oxygenDelivery?.globalExtractionRatio ?? null,
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin: arrested
@@ -10495,6 +10501,16 @@ function createBerlinLiveHumModSession({
           last.autonomic?.sourceAligned?.baroreflexNa ?? null,
         saBetaReceptorActivity:
           last.autonomic?.sourceAligned?.saBetaActivity ?? null,
+        chemoreceptorFiringRate:
+          last.chemoreceptors?.firingRate ?? null,
+        chemoreceptorBasicFiringRate:
+          last.chemoreceptors?.basicFiringRate ?? null,
+        chemoreceptorPo2Effect:
+          last.chemoreceptors?.po2Effect ?? null,
+        chemoreceptorPhEffect:
+          last.chemoreceptors?.phEffect ?? null,
+        chemoreceptorDrivesSympsCns:
+          last.chemoreceptors?.provenance?.drivesSympsCnsInBrowser ?? false,
         ventricularBetaReceptorActivity:
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
@@ -11327,9 +11343,12 @@ const { createHumModSourceAlignedAutonomicController } = require("src/hummod_ard
 const { createHumModSourceAlignedCatecholamines } = require("src/hummod_ards_catecholamines_source_aligned.js");
 const { sourceSympatheticVascularComponents } = require("src/hummod_ards_vascular_sympathetic_source_aligned.js");
 const { createHumModSourceAlignedBrainHypoxia } = require("src/hummod_brain_hypoxia_source_aligned.js");
+const { createHumModChemoreceptors } = require("src/hummod_chemoreceptors_source_aligned.js");
+const { oxygenDeliveryFidelityPoint } = require("src/hummod_oxygen_delivery_fidelity.js");
 const { exerciseSympsTotalEffect } = require("src/hummod_exercise_sympathetic_source_aligned.js");
 const { createHumModExerciseMetabolism } = require("src/hummod_exercise_metabolism_source_aligned.js");
 const { createHumModBloodVolume } = require("src/hummod_blood_volume_source_aligned.js");
+const { hgbConcentrationFromHematocrit } = require("src/hummod_hgb_concentration_source_aligned.js");
 const { exerciseMusclePumpEffect } = require("src/hummod_exercise_muscle_pump_source_aligned.js");
 const {
   createHumModArdsDecompensationController,
@@ -11418,6 +11437,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     ? null
     : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
   const brainHypoxia = createHumModSourceAlignedBrainHypoxia();
+  const chemoreceptors = createHumModChemoreceptors();
   const exerciseMetabolism = createHumModExerciseMetabolism();
   const sourceBloodVolume = sourceBloodVolumeInitialMl == null
     ? null
@@ -11506,6 +11526,31 @@ function createHumModArdsCardiopulmonaryRuntime({
       brainPco2MmHg: priorVenousGas ? priorVenousGas.pco2MmHg : 46.6,
     });
     const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
+
+    // Read upstream native inputs before applying source blood-volume changes.
+    // The prior implementation could reference nativeAutonomicInputs before
+    // initialization when the source blood-volume module was enabled.
+    const preBloodRightAtrialTmpMmHg =
+      circ.pressures.rightAtrialMmHg - pericardialPressureMmHg;
+    const preBloodLeftAtrialTmpMmHg =
+      circ.pressures.leftAtrialMmHg - pericardialPressureMmHg;
+    const preBloodAverageAtrialTmpMmHg =
+      (preBloodRightAtrialTmpMmHg + preBloodLeftAtrialTmpMmHg) / 2;
+    const nativeAutonomicInputs = nativeAutonomicInputsProvider
+      ? nativeAutonomicInputsProvider({
+          timeSec,
+          dtSec,
+          meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
+          averageAtrialTmpMmHg:preBloodAverageAtrialTmpMmHg,
+          priorArterialGas: priorGas,
+        })
+      : null;
+    if(nativeAutonomicInputs!=null &&
+       (typeof nativeAutonomicInputs!=='object' ||
+        Array.isArray(nativeAutonomicInputs))){
+      throw new Error('nativeAutonomicInputsProvider must return an object or null');
+    }
+
     const bloodVolumeState = sourceBloodVolume
       ? sourceBloodVolume.step({
           dtSec,
@@ -11519,11 +11564,16 @@ function createHumModArdsCardiopulmonaryRuntime({
             nativeAutonomicInputs?.otherPlasmaLossMlPerMin ?? 0,
         })
       : null;
+    let hgbConcentrationState=null;
     if(bloodVolumeState){
       circulation.setBoundaries({
         bloodVolumeMl:bloodVolumeState.bloodVolumeMl,
       });
       circ=circulation.snapshot();
+      hgbConcentrationState=hgbConcentrationFromHematocrit({
+        hematocritFraction:bloodVolumeState.hematocritFraction,
+        carboxyPercent:bloodBoundaries.carboxyPercent || 0,
+      });
     }
     const rightAtrialTmpMmHg =
       circ.pressures.rightAtrialMmHg - pericardialPressureMmHg;
@@ -11531,20 +11581,6 @@ function createHumModArdsCardiopulmonaryRuntime({
       circ.pressures.leftAtrialMmHg - pericardialPressureMmHg;
     const averageAtrialTmpMmHg =
       (rightAtrialTmpMmHg + leftAtrialTmpMmHg) / 2;
-    const nativeAutonomicInputs = nativeAutonomicInputsProvider
-      ? nativeAutonomicInputsProvider({
-          timeSec,
-          dtSec,
-          meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
-          averageAtrialTmpMmHg,
-          priorArterialGas: priorGas,
-        })
-      : null;
-    if(nativeAutonomicInputs!=null &&
-       (typeof nativeAutonomicInputs!=='object' ||
-        Array.isArray(nativeAutonomicInputs))){
-      throw new Error('nativeAutonomicInputsProvider must return an object or null');
-    }
     let exerciseMetabolismState=null;
     let exerciseSympatheticState=null;
     let exerciseSympsEffect=0;
@@ -11595,6 +11631,15 @@ function createHumModArdsCardiopulmonaryRuntime({
         nativeAutonomicInputs?.brainFunctionEffect ??
         brainHypoxiaState.brainFunctionEffect,
       exerciseSympsTotalEffect:exerciseSympsEffect,
+    });
+    const chemoreceptorState=chemoreceptors.step({
+      dtSec,
+      arterialPo2MmHg:priorGas ? priorGas.po2MmHg : 90,
+      arterialPh:priorGas ? priorGas.pH : 7.40,
+      gangliaGeneralHz:sourceControl.gangliaHz,
+      alphaPoolEffect:currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
+      alphaBlockadeEffect:1,
+      otherTissueFunctionFailed:false,
     });
     const updatedCatecholamines = catecholamines
       ? catecholamines.step({
@@ -11725,7 +11770,12 @@ function createHumModArdsCardiopulmonaryRuntime({
         cardiacOutputMlPerMin,
       },
       pulmonary:pulmonaryBoundaries,
-      blood:bloodBoundaries,
+      blood:hgbConcentrationState
+        ? {
+            ...bloodBoundaries,
+            o2MaxMlPerMl:hgbConcentrationState.o2MaxMlPerMl,
+          }
+        : bloodBoundaries,
       environment:environmentBoundaries,
     });
 
@@ -11737,6 +11787,16 @@ function createHumModArdsCardiopulmonaryRuntime({
     const massBalance=gas.exchange && gas.exchange.massBalance
       ? gas.exchange.massBalance
       : null;
+    const oxygenDeliveryState=oxygenDeliveryFidelityPoint({
+      cardiacOutputMlPerMin,
+      arterialO2ContentMlPerMl:gas.gases.arterial.o2ContentMlPerMl,
+      mixedVenousO2ContentMlPerMl:gas.gases.venous.o2ContentMlPerMl,
+      requestedTissueO2UseMlPerMin:
+        massBalance?.requestedTissueO2UseMlPerMin ?? null,
+      sympatheticFiringHz:sourceControl.sympsCnsHz,
+      saBetaReceptorActivity:sourceControl.saBetaActivity,
+      heartRatePerMin:effectiveHeartRatePerMin,
+    });
     const decomp=decompensation.step({
       dtSec,
       meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
@@ -11768,7 +11828,10 @@ function createHumModArdsCardiopulmonaryRuntime({
       exerciseMusclePump:exerciseMusclePumpState,
       exerciseSympathetic:exerciseSympatheticState,
       sourceBloodVolume:bloodVolumeState,
+      hgbConcentration:hgbConcentrationState,
       brainHypoxia:brainHypoxiaState,
+      chemoreceptors:chemoreceptorState,
+      oxygenDelivery:oxygenDeliveryState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
       chronotropicExposureSec,
@@ -13507,6 +13570,229 @@ module.exports={
 };
 
 },
+"src/hummod_chemoreceptors_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const {hermite}=require("src/hummod_ards_autonomic_source_aligned.js");
+const {humModSource}=require("src/hummod_source_identity.js");
+
+const PO2_EFFECT=Object.freeze([
+  Object.freeze({x:30,y:10.0,slope:0}),
+  Object.freeze({x:60,y:2.0,slope:-0.05}),
+  Object.freeze({x:94,y:0.5,slope:-0.005}),
+  Object.freeze({x:400,y:0.2,slope:0}),
+]);
+const PH_EFFECT=Object.freeze([
+  Object.freeze({x:7.10,y:2.0,slope:0}),
+  Object.freeze({x:7.44,y:0.4,slope:-3.0}),
+  Object.freeze({x:7.70,y:0.0,slope:0}),
+]);
+const SYMPS_EFFECT=Object.freeze([
+  Object.freeze({x:0,y:0.0,slope:0}),
+  Object.freeze({x:1,y:0.1,slope:0.2}),
+  Object.freeze({x:4,y:0.6,slope:0}),
+]);
+const ACCLIMATION_STEADY_STATE=Object.freeze([
+  Object.freeze({x:0,y:0,slope:0}),
+  Object.freeze({x:1,y:1,slope:0.3}),
+  Object.freeze({x:10,y:2,slope:0}),
+]);
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+
+function createHumModChemoreceptors({
+  initialAcclimationEffect=1,
+  acclimationTauMin=20,
+}={}){
+  finite(initialAcclimationEffect,'initialAcclimationEffect');
+  positive(acclimationTauMin,'acclimationTauMin');
+  let acclimationEffect=initialAcclimationEffect;
+  let last=null;
+
+  function step({
+    dtSec,
+    arterialPo2MmHg,
+    arterialPh,
+    gangliaGeneralHz,
+    alphaPoolEffect,
+    alphaBlockadeEffect=1,
+    otherTissueFunctionFailed=false,
+    clamp=false,
+    clampLevel=0,
+  }={}){
+    positive(dtSec,'dtSec');
+    finite(arterialPo2MmHg,'arterialPo2MmHg');
+    finite(arterialPh,'arterialPh');
+    finite(gangliaGeneralHz,'gangliaGeneralHz');
+    finite(alphaPoolEffect,'alphaPoolEffect');
+    finite(alphaBlockadeEffect,'alphaBlockadeEffect');
+    finite(clampLevel,'clampLevel');
+
+    const po2Effect=hermite(PO2_EFFECT,arterialPo2MmHg);
+    const phEffect=hermite(PH_EFFECT,arterialPh);
+    const alphaAgonism=alphaBlockadeEffect*
+      ((0.5*gangliaGeneralHz)+(0.5*alphaPoolEffect));
+    const sympsEffect=hermite(SYMPS_EFFECT,alphaAgonism);
+    const basicFiringRate=po2Effect+phEffect+sympsEffect;
+
+    const steadyState=hermite(ACCLIMATION_STEADY_STATE,basicFiringRate);
+    // Source delay: K = 1/(60*Tau) on HumMod minute timebase.
+    // Converted to seconds here as a first-order stable-delay integration.
+    const tauSec=60*acclimationTauMin;
+    acclimationEffect +=
+      (steadyState-acclimationEffect)*(dtSec/tauSec);
+
+    let firingRate;
+    if(clamp) firingRate=clampLevel;
+    else if(otherTissueFunctionFailed) firingRate=0;
+    else firingRate=basicFiringRate*acclimationEffect;
+
+    last=Object.freeze({
+      arterialPo2MmHg,
+      arterialPh,
+      gangliaGeneralHz,
+      alphaPoolEffect,
+      alphaAgonism,
+      po2Effect,
+      phEffect,
+      sympsEffect,
+      basicFiringRate,
+      acclimationSteadyState:steadyState,
+      acclimationEffect,
+      firingRate,
+      provenance:Object.freeze({
+        status:'source-aligned-chemoreceptor-signal',
+        receptorSource:humModSource('Structure/Nerves/Chemoreceptors.DES','Chemoreceptors.Calc'),
+        acclimationSource:humModSource('Structure/Nerves/ChemoreceptorAcclimation.DES','ChemoreceptorAcclimation'),
+        sympsChemoSource:humModSource('Structure/Nerves/SympsChemo.DES','SympsChemo.Calc'),
+        sympsChemoEffectInPinnedSource:1.0,
+        drivesSympsCnsInBrowser:false,
+        clinicalValidation:false,
+      }),
+    });
+    return last;
+  }
+
+  function snapshot(){
+    return last||Object.freeze({
+      acclimationEffect,
+      firingRate:null,
+      provenance:Object.freeze({
+        status:'initialized',
+        drivesSympsCnsInBrowser:false,
+      }),
+    });
+  }
+
+  return Object.freeze({kind:'hummod-source-aligned-chemoreceptors',step,snapshot});
+}
+
+module.exports={
+  PO2_EFFECT,PH_EFFECT,SYMPS_EFFECT,ACCLIMATION_STEADY_STATE,
+  createHumModChemoreceptors,
+};
+
+},
+"src/hummod_oxygen_delivery_fidelity.js":function(module,exports,require){
+'use strict';
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+
+function oxygenDeliveryFidelityPoint({
+  cardiacOutputMlPerMin,
+  arterialO2ContentMlPerMl,
+  mixedVenousO2ContentMlPerMl=null,
+  requestedTissueO2UseMlPerMin=null,
+  sympatheticFiringHz=null,
+  saBetaReceptorActivity=null,
+  heartRatePerMin=null,
+  organOxygen=null,
+}={}){
+  nonNegative(cardiacOutputMlPerMin,'cardiacOutputMlPerMin');
+  nonNegative(arterialO2ContentMlPerMl,'arterialO2ContentMlPerMl');
+  if(mixedVenousO2ContentMlPerMl!=null) nonNegative(mixedVenousO2ContentMlPerMl,'mixedVenousO2ContentMlPerMl');
+  if(requestedTissueO2UseMlPerMin!=null) nonNegative(requestedTissueO2UseMlPerMin,'requestedTissueO2UseMlPerMin');
+  for(const [k,v] of [['sympatheticFiringHz',sympatheticFiringHz],['saBetaReceptorActivity',saBetaReceptorActivity],['heartRatePerMin',heartRatePerMin]]){
+    if(v!=null) finite(v,k);
+  }
+
+  const globalOxygenDeliveryMlPerMin=
+    cardiacOutputMlPerMin*arterialO2ContentMlPerMl;
+  const globalVenousO2ReturnMlPerMin=
+    mixedVenousO2ContentMlPerMl==null
+      ? null
+      : cardiacOutputMlPerMin*mixedVenousO2ContentMlPerMl;
+  const globalExtractionMlPerMin=
+    globalVenousO2ReturnMlPerMin==null
+      ? null
+      : globalOxygenDeliveryMlPerMin-globalVenousO2ReturnMlPerMin;
+  const globalExtractionRatio=
+    globalExtractionMlPerMin==null||globalOxygenDeliveryMlPerMin<=0
+      ? null
+      : globalExtractionMlPerMin/globalOxygenDeliveryMlPerMin;
+
+  return Object.freeze({
+    cardiacOutputMlPerMin,
+    arterialO2ContentMlPerMl,
+    globalOxygenDeliveryMlPerMin,
+    mixedVenousO2ContentMlPerMl,
+    globalVenousO2ReturnMlPerMin,
+    globalExtractionMlPerMin,
+    globalExtractionRatio,
+    requestedTissueO2UseMlPerMin,
+    sympatheticFiringHz,
+    saBetaReceptorActivity,
+    heartRatePerMin,
+    organOxygen,
+  });
+}
+
+function compareFidelitySeries(nativeSeries,candidateSeries){
+  if(!Array.isArray(nativeSeries)||!Array.isArray(candidateSeries)) throw new Error('series arrays required');
+  if(nativeSeries.length!==candidateSeries.length) throw new Error('series length mismatch');
+  const fields=[
+    'cardiacOutputMlPerMin',
+    'arterialO2ContentMlPerMl',
+    'globalOxygenDeliveryMlPerMin',
+    'mixedVenousO2ContentMlPerMl',
+    'globalExtractionRatio',
+    'sympatheticFiringHz',
+    'saBetaReceptorActivity',
+    'heartRatePerMin',
+  ];
+  const maxAbsoluteError={};
+  for(const field of fields){
+    let max=null;
+    for(let i=0;i<nativeSeries.length;i++){
+      const a=nativeSeries[i]?.[field],b=candidateSeries[i]?.[field];
+      if(typeof a!=='number'||!Number.isFinite(a)||typeof b!=='number'||!Number.isFinite(b)) continue;
+      const e=Math.abs(a-b);
+      if(max==null||e>max) max=e;
+    }
+    maxAbsoluteError[field]=max;
+  }
+  return Object.freeze({sampleCount:nativeSeries.length,maxAbsoluteError:Object.freeze(maxAbsoluteError)});
+}
+
+module.exports={oxygenDeliveryFidelityPoint,compareFidelitySeries};
+
+},
 "src/hummod_exercise_sympathetic_source_aligned.js":function(module,exports,require){
 'use strict';
 
@@ -13881,6 +14167,75 @@ function createHumModBloodVolume({
 }
 
 module.exports={createHumModBloodVolume};
+
+},
+"src/hummod_hgb_concentration_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const {humModSource}=require("src/hummod_source_identity.js");
+
+const NORMAL_HCT=0.44;
+const BASIC_HGB_G_PER_ML=0.15;
+const O2_MAX_ML_PER_G_HGB=1.34;
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function fraction(v,label){
+  finite(v,label);
+  if(v<0||v>1) throw new Error(label+' must be between 0 and 1');
+  return v;
+}
+
+function hgbConcentrationFromHematocrit({
+  hematocritFraction,
+  carboxyPercent=0,
+  clamp=false,
+  clampTotalHgbGPerMl=0,
+}={}){
+  fraction(hematocritFraction,'hematocritFraction');
+  finite(carboxyPercent,'carboxyPercent');
+  if(carboxyPercent<0||carboxyPercent>100){
+    throw new Error('carboxyPercent must be between 0 and 100');
+  }
+  finite(clampTotalHgbGPerMl,'clampTotalHgbGPerMl');
+  if(clampTotalHgbGPerMl<0) throw new Error('clampTotalHgbGPerMl must be >= 0');
+
+  const hctEffect=hematocritFraction/NORMAL_HCT;
+  const totalHgbGPerMl=clamp
+    ? clampTotalHgbGPerMl
+    : hctEffect*BASIC_HGB_G_PER_ML;
+  const carboxyHgbGPerMl=totalHgbGPerMl*(carboxyPercent/100);
+  const freeHgbGPerMl=Math.max(totalHgbGPerMl-carboxyHgbGPerMl,0);
+  const gasMaxContentMlPerMl=O2_MAX_ML_PER_G_HGB*totalHgbGPerMl;
+  const o2MaxMlPerMl=O2_MAX_ML_PER_G_HGB*freeHgbGPerMl;
+
+  return Object.freeze({
+    hematocritFraction,
+    hctEffect,
+    totalHgbGPerMl,
+    carboxyHgbGPerMl,
+    freeHgbGPerMl,
+    carboxyPercent,
+    gasMaxContentMlPerMl,
+    o2MaxMlPerMl,
+    provenance:Object.freeze({
+      status:'source-aligned-HgbConc',
+      source:humModSource('Structure/Hemoglobin/HgbConc.DES','HgbConc.Calc'),
+      carboxyBoundary:
+        'carboxyPercent supplied directly until CO concentration/mass pool is ported',
+      clinicalValidation:false,
+    }),
+  });
+}
+
+module.exports={
+  NORMAL_HCT,
+  BASIC_HGB_G_PER_ML,
+  O2_MAX_ML_PER_G_HGB,
+  hgbConcentrationFromHematocrit,
+};
 
 },
 "src/hummod_exercise_muscle_pump_source_aligned.js":function(module,exports,require){
