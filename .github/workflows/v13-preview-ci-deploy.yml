@@ -118,8 +118,8 @@ jobs:
           test -f ards-twin-v1.3-preview/web/index.html
           test -f ards-twin-v1.3-preview/web/engine.js
           test -f ards-twin-v1.3-preview/web/DEPLOY_SOURCE_SHA.txt
-          git diff --name-only | tee /tmp/changed.txt
-          if grep -Ev '^(ards-twin-v1\.3-preview/web/)' /tmp/changed.txt | grep -q .; then
+          git status --porcelain | tee /tmp/status.txt
+          if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.3-preview/web/)' | grep -q .; then
             echo "Refusing deployment: files outside isolated v1.3 preview changed."
             exit 1
           fi
@@ -183,6 +183,12 @@ jobs:
             fi
           done
 
+          HOMEPAGE_CODE="$homepage_code" \
+          V121_CODE="$v121_code" \
+          V13_CODE="$v13_code" \
+          SOURCE_CODE="$source_code" \
+          OK="$ok" \
+          ASSET_FAILURES="$asset_failures" \
           node -e '
             const fs=require("fs");
             const out={
@@ -192,10 +198,10 @@ jobs:
               v13Preview:Number(process.env.V13_CODE||0),
               sourceMarker:Number(process.env.SOURCE_CODE||0),
               sourceMarkerMatches:process.env.OK==="1",
-              assetFailures:(process.env.ASSET_FAILURES||"").trim().split(/\s+/).filter(Boolean)
+              assetFailures:(process.env.ASSET_FAILURES||"").trim().split(/\\s+/).filter(Boolean)
             };
-            fs.writeFileSync("smoke/live-smoke.json",JSON.stringify(out,null,2)+"\n");
-          '           HOMEPAGE_CODE="$homepage_code"           V121_CODE="$v121_code"           V13_CODE="$v13_code"           SOURCE_CODE="$source_code"           OK="$ok"           ASSET_FAILURES="$asset_failures"
+            fs.writeFileSync("smoke/live-smoke.json",JSON.stringify(out,null,2)+"\\n");
+          '
 
           cat smoke/live-smoke.json
           if [ "$ok" != "1" ] || [ -n "$asset_failures" ]; then
