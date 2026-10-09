@@ -44,6 +44,8 @@
     "Heart-Rate.Rate",
     "SANode-Rate.Rate",
     "CardiacOutput.Flow",
+    "CardiacOutput.StrokeVolume",
+    "PeripheralResistance.TPR",
     "SystemicArtys.Pressure",
     "SympsCNS.NA(Hz)",
     "VagusNerve.NA(Hz)",
