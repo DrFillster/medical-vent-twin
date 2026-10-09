@@ -1,15 +1,15 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "1505f310fc0dea9f21c5b10b821528b7f79c7ad4",
-  "buildCommit": "1505f310fc0dea9f21c5b10b821528b7f79c7ad4",
+  "sourceCommit": "66277278216c6aba75d3e20d02c6dc340c0dcbb0",
+  "buildCommit": "66277278216c6aba75d3e20d02c6dc340c0dcbb0",
   "previewDeploymentCommit": null,
-  "timestampUtc": "2026-10-09T12:23:27.705Z",
+  "timestampUtc": "2026-10-09T12:45:37.390Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37929413670,
+    "runId": 37931936275,
     "nativeHumModExecuted": false
   },
   "build": {
