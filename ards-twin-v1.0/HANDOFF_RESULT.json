@@ -1,0 +1,47 @@
+{
+  "schema": "hummod-v13-handoff-result/v1",
+  "sourceBranch": "v1.3",
+  "sourceCommit": null,
+  "buildCommit": null,
+  "previewDeploymentCommit": null,
+  "timestampUtc": null,
+  "status": "PENDING",
+  "build": {
+    "command": "npm run build",
+    "passed": null,
+    "notes": null
+  },
+  "focusedTests": {
+    "passed": null,
+    "tests": [],
+    "failures": []
+  },
+  "fullTestSuite": {
+    "command": "npm test",
+    "passed": null,
+    "failureCount": null,
+    "failures": []
+  },
+  "deployment": {
+    "attempted": false,
+    "deployed": false,
+    "previewUrl": "https://hummod.defying-logic.com/ards-twin-v1.3-preview/web/",
+    "originRestartRequired": null,
+    "httpStatus": {
+      "homepage": null,
+      "v121": null,
+      "v13Preview": null
+    },
+    "assetErrors": [],
+    "browserConsoleErrors": []
+  },
+  "fidelityChecks": {
+    "effectiveHrEqualsSourceSaNodeBeforeArrest": null,
+    "empiricalHrOverlayZero": null,
+    "brainPo2FallsWithHypoxemia": null,
+    "brainFunctionBranchObserved": null,
+    "sympatheticAndVagalDiagnosticsVisible": null
+  },
+  "nativeArtifacts": [],
+  "notes": []
+}
