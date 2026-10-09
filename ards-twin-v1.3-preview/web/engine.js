@@ -6438,6 +6438,11 @@ const HUMMOD_NATIVE_MUTABLE_PARAMETERS=Object.freeze({
   'LungBloodFlow.BasicR-LShunt':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/LungBloodFlow.DES',unit:'mL/min',persistence:'parameter'}),
   'RightHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/RightHemithorax.DES',unit:'model-pressure',persistence:'parameter'}),
   'LeftHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/LeftHemithorax.DES',unit:'model-pressure',persistence:'parameter'}),
+  'Exercise-Control.Request':Object.freeze({kind:'exercise',source:'Structure/Exercise/Exercise-Control.DES',unit:'mode-code',persistence:'parameter'}),
+  'Exercise-Bike.Power(W)':Object.freeze({kind:'exercise',source:'Structure/Exercise/Exercise-Bike.DES',unit:'W',persistence:'parameter'}),
+  'Exercise-Bike.RPM':Object.freeze({kind:'exercise',source:'Structure/Exercise/Exercise-Bike.DES',unit:'1/min',persistence:'parameter'}),
+  'Hemorrhage.Switch':Object.freeze({kind:'hemorrhage',source:'Structure/Hemorrhage/Hemorrhage.DES',unit:'boolean-numeric',persistence:'parameter'}),
+  'Hemorrhage.TargetRate':Object.freeze({kind:'hemorrhage',source:'Structure/Hemorrhage/Hemorrhage.DES',unit:'model-volume/min',persistence:'parameter'}),
 });
 
 function validateNativeHumModScenario(spec){
@@ -6455,7 +6460,7 @@ function validateNativeHumModScenario(spec){
     const value=spec.assignments[key];
     if(typeof value!=='number'||!Number.isFinite(value)) throw new Error('assignment '+key+' must be finite');
   }
-  for(const key of ['Ventilator.Switch','AirSupply-GasTanks.Switch']){
+  for(const key of ['Ventilator.Switch','AirSupply-GasTanks.Switch','Hemorrhage.Switch']){
     if(Object.prototype.hasOwnProperty.call(spec.assignments,key)){
       const v=spec.assignments[key];
       if(v!==0&&v!==1) throw new Error(key+' must be 0 or 1');
@@ -6467,8 +6472,12 @@ function validateNativeHumModScenario(spec){
       if(v<0||v>100) throw new Error(key+' must be in [0,100]');
     }
   }
-  for(const key of ['Ventilator.Rate','Ventilator.TidalVolume','AirSupply-GasTanks.COValve(PPM)','ExcessLungWater.Volume','PulmonaryMembrane.TotalArea','PulmonaryMembrane.Thickness-Structure','LungBloodFlow.BasicR-LShunt']){
+  for(const key of ['Ventilator.Rate','Ventilator.TidalVolume','AirSupply-GasTanks.COValve(PPM)','ExcessLungWater.Volume','PulmonaryMembrane.TotalArea','PulmonaryMembrane.Thickness-Structure','LungBloodFlow.BasicR-LShunt','Exercise-Bike.Power(W)','Exercise-Bike.RPM','Hemorrhage.TargetRate']){
     if(Object.prototype.hasOwnProperty.call(spec.assignments,key)&&spec.assignments[key]<0) throw new Error(key+' must be non-negative');
+  }
+  if(Object.prototype.hasOwnProperty.call(spec.assignments,'Exercise-Control.Request')){
+    const v=spec.assignments['Exercise-Control.Request'];
+    if(!Number.isInteger(v)||v<0||v>4) throw new Error('Exercise-Control.Request must be an integer mode code in [0,4]');
   }
   return spec;
 }
@@ -9427,6 +9436,64 @@ const HUMMOD_ARDS_CORE_PHASE1_POLICY = Object.freeze({
   ]),
 });
 
+
+const HUMMOD_V13_FIDELITY_ROOT_STRUCTURES = Object.freeze([
+  'Heart-Rate',
+  'SANode-Rate',
+  'CardiacOutput',
+  'SystemicArtys',
+  'RightAtrium',
+  'PulmArty',
+  'PO2Artys',
+  'CO2Artys',
+  'BloodPh',
+  'SympsCNS',
+  'VagusNerve',
+  'Baroreflex',
+  'LowPressureReceptors',
+  'Mechanoreceptors',
+  'ExerciseSymps',
+  'AdrenalNerve',
+  'EpiSecretion',
+  'EpiPool',
+  'NESecretion',
+  'NEPool',
+  'BloodVol',
+  'Brain-Function',
+  'Brain-Flow',
+  'Brain-Fuel',
+  'SkeletalMuscle-Work',
+  'SkeletalMuscle-Metabolism',
+  'SkeletalMuscle-Flow',
+  'SkeletalMuscle-Metaboreflex',
+  'SkeletalMuscle-MusclePumping',
+  'RespiratoryCenter-Exercise',
+  'Exercise-Control',
+  'Exercise-Bike',
+  'Hemorrhage',
+]);
+
+const HUMMOD_V13_FIDELITY_POLICY = Object.freeze({
+  id: 'v1.3-hummod-first-fidelity-closure',
+  interpretation: 'Expand the acute browser model toward native HumMod dependency closure. Autonomics, catecholamines, brain, skeletal muscle/exercise, and hemorrhage/volume are no longer treated as optional clinical overlays.',
+  stopSystemBuckets: Object.freeze([
+    'Reproduction',
+    'Pregnancy',
+    'Fetus',
+    'MenstrualCycle',
+  ]),
+  stopStructureNames: Object.freeze([]),
+  laterPhaseSystemBuckets: Object.freeze([
+    'Nephrons',
+    'Kidney',
+    'Renin',
+    'Aldosterone',
+    'ANP',
+    'Diet',
+    'DailyPlanner',
+  ]),
+});
+
 function hummodArdsCoreRootSymbols() {
   return HUMMOD_ARDS_CORE.outputs.map(x => x.symbol);
 }
@@ -9439,6 +9506,8 @@ module.exports = {
   HUMMOD_ARDS_CORE_SCHEMA,
   HUMMOD_ARDS_CORE,
   HUMMOD_ARDS_CORE_PHASE1_POLICY,
+  HUMMOD_V13_FIDELITY_ROOT_STRUCTURES,
+  HUMMOD_V13_FIDELITY_POLICY,
   hummodArdsCoreRootSymbols,
   hummodArdsCoreRootStructures,
 };
@@ -11127,6 +11196,7 @@ const { createHumModSourceAlignedAutonomicController } = require("src/hummod_ard
 const { createHumModSourceAlignedCatecholamines } = require("src/hummod_ards_catecholamines_source_aligned.js");
 const { sourceSympatheticVascularComponents } = require("src/hummod_ards_vascular_sympathetic_source_aligned.js");
 const { createHumModSourceAlignedBrainHypoxia } = require("src/hummod_brain_hypoxia_source_aligned.js");
+const { exerciseSympsTotalEffect } = require("src/hummod_exercise_sympathetic_source_aligned.js");
 const {
   createHumModArdsDecompensationController,
 } = require("src/hummod_ards_decompensation_controller.js");
@@ -11276,6 +11346,21 @@ function createHumModArdsCardiopulmonaryRuntime({
         Array.isArray(nativeAutonomicInputs))){
       throw new Error('nativeAutonomicInputsProvider must return an object or null');
     }
+    let exerciseSympatheticState=null;
+    let exerciseSympsEffect=0;
+    if(nativeAutonomicInputs?.exerciseTotalWatts != null &&
+       nativeAutonomicInputs?.skeletalMusclePh != null){
+      exerciseSympatheticState=exerciseSympsTotalEffect({
+        totalWatts:nativeAutonomicInputs.exerciseTotalWatts,
+        skeletalMusclePh:nativeAutonomicInputs.skeletalMusclePh,
+        skeletalMuscleFunctionFailed:
+          Boolean(nativeAutonomicInputs.skeletalMuscleFunctionFailed),
+      });
+      exerciseSympsEffect=exerciseSympatheticState.totalEffect;
+    } else if(nativeAutonomicInputs?.exerciseSympsTotalEffect != null){
+      exerciseSympsEffect=nativeAutonomicInputs.exerciseSympsTotalEffect;
+    }
+
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
@@ -11291,8 +11376,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       brainFunctionEffect:
         nativeAutonomicInputs?.brainFunctionEffect ??
         brainHypoxiaState.brainFunctionEffect,
-      exerciseSympsTotalEffect:
-        nativeAutonomicInputs?.exerciseSympsTotalEffect ?? 0,
+      exerciseSympsTotalEffect:exerciseSympsEffect,
     });
     const updatedCatecholamines = catecholamines
       ? catecholamines.step({
@@ -11357,6 +11441,8 @@ function createHumModArdsCardiopulmonaryRuntime({
         nativeAutonomicInputs.brainFuelFractUseDelay != null ||
         nativeAutonomicInputs.a2PoolLog10Conc != null ||
         nativeAutonomicInputs.exerciseSympsTotalEffect != null ||
+        nativeAutonomicInputs.exerciseTotalWatts != null ||
+        nativeAutonomicInputs.skeletalMusclePh != null ||
         nativeAutonomicInputs.brainFunctionEffect != null
       )
     );
@@ -11455,6 +11541,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
+      exerciseSympathetic:exerciseSympatheticState,
       brainHypoxia:brainHypoxiaState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
@@ -11489,7 +11576,7 @@ function createHumModArdsCardiopulmonaryRuntime({
           ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
-          ? 'external native HumMod autonomic input provider'
+          ? 'source-aligned upstream HumMod boundary provider; exercise drive is computed from TotalWatts + skeletal-muscle pH when supplied'
           : 'source-aligned browser brain-hypoxia subset; no empirical chronotropy overlay',
         catecholamineAuthority: catecholamines
           ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
@@ -12201,7 +12288,8 @@ module.exports = {
 //
 // Deliberate reductions:
 // - LowPressureReceptors source pathway is preserved from average atrial TMP;
-// - mechanoreceptor/exercise/Cushing/brain-fuel terms remain neutral for the acute ventilator slice;
+// - mechanoreceptor/Cushing terms remain neutral for the acute ventilator slice;
+ // - ExerciseSymps is source-aligned when upstream exercise state is supplied by the runtime;
 // - humoral alpha/beta pool effects are explicit normalized boundaries;
 // - DES curve interpolation is reproduced with local cubic Hermite segments;
 // - distributed organ vascular control is not represented here.
@@ -12500,7 +12588,7 @@ function createHumModSourceAlignedAutonomicController({
         clinicalValidation:false,
         neutralizedDependencies:Object.freeze([
           'Mechanoreceptors',
-          'ExerciseSymps',
+          'ExerciseSymps upstream state when runtime exercise inputs are unavailable',
           'CushingResponse',
           'Brain-Fuel upstream state (hook present; native input not yet supplied)',
           'A2Pool upstream state (hook present; native input not yet supplied)',
@@ -13181,6 +13269,81 @@ module.exports={
   setupHgbProps,
   o2ContentToPo2,
   po2ToO2Content,
+};
+
+},
+"src/hummod_exercise_sympathetic_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const {HUMMOD_SOURCE_IDENTITY}=require("src/hummod_source_identity.js");
+const {hermite}=require("src/hummod_ards_autonomic_source_aligned.js");
+
+const MOTOR_RADIATION_CURVE=Object.freeze([
+  Object.freeze({x:0,y:0,slope:0.004}),
+  Object.freeze({x:500,y:2.2,slope:0.002}),
+  Object.freeze({x:1000,y:2.6,slope:0}),
+]);
+
+const METABOREFLEX_PH_CURVE=Object.freeze([
+  Object.freeze({x:6.5,y:5,slope:0}),
+  Object.freeze({x:6.9,y:0,slope:0}),
+]);
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+
+function motorRadiationTotalEffect(totalWatts){
+  finite(totalWatts,'totalWatts');
+  return hermite(MOTOR_RADIATION_CURVE,totalWatts);
+}
+
+function skeletalMuscleMetaboreflexNerveActivity({
+  skeletalMusclePh,
+  skeletalMuscleFunctionFailed=false,
+}={}){
+  finite(skeletalMusclePh,'skeletalMusclePh');
+  if(skeletalMuscleFunctionFailed) return 0;
+  return hermite(METABOREFLEX_PH_CURVE,skeletalMusclePh);
+}
+
+function exerciseSympsTotalEffect({
+  totalWatts,
+  skeletalMusclePh,
+  skeletalMuscleFunctionFailed=false,
+}={}){
+  const radiationEffect=motorRadiationTotalEffect(totalWatts);
+  const metaboreflexNerveActivity=skeletalMuscleMetaboreflexNerveActivity({
+    skeletalMusclePh,
+    skeletalMuscleFunctionFailed,
+  });
+  const metaboreflexEffect=0.32*metaboreflexNerveActivity;
+  return Object.freeze({
+    radiationEffect,
+    metaboreflexNerveActivity,
+    metaboreflexEffect,
+    totalEffect:radiationEffect+metaboreflexEffect,
+    provenance:Object.freeze({
+      status:'source-aligned',
+      sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
+      sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
+      sourceStructures:Object.freeze([
+        'MotorRadiation',
+        'SkeletalMuscle-Metaboreflex',
+        'ExerciseSymps',
+      ]),
+      clinicalValidation:false,
+    }),
+  });
+}
+
+module.exports={
+  MOTOR_RADIATION_CURVE,
+  METABOREFLEX_PH_CURVE,
+  motorRadiationTotalEffect,
+  skeletalMuscleMetaboreflexNerveActivity,
+  exerciseSympsTotalEffect,
 };
 
 },
