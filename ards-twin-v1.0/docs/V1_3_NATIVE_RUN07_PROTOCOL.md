@@ -83,3 +83,28 @@ If native HumMod itself appears clinically implausible, document that separately
 ## Clinical-scenario phase
 
 After source fidelity is acceptable, run the model through the planned ARDS and critical-care scenarios for first-look plausibility. These scenarios evaluate the model; they do not define HumMod physiology.
+
+
+## Deterministic post-processing
+
+After the Mac native execution has produced an untouched `Vent.SOLN` and
+`native-export-status.json` in a fresh run directory, process the evidence with:
+
+```bash
+cd ards-twin-v1.0
+npm run native:run07:postprocess -- /path/to/run07-output
+```
+
+This command does not run HumMod and does not modify the SOLN. It:
+- performs an all-variable strict numeric extraction to `native-all-variables.json`;
+- preserves the original numeric tokens alongside the parsed numeric arrays;
+- verifies the run07 scenario assignments against the exported native state;
+- requires the pinned HumMod revision, `1 Sec` advance mode, 180 advances, and 250 ms delay in exporter status;
+- requires the exported trajectory to pass the prior 153.365933 s terminal time;
+- runs the myocardial-collapse analyzer;
+- writes the final-30-second checkpoint CSV;
+- writes source/executable/SOLN hashes;
+- fails if any required run07 artifact is missing or empty.
+
+The post-processor is evidence handling only. It does not infer physiology or tune
+the reduced model.
