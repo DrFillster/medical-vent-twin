@@ -1,29 +1,40 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": null,
-  "buildCommit": null,
+  "sourceCommit": "6c8258f26d502ed12906c5f389d041518f04001e",
+  "buildCommit": "6c8258f26d502ed12906c5f389d041518f04001e",
   "previewDeploymentCommit": null,
-  "timestampUtc": null,
-  "status": "PENDING",
+  "timestampUtc": "2026-10-09T12:21:51.334Z",
+  "status": "FAILED",
+  "automation": {
+    "provider": "GitHub Actions",
+    "workflow": "v1.3 Preview CI Deploy",
+    "runId": 37929359693,
+    "nativeHumModExecuted": false
+  },
   "build": {
     "command": "npm run build",
-    "passed": null,
-    "notes": null
+    "passed": false,
+    "notes": "Validation job failed; inspect Actions logs."
   },
   "focusedTests": {
-    "passed": null,
-    "tests": [],
+    "passed": false,
+    "tests": [
+      "hummod_brain_hypoxia_source_aligned.test.js",
+      "hummod_ards_autonomic_source_aligned.test.js",
+      "v13_hr_hypoxia_fidelity_guard.test.js",
+      "v13_extremis_chronotropy.test.js"
+    ],
     "failures": []
   },
   "fullTestSuite": {
     "command": "npm test",
-    "passed": null,
+    "passed": false,
     "failureCount": null,
     "failures": []
   },
   "deployment": {
-    "attempted": false,
+    "attempted": true,
     "deployed": false,
     "previewUrl": "https://hummod.defying-logic.com/ards-twin-v1.3-preview/web/",
     "originRestartRequired": null,
@@ -32,6 +43,7 @@
       "v121": null,
       "v13Preview": null
     },
+    "sourceMarkerMatches": null,
     "assetErrors": [],
     "browserConsoleErrors": []
   },
@@ -43,5 +55,8 @@
     "sympatheticAndVagalDiagnosticsVisible": null
   },
   "nativeArtifacts": [],
-  "notes": []
+  "notes": [
+    "Native HumMod remains Mac-only and is not executed by this workflow.",
+    "validate=cancelled; deploy=cancelled; live=cancelled"
+  ]
 }
