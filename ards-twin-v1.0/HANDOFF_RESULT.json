@@ -1,15 +1,15 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "f32e70ce42a88bc547b13da5f989593926aa26f5",
-  "buildCommit": "f32e70ce42a88bc547b13da5f989593926aa26f5",
+  "sourceCommit": "9ad4a11f791fe9931f1c3928b1825a4c808c589e",
+  "buildCommit": "9ad4a11f791fe9931f1c3928b1825a4c808c589e",
   "previewDeploymentCommit": null,
-  "timestampUtc": "2026-10-09T20:03:41.685Z",
+  "timestampUtc": "2026-10-09T20:05:24.976Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37984190459,
+    "runId": 37984373737,
     "nativeHumModExecuted": false
   },
   "build": {
@@ -44,6 +44,7 @@
       "hummod_tissue_metabolism_source_aligned.test.js",
       "hummod_hormone_pools_source_aligned.test.js",
       "hummod_organ_oxygen_delivery.test.js",
+      "hummod_hgb_concentration_source_aligned.test.js",
       "v13_simulation_speed_control.test.js",
       "v13_hr_hypoxia_fidelity_guard.test.js",
       "v13_extremis_chronotropy.test.js"
