@@ -34,6 +34,16 @@ A relevant push to `v1.3` triggers:
 
 The workflow must never modify v1.21.
 
+## Current strategy
+
+v1.3 now follows the HumMod-first expansion strategy in:
+`docs/V1_3_HUMMOD_FIRST_STRATEGY.md`
+
+The native perturbation reference surface is:
+`NATIVE_PERTURBATION_SUITE.json`
+
+The browser model should expand toward the broad source dependency closure rather than adding empirical bridges for missing physiology.
+
 ## Fidelity rules
 
 The current source-aligned path must:
@@ -51,8 +61,9 @@ Native HumMod runs execute only on the Mac.
 Machine-readable request:
 `NATIVE_RUN_REQUEST.json`
 
-Current requested run:
-`v13-run07-native-myocardial-collapse`
+Current requested native work:
+- `v13-run07-native-myocardial-collapse`
+- `v13-hummod-first-reference-suite` from `NATIVE_PERTURBATION_SUITE.json`
 
 For native runs:
 - use the pinned HumMod source/executable environment already established on the Mac;
