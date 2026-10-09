@@ -1,0 +1,41 @@
+{
+  "schema": "hummod-native-run-request/v1",
+  "id": "v13-run07-native-myocardial-collapse",
+  "sourceBranch": "v1.3",
+  "scenarioFile": "hummod-runner/native-v13-myocardial-collapse-probe.json",
+  "protocolFile": "docs/V1_3_NATIVE_RUN07_PROTOCOL.md",
+  "nativeSource": {
+    "repository": "riliescu/hummod-standalone",
+    "revision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1"
+  },
+  "export": {
+    "script": "scripts/export-hummod-native.ps1",
+    "advanceMenuLabel": "1 Sec",
+    "advanceCount": 180,
+    "interAdvanceDelayMilliseconds": 250,
+    "mustPassPriorTerminalTimeSec": 153.365933
+  },
+  "analysis": {
+    "collapseAnalyzer": "scripts/analyze-v13-native-myocardial-collapse.js",
+    "checkpointGenerator": "scripts/build-v13-run07-checkpoints.js",
+    "finalWindowSec": 30
+  },
+  "requiredArtifacts": [
+    "Vent.SOLN",
+    "native-all-variables.json",
+    "scenario-verification.json",
+    "native-export-status.json",
+    "myocardial-collapse-analysis.json",
+    "run07-final-30s-checkpoints.csv",
+    "source-and-executable-hashes.json"
+  ],
+  "driveArtifactNamePattern": "v13-run07-native-YYYYMMDDTHHMMSSZ.zip",
+  "rules": [
+    "Do not change the run06 physiologic challenge parameters.",
+    "Do not tune reduced physiology from run07 until the native sequence is reviewed.",
+    "Preserve lossless numeric extraction.",
+    "Do not use GitHub Actions.",
+    "Place only the native/binary evidence ZIP in the vent Drive folder.",
+    "Record the exact Drive filename in HANDOFF_RESULT.json."
+  ]
+}
