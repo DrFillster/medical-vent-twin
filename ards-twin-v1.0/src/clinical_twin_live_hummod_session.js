@@ -417,6 +417,12 @@ function createBerlinLiveHumModSession({
           gas.exchange?.massBalance?.actualExtractionRatio ?? null,
         supplyDependent:
           gas.exchange?.massBalance?.supplyDependent ?? null,
+        convectiveOxygenDeliveryMlPerMin:
+          last.oxygenDelivery?.globalOxygenDeliveryMlPerMin ?? null,
+        globalVenousO2ReturnMlPerMin:
+          last.oxygenDelivery?.globalVenousO2ReturnMlPerMin ?? null,
+        globalExtractionRatio:
+          last.oxygenDelivery?.globalExtractionRatio ?? null,
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin: arrested
@@ -481,6 +487,16 @@ function createBerlinLiveHumModSession({
           last.autonomic?.sourceAligned?.baroreflexNa ?? null,
         saBetaReceptorActivity:
           last.autonomic?.sourceAligned?.saBetaActivity ?? null,
+        chemoreceptorFiringRate:
+          last.chemoreceptors?.firingRate ?? null,
+        chemoreceptorBasicFiringRate:
+          last.chemoreceptors?.basicFiringRate ?? null,
+        chemoreceptorPo2Effect:
+          last.chemoreceptors?.po2Effect ?? null,
+        chemoreceptorPhEffect:
+          last.chemoreceptors?.phEffect ?? null,
+        chemoreceptorDrivesSympsCns:
+          last.chemoreceptors?.provenance?.drivesSympsCnsInBrowser ?? false,
         ventricularBetaReceptorActivity:
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
