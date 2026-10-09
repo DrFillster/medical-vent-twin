@@ -1,15 +1,15 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "6107934091b29cd932118ca30cbec811c7bb554a",
-  "buildCommit": "6107934091b29cd932118ca30cbec811c7bb554a",
+  "sourceCommit": "d06075755dd29e0c103bf1a069c3adcc7d6939ae",
+  "buildCommit": "d06075755dd29e0c103bf1a069c3adcc7d6939ae",
   "previewDeploymentCommit": null,
-  "timestampUtc": "2026-10-09T19:48:41.981Z",
+  "timestampUtc": "2026-10-09T19:50:40.400Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37982641139,
+    "runId": 37982791716,
     "nativeHumModExecuted": false
   },
   "build": {
@@ -40,6 +40,8 @@
       "hummod_bone_flow_source_aligned.test.js",
       "hummod_direct_systemic_beds_source_aligned.test.js",
       "hummod_explicit_organ_network_readiness.test.js",
+      "hummod_global_vascular_modifiers_source_aligned.test.js",
+      "hummod_tissue_metabolism_source_aligned.test.js",
       "v13_simulation_speed_control.test.js",
       "v13_hr_hypoxia_fidelity_guard.test.js",
       "v13_extremis_chronotropy.test.js"
@@ -53,7 +55,7 @@
     "failures": []
   },
   "deployment": {
-    "attempted": false,
+    "attempted": true,
     "deployed": false,
     "previewUrl": "https://hummod.defying-logic.com/ards-twin-v1.3-preview/web/",
     "originRestartRequired": null,
@@ -76,6 +78,6 @@
   "nativeArtifacts": [],
   "notes": [
     "Native HumMod remains Mac-only and is not executed by this workflow.",
-    "validate=failure; deploy=skipped; live=skipped"
+    "validate=cancelled; deploy=cancelled; live=cancelled"
   ]
 }
