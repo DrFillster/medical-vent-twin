@@ -1,15 +1,15 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "5e4bcc912791c7b04ae9cbbf371b94bc44e7aeb2",
-  "buildCommit": "5e4bcc912791c7b04ae9cbbf371b94bc44e7aeb2",
+  "sourceCommit": "b75024adabfb2ce2bbefa0bfe09816d73d63fede",
+  "buildCommit": "b75024adabfb2ce2bbefa0bfe09816d73d63fede",
   "previewDeploymentCommit": null,
-  "timestampUtc": "2026-10-09T17:19:42.068Z",
+  "timestampUtc": "2026-10-09T17:28:02.642Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37965428312,
+    "runId": 37966270068,
     "nativeHumModExecuted": false
   },
   "build": {
@@ -22,6 +22,15 @@
     "tests": [
       "hummod_brain_hypoxia_source_aligned.test.js",
       "hummod_ards_autonomic_source_aligned.test.js",
+      "hummod_exercise_metabolism_source_aligned.test.js",
+      "hummod_exercise_muscle_pump_source_aligned.test.js",
+      "hummod_blood_volume_source_aligned.test.js",
+      "hummod_skeletal_muscle_source_aligned.test.js",
+      "hummod_systemic_organ_flow_accounting.test.js",
+      "hummod_native_organ_flow_manifest.test.js",
+      "hummod_simple_organ_flow_source_aligned.test.js",
+      "hummod_systemic_outflow_source_aligned.test.js",
+      "hummod_native_organ_flow_validation.test.js",
       "v13_hr_hypoxia_fidelity_guard.test.js",
       "v13_extremis_chronotropy.test.js"
     ],
