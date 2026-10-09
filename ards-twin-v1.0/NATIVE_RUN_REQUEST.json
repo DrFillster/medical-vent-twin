@@ -34,7 +34,7 @@
     "Do not change the run06 physiologic challenge parameters.",
     "Do not tune reduced physiology from run07 until the native sequence is reviewed.",
     "Preserve lossless numeric extraction.",
-    "Do not use GitHub Actions.",
+    "Do not run native HumMod in GitHub Actions.",
     "Place only the native/binary evidence ZIP in the vent Drive folder.",
     "Record the exact Drive filename in HANDOFF_RESULT.json."
   ]
