@@ -1,15 +1,15 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "361c60db3faa07e9f40d625984aa74fc9ea7f25b",
-  "buildCommit": "361c60db3faa07e9f40d625984aa74fc9ea7f25b",
+  "sourceCommit": "c1c1289466e91829d6536daf983d9a66828f5220",
+  "buildCommit": "c1c1289466e91829d6536daf983d9a66828f5220",
   "previewDeploymentCommit": null,
-  "timestampUtc": "2026-10-09T16:59:32.305Z",
+  "timestampUtc": "2026-10-09T17:01:12.859Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37962912082,
+    "runId": 37962935980,
     "nativeHumModExecuted": false
   },
   "build": {
@@ -34,7 +34,7 @@
     "failures": []
   },
   "deployment": {
-    "attempted": true,
+    "attempted": false,
     "deployed": false,
     "previewUrl": "https://hummod.defying-logic.com/ards-twin-v1.3-preview/web/",
     "originRestartRequired": null,
@@ -57,6 +57,6 @@
   "nativeArtifacts": [],
   "notes": [
     "Native HumMod remains Mac-only and is not executed by this workflow.",
-    "validate=cancelled; deploy=cancelled; live=cancelled"
+    "validate=failure; deploy=skipped; live=skipped"
   ]
 }
