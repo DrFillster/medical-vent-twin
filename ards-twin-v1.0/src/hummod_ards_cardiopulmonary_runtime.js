@@ -9,6 +9,7 @@ const { sourceSympatheticVascularComponents } = require('./hummod_ards_vascular_
 const { createHumModSourceAlignedBrainHypoxia } = require('./hummod_brain_hypoxia_source_aligned.js');
 const { exerciseSympsTotalEffect } = require('./hummod_exercise_sympathetic_source_aligned.js');
 const { createHumModExerciseMetabolism } = require('./hummod_exercise_metabolism_source_aligned.js');
+const { createHumModBloodVolume } = require('./hummod_blood_volume_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -42,6 +43,8 @@ function createHumModArdsCardiopulmonaryRuntime({
   autonomicMode='legacy',
   catecholamineEcfvMl=null,
   nativeAutonomicInputsProvider=null,
+  sourceBloodVolumeInitialMl=null,
+  sourceBloodVolumeInitialHematocritFraction=0.44,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -52,6 +55,8 @@ function createHumModArdsCardiopulmonaryRuntime({
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
   if(catecholamineEcfvMl!=null) positive(catecholamineEcfvMl,'catecholamineEcfvMl');
+  if(sourceBloodVolumeInitialMl!=null) positive(sourceBloodVolumeInitialMl,'sourceBloodVolumeInitialMl');
+  finite(sourceBloodVolumeInitialHematocritFraction,'sourceBloodVolumeInitialHematocritFraction');
   if(nativeAutonomicInputsProvider!=null &&
      typeof nativeAutonomicInputsProvider!=='function'){
     throw new Error('nativeAutonomicInputsProvider must be a function or null');
@@ -82,6 +87,17 @@ function createHumModArdsCardiopulmonaryRuntime({
     : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
   const brainHypoxia = createHumModSourceAlignedBrainHypoxia();
   const exerciseMetabolism = createHumModExerciseMetabolism();
+  const sourceBloodVolume = sourceBloodVolumeInitialMl == null
+    ? null
+    : createHumModBloodVolume({
+        initialBloodVolumeMl:sourceBloodVolumeInitialMl,
+        initialHematocritFraction:sourceBloodVolumeInitialHematocritFraction,
+      });
+  if(sourceBloodVolume){
+    circulation.setBoundaries({
+      bloodVolumeMl:sourceBloodVolume.snapshot().bloodVolumeMl,
+    });
+  }
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -139,6 +155,25 @@ function createHumModArdsCardiopulmonaryRuntime({
       brainPco2MmHg: priorVenousGas ? priorVenousGas.pco2MmHg : 46.6,
     });
     const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
+    const bloodVolumeState = sourceBloodVolume
+      ? sourceBloodVolume.step({
+          dtSec,
+          hemorrhageSwitch:Boolean(nativeAutonomicInputs?.hemorrhageSwitch),
+          hemorrhageTargetRateMlPerMin:
+            nativeAutonomicInputs?.hemorrhageTargetRateMlPerMin ?? 0,
+          rbcGainMlPerMin:nativeAutonomicInputs?.rbcGainMlPerMin ?? 0,
+          plasmaGainMlPerMin:nativeAutonomicInputs?.plasmaGainMlPerMin ?? 0,
+          otherRbcLossMlPerMin:nativeAutonomicInputs?.otherRbcLossMlPerMin ?? 0,
+          otherPlasmaLossMlPerMin:
+            nativeAutonomicInputs?.otherPlasmaLossMlPerMin ?? 0,
+        })
+      : null;
+    if(bloodVolumeState){
+      circulation.setBoundaries({
+        bloodVolumeMl:bloodVolumeState.bloodVolumeMl,
+      });
+      circ=circulation.snapshot();
+    }
     const rightAtrialTmpMmHg =
       circ.pressures.rightAtrialMmHg - pericardialPressureMmHg;
     const leftAtrialTmpMmHg =
@@ -271,6 +306,8 @@ function createHumModArdsCardiopulmonaryRuntime({
         nativeAutonomicInputs.exerciseSympsTotalEffect != null ||
         nativeAutonomicInputs.exerciseMode != null ||
         nativeAutonomicInputs.exerciseTotalWatts != null ||
+        nativeAutonomicInputs.hemorrhageSwitch != null ||
+        nativeAutonomicInputs.hemorrhageTargetRateMlPerMin != null ||
         nativeAutonomicInputs.skeletalMusclePh != null ||
         nativeAutonomicInputs.brainFunctionEffect != null
       )
@@ -372,6 +409,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       nativeAutonomicInputs,
       exerciseMetabolism:exerciseMetabolismState,
       exerciseSympathetic:exerciseSympatheticState,
+      sourceBloodVolume:bloodVolumeState,
       brainHypoxia:brainHypoxiaState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
@@ -411,6 +449,9 @@ function createHumModArdsCardiopulmonaryRuntime({
         catecholamineAuthority: catecholamines
           ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
           : 'normalized humoral fallback; dynamic catecholamine pools disabled because ECFV unavailable',
+        bloodVolumeAuthority: sourceBloodVolume
+          ? 'HumMod source-aligned RBC/plasma hemorrhage balance coupled to circulation total-volume residual'
+          : 'disabled; reduced circulation conserves its initialized modeled vascular volume',
         clinicalValidation:false,
       }),
     });
