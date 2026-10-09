@@ -1,15 +1,15 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "44aadf9f6a5f4c7f78e1353f4c1002080867c8b9",
-  "buildCommit": "44aadf9f6a5f4c7f78e1353f4c1002080867c8b9",
-  "previewDeploymentCommit": "c716ba66ea121388d8d2573e8029f6880932c8f6",
-  "timestampUtc": "2026-10-09T12:55:41.149Z",
+  "sourceCommit": "6644dc5e16a290b95ce17c6dadb437da8f6fa58a",
+  "buildCommit": "6644dc5e16a290b95ce17c6dadb437da8f6fa58a",
+  "previewDeploymentCommit": "a9485cc2846dea4bd5f3071d4442e2edc6607c89",
+  "timestampUtc": "2026-10-09T13:17:10.328Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37932413204,
+    "runId": 37935250104,
     "nativeHumModExecuted": false
   },
   "build": {
@@ -57,6 +57,6 @@
   "nativeArtifacts": [],
   "notes": [
     "Native HumMod remains Mac-only and is not executed by this workflow.",
-    "validate=success; deploy=success; live=failure"
+    "validate=success; deploy=success; live=cancelled"
   ]
 }
