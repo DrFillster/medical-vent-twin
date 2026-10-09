@@ -16,7 +16,10 @@
     "test:rc": "node test/runner.js",
     "verify:v1.1-rc": "node scripts/verify-v11-rc.js",
     "trace:v1.3-autonomic": "node scripts/v121-extremis-autonomic-trace.js",
-    "native:run07:postprocess": "node scripts/postprocess-v13-native-run07.js"
+    "native:run07:postprocess": "node scripts/postprocess-v13-native-run07.js",
+    "native:perturbation:postprocess": "node scripts/postprocess-v13-native-perturbation.js",
+    "native:perturbation:summarize": "node scripts/summarize-v13-native-perturbation-suite.js",
+    "hummod:fidelity-graph": "node scripts/build-hummod-ards-core-graph.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
