@@ -12,9 +12,7 @@ on:
       - 'ards-twin-v1.0/src/**'
       - 'ards-twin-v1.0/test/**'
       - 'ards-twin-v1.0/web/**'
-      - 'ards-twin-v1.0/scripts/build.js'
-      - 'ards-twin-v1.0/scripts/build-clinical-manifest.js'
-      - 'ards-twin-v1.0/scripts/verify-deployable-web.js'
+      - 'ards-twin-v1.0/scripts/**'
   workflow_dispatch:
 
 concurrency:
