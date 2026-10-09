@@ -46,6 +46,8 @@ function createHumModArdsCardiopulmonaryRuntime({
   nativeAutonomicInputsProvider=null,
   sourceBloodVolumeInitialMl=null,
   sourceBloodVolumeInitialHematocritFraction=0.44,
+  systemicOutflowMode='conductance',
+  explicitSystemicOutflowProvider=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -63,6 +65,15 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('nativeAutonomicInputsProvider must be a function or null');
   }
   if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
+  if(!['conductance','explicit-organ-network'].includes(systemicOutflowMode)){
+    throw new Error('unsupported systemicOutflowMode: '+systemicOutflowMode);
+  }
+  if(systemicOutflowMode==='explicit-organ-network' && typeof explicitSystemicOutflowProvider!=='function'){
+    throw new Error('explicit-organ-network mode requires explicitSystemicOutflowProvider');
+  }
+  if(explicitSystemicOutflowProvider!=null && typeof explicitSystemicOutflowProvider!=='function'){
+    throw new Error('explicitSystemicOutflowProvider must be a function or null');
+  }
 
   let timeSec=0;
   let last=null;
@@ -99,6 +110,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       bloodVolumeMl:sourceBloodVolume.snapshot().bloodVolumeMl,
     });
   }
+  circulation.setBoundaries({systemicOutflowMode});
+
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -118,6 +131,23 @@ function createHumModArdsCardiopulmonaryRuntime({
       thoraxState.pleuralPressureCmH2O);
     finite(thoracicPressureMmHg,'converted thoracic pressure');
     const pericardialPressureMmHg=thoracicPressureMmHg+pericardialTmpMmHg;
+
+    if(systemicOutflowMode==='explicit-organ-network'){
+      const priorCirculation=circulation.snapshot();
+      const explicitSystemicOutflow=explicitSystemicOutflowProvider({
+        timeSec,
+        dtSec,
+        circulation:priorCirculation,
+        previousStep:last,
+      });
+      if(!explicitSystemicOutflow || explicitSystemicOutflow.complete!==true){
+        throw new Error('explicitSystemicOutflowProvider returned an incomplete organ network');
+      }
+      circulation.setBoundaries({
+        systemicOutflowMode:'explicit-organ-network',
+        explicitSystemicOutflow,
+      });
+    }
 
     let circ=circulation.step({
       dtSec,
@@ -444,6 +474,10 @@ function createHumModArdsCardiopulmonaryRuntime({
         pulmonaryMechanics:'Vent',
         thorax:'explicit passive chest-wall phenotype',
         circulation:'reduced source-aligned HumMod circulation with dynamic autonomic control',
+        systemicOutflowMode,
+        systemicOutflowAuthority: systemicOutflowMode==='explicit-organ-network'
+          ? 'complete HumMod explicit organ-flow provider; fails closed when incomplete'
+          : 'reduced systemic arterial conductance',
         gasExchange:'source-aligned HumMod reduced gas core',
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',

@@ -63,6 +63,10 @@ function createHumModArdsCirculation({
     'systemicArterialConductanceMlPerMinPerMmHg');
   positive(activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg,
     'systemicVenousConductanceMlPerMinPerMmHg');
+  if(activeBoundaries.systemicOutflowMode==null) activeBoundaries.systemicOutflowMode='conductance';
+  if(!['conductance','explicit-organ-network'].includes(activeBoundaries.systemicOutflowMode)){
+    throw new Error('unsupported systemicOutflowMode: '+activeBoundaries.systemicOutflowMode);
+  }
   positive(maxSubstepSec, 'maxSubstepSec');
 
   const modeledInitialVolumeMl=requiredVolumes.reduce((sum,name)=>sum+volumes[name],0);
@@ -138,12 +142,25 @@ function createHumModArdsCirculation({
   function evaluate(boundaryNow) {
     const p = pressures(boundaryNow);
 
-    const systemicOutflow = conductanceFlow({
-      conductanceMlPerMinPerMmHg:
-        activeBoundaries.systemicArterialConductanceMlPerMinPerMmHg,
-      upstreamPressureMmHg: p.sa.pressureMmHg,
-      downstreamPressureMmHg: p.sv.pressureMmHg,
-    });
+    let systemicOutflow;
+    let systemicOutflowAuthority;
+    if(activeBoundaries.systemicOutflowMode==='explicit-organ-network'){
+      const explicit=activeBoundaries.explicitSystemicOutflow;
+      if(!explicit||explicit.complete!==true){
+        throw new Error('explicit-organ-network mode requires a complete explicitSystemicOutflow');
+      }
+      nonNegative(explicit.systemicArterialOutflowMlPerMin,'explicitSystemicOutflow.systemicArterialOutflowMlPerMin');
+      systemicOutflow=explicit.systemicArterialOutflowMlPerMin;
+      systemicOutflowAuthority='HumMod explicit organ-flow network';
+    } else {
+      systemicOutflow = conductanceFlow({
+        conductanceMlPerMinPerMmHg:
+          activeBoundaries.systemicArterialConductanceMlPerMinPerMmHg,
+        upstreamPressureMmHg: p.sa.pressureMmHg,
+        downstreamPressureMmHg: p.sv.pressureMmHg,
+      });
+      systemicOutflowAuthority='reduced systemic arterial conductance';
+    }
 
     const venousReturn = conductanceFlow({
       conductanceMlPerMinPerMmHg:
@@ -242,6 +259,10 @@ function createHumModArdsCirculation({
       },
       rightVentricle: safeRightPump,
       leftVentricle: safeLeftPump,
+      systemicOutflowAuthority,
+      explicitSystemicOutflow: activeBoundaries.systemicOutflowMode==='explicit-organ-network'
+        ? activeBoundaries.explicitSystemicOutflow
+        : null,
       mechanicalPumpFailure:
         safeRightPump.mechanicalPumpFailure || safeLeftPump.mechanicalPumpFailure,
     };
@@ -269,6 +290,16 @@ function createHumModArdsCirculation({
       'systemicArterialConductanceMlPerMinPerMmHg');
     positive(merged.systemicVenousConductanceMlPerMinPerMmHg,
       'systemicVenousConductanceMlPerMinPerMmHg');
+    if(!['conductance','explicit-organ-network'].includes(merged.systemicOutflowMode||'conductance')){
+      throw new Error('unsupported systemicOutflowMode: '+merged.systemicOutflowMode);
+    }
+    if((merged.systemicOutflowMode||'conductance')==='explicit-organ-network' && merged.explicitSystemicOutflow!=null){
+      if(typeof merged.explicitSystemicOutflow!=='object'||merged.explicitSystemicOutflow.complete!==true){
+        throw new Error('explicitSystemicOutflow must be a complete explicit organ network');
+      }
+      nonNegative(merged.explicitSystemicOutflow.systemicArterialOutflowMlPerMin,
+        'explicitSystemicOutflow.systemicArterialOutflowMlPerMin');
+    }
     if (merged.systemicVenousV0Ml != null) {
       nonNegative(merged.systemicVenousV0Ml, 'systemicVenousV0Ml');
     }
@@ -361,8 +392,10 @@ function createHumModArdsCirculation({
       }),
       provenance: Object.freeze({
         status: 'reduced-order-source-aligned-circulation',
-        detailedOrganCirculation:
-          'lumped into explicit systemic conductance boundaries',
+        detailedOrganCirculation: activeBoundaries.systemicOutflowMode==='explicit-organ-network'
+          ? 'explicit HumMod organ-flow network; incomplete networks fail closed'
+          : 'lumped into explicit systemic conductance boundaries',
+        systemicOutflowMode:activeBoundaries.systemicOutflowMode,
         bloodVolumeConstraint: activeBoundaries.bloodVolumeMl==null
           ? 'disabled'
           : 'SystemicVeins residual constrained by source BloodVol with fixed explicit unmodeled vascular-volume boundary',

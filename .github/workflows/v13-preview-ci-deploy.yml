@@ -66,6 +66,12 @@ jobs:
           node test/hummod_simple_organ_flow_source_aligned.test.js
           node test/hummod_systemic_outflow_source_aligned.test.js
           node test/hummod_native_organ_flow_validation.test.js
+          node test/hummod_kidney_flow_source_aligned.test.js
+          node test/hummod_skin_flow_source_aligned.test.js
+          node test/hummod_respiratory_muscle_flow_source_aligned.test.js
+          node test/hummod_myocardial_flow_source_aligned.test.js
+          node test/hummod_explicit_organ_outflow_network.test.js
+          node test/hummod_ards_core_circulation.test.js
           node test/v13_hr_hypoxia_fidelity_guard.test.js
           node test/v13_extremis_chronotropy.test.js
 
@@ -322,6 +328,12 @@ jobs:
                 'hummod_simple_organ_flow_source_aligned.test.js',
                 'hummod_systemic_outflow_source_aligned.test.js',
                 'hummod_native_organ_flow_validation.test.js',
+                'hummod_kidney_flow_source_aligned.test.js',
+                'hummod_skin_flow_source_aligned.test.js',
+                'hummod_respiratory_muscle_flow_source_aligned.test.js',
+                'hummod_myocardial_flow_source_aligned.test.js',
+                'hummod_explicit_organ_outflow_network.test.js',
+                'hummod_ards_core_circulation.test.js',
                 'v13_hr_hypoxia_fidelity_guard.test.js',
                 'v13_extremis_chronotropy.test.js'
               ],

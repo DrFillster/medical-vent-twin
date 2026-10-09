@@ -110,5 +110,32 @@ test('source blood-volume mode makes systemic veins the residual compartment',()
   assert(s.provenance.bloodVolumeConstraint!=='disabled');
 });
 
+
+test('explicit organ outflow mode fails closed without a complete network',()=>{
+  const rt=makeRuntime();
+  rt.setBoundaries({systemicOutflowMode:'explicit-organ-network'});
+  let threw=false;
+  try{
+    rt.step({dtSec:0.01,thoracicPressureMmHg:0,pericardialPressureMmHg:0});
+  }catch(e){threw=/complete explicitSystemicOutflow/.test(e.message);}
+  assert(threw,'expected explicit organ mode to refuse incomplete network');
+});
+
+test('explicit organ outflow mode uses supplied complete HumMod outflow',()=>{
+  const rt=makeRuntime();
+  rt.setBoundaries({
+    systemicOutflowMode:'explicit-organ-network',
+    explicitSystemicOutflow:Object.freeze({
+      complete:true,
+      systemicArterialOutflowMlPerMin:4321,
+      provenance:Object.freeze({status:'test-complete-network'}),
+    }),
+  });
+  const s=rt.step({dtSec:0.005,thoracicPressureMmHg:0,pericardialPressureMmHg:0});
+  assert(Math.abs(s.flowsMlPerMin.systemicOutflow-4321)<1e-9);
+  assert(s.systemicOutflowAuthority==='HumMod explicit organ-flow network');
+  assert(s.provenance.systemicOutflowMode==='explicit-organ-network');
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);
