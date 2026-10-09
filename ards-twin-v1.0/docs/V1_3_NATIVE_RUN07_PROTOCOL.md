@@ -54,6 +54,37 @@ At minimum retain:
 
 The v1.3 native diagnostic roster contains these symbols.
 
+
+### Oxygen-delivery / autonomic comparison variables
+
+Also retain these exact native symbols so run07 can resolve the current HR/DO2 question:
+- `O2Artys.[O2]` — arterial O2 content (CaO2, mL O2/mL blood)
+- `HgbConc.[O2Max]` — hemoglobin O2 carrying capacity
+- `PO2Artys.Pressure`
+- `BloodPh.ArtysPh`
+- `BloodVol.Hct`
+- `Chemoreceptors.FiringRate`
+- `Chemoreceptors.BasicFiringRate`
+- `Chemoreceptors.PO2Effect`
+- `Chemoreceptors.PhEffect`
+- `SympsCNS.NA(Hz)`
+- `GangliaGeneral.NA(Hz)`
+- `VagusNerve.NA(Hz)`
+- `BetaPool.Effect`
+- `SANode-BetaReceptors.Activity`
+- `Brain-Flow.BloodFlow`
+- `Brain-Flow.PO2`
+- `Brain-Flow.O2Use`
+- `Brain-Flow.[O2]`
+
+Derived comparison outputs should include:
+- global DO2 = `CardiacOutput.Flow * O2Artys.[O2]`
+- brain DO2 = `Brain-Flow.BloodFlow * O2Artys.[O2]`
+- HR vs SympsCNS, ganglia, vagus, BetaPool, and SA-node beta activity
+- chemoreceptor firing vs PaO2 and arterial pH
+
+Do not feed these derived values back into HumMod during run07; they are diagnostics only.
+
 ## Analysis
 
 Run:

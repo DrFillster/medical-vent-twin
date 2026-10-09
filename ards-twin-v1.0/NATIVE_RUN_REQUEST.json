@@ -18,7 +18,12 @@
   "analysis": {
     "collapseAnalyzer": "scripts/analyze-v13-native-myocardial-collapse.js",
     "checkpointGenerator": "scripts/build-v13-run07-checkpoints.js",
-    "finalWindowSec": 30
+    "finalWindowSec": 30,
+    "oxygenDeliveryComparison": true,
+    "derivedDiagnostics": [
+      "globalDO2MlPerMin = CardiacOutput.Flow * O2Artys.[O2]",
+      "brainDO2MlPerMin = Brain-Flow.BloodFlow * O2Artys.[O2]"
+    ]
   },
   "requiredArtifacts": [
     "Vent.SOLN",
@@ -38,5 +43,25 @@
     "Do not run native HumMod in GitHub Actions.",
     "Place only the native/binary evidence ZIP in the vent Drive folder.",
     "Record the exact Drive filename in HANDOFF_RESULT.json."
+  ],
+  "requiredNativeVariables": [
+    "O2Artys.[O2]",
+    "HgbConc.[O2Max]",
+    "PO2Artys.Pressure",
+    "BloodPh.ArtysPh",
+    "BloodVol.Hct",
+    "Chemoreceptors.FiringRate",
+    "Chemoreceptors.BasicFiringRate",
+    "Chemoreceptors.PO2Effect",
+    "Chemoreceptors.PhEffect",
+    "SympsCNS.NA(Hz)",
+    "GangliaGeneral.NA(Hz)",
+    "VagusNerve.NA(Hz)",
+    "BetaPool.Effect",
+    "SANode-BetaReceptors.Activity",
+    "Brain-Flow.BloodFlow",
+    "Brain-Flow.PO2",
+    "Brain-Flow.O2Use",
+    "Brain-Flow.[O2]"
   ]
 }
