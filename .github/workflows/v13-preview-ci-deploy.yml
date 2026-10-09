@@ -57,6 +57,10 @@ jobs:
         run: |
           node test/hummod_brain_hypoxia_source_aligned.test.js
           node test/hummod_ards_autonomic_source_aligned.test.js
+          node test/hummod_exercise_metabolism_source_aligned.test.js
+          node test/hummod_exercise_muscle_pump_source_aligned.test.js
+          node test/hummod_blood_volume_source_aligned.test.js
+          node test/hummod_skeletal_muscle_source_aligned.test.js
           node test/v13_hr_hypoxia_fidelity_guard.test.js
           node test/v13_extremis_chronotropy.test.js
 
