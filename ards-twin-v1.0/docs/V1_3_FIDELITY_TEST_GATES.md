@@ -2,7 +2,9 @@
 
 ## Governing objective
 
-Reproduce native HumMod physiology first. Clinical scenarios are downstream first-look evaluations and must not be used to tune the reduced model into agreement with expected clinical behavior.
+Reproduce native HumMod physiology first. v1.3 now uses a HumMod-first dependency-closure strategy: native perturbation trajectories determine which upstream source systems must enter the browser runtime. Clinical scenarios are downstream first-look evaluations and must not be used to tune the reduced model into agreement with expected clinical behavior.
+
+See `docs/V1_3_HUMMOD_FIRST_STRATEGY.md` and `NATIVE_PERTURBATION_SUITE.json`.
 
 ## Gate 0 — source equation transcription
 
@@ -66,7 +68,7 @@ Therefore the fuel-delay path cannot be omitted from a full dynamic-fidelity tes
 
 At baseline and terminal run06 samples, saved `Fuel.Change` equals `K * (FractUse - FractUseDelay)` to floating-point precision. Some intermediate saved transition samples are not algebraically synchronous, consistent with solver substeps/evaluation ordering. Do not infer a different derivative equation from those sparse snapshots.
 
-## Gate 2 — high-resolution native run07
+## Gate 2A — high-resolution native run07
 
 Status: REQUIRED NOW.
 
@@ -81,9 +83,37 @@ Use:
 
 Do not alter the run06 challenge parameters. Only increase observation density.
 
+
+## Gate 2B — native perturbation reference suite
+
+Status: REQUIRED NOW, IN PARALLEL WITH RUN07.
+
+Purpose:
+- determine the native HumMod dynamic range before adding browser approximations;
+- explicitly test whether native HR exceeds 120/min under source-native stress conditions;
+- characterize coupled HR, SA-node rate, stroke volume, cardiac output, pressure, peripheral resistance, sympathetic/vagal activity, baroreflex, low-pressure reflex, exercise drive, adrenal nerve, catecholamines, blood volume, and gas/acid-base state;
+- identify which upstream HumMod systems materially mediate each response.
+
+Use:
+- `NATIVE_PERTURBATION_SUITE.json`
+- `scripts/run-v13-native-perturbation-suite.ps1`
+- `scripts/postprocess-v13-native-perturbation.js`
+- `scripts/summarize-v13-native-perturbation-suite.js`
+
+Initial source-native perturbations:
+- bicycle exercise at 100 W;
+- bicycle exercise at 200 W;
+- hemorrhage/volume loss;
+- isolated hypoxia;
+- isolated hypercapnia.
+
+Do not fit browser HR, SVR/TPR, catecholamine, or cardiac-output targets to expected clinical curves. The native trajectories are the reference surface.
+
 ## Gate 3 — isolated dynamic myocardial replay
 
-Status: BLOCKED ON RUN07.
+Status: MYOCARDIAL DYNAMIC REPLAY BLOCKED ON RUN07; BROAD DEPENDENCY-CLOSURE EXPANSION ACTIVE.
+
+Run07 remains required for the collapse-specific myocardial dynamic replay. In parallel, use the perturbation suite and broad dependency graph to rank and port upstream systems that are clearly missing from the browser runtime.
 
 After run07:
 1. initialize reduced myocardial dynamic states from the native initial sample;
@@ -104,13 +134,13 @@ Primary comparison variables:
 
 No clinical target values are allowed in this gate.
 
-## Gate 4 — cardiopulmonary runtime integration
+## Gate 4 — broad HumMod runtime integration
 
-Status: NOT YET.
+Status: ACTIVE INCREMENTALLY; NATIVE TRAJECTORY ACCEPTANCE NOT YET MET.
 
-Integrate the myocardial subsystem into the reduced runtime only after Gate 3 identifies no material unexplained native-vs-reduced divergence.
+Expand coherent source closures into the browser runtime in dependency order. Initial priority domains are autonomic control, catecholamines/adrenal drive, blood-volume/venous-return physiology, and skeletal-muscle/exercise physiology, alongside the myocardial dynamic subsystem.
 
-At this stage the old empirical decompensation bridge can be progressively disabled where native HumMod physiology replaces it.
+Each integrated domain must be compared against the applicable native perturbation trajectories. The old empirical decompensation bridges should be disabled only where source-native physiology has replaced them.
 
 ## Gate 5 — clinical first-look scenarios
 
