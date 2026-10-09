@@ -10201,24 +10201,48 @@ function createBerlinLiveHumModSession({
 
   function interpolateNativeAutonomicInputs(timeSec) {
     if (!nativeAutonomicTrajectory || nativeAutonomicTrajectory.length === 0) return null;
+
+    const continuousKeys = [
+      'brainFuelFractUseDelay',
+      'a2PoolLog10Conc',
+      'brainFunctionEffect',
+      'exerciseBikePowerW',
+      'exerciseBikeRpm',
+      'exerciseBikeEfficiencyFraction',
+      'exerciseTotalWatts',
+      'exerciseSympsTotalEffect',
+      'skeletalMusclePh',
+      'hemorrhageTargetRateMlPerMin',
+      'rbcGainMlPerMin',
+      'plasmaGainMlPerMin',
+      'otherRbcLossMlPerMin',
+      'otherPlasmaLossMlPerMin',
+    ];
+    const discreteKeys = [
+      'exerciseMode',
+      'skeletalMuscleFunctionFailed',
+      'hemorrhageSwitch',
+    ];
+
+    function rowInputs(row) {
+      const out={};
+      for (const key of continuousKeys) {
+        if (Number.isFinite(row[key])) out[key]=row[key];
+      }
+      for (const key of discreteKeys) {
+        if (row[key] != null) out[key]=row[key];
+      }
+      return Object.freeze(out);
+    }
+
     if (timeSec <= nativeAutonomicTrajectory[0].timestampSec) {
-      const r = nativeAutonomicTrajectory[0];
-      return Object.freeze({
-        brainFuelFractUseDelay: r.brainFuelFractUseDelay,
-        a2PoolLog10Conc: r.a2PoolLog10Conc,
-        brainFunctionEffect: r.brainFunctionEffect,
-        exerciseSympsTotalEffect: r.exerciseSympsTotalEffect,
-      });
+      return rowInputs(nativeAutonomicTrajectory[0]);
     }
     const lastRow = nativeAutonomicTrajectory[nativeAutonomicTrajectory.length - 1];
     if (timeSec >= lastRow.timestampSec) {
-      return Object.freeze({
-        brainFuelFractUseDelay: lastRow.brainFuelFractUseDelay,
-        a2PoolLog10Conc: lastRow.a2PoolLog10Conc,
-        brainFunctionEffect: lastRow.brainFunctionEffect,
-        exerciseSympsTotalEffect: lastRow.exerciseSympsTotalEffect,
-      });
+      return rowInputs(lastRow);
     }
+
     let hi = 1;
     while (hi < nativeAutonomicTrajectory.length &&
            nativeAutonomicTrajectory[hi].timestampSec < timeSec) hi++;
@@ -10227,13 +10251,25 @@ function createBerlinLiveHumModSession({
     const b = nativeAutonomicTrajectory[hi];
     const span = b.timestampSec - a.timestampSec;
     const w = span > 0 ? (timeSec - a.timestampSec) / span : 0;
-    const lerp = key => a[key] + (b[key] - a[key]) * w;
-    return Object.freeze({
-      brainFuelFractUseDelay: lerp('brainFuelFractUseDelay'),
-      a2PoolLog10Conc: lerp('a2PoolLog10Conc'),
-      brainFunctionEffect: lerp('brainFunctionEffect'),
-      exerciseSympsTotalEffect: lerp('exerciseSympsTotalEffect'),
-    });
+    const out={};
+
+    for (const key of continuousKeys) {
+      if (Number.isFinite(a[key]) && Number.isFinite(b[key])) {
+        out[key]=a[key]+(b[key]-a[key])*w;
+      } else if (Number.isFinite(a[key])) {
+        out[key]=a[key];
+      } else if (Number.isFinite(b[key])) {
+        out[key]=b[key];
+      }
+    }
+    // HumMod mode/switch/failed-state variables are discrete. Preserve the
+    // earlier native state until the recorded transition rather than
+    // interpolating a non-physical fractional mode or boolean.
+    for (const key of discreteKeys) {
+      if (a[key] != null) out[key]=a[key];
+      else if (b[key] != null) out[key]=b[key];
+    }
+    return Object.freeze(out);
   }
 
   const catecholamineEcfvMl =
@@ -10464,6 +10500,10 @@ function createBerlinLiveHumModSession({
         catecholamines: last.autonomic?.catecholamines ?? null,
         vascularSympatheticComponents:
           last.autonomic?.vascularSympatheticComponents ?? null,
+        exerciseMetabolism:last.exerciseMetabolism ?? null,
+        exerciseMusclePump:last.exerciseMusclePump ?? null,
+        exerciseSympathetic:last.exerciseSympathetic ?? null,
+        sourceBloodVolume:last.sourceBloodVolume ?? null,
       }),
       decompensation: decomp ? Object.freeze({
         stage: decomp.stage,
@@ -10925,7 +10965,24 @@ function createHumModArdsCirculation({
     'systemicArterialConductanceMlPerMinPerMmHg');
   positive(activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg,
     'systemicVenousConductanceMlPerMinPerMmHg');
+  if(activeBoundaries.systemicOutflowMode==null) activeBoundaries.systemicOutflowMode='conductance';
+  if(!['conductance','explicit-organ-network'].includes(activeBoundaries.systemicOutflowMode)){
+    throw new Error('unsupported systemicOutflowMode: '+activeBoundaries.systemicOutflowMode);
+  }
   positive(maxSubstepSec, 'maxSubstepSec');
+
+  const modeledInitialVolumeMl=requiredVolumes.reduce((sum,name)=>sum+volumes[name],0);
+  let sourceBloodVolumeResidualMl=null;
+  if(activeBoundaries.bloodVolumeMl!=null){
+    positive(activeBoundaries.bloodVolumeMl,'bloodVolumeMl');
+    sourceBloodVolumeResidualMl=
+      activeBoundaries.unmodeledVascularVolumeMl==null
+        ? activeBoundaries.bloodVolumeMl-modeledInitialVolumeMl
+        : nonNegative(activeBoundaries.unmodeledVascularVolumeMl,'unmodeledVascularVolumeMl');
+    if(sourceBloodVolumeResidualMl<0){
+      throw new Error('bloodVolumeMl is smaller than modeled vascular volume');
+    }
+  }
 
   let timeSec = 0;
   let last = null;
@@ -10987,16 +11044,30 @@ function createHumModArdsCirculation({
   function evaluate(boundaryNow) {
     const p = pressures(boundaryNow);
 
-    const systemicOutflow = conductanceFlow({
-      conductanceMlPerMinPerMmHg:
-        activeBoundaries.systemicArterialConductanceMlPerMinPerMmHg,
-      upstreamPressureMmHg: p.sa.pressureMmHg,
-      downstreamPressureMmHg: p.sv.pressureMmHg,
-    });
+    let systemicOutflow;
+    let systemicOutflowAuthority;
+    if(activeBoundaries.systemicOutflowMode==='explicit-organ-network'){
+      const explicit=activeBoundaries.explicitSystemicOutflow;
+      if(!explicit||explicit.complete!==true){
+        throw new Error('explicit-organ-network mode requires a complete explicitSystemicOutflow');
+      }
+      nonNegative(explicit.systemicArterialOutflowMlPerMin,'explicitSystemicOutflow.systemicArterialOutflowMlPerMin');
+      systemicOutflow=explicit.systemicArterialOutflowMlPerMin;
+      systemicOutflowAuthority='HumMod explicit organ-flow network';
+    } else {
+      systemicOutflow = conductanceFlow({
+        conductanceMlPerMinPerMmHg:
+          activeBoundaries.systemicArterialConductanceMlPerMinPerMmHg,
+        upstreamPressureMmHg: p.sa.pressureMmHg,
+        downstreamPressureMmHg: p.sv.pressureMmHg,
+      });
+      systemicOutflowAuthority='reduced systemic arterial conductance';
+    }
 
     const venousReturn = conductanceFlow({
       conductanceMlPerMinPerMmHg:
-        activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg,
+        activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg *
+        (activeBoundaries.systemicVenousConductanceMultiplier || 1),
       upstreamPressureMmHg: p.sv.pressureMmHg,
       downstreamPressureMmHg: p.ra.pressureMmHg,
     });
@@ -11090,6 +11161,10 @@ function createHumModArdsCirculation({
       },
       rightVentricle: safeRightPump,
       leftVentricle: safeLeftPump,
+      systemicOutflowAuthority,
+      explicitSystemicOutflow: activeBoundaries.systemicOutflowMode==='explicit-organ-network'
+        ? activeBoundaries.explicitSystemicOutflow
+        : null,
       mechanicalPumpFailure:
         safeRightPump.mechanicalPumpFailure || safeLeftPump.mechanicalPumpFailure,
     };
@@ -11117,12 +11192,39 @@ function createHumModArdsCirculation({
       'systemicArterialConductanceMlPerMinPerMmHg');
     positive(merged.systemicVenousConductanceMlPerMinPerMmHg,
       'systemicVenousConductanceMlPerMinPerMmHg');
+    if(!['conductance','explicit-organ-network'].includes(merged.systemicOutflowMode||'conductance')){
+      throw new Error('unsupported systemicOutflowMode: '+merged.systemicOutflowMode);
+    }
+    if((merged.systemicOutflowMode||'conductance')==='explicit-organ-network' && merged.explicitSystemicOutflow!=null){
+      if(typeof merged.explicitSystemicOutflow!=='object'||merged.explicitSystemicOutflow.complete!==true){
+        throw new Error('explicitSystemicOutflow must be a complete explicit organ network');
+      }
+      nonNegative(merged.explicitSystemicOutflow.systemicArterialOutflowMlPerMin,
+        'explicitSystemicOutflow.systemicArterialOutflowMlPerMin');
+    }
     if (merged.systemicVenousV0Ml != null) {
       nonNegative(merged.systemicVenousV0Ml, 'systemicVenousV0Ml');
+    }
+    if (merged.systemicVenousConductanceMultiplier != null) {
+      positive(merged.systemicVenousConductanceMultiplier,
+        'systemicVenousConductanceMultiplier');
     }
     if (merged.pulmonaryArterialConductanceMultiplier != null) {
       positive(merged.pulmonaryArterialConductanceMultiplier,
         'pulmonaryArterialConductanceMultiplier');
+    }
+    if (merged.bloodVolumeMl != null) {
+      positive(merged.bloodVolumeMl, 'bloodVolumeMl');
+      if (sourceBloodVolumeResidualMl == null) {
+        const modeledNow=requiredVolumes.reduce((sum,name)=>sum+volumes[name],0);
+        sourceBloodVolumeResidualMl=
+          merged.unmodeledVascularVolumeMl == null
+            ? merged.bloodVolumeMl-modeledNow
+            : nonNegative(merged.unmodeledVascularVolumeMl,'unmodeledVascularVolumeMl');
+        if(sourceBloodVolumeResidualMl<0){
+          throw new Error('bloodVolumeMl is smaller than modeled vascular volume');
+        }
+      }
     }
     activeBoundaries = merged;
     return Object.freeze({ ...activeBoundaries });
@@ -11145,6 +11247,25 @@ function createHumModArdsCirculation({
         if (!(volumes[name] > 0) || !Number.isFinite(volumes[name])) {
           throw new Error('circulation volume became non-physical: ' + name);
         }
+      }
+
+      // Native HumMod defines SystemicVeins.Vol algebraically as total
+      // BloodVol minus all other vascular compartments. In the reduced model,
+      // ventricular/splanchnic/BVSeq volume not explicitly represented is
+      // retained as a fixed residual boundary established when source
+      // blood-volume mode is enabled.
+      if(activeBoundaries.bloodVolumeMl!=null){
+        const otherModeled=requiredVolumes
+          .filter(name=>name!=='systemicVeins')
+          .reduce((sum,name)=>sum+volumes[name],0);
+        const residual=
+          activeBoundaries.bloodVolumeMl-
+          sourceBloodVolumeResidualMl-
+          otherModeled;
+        if(!(residual>0)||!Number.isFinite(residual)){
+          throw new Error('source blood-volume constraint produced non-physical systemic venous volume');
+        }
+        volumes.systemicVeins=residual;
       }
       timeSec += hSec;
       last = e;
@@ -11173,8 +11294,14 @@ function createHumModArdsCirculation({
       }),
       provenance: Object.freeze({
         status: 'reduced-order-source-aligned-circulation',
-        detailedOrganCirculation:
-          'lumped into explicit systemic conductance boundaries',
+        detailedOrganCirculation: activeBoundaries.systemicOutflowMode==='explicit-organ-network'
+          ? 'explicit HumMod organ-flow network; incomplete networks fail closed'
+          : 'lumped into explicit systemic conductance boundaries',
+        systemicOutflowMode:activeBoundaries.systemicOutflowMode,
+        bloodVolumeConstraint: activeBoundaries.bloodVolumeMl==null
+          ? 'disabled'
+          : 'SystemicVeins residual constrained by source BloodVol with fixed explicit unmodeled vascular-volume boundary',
+        sourceBloodVolumeResidualMl,
         clinicalValidation: false,
       }),
     });
@@ -11197,6 +11324,9 @@ const { createHumModSourceAlignedCatecholamines } = require("src/hummod_ards_cat
 const { sourceSympatheticVascularComponents } = require("src/hummod_ards_vascular_sympathetic_source_aligned.js");
 const { createHumModSourceAlignedBrainHypoxia } = require("src/hummod_brain_hypoxia_source_aligned.js");
 const { exerciseSympsTotalEffect } = require("src/hummod_exercise_sympathetic_source_aligned.js");
+const { createHumModExerciseMetabolism } = require("src/hummod_exercise_metabolism_source_aligned.js");
+const { createHumModBloodVolume } = require("src/hummod_blood_volume_source_aligned.js");
+const { exerciseMusclePumpEffect } = require("src/hummod_exercise_muscle_pump_source_aligned.js");
 const {
   createHumModArdsDecompensationController,
 } = require("src/hummod_ards_decompensation_controller.js");
@@ -11230,6 +11360,10 @@ function createHumModArdsCardiopulmonaryRuntime({
   autonomicMode='legacy',
   catecholamineEcfvMl=null,
   nativeAutonomicInputsProvider=null,
+  sourceBloodVolumeInitialMl=null,
+  sourceBloodVolumeInitialHematocritFraction=0.44,
+  systemicOutflowMode='conductance',
+  explicitSystemicOutflowProvider=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -11240,11 +11374,22 @@ function createHumModArdsCardiopulmonaryRuntime({
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
   if(catecholamineEcfvMl!=null) positive(catecholamineEcfvMl,'catecholamineEcfvMl');
+  if(sourceBloodVolumeInitialMl!=null) positive(sourceBloodVolumeInitialMl,'sourceBloodVolumeInitialMl');
+  finite(sourceBloodVolumeInitialHematocritFraction,'sourceBloodVolumeInitialHematocritFraction');
   if(nativeAutonomicInputsProvider!=null &&
      typeof nativeAutonomicInputsProvider!=='function'){
     throw new Error('nativeAutonomicInputsProvider must be a function or null');
   }
   if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
+  if(!['conductance','explicit-organ-network'].includes(systemicOutflowMode)){
+    throw new Error('unsupported systemicOutflowMode: '+systemicOutflowMode);
+  }
+  if(systemicOutflowMode==='explicit-organ-network' && typeof explicitSystemicOutflowProvider!=='function'){
+    throw new Error('explicit-organ-network mode requires explicitSystemicOutflowProvider');
+  }
+  if(explicitSystemicOutflowProvider!=null && typeof explicitSystemicOutflowProvider!=='function'){
+    throw new Error('explicitSystemicOutflowProvider must be a function or null');
+  }
 
   let timeSec=0;
   let last=null;
@@ -11269,6 +11414,20 @@ function createHumModArdsCardiopulmonaryRuntime({
     ? null
     : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
   const brainHypoxia = createHumModSourceAlignedBrainHypoxia();
+  const exerciseMetabolism = createHumModExerciseMetabolism();
+  const sourceBloodVolume = sourceBloodVolumeInitialMl == null
+    ? null
+    : createHumModBloodVolume({
+        initialBloodVolumeMl:sourceBloodVolumeInitialMl,
+        initialHematocritFraction:sourceBloodVolumeInitialHematocritFraction,
+      });
+  if(sourceBloodVolume){
+    circulation.setBoundaries({
+      bloodVolumeMl:sourceBloodVolume.snapshot().bloodVolumeMl,
+    });
+  }
+  circulation.setBoundaries({systemicOutflowMode});
+
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -11288,6 +11447,23 @@ function createHumModArdsCardiopulmonaryRuntime({
       thoraxState.pleuralPressureCmH2O);
     finite(thoracicPressureMmHg,'converted thoracic pressure');
     const pericardialPressureMmHg=thoracicPressureMmHg+pericardialTmpMmHg;
+
+    if(systemicOutflowMode==='explicit-organ-network'){
+      const priorCirculation=circulation.snapshot();
+      const explicitSystemicOutflow=explicitSystemicOutflowProvider({
+        timeSec,
+        dtSec,
+        circulation:priorCirculation,
+        previousStep:last,
+      });
+      if(!explicitSystemicOutflow || explicitSystemicOutflow.complete!==true){
+        throw new Error('explicitSystemicOutflowProvider returned an incomplete organ network');
+      }
+      circulation.setBoundaries({
+        systemicOutflowMode:'explicit-organ-network',
+        explicitSystemicOutflow,
+      });
+    }
 
     let circ=circulation.step({
       dtSec,
@@ -11326,6 +11502,25 @@ function createHumModArdsCardiopulmonaryRuntime({
       brainPco2MmHg: priorVenousGas ? priorVenousGas.pco2MmHg : 46.6,
     });
     const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
+    const bloodVolumeState = sourceBloodVolume
+      ? sourceBloodVolume.step({
+          dtSec,
+          hemorrhageSwitch:Boolean(nativeAutonomicInputs?.hemorrhageSwitch),
+          hemorrhageTargetRateMlPerMin:
+            nativeAutonomicInputs?.hemorrhageTargetRateMlPerMin ?? 0,
+          rbcGainMlPerMin:nativeAutonomicInputs?.rbcGainMlPerMin ?? 0,
+          plasmaGainMlPerMin:nativeAutonomicInputs?.plasmaGainMlPerMin ?? 0,
+          otherRbcLossMlPerMin:nativeAutonomicInputs?.otherRbcLossMlPerMin ?? 0,
+          otherPlasmaLossMlPerMin:
+            nativeAutonomicInputs?.otherPlasmaLossMlPerMin ?? 0,
+        })
+      : null;
+    if(bloodVolumeState){
+      circulation.setBoundaries({
+        bloodVolumeMl:bloodVolumeState.bloodVolumeMl,
+      });
+      circ=circulation.snapshot();
+    }
     const rightAtrialTmpMmHg =
       circ.pressures.rightAtrialMmHg - pericardialPressureMmHg;
     const leftAtrialTmpMmHg =
@@ -11346,12 +11541,27 @@ function createHumModArdsCardiopulmonaryRuntime({
         Array.isArray(nativeAutonomicInputs))){
       throw new Error('nativeAutonomicInputsProvider must return an object or null');
     }
+    let exerciseMetabolismState=null;
     let exerciseSympatheticState=null;
     let exerciseSympsEffect=0;
-    if(nativeAutonomicInputs?.exerciseTotalWatts != null &&
+    if(nativeAutonomicInputs?.exerciseMode != null){
+      exerciseMetabolismState=exerciseMetabolism.step({
+        dtSec,
+        exertionMode:nativeAutonomicInputs.exerciseMode,
+        bikePowerW:nativeAutonomicInputs.exerciseBikePowerW ?? 0,
+        bikeRpm:nativeAutonomicInputs.exerciseBikeRpm ?? 50,
+        bikeEfficiencyFraction:
+          nativeAutonomicInputs.exerciseBikeEfficiencyFraction ?? 0.30,
+      });
+    }
+    const sourceExerciseTotalWatts =
+      exerciseMetabolismState?.totalWatts ??
+      nativeAutonomicInputs?.exerciseTotalWatts ??
+      null;
+    if(sourceExerciseTotalWatts != null &&
        nativeAutonomicInputs?.skeletalMusclePh != null){
       exerciseSympatheticState=exerciseSympsTotalEffect({
-        totalWatts:nativeAutonomicInputs.exerciseTotalWatts,
+        totalWatts:sourceExerciseTotalWatts,
         skeletalMusclePh:nativeAutonomicInputs.skeletalMusclePh,
         skeletalMuscleFunctionFailed:
           Boolean(nativeAutonomicInputs.skeletalMuscleFunctionFailed),
@@ -11360,6 +11570,10 @@ function createHumModArdsCardiopulmonaryRuntime({
     } else if(nativeAutonomicInputs?.exerciseSympsTotalEffect != null){
       exerciseSympsEffect=nativeAutonomicInputs.exerciseSympsTotalEffect;
     }
+
+    const exerciseMusclePumpState = sourceExerciseTotalWatts == null
+      ? null
+      : exerciseMusclePumpEffect(sourceExerciseTotalWatts);
 
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
@@ -11441,7 +11655,10 @@ function createHumModArdsCardiopulmonaryRuntime({
         nativeAutonomicInputs.brainFuelFractUseDelay != null ||
         nativeAutonomicInputs.a2PoolLog10Conc != null ||
         nativeAutonomicInputs.exerciseSympsTotalEffect != null ||
+        nativeAutonomicInputs.exerciseMode != null ||
         nativeAutonomicInputs.exerciseTotalWatts != null ||
+        nativeAutonomicInputs.hemorrhageSwitch != null ||
+        nativeAutonomicInputs.hemorrhageTargetRateMlPerMin != null ||
         nativeAutonomicInputs.skeletalMusclePh != null ||
         nativeAutonomicInputs.brainFunctionEffect != null
       )
@@ -11463,6 +11680,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       systemicArterialConductanceMlPerMinPerMmHg:
         control.systemicArterialConductanceMlPerMinPerMmHg,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
+      systemicVenousConductanceMultiplier:
+        exerciseMusclePumpState ? exerciseMusclePumpState.effect : 1,
       pulmonaryArterialConductanceMultiplier:
         control.pulmonaryArterialConductanceMultiplier,
     });
@@ -11541,7 +11760,10 @@ function createHumModArdsCardiopulmonaryRuntime({
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
+      exerciseMetabolism:exerciseMetabolismState,
+      exerciseMusclePump:exerciseMusclePumpState,
       exerciseSympathetic:exerciseSympatheticState,
+      sourceBloodVolume:bloodVolumeState,
       brainHypoxia:brainHypoxiaState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
@@ -11568,6 +11790,10 @@ function createHumModArdsCardiopulmonaryRuntime({
         pulmonaryMechanics:'Vent',
         thorax:'explicit passive chest-wall phenotype',
         circulation:'reduced source-aligned HumMod circulation with dynamic autonomic control',
+        systemicOutflowMode,
+        systemicOutflowAuthority: systemicOutflowMode==='explicit-organ-network'
+          ? 'complete HumMod explicit organ-flow provider; fails closed when incomplete'
+          : 'reduced systemic arterial conductance',
         gasExchange:'source-aligned HumMod reduced gas core',
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
@@ -11576,11 +11802,16 @@ function createHumModArdsCardiopulmonaryRuntime({
           ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
-          ? 'source-aligned upstream HumMod boundary provider; exercise drive is computed from TotalWatts + skeletal-muscle pH when supplied'
+          ? 'source-aligned upstream HumMod boundary provider; native bicycle mode can generate Exercise-Metabolism TotalWatts dynamically before MotorRadiation/metaboreflex drive'
           : 'source-aligned browser brain-hypoxia subset; no empirical chronotropy overlay',
         catecholamineAuthority: catecholamines
           ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
           : 'normalized humoral fallback; dynamic catecholamine pools disabled because ECFV unavailable',
+        bloodVolumeAuthority: sourceBloodVolume
+          ? 'HumMod source-aligned RBC/plasma hemorrhage balance coupled to circulation total-volume residual'
+          : 'disabled; reduced circulation conserves its initialized modeled vascular volume',
+        exerciseVenousReturnAuthority:
+          'HumMod Exercise-MusclePump effect multiplies systemic venous conductance when source exercise TotalWatts is available',
         clinicalValidation:false,
       }),
     });
@@ -13345,6 +13576,341 @@ module.exports={
   skeletalMuscleMetaboreflexNerveActivity,
   exerciseSympsTotalEffect,
 };
+
+},
+"src/hummod_exercise_metabolism_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const {HUMMOD_SOURCE_IDENTITY}=require("src/hummod_source_identity.js");
+
+const SOURCE_CONSTANTS=Object.freeze({
+  wattsToCals:14.34,
+  tauMin:0.2,
+  bikeEfficiencyFraction:0.30,
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){finite(v,label);if(v<0)throw new Error(label+' must be >= 0');return v;}
+function positive(v,label){finite(v,label);if(!(v>0))throw new Error(label+' must be > 0');return v;}
+
+function bicycleTargets({
+  powerW,
+  rpm=50,
+  efficiencyFraction=SOURCE_CONSTANTS.bikeEfficiencyFraction,
+}={}){
+  nonNegative(powerW,'powerW');
+  nonNegative(rpm,'rpm');
+  positive(efficiencyFraction,'efficiencyFraction');
+  return Object.freeze({
+    targetTotalWatts:powerW/efficiencyFraction,
+    targetMotionWatts:powerW,
+    targetContractionRate:rpm,
+  });
+}
+
+function createHumModExerciseMetabolism({
+  initialTotalWatts=0,
+  initialMotionWatts=0,
+  initialContractionRate=0,
+  tauMin=SOURCE_CONSTANTS.tauMin,
+}={}){
+  nonNegative(initialTotalWatts,'initialTotalWatts');
+  nonNegative(initialMotionWatts,'initialMotionWatts');
+  nonNegative(initialContractionRate,'initialContractionRate');
+  positive(tauMin,'tauMin');
+
+  let totalWatts=initialTotalWatts;
+  let motionWatts=initialMotionWatts;
+  let contractionRate=initialContractionRate;
+  let last=null;
+
+  function advanceDelay(current,target,dtSec){
+    // HumMod source relation is dY/dt = K*(Target-Y), K=1/Tau on the
+    // minute timebase. Exact exponential integration preserves that source
+    // differential equation; DES internal delay-step identity is not claimed.
+    const tauSec=tauMin*60;
+    return target+(current-target)*Math.exp(-dtSec/tauSec);
+  }
+
+  function step({
+    dtSec,
+    exertionMode=0,
+    bikePowerW=0,
+    bikeRpm=50,
+    bikeEfficiencyFraction=SOURCE_CONSTANTS.bikeEfficiencyFraction,
+    targetTotalWatts=null,
+    targetMotionWatts=null,
+    targetContractionRate=null,
+  }={}){
+    positive(dtSec,'dtSec');
+    finite(exertionMode,'exertionMode');
+
+    let targets;
+    if(targetTotalWatts!=null||targetMotionWatts!=null||targetContractionRate!=null){
+      if(targetTotalWatts==null||targetMotionWatts==null||targetContractionRate==null){
+        throw new Error('all explicit exercise targets are required together');
+      }
+      targets={
+        targetTotalWatts:nonNegative(targetTotalWatts,'targetTotalWatts'),
+        targetMotionWatts:nonNegative(targetMotionWatts,'targetMotionWatts'),
+        targetContractionRate:nonNegative(targetContractionRate,'targetContractionRate'),
+      };
+    } else if(exertionMode===3){
+      targets=bicycleTargets({
+        powerW:bikePowerW,
+        rpm:bikeRpm,
+        efficiencyFraction:bikeEfficiencyFraction,
+      });
+    } else if(exertionMode===0){
+      targets={targetTotalWatts:0,targetMotionWatts:0,targetContractionRate:0};
+    } else {
+      throw new Error('only native rest mode 0 and bicycle mode 3 are implemented');
+    }
+
+    totalWatts=advanceDelay(totalWatts,targets.targetTotalWatts,dtSec);
+    motionWatts=advanceDelay(motionWatts,targets.targetMotionWatts,dtSec);
+    contractionRate=advanceDelay(contractionRate,targets.targetContractionRate,dtSec);
+
+    const heatWatts=totalWatts-motionWatts;
+    last=Object.freeze({
+      exertionMode,
+      ...targets,
+      totalWatts,
+      motionWatts,
+      contractionRate,
+      heatWatts,
+      totalCals:SOURCE_CONSTANTS.wattsToCals*totalWatts,
+      motionCals:SOURCE_CONSTANTS.wattsToCals*motionWatts,
+      heatCals:SOURCE_CONSTANTS.wattsToCals*heatWatts,
+    });
+    return snapshot();
+  }
+
+  function snapshot(){
+    return Object.freeze({
+      schema:'hummod-source-aligned-exercise-metabolism/v1',
+      ...(last||{
+        exertionMode:0,
+        targetTotalWatts:0,
+        targetMotionWatts:0,
+        targetContractionRate:0,
+        totalWatts,
+        motionWatts,
+        contractionRate,
+        heatWatts:totalWatts-motionWatts,
+        totalCals:SOURCE_CONSTANTS.wattsToCals*totalWatts,
+        motionCals:SOURCE_CONSTANTS.wattsToCals*motionWatts,
+        heatCals:SOURCE_CONSTANTS.wattsToCals*(totalWatts-motionWatts),
+      }),
+      provenance:Object.freeze({
+        status:'source-aligned-differential-equation-with-explicit-integration-adaptation',
+        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
+        sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
+        sourceStructures:Object.freeze([
+          'Exercise-Bike',
+          'Exercise-Metabolism',
+        ]),
+        sourceTauMin:tauMin,
+        integrationAdaptation:'exact exponential integration of source first-order delay; DES delay solver identity not claimed',
+        supportedNativeModes:Object.freeze([0,3]),
+        clinicalValidation:false,
+      }),
+    });
+  }
+
+  return Object.freeze({kind:'hummod-source-aligned-exercise-metabolism',step,snapshot});
+}
+
+module.exports={
+  SOURCE_CONSTANTS,
+  bicycleTargets,
+  createHumModExerciseMetabolism,
+};
+
+},
+"src/hummod_blood_volume_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const {HUMMOD_SOURCE_IDENTITY}=require("src/hummod_source_identity.js");
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+
+function createHumModBloodVolume({
+  initialBloodVolumeMl=5400,
+  initialHematocritFraction=0.44,
+}={}){
+  positive(initialBloodVolumeMl,'initialBloodVolumeMl');
+  finite(initialHematocritFraction,'initialHematocritFraction');
+  if(initialHematocritFraction<=0||initialHematocritFraction>=1){
+    throw new Error('initialHematocritFraction must be in (0,1)');
+  }
+
+  let rbcVolumeMl=initialBloodVolumeMl*initialHematocritFraction;
+  let plasmaVolumeMl=initialBloodVolumeMl*(1-initialHematocritFraction);
+  let hemorrhageVolumeMl=0;
+  let last=null;
+
+  function step({
+    dtSec,
+    hemorrhageSwitch=false,
+    hemorrhageTargetRateMlPerMin=0,
+    rbcGainMlPerMin=0,
+    plasmaGainMlPerMin=0,
+    otherRbcLossMlPerMin=0,
+    otherPlasmaLossMlPerMin=0,
+  }={}){
+    positive(dtSec,'dtSec');
+    nonNegative(hemorrhageTargetRateMlPerMin,'hemorrhageTargetRateMlPerMin');
+    finite(rbcGainMlPerMin,'rbcGainMlPerMin');
+    finite(plasmaGainMlPerMin,'plasmaGainMlPerMin');
+    nonNegative(otherRbcLossMlPerMin,'otherRbcLossMlPerMin');
+    nonNegative(otherPlasmaLossMlPerMin,'otherPlasmaLossMlPerMin');
+
+    const bloodVolumeMl=rbcVolumeMl+plasmaVolumeMl;
+    const hct=rbcVolumeMl/bloodVolumeMl;
+    const pvcrit=1-hct;
+    const hemorrhageRateMlPerMin=hemorrhageSwitch
+      ? hemorrhageTargetRateMlPerMin
+      : 0;
+    const hemorrhageRbcRateMlPerMin=hct*hemorrhageRateMlPerMin;
+    const hemorrhagePlasmaRateMlPerMin=pvcrit*hemorrhageRateMlPerMin;
+
+    const dtMin=dtSec/60;
+    rbcVolumeMl += dtMin*(
+      rbcGainMlPerMin-
+      otherRbcLossMlPerMin-
+      hemorrhageRbcRateMlPerMin
+    );
+    plasmaVolumeMl += dtMin*(
+      plasmaGainMlPerMin-
+      otherPlasmaLossMlPerMin-
+      hemorrhagePlasmaRateMlPerMin
+    );
+    hemorrhageVolumeMl += dtMin*hemorrhageRateMlPerMin;
+
+    if(!(rbcVolumeMl>0)&&hemorrhageSwitch){
+      throw new Error('RBC volume became non-physical during hemorrhage');
+    }
+    if(!(plasmaVolumeMl>0)&&hemorrhageSwitch){
+      throw new Error('plasma volume became non-physical during hemorrhage');
+    }
+
+    const newBloodVolumeMl=rbcVolumeMl+plasmaVolumeMl;
+    last=Object.freeze({
+      bloodVolumeMl:newBloodVolumeMl,
+      rbcVolumeMl,
+      plasmaVolumeMl,
+      hematocritFraction:rbcVolumeMl/newBloodVolumeMl,
+      plasmaVolumeFraction:plasmaVolumeMl/newBloodVolumeMl,
+      hemorrhageSwitch:Boolean(hemorrhageSwitch),
+      hemorrhageTargetRateMlPerMin,
+      hemorrhageRateMlPerMin,
+      hemorrhageRbcRateMlPerMin,
+      hemorrhagePlasmaRateMlPerMin,
+      hemorrhageVolumeMl,
+      rbcGainMlPerMin,
+      plasmaGainMlPerMin,
+      otherRbcLossMlPerMin,
+      otherPlasmaLossMlPerMin,
+    });
+    return snapshot();
+  }
+
+  function snapshot(){
+    const bloodVolumeMl=rbcVolumeMl+plasmaVolumeMl;
+    return Object.freeze({
+      schema:'hummod-source-aligned-blood-volume/v1',
+      ...(last||{
+        bloodVolumeMl,
+        rbcVolumeMl,
+        plasmaVolumeMl,
+        hematocritFraction:rbcVolumeMl/bloodVolumeMl,
+        plasmaVolumeFraction:plasmaVolumeMl/bloodVolumeMl,
+        hemorrhageSwitch:false,
+        hemorrhageTargetRateMlPerMin:0,
+        hemorrhageRateMlPerMin:0,
+        hemorrhageRbcRateMlPerMin:0,
+        hemorrhagePlasmaRateMlPerMin:0,
+        hemorrhageVolumeMl,
+        rbcGainMlPerMin:0,
+        plasmaGainMlPerMin:0,
+        otherRbcLossMlPerMin:0,
+        otherPlasmaLossMlPerMin:0,
+      }),
+      provenance:Object.freeze({
+        status:'source-aligned-acute-blood-volume-subset',
+        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
+        sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
+        sourceStructures:Object.freeze([
+          'Hemorrhage',
+          'RBCVol',
+          'PlasmaVol',
+          'BloodVol',
+        ]),
+        reduction:'non-hemorrhage RBC/plasma gains and losses remain explicit boundaries until their source dependencies are ported',
+        clinicalValidation:false,
+      }),
+    });
+  }
+
+  return Object.freeze({
+    kind:'hummod-source-aligned-blood-volume',
+    step,
+    snapshot,
+  });
+}
+
+module.exports={createHumModBloodVolume};
+
+},
+"src/hummod_exercise_muscle_pump_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const {HUMMOD_SOURCE_IDENTITY}=require("src/hummod_source_identity.js");
+const {hermite}=require("src/hummod_ards_autonomic_source_aligned.js");
+
+const MUSCLE_PUMP_CURVE=Object.freeze([
+  Object.freeze({x:0,y:1.0,slope:0.005}),
+  Object.freeze({x:1600,y:5.0,slope:0}),
+]);
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+
+function exerciseMusclePumpEffect(totalWatts){
+  finite(totalWatts,'totalWatts');
+  return Object.freeze({
+    effect:hermite(MUSCLE_PUMP_CURVE,totalWatts),
+    provenance:Object.freeze({
+      status:'source-aligned',
+      sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
+      sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
+      sourceStructure:'Exercise-MusclePump',
+      nativeUse:'SystemicVeins.Conductance multiplier',
+      clinicalValidation:false,
+    }),
+  });
+}
+
+module.exports={MUSCLE_PUMP_CURVE,exerciseMusclePumpEffect};
 
 },
 "src/hummod_ards_decompensation_controller.js":function(module,exports,require){
