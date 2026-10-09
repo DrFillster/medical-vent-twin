@@ -35,6 +35,27 @@ const scenario={
 
 const vars={
   'System.X':[0,2.4,2.55,2.7],
+  'HeatCore.Temp(C)':[37,37,37,37],
+  'BloodPh.VeinsPh':[7.4,7.35,7.3,7.2],
+  'CO2Veins.Pressure':[45,50,60,70],
+  'HgbConc.CarboxyPercent':[0,0,0,0],
+  'KCell.[K+]':[150,150,150,150],
+  'CellSID.OtherCations':[10,10,10,10],
+  'CellSID.StrongAnions':[120,120,120,120],
+  'CellProtein.Mass(G)':[5000,5000,5000,5000],
+  'Thyroid.Effect':[1,1,1,1],
+  'HeatMetabolism.Core':[1,1,1,1],
+  'FAPool.[FA]':[0.5,0.5,0.5,0.5],
+  'FAPool.[FA(mG/dL)]':[50,50,50,50],
+  'GlucosePool.[Glucose]':[1,1,1,1],
+  'GlucosePool.[Glucose(mG/dL)]':[100,100,100,100],
+  'PO2Artys.Pressure':[90,60,40,20],
+  'ADHPool.Log10Conc':[0,0,0,0],
+  'Viscosity.ConductanceEffect':[1,1,1,1],
+  'Anesthesia.VascularConductance':[1,1,1,1],
+  'O2Artys.[O2]':[0.2,0.18,0.15,0.1],
+  'HgbConc.[O2Max]':[0.2,0.2,0.2,0.2],
+  'BloodVol.PVCrit':[0.55,0.55,0.55,0.55],
   'Heart-Rate.Rate':[72,84,70,0],
   'CardiacOutput.Flow':[5500,4200,1800,0],
   'SANode-Rate.Rate':[72,84,72,72],
@@ -73,6 +94,31 @@ const vars={
   'LeftHeart-Fuel.FractUseDelay':[1,0.95,0.85,0.78],
   'RightHeart-Fuel.FractUseDelay':[1,0.94,0.84,0.77],
 };
+
+
+for(const p of ['LeftHeart','RightHeart']){
+  Object.assign(vars,{
+    [p+'-Size.Mass']:[300,300,300,300],
+    [p+'-Size.InitialMass']:[300,300,300,300],
+    [p+'-Metabolism.CalMultiplier']:[1,1,1,1],
+    [p+'-Structure.Effect']:[1,1,1,1],
+    [p+'-Flow.O2Use']:[10,10,8,0],
+    [p+'-Flow.PlasmaFlow']:[100,90,60,0],
+    [p+'-Lactate.[Lac-(mG/dL)]']:[10,30,80,140],
+    [p+'-Metabolism.AerobicCals']:[10,9,6,0],
+    [p+'-Pressure.PressureGradient']:[80,70,50,20],
+    [p+'-AlphaReceptors.Activity']:[1,1,1,1],
+    [p+'-Vasculature.Effect']:[1,1,1,1],
+    [p+'-Infarction.Effect']:[1,1,1,1],
+    [p+'-CO2.Mass']:[1,1,1,1],
+    [p+'-Size.LiquidVol']:[1,1,1,1],
+    [p+'-Fuel.K']:[1,1,1,1],
+    [p+'-Fuel.MinimumFractionalDelivery']:[1,0.9,0.8,0.7],
+    [p+'-Fuel.AnaerobicGlucoseUsed(mG/Min)']:[0,1,4,10],
+    [p+'-Fuel.LacUsed(mG/Min)']:[0,0,0,0],
+    [p+'-Fuel.Change']:[0,-0.05,-0.1,-0.1],
+  });
+}
 
 for(const [symbol,value] of Object.entries(scenario.assignments)){
   vars[symbol]=[value,value,value,value];
