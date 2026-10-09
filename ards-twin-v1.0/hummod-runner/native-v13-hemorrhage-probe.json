@@ -1,0 +1,19 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "v1.3-native-hemorrhage-probe",
+  "scenarioClass": "native-hummod-volume-loss-stress",
+  "description": "Native HumMod hemorrhage-system probe using Hemorrhage.Switch and Hemorrhage.TargetRate. Engineering fidelity test only.",
+  "assignments": {
+    "Hemorrhage.Switch": 1,
+    "Hemorrhage.TargetRate": 500
+  },
+  "provenance": {
+    "clinicalValidation": false,
+    "ardsScenario": false,
+    "purpose": "Measure native HumMod baroreflex, venous-return, cardiac-output, autonomic, and catecholamine response to native blood-volume loss.",
+    "limitations": [
+      "Engineering model-characterization run only.",
+      "The target rate is a HumMod model input, not a clinical hemorrhage-management recommendation."
+    ]
+  }
+}
