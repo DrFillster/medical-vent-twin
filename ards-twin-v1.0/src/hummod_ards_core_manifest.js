@@ -239,6 +239,63 @@ const HUMMOD_ARDS_CORE_PHASE1_POLICY = Object.freeze({
   ]),
 });
 
+
+const HUMMOD_V13_FIDELITY_ROOT_STRUCTURES = Object.freeze([
+  'Heart-Rate',
+  'SANode-Rate',
+  'CardiacOutput',
+  'SystemicArtys',
+  'RightAtrium',
+  'PulmArty',
+  'PO2Artys',
+  'CO2Artys',
+  'BloodPh',
+  'SympsCNS',
+  'Baroreflex',
+  'LowPressureReceptors',
+  'Mechanoreceptors',
+  'ExerciseSymps',
+  'AdrenalNerve',
+  'EpiSecretion',
+  'EpiPool',
+  'NESecretion',
+  'NEPool',
+  'BloodVol',
+  'Brain-Function',
+  'Brain-Flow',
+  'Brain-Fuel',
+  'SkeletalMuscle-Work',
+  'SkeletalMuscle-Metabolism',
+  'SkeletalMuscle-Flow',
+  'SkeletalMuscle-Metaboreflex',
+  'SkeletalMuscle-MusclePumping',
+  'RespiratoryCenter-Exercise',
+  'Exercise-Control',
+  'Exercise-Bike',
+  'Hemorrhage',
+]);
+
+const HUMMOD_V13_FIDELITY_POLICY = Object.freeze({
+  id: 'v1.3-hummod-first-fidelity-closure',
+  interpretation: 'Expand the acute browser model toward native HumMod dependency closure. Autonomics, catecholamines, brain, skeletal muscle/exercise, and hemorrhage/volume are no longer treated as optional clinical overlays.',
+  stopSystemBuckets: Object.freeze([
+    'Reproduction',
+    'Pregnancy',
+    'Fetus',
+    'MenstrualCycle',
+  ]),
+  stopStructureNames: Object.freeze([]),
+  laterPhaseSystemBuckets: Object.freeze([
+    'Nephrons',
+    'Kidney',
+    'Renin',
+    'Aldosterone',
+    'ANP',
+    'Diet',
+    'DailyPlanner',
+  ]),
+});
+
 function hummodArdsCoreRootSymbols() {
   return HUMMOD_ARDS_CORE.outputs.map(x => x.symbol);
 }
@@ -251,6 +308,8 @@ module.exports = {
   HUMMOD_ARDS_CORE_SCHEMA,
   HUMMOD_ARDS_CORE,
   HUMMOD_ARDS_CORE_PHASE1_POLICY,
+  HUMMOD_V13_FIDELITY_ROOT_STRUCTURES,
+  HUMMOD_V13_FIDELITY_POLICY,
   hummodArdsCoreRootSymbols,
   hummodArdsCoreRootStructures,
 };
