@@ -10456,6 +10456,10 @@ function createBerlinLiveHumModSession({
           circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
         pulmonaryVascularResistanceMmHgMinPerL:
           circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
+        systemicOutflowMode:
+          circ.provenance?.systemicOutflowMode ?? circ.activeBoundaries?.systemicOutflowMode ?? 'conductance',
+        systemicOutflowAuthority:
+          circ.systemicOutflowAuthority ?? null,
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,

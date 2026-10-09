@@ -7,6 +7,7 @@
   let clinicalWorker = null, clinicalHumModExport = null, clinicalRecruitmentHistory = null, clinicalSnapshot = null;
   let clinicalContinuousRun = false;
   let clinicalContinuousTimer = null;
+  let clinicalPlaybackSpeed = 1;
   let clinicalInterventions = [];
   let clinicalPhysiologyTrend = [];
   let clinicalLastAppliedVentilation = null;
@@ -604,6 +605,11 @@
       Number.isFinite(hemo.pulmonaryVascularResistanceMmHgMinPerL)
       ? hemo.pulmonaryVascularResistanceMmHgMinPerL.toFixed(2)
       : '—';
+    const circulationMode = hemo.systemicOutflowMode || 'conductance';
+    $('clinical-circulation-mode').textContent =
+      circulationMode === 'explicit-organ-network'
+        ? 'Explicit HumMod organ flow'
+        : 'Reduced conductance';
     $('clinical-sympathetic-hz').textContent =
       typeof hemo.sympatheticFiringHz === 'number' && Number.isFinite(hemo.sympatheticFiringHz)
         ? hemo.sympatheticFiringHz.toFixed(2) : '—';
@@ -658,11 +664,32 @@
   function scheduleClinicalContinuousStep() {
     if (!clinicalContinuousRun || !clinicalWorker) return;
     if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
+    const delayMs = 1000 / clinicalPlaybackSpeed;
     clinicalContinuousTimer = setTimeout(() => {
       clinicalContinuousTimer = null;
       if (!clinicalContinuousRun || !clinicalWorker) return;
+      // Speed changes wall-clock pacing only. Every worker request still
+      // advances exactly one simulated patient second with the existing
+      // physiologic timestep and equations unchanged.
       clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
-    }, 1000);
+    }, delayMs);
+  }
+
+  function setClinicalPlaybackSpeed(value) {
+    const speed = Number(value);
+    const allowed = [0.25, 0.5, 1, 2, 5, 10];
+    if (!allowed.includes(speed)) throw new Error('Unsupported simulation speed');
+    clinicalPlaybackSpeed = speed;
+    const label = speed + '×';
+    const indicator = $('clinical-speed-indicator');
+    if (indicator) indicator.textContent = label;
+    if (clinicalContinuousRun) {
+      if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
+      clinicalContinuousTimer = null;
+      $('clinical-session-status').textContent =
+        'Patient running continuously at ' + label + ' real time…';
+      scheduleClinicalContinuousStep();
+    }
   }
 
   function stopClinicalContinuousRun() {
@@ -987,7 +1014,8 @@
         clinicalContinuousRun = true;
         $('clinical-run-continuous').disabled = true;
         $('clinical-pause-continuous').disabled = false;
-        $('clinical-session-status').textContent = 'Patient running continuously at 1× real time…';
+        $('clinical-session-status').textContent =
+          'Patient running continuously at ' + clinicalPlaybackSpeed + '× real time…';
         scheduleClinicalContinuousStep();
       } catch (error) { showClinicalError(error.message); }
     });
@@ -995,6 +1023,15 @@
     $('clinical-pause-continuous').addEventListener('click', () => {
       stopClinicalContinuousRun();
       $('clinical-session-status').textContent = 'Patient paused · state preserved.';
+    });
+
+    $('clinical-speed').addEventListener('change', () => {
+      try {
+        setClinicalPlaybackSpeed($('clinical-speed').value);
+      } catch (error) {
+        $('clinical-speed').value = String(clinicalPlaybackSpeed);
+        showClinicalError(error.message);
+      }
     });
 
     $('clinical-set-peep')?.addEventListener('click', () => {
