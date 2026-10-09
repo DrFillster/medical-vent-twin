@@ -7,6 +7,7 @@ const { createHumModSourceAlignedAutonomicController } = require('./hummod_ards_
 const { createHumModSourceAlignedCatecholamines } = require('./hummod_ards_catecholamines_source_aligned.js');
 const { sourceSympatheticVascularComponents } = require('./hummod_ards_vascular_sympathetic_source_aligned.js');
 const { createHumModSourceAlignedBrainHypoxia } = require('./hummod_brain_hypoxia_source_aligned.js');
+const { exerciseSympsTotalEffect } = require('./hummod_exercise_sympathetic_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -156,6 +157,21 @@ function createHumModArdsCardiopulmonaryRuntime({
         Array.isArray(nativeAutonomicInputs))){
       throw new Error('nativeAutonomicInputsProvider must return an object or null');
     }
+    let exerciseSympatheticState=null;
+    let exerciseSympsEffect=0;
+    if(nativeAutonomicInputs?.exerciseTotalWatts != null &&
+       nativeAutonomicInputs?.skeletalMusclePh != null){
+      exerciseSympatheticState=exerciseSympsTotalEffect({
+        totalWatts:nativeAutonomicInputs.exerciseTotalWatts,
+        skeletalMusclePh:nativeAutonomicInputs.skeletalMusclePh,
+        skeletalMuscleFunctionFailed:
+          Boolean(nativeAutonomicInputs.skeletalMuscleFunctionFailed),
+      });
+      exerciseSympsEffect=exerciseSympatheticState.totalEffect;
+    } else if(nativeAutonomicInputs?.exerciseSympsTotalEffect != null){
+      exerciseSympsEffect=nativeAutonomicInputs.exerciseSympsTotalEffect;
+    }
+
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
@@ -171,8 +187,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       brainFunctionEffect:
         nativeAutonomicInputs?.brainFunctionEffect ??
         brainHypoxiaState.brainFunctionEffect,
-      exerciseSympsTotalEffect:
-        nativeAutonomicInputs?.exerciseSympsTotalEffect ?? 0,
+      exerciseSympsTotalEffect:exerciseSympsEffect,
     });
     const updatedCatecholamines = catecholamines
       ? catecholamines.step({
@@ -237,6 +252,8 @@ function createHumModArdsCardiopulmonaryRuntime({
         nativeAutonomicInputs.brainFuelFractUseDelay != null ||
         nativeAutonomicInputs.a2PoolLog10Conc != null ||
         nativeAutonomicInputs.exerciseSympsTotalEffect != null ||
+        nativeAutonomicInputs.exerciseTotalWatts != null ||
+        nativeAutonomicInputs.skeletalMusclePh != null ||
         nativeAutonomicInputs.brainFunctionEffect != null
       )
     );
@@ -335,6 +352,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
+      exerciseSympathetic:exerciseSympatheticState,
       brainHypoxia:brainHypoxiaState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
@@ -369,7 +387,7 @@ function createHumModArdsCardiopulmonaryRuntime({
           ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
-          ? 'external native HumMod autonomic input provider'
+          ? 'source-aligned upstream HumMod boundary provider; exercise drive is computed from TotalWatts + skeletal-muscle pH when supplied'
           : 'source-aligned browser brain-hypoxia subset; no empirical chronotropy overlay',
         catecholamineAuthority: catecholamines
           ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
