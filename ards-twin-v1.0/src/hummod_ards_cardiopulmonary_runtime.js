@@ -8,6 +8,7 @@ const { createHumModSourceAlignedCatecholamines } = require('./hummod_ards_catec
 const { sourceSympatheticVascularComponents } = require('./hummod_ards_vascular_sympathetic_source_aligned.js');
 const { createHumModSourceAlignedBrainHypoxia } = require('./hummod_brain_hypoxia_source_aligned.js');
 const { exerciseSympsTotalEffect } = require('./hummod_exercise_sympathetic_source_aligned.js');
+const { createHumModExerciseMetabolism } = require('./hummod_exercise_metabolism_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -80,6 +81,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     ? null
     : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
   const brainHypoxia = createHumModSourceAlignedBrainHypoxia();
+  const exerciseMetabolism = createHumModExerciseMetabolism();
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -157,12 +159,27 @@ function createHumModArdsCardiopulmonaryRuntime({
         Array.isArray(nativeAutonomicInputs))){
       throw new Error('nativeAutonomicInputsProvider must return an object or null');
     }
+    let exerciseMetabolismState=null;
     let exerciseSympatheticState=null;
     let exerciseSympsEffect=0;
-    if(nativeAutonomicInputs?.exerciseTotalWatts != null &&
+    if(nativeAutonomicInputs?.exerciseMode != null){
+      exerciseMetabolismState=exerciseMetabolism.step({
+        dtSec,
+        exertionMode:nativeAutonomicInputs.exerciseMode,
+        bikePowerW:nativeAutonomicInputs.exerciseBikePowerW ?? 0,
+        bikeRpm:nativeAutonomicInputs.exerciseBikeRpm ?? 50,
+        bikeEfficiencyFraction:
+          nativeAutonomicInputs.exerciseBikeEfficiencyFraction ?? 0.30,
+      });
+    }
+    const sourceExerciseTotalWatts =
+      exerciseMetabolismState?.totalWatts ??
+      nativeAutonomicInputs?.exerciseTotalWatts ??
+      null;
+    if(sourceExerciseTotalWatts != null &&
        nativeAutonomicInputs?.skeletalMusclePh != null){
       exerciseSympatheticState=exerciseSympsTotalEffect({
-        totalWatts:nativeAutonomicInputs.exerciseTotalWatts,
+        totalWatts:sourceExerciseTotalWatts,
         skeletalMusclePh:nativeAutonomicInputs.skeletalMusclePh,
         skeletalMuscleFunctionFailed:
           Boolean(nativeAutonomicInputs.skeletalMuscleFunctionFailed),
@@ -252,6 +269,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         nativeAutonomicInputs.brainFuelFractUseDelay != null ||
         nativeAutonomicInputs.a2PoolLog10Conc != null ||
         nativeAutonomicInputs.exerciseSympsTotalEffect != null ||
+        nativeAutonomicInputs.exerciseMode != null ||
         nativeAutonomicInputs.exerciseTotalWatts != null ||
         nativeAutonomicInputs.skeletalMusclePh != null ||
         nativeAutonomicInputs.brainFunctionEffect != null
@@ -352,6 +370,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
+      exerciseMetabolism:exerciseMetabolismState,
       exerciseSympathetic:exerciseSympatheticState,
       brainHypoxia:brainHypoxiaState,
       nativeMetabolicAutonomicActive,
@@ -387,7 +406,7 @@ function createHumModArdsCardiopulmonaryRuntime({
           ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
-          ? 'source-aligned upstream HumMod boundary provider; exercise drive is computed from TotalWatts + skeletal-muscle pH when supplied'
+          ? 'source-aligned upstream HumMod boundary provider; native bicycle mode can generate Exercise-Metabolism TotalWatts dynamically before MotorRadiation/metaboreflex drive'
           : 'source-aligned browser brain-hypoxia subset; no empirical chronotropy overlay',
         catecholamineAuthority: catecholamines
           ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
