@@ -68,9 +68,10 @@ Return:
 2. lossless all-variable extraction;
 3. scenario assignment verification;
 4. exporter status/diagnostics;
-5. analyzer JSON;
-6. a compact checkpoint CSV covering at least the final 30 seconds before native asystole;
-7. source commit and executable hash.
+5. myocardial-collapse analyzer JSON;
+6. source-equation replay JSON against the high-resolution native states;
+7. a compact checkpoint CSV covering at least the final 30 seconds before native asystole;
+8. source commit and executable hash.
 
 ## Decision rule
 
@@ -102,6 +103,7 @@ This command does not run HumMod and does not modify the SOLN. It:
 - requires the pinned HumMod revision, `1 Sec` advance mode, 180 advances, and 250 ms delay in exporter status;
 - requires the exported trajectory to pass the prior 153.365933 s terminal time;
 - runs the myocardial-collapse analyzer;
+- replays the source-aligned myocardial equations against every high-resolution native state;
 - writes the final-30-second checkpoint CSV;
 - writes source/executable/SOLN hashes;
 - fails if any required run07 artifact is missing or empty.
