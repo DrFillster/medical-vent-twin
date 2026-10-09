@@ -385,6 +385,12 @@
       paco2: Number(snapshot?.systemic?.gasExchange?.paco2MmHg),
       map: Number(snapshot?.systemic?.hemodynamics?.meanArterialPressureMmHg),
       heartRate: Number(snapshot?.systemic?.hemodynamics?.heartRatePerMin),
+      sourceHeartRate: Number(snapshot?.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin),
+      empiricalHrOverlay: Number(snapshot?.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin),
+      brainPo2: Number(snapshot?.systemic?.hemodynamics?.brainTissuePo2MmHg),
+      brainFunction: Number(snapshot?.systemic?.hemodynamics?.brainFunctionEffect),
+      sympatheticHz: Number(snapshot?.systemic?.hemodynamics?.sympatheticFiringHz),
+      vagalHz: Number(snapshot?.systemic?.hemodynamics?.vagalFiringHz),
       pH: Number(snapshot?.systemic?.gasExchange?.pH),
     };
     if (!Number.isFinite(point.timeSec)) return;
@@ -454,6 +460,12 @@
     drawClinicalTrend('clinical-paco2-trend', 'paco2', 0);
     drawClinicalTrend('clinical-map-trend', 'map', 0);
     drawClinicalTrend('clinical-hr-trend', 'heartRate', 0);
+    drawClinicalTrend('clinical-source-hr-trend', 'sourceHeartRate', 0);
+    drawClinicalTrend('clinical-hr-overlay-trend', 'empiricalHrOverlay', 0);
+    drawClinicalTrend('clinical-brain-po2-trend', 'brainPo2', 1);
+    drawClinicalTrend('clinical-brain-function-trend', 'brainFunction', 2);
+    drawClinicalTrend('clinical-symps-trend', 'sympatheticHz', 2);
+    drawClinicalTrend('clinical-vagus-trend', 'vagalHz', 2);
     drawClinicalTrend('clinical-ph-trend', 'pH', 2);
   }
 
@@ -572,6 +584,14 @@
       : '—';
     $('clinical-pvo2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.pvo2MmHg);
     $('clinical-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.heartRatePerMin);
+    $('clinical-source-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin);
+    $('clinical-hr-overlay').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin ?? 0);
+    const brainPo2 = snapshot.systemic?.hemodynamics?.brainTissuePo2MmHg;
+    $('clinical-brain-po2').textContent = typeof brainPo2 === 'number' && Number.isFinite(brainPo2)
+      ? brainPo2.toFixed(1) : '—';
+    const brainFunction = snapshot.systemic?.hemodynamics?.brainFunctionEffect;
+    $('clinical-brain-function').textContent = typeof brainFunction === 'number' && Number.isFinite(brainFunction)
+      ? brainFunction.toFixed(2) : '—';
     $('clinical-map').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
     const cardiacOutputMlPerMin = snapshot.systemic?.hemodynamics?.cardiacOutputMlPerMin;
     $('clinical-co').textContent = typeof cardiacOutputMlPerMin === 'number' && Number.isFinite(cardiacOutputMlPerMin)

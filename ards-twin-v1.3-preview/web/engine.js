@@ -3,6 +3,11 @@
 var VENT = (() => {
 const modules={"src/browser-entry.js":function(module,exports,require){
 module.exports = {
+  ...require("src/v11_provenance_manifest.js"),
+  ...require("src/hummod_runtime_provider_contract.js"),
+  ...require("src/hummod_des_inventory.js"),
+  ...require("src/model_provenance.js"),
+  ...require("src/live_provenance_bindings.js"),
   ...require("src/simulation.js"),
   ...require("src/presets.js"),
   ...require("src/clinical_scenarios.js"),
@@ -35,6 +40,1237 @@ module.exports = {
   ...require("src/bedside_measurements.js"),
   ...require("src/contracts.js"),
   ...require("src/scenario.js"),
+};
+
+},
+"src/v11_provenance_manifest.js":function(module,exports,require){
+'use strict';
+
+const { MODEL_PROVENANCE } = require("src/model_provenance.js");
+
+const V11_RC_PROVENANCE_MANIFEST_SCHEMA = 'vent-v1.1-provenance-manifest/rc1';
+
+const V11_RC_SUBSYSTEMS = Object.freeze({
+  ventilatorMechanics: Object.freeze([
+    'vent.mechanics.elastic_pressure_law',
+    'vent.recruitment.open_close_kinetics',
+    'vent.recruitment.condition.open',
+    'vent.recruitment.condition.close',
+    'vent.recruitment.defaults',
+    'vent.recruitment.feasibility_projection',
+  ]),
+  ardsPhenotypes: Object.freeze([
+    'ards.phenotype.baseline',
+    'ards.phenotype.low_recruitability',
+    'ards.phenotype.moderate_recruitability',
+    'ards.phenotype.high_recruitability',
+  ]),
+  thorax: Object.freeze([
+    'live.thorax.reference_pleural_pressure',
+    'live.thorax.chest_wall_elastance_fraction',
+    'thorax.static_elastance_partition',
+  ]),
+  circulation: Object.freeze([
+    'hummod.hemodynamics.vascular_primitives',
+    'hummod.hemodynamics.ventricular_pump',
+    'live.circulation.reference_boundaries',
+    'circulation.reduced_topology',
+    'circulation.integration_substep',
+    'circulation.mass_balance_derivatives',
+    'circulation.negative_forward_flow_failure',
+    'circulation.svr_derived',
+    'circulation.pvr_derived',
+  ]),
+  autonomics: Object.freeze([
+    'autonomic.target_map',
+    'autonomic.baroreflex_gain',
+    'autonomic.autonomic_tau',
+    'autonomic.vascular_tau',
+    'autonomic.cardiac_tau',
+    'autonomic.hypoxic_drive_curve',
+    'autonomic.hypercapnic_drive_curve',
+    'autonomic.reflex_target_equation',
+    'autonomic.parasympathetic_target_equation',
+    'autonomic.reflex_hr_equation',
+    'autonomic.contractility_equation',
+    'autonomic.systemic_conductance_equation',
+    'autonomic.venous_v0_equation',
+    'autonomic.pulmonary_load_equation',
+    'autonomic.respiratory_acidosis_inotropy',
+    'autonomic.hypercapnic_acidosis_anchor',
+  ]),
+  gasExchange: Object.freeze([
+    'live.metabolism.tissue_o2_use',
+    'live.gas.reference_boundaries',
+    'hummod.breathing.dead_space_equation',
+    'hummod.bronchi.water_vapor_pressure',
+    'hummod.hemoglobin.p50_model',
+    'hummod.acid_base.ph_sid_pco2',
+    'hummod.pulmonary_membrane.interpolation',
+    'hummod.gas_exchange.oxygen_runtime',
+    'hummod.gas_exchange.co2_runtime',
+  ]),
+  oxygenSupply: Object.freeze([
+    'oxygen_supply.critical_extraction_curve',
+    'oxygen_supply.delivery_equation',
+    'oxygen_supply.critical_delivery_equation',
+    'oxygen_supply.condition.supply_dependent',
+  ]),
+  decompensation: Object.freeze([
+    'decompensation.low_svo2_marker',
+    'decompensation.organ_flow_map_marker',
+    'decompensation.oxygen_debt_integral',
+    'decompensation.debt_calibration_minutes',
+    'decompensation.myocardial_floor',
+    'decompensation.condition.map30_duration',
+    'decompensation.condition.profound_map_arrest',
+    'decompensation.asphyxial_anchor',
+    'decompensation.stage_classifier',
+    'decompensation.transition.pea',
+  ]),
+});
+
+const V11_RC_OUTPUT_PROVENANCE = Object.freeze({
+  'systemic.gasExchange.pao2MmHg': Object.freeze(['hummod.gas_exchange.oxygen_runtime']),
+  'systemic.gasExchange.paco2MmHg': Object.freeze(['hummod.gas_exchange.co2_runtime']),
+  'systemic.gasExchange.pH': Object.freeze(['hummod.acid_base.ph_sid_pco2']),
+  'systemic.gasExchange.sao2Fraction': Object.freeze(['hummod.hemoglobin.p50_model','hummod.gas_exchange.oxygen_runtime']),
+  'systemic.gasExchange.pvo2MmHg': Object.freeze(['hummod.gas_exchange.oxygen_runtime','oxygen_supply.critical_delivery_equation']),
+  'systemic.gasExchange.svo2Fraction': Object.freeze(['hummod.hemoglobin.p50_model','hummod.gas_exchange.oxygen_runtime']),
+  'systemic.gasExchange.oxygenDeliveryMlPerMin': Object.freeze(['oxygen_supply.delivery_equation']),
+  'systemic.gasExchange.criticalOxygenDeliveryMlPerMin': Object.freeze(['oxygen_supply.critical_delivery_equation']),
+  'systemic.gasExchange.supplyDependent': Object.freeze(['oxygen_supply.condition.supply_dependent']),
+  'systemic.hemodynamics.heartRatePerMin': Object.freeze(['autonomic.reflex_hr_equation','decompensation.stage_classifier']),
+  'systemic.hemodynamics.meanArterialPressureMmHg': Object.freeze(['circulation.reduced_topology','hummod.hemodynamics.vascular_primitives']),
+  'systemic.hemodynamics.cardiacOutputMlPerMin': Object.freeze(['hummod.hemodynamics.ventricular_pump','circulation.reduced_topology','circulation.negative_forward_flow_failure']),
+  'systemic.hemodynamics.strokeVolumeMl': Object.freeze(['hummod.hemodynamics.ventricular_pump','circulation.negative_forward_flow_failure']),
+  'systemic.hemodynamics.systemicVascularResistanceMmHgMinPerL': Object.freeze(['circulation.svr_derived']),
+  'systemic.hemodynamics.pulmonaryVascularResistanceMmHgMinPerL': Object.freeze(['circulation.pvr_derived']),
+  'systemic.hemodynamics.contractilityMultiplier': Object.freeze(['autonomic.contractility_equation','autonomic.respiratory_acidosis_inotropy','decompensation.stage_classifier']),
+  'systemic.hemodynamics.sympatheticTone': Object.freeze(['autonomic.reflex_target_equation']),
+  'systemic.hemodynamics.parasympatheticTone': Object.freeze(['autonomic.parasympathetic_target_equation']),
+  'systemic.hemodynamics.catecholamineDrive': Object.freeze(['autonomic.reflex_target_equation','autonomic.cardiac_tau']),
+  'systemic.thorax.pleuralPressureCmH2O': Object.freeze(['thorax.static_elastance_partition']),
+  'systemic.thorax.transpulmonaryPressureCmH2O': Object.freeze(['thorax.static_elastance_partition']),
+  'systemic.decompensation.stage': Object.freeze(['decompensation.stage_classifier']),
+  'systemic.decompensation.cardiacArrest': Object.freeze(['decompensation.condition.map30_duration','decompensation.condition.profound_map_arrest','decompensation.asphyxial_anchor']),
+  'systemic.decompensation.arrestRhythm': Object.freeze(['decompensation.transition.pea']),
+  'systemic.decompensation.oxygenDebtMl': Object.freeze(['decompensation.oxygen_debt_integral']),
+});
+
+function allRequiredIds() {
+  return Object.freeze(Array.from(new Set(Object.values(V11_RC_SUBSYSTEMS).flat())));
+}
+
+function validateV11RcProvenanceManifest() {
+  const required = allRequiredIds();
+  const missing = required.filter(id => !MODEL_PROVENANCE[id]);
+  const unknown = required.filter(id => MODEL_PROVENANCE[id] && MODEL_PROVENANCE[id].class === 'UNKNOWN');
+  const outputMissing = [];
+  for (const [path, ids] of Object.entries(V11_RC_OUTPUT_PROVENANCE)) {
+    for (const id of ids) if (!MODEL_PROVENANCE[id]) outputMissing.push(path + ' -> ' + id);
+  }
+  if (missing.length) throw new Error('v1.1 provenance manifest missing ids: ' + missing.join(', '));
+  if (unknown.length) throw new Error('v1.1 provenance manifest contains UNKNOWN ids: ' + unknown.join(', '));
+  if (outputMissing.length) throw new Error('v1.1 output provenance references missing ids: ' + outputMissing.join(', '));
+  return Object.freeze({
+    schema: V11_RC_PROVENANCE_MANIFEST_SCHEMA,
+    releaseCandidate: '1.1.0-rc.1',
+    requiredCount: required.length,
+    unknownCount: 0,
+    outputPathCount: Object.keys(V11_RC_OUTPUT_PROVENANCE).length,
+    subsystems: Object.freeze(Object.keys(V11_RC_SUBSYSTEMS)),
+    scope: 'live-clinical-physiology-model-elements-and-exported-monitor-outputs',
+    note: 'Local temporary algebra variables inherit provenance from their tagged governing equation and dependencies.',
+  });
+}
+
+module.exports = {
+  V11_RC_PROVENANCE_MANIFEST_SCHEMA,
+  V11_RC_SUBSYSTEMS,
+  V11_RC_OUTPUT_PROVENANCE,
+  allRequiredIds,
+  validateV11RcProvenanceManifest,
+};
+
+},
+"src/model_provenance.js":function(module,exports,require){
+'use strict';
+
+const { humModSource } = require("src/hummod_source_identity.js");
+
+const PROVENANCE_SCHEMA = 'vent-model-provenance/v1';
+
+const PROVENANCE_CLASSES = Object.freeze([
+  'HUMMOD_EXACT',
+  'HUMMOD_ADAPTED',
+  'LITERATURE_DIRECT',
+  'LITERATURE_CALIBRATED',
+  'ENGINEERING_ASSUMPTION',
+  'SCENARIO_AUTHORED',
+  'MEASURED_OR_USER_SUPPLIED',
+  'DERIVED',
+  'UNKNOWN',
+]);
+
+const PROVENANCE_KINDS = Object.freeze([
+  'variable','constant','equation','condition','transition',
+  'boundary','topology','interpolation','scenario',
+]);
+
+function record(value) {
+  return Object.freeze({ clinicalValidation: false, dependsOn: Object.freeze([]), ...value });
+}
+
+const MODEL_PROVENANCE = Object.freeze({
+  'live.thorax.reference_pleural_pressure': record({
+    id:'live.thorax.reference_pleural_pressure', kind:'boundary',
+    class:'ENGINEERING_ASSUMPTION',
+    module:'clinical_twin_live_hummod_session.js',
+    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.referencePleuralPressureCmH2O',
+    description:'Reference pleural pressure for the live synthetic aspiration case.',
+    source:Object.freeze([{type:'project',statement:'Explicit synthetic phase-1 thorax boundary; not inferred from Berlin severity or recruitability.'}]),
+  }),
+  'live.thorax.chest_wall_elastance_fraction': record({
+    id:'live.thorax.chest_wall_elastance_fraction', kind:'boundary',
+    class:'ENGINEERING_ASSUMPTION',
+    module:'clinical_twin_live_hummod_session.js',
+    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.chestWallElastanceFraction',
+    description:'Fraction of passive respiratory-system elastance assigned to the chest wall.',
+    source:Object.freeze([{type:'project',statement:'Explicit synthetic phase-1 thorax boundary.'}]),
+  }),
+  'live.metabolism.tissue_o2_use': record({
+    id:'live.metabolism.tissue_o2_use', kind:'boundary',
+    class:'ENGINEERING_ASSUMPTION',
+    module:'clinical_twin_live_hummod_session.js',
+    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic.tissueO2UseMlPerMin',
+    description:'Whole-body oxygen-use boundary for the reduced acute gas core.',
+    source:Object.freeze([{type:'project',statement:'Fixed phase-1 metabolic boundary; full HumMod tissue metabolism is not running.'}]),
+  }),
+  'hummod.breathing.dead_space_equation': record({
+    id:'hummod.breathing.dead_space_equation', kind:'equation',
+    class:'HUMMOD_EXACT', module:'hummod_ards_core_breathing.js',
+    symbol:'humModLegacyDeadSpaceMl',
+    description:'DeadSpace = 0.20 * TidalVolume + 60 mL.',
+    source:Object.freeze([humModSource('Structure/Lungs/Breathing.DES','Breathing.DeadSpace')]),
+  }),
+  'hummod.bronchi.water_vapor_pressure': record({
+    id:'hummod.bronchi.water_vapor_pressure', kind:'constant',
+    class:'HUMMOD_EXACT', module:'hummod_ards_core_breathing.js',
+    symbol:'BRONCHI_VAPOR_PRESSURE_MMHG',
+    description:'Bronchial saturated water-vapor pressure boundary.',
+    source:Object.freeze([humModSource('Structure/Lungs/Bronchi.DES','Bronchi.VaporPressure')]),
+  }),
+  'hummod.hemoglobin.p50_model': record({
+    id:'hummod.hemoglobin.p50_model', kind:'equation',
+    class:'HUMMOD_EXACT', module:'hummod_ards_core_chemistry.js',
+    symbol:'hemoglobinProperties',
+    description:'HumMod hemoglobin P50 response to temperature, pH, PCO2, and carboxyhemoglobin.',
+    source:Object.freeze([humModSource('Structure/Hemoglobin/HgbProps.DES','HgbProps.Setup')]),
+  }),
+  'hummod.acid_base.ph_sid_pco2': record({
+    id:'hummod.acid_base.ph_sid_pco2', kind:'equation',
+    class:'HUMMOD_EXACT', module:'hummod_ards_core_chemistry.js',
+    symbol:'phFromPco2Sid',
+    description:'HumMod pH relation using pK + log10(SID/PCO2) with source boundary cases.',
+    source:Object.freeze([humModSource('Structure/AcidBase/PhGeneral.DES','PhGeneral.Calc')]),
+  }),
+  'hummod.pulmonary_membrane.interpolation': record({
+    id:'hummod.pulmonary_membrane.interpolation', kind:'interpolation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_core_pulmonary_membrane.js',
+    symbol:'hermiteSegment',
+    description:'Piecewise cubic Hermite interpolation across HumMod pulmonary-membrane recruitment points/slopes.',
+    source:Object.freeze([
+      humModSource('Structure/Lungs/PulmonaryMembrane.DES','PulmonaryMembrane.Recruitment'),
+      {type:'project',statement:'Interpolation algorithm is a browser implementation choice because the DES runtime interpolation was not independently reproduced.'},
+    ]),
+  }),
+  'vent.mechanics.elastic_pressure_law': record({
+    id:'vent.mechanics.elastic_pressure_law', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'compartments.js',
+    symbol:'elasticPressureAboveAOP',
+    description:'Finite-capacity exponential compartment elastic recoil law.',
+    source:Object.freeze([{type:'project',statement:'Purpose-built Vent mechanical constitutive law; not derived from HumMod.'}]),
+  }),
+  'vent.recruitment.open_close_kinetics': record({
+    id:'vent.recruitment.open_close_kinetics', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
+    symbol:'recruitmentRate',
+    description:'Bounded opening/closing recruitment kinetics with dead band.',
+    source:Object.freeze([{type:'project',statement:'Purpose-built stateful recruitment kinetics; not a direct Chen R/I or HumMod equation.'}]),
+  }),
+  'vent.recruitment.condition.open': record({
+    id:'vent.recruitment.condition.open', kind:'condition',
+    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
+    symbol:'pDist > P_open',
+    description:'Recruitment opening branch.',
+    source:Object.freeze([{type:'project',statement:'Engineering branch condition; phenotype P_open is separately provenance-tagged.'}]),
+  }),
+  'vent.recruitment.condition.close': record({
+    id:'vent.recruitment.condition.close', kind:'condition',
+    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
+    symbol:'pDist < P_close',
+    description:'Derecruitment closing branch.',
+    source:Object.freeze([{type:'project',statement:'Engineering branch condition; phenotype P_close is separately provenance-tagged.'}]),
+  }),
+  'hummod.gas_exchange.oxygen_runtime': record({
+    id:'hummod.gas_exchange.oxygen_runtime', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_core_gas_exchange.js',
+    symbol:'reduced pulmonary O2 exchange runtime',
+    description:'Reduced browser execution of source-aligned HumMod oxygen transport/exchange equations.',
+    source:Object.freeze([
+      humModSource('Structure/Lungs/LungO2.DES','LungO2'),
+      {type:'project',statement:'Runtime topology, solver numerics, and Vent-derived perfusion/recruitment boundaries are adapted for browser execution.'},
+    ]),
+  }),
+  'hummod.gas_exchange.co2_runtime': record({
+    id:'hummod.gas_exchange.co2_runtime', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_core_gas_exchange.js',
+    symbol:'reduced pulmonary CO2 exchange runtime',
+    description:'Reduced browser execution of source-aligned HumMod carbon-dioxide transport/exchange equations.',
+    source:Object.freeze([
+      humModSource('Structure/Lungs/LungCO2.DES','LungCO2'),
+      {type:'project',statement:'Runtime topology and numerical execution are adapted for browser execution.'},
+    ]),
+  }),
+  'hummod.hemodynamics.vascular_primitives': record({
+    id:'hummod.hemodynamics.vascular_primitives', kind:'equation',
+    class:'HUMMOD_EXACT', module:'hummod_ards_core_hemodynamics.js',
+    symbol:'VASCULAR_DEFAULTS/stressedVolumePressure/conductanceFlow',
+    description:'Source-preserved vascular V0/compliance/conductance constants and pressure/flow primitives.',
+    source:Object.freeze([humModSource('Structure/VascularCompartments','SystemicArtys/SystemicVeins/RightAtrium/PulmArty/PulmCapys/PulmVeins/LeftAtrium')]),
+  }),
+  'hummod.hemodynamics.ventricular_pump': record({
+    id:'hummod.hemodynamics.ventricular_pump', kind:'equation',
+    class:'HUMMOD_EXACT', module:'hummod_ards_core_hemodynamics.js',
+    symbol:'ventricularPump/PUMP_DEFAULTS',
+    description:'Source-preserved right/left ventricular diastolic/systolic pressure-volume and stroke-volume equations.',
+    source:Object.freeze([humModSource('Structure/RightHeartPumping and Structure/LeftHeartPumping','Diastole/Systole/Pumping')]),
+  }),
+  'live.circulation.reference_boundaries': record({
+    id:'live.circulation.reference_boundaries', kind:'boundary',
+    class:'HUMMOD_ADAPTED', module:'clinical_twin_live_hummod_session.js',
+    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation',
+    description:'Reference-case initial volumes, heart rate, conductances, and pump multipliers used to initialize the reduced circulation.',
+    source:Object.freeze([
+      humModSource('Structure/VascularCompartments','source initial volumes/conductances where available'),
+      {type:'project',statement:'Systemic venous initial volume and reduced-network boundary composition are adapted engineering boundaries.'},
+    ]),
+  }),
+  'live.gas.reference_boundaries': record({
+    id:'live.gas.reference_boundaries', kind:'boundary',
+    class:'ENGINEERING_ASSUMPTION', module:'clinical_twin_live_hummod_session.js',
+    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas',
+    description:'Reference systemic metabolic, pulmonary, blood, and environmental boundaries for the reduced gas runtime.',
+    source:Object.freeze([{type:'project',statement:'Explicit reference-case boundaries; individual HumMod-derived constants retain their own source records where applicable.'}]),
+  }),
+  'thorax.static_elastance_partition': record({
+    id:'thorax.static_elastance_partition', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_core_thorax.js',
+    symbol:'dPpl = dPaw * Ecw/Ers',
+    description:'Passive quasi-static partition of airway-pressure change into pleural and transpulmonary components.',
+    source:Object.freeze([{type:'project',statement:'Physiologically motivated reduced coupling relation; not a source-preserved HumMod thorax subsystem.'}]),
+    dependsOn:Object.freeze(['live.thorax.chest_wall_elastance_fraction','live.thorax.reference_pleural_pressure']),
+  }),
+  'circulation.reduced_topology': record({
+    id:'circulation.reduced_topology', kind:'topology',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_core_circulation.js',
+    symbol:'createHumModArdsCirculation',
+    description:'Seven-compartment closed-loop circulation using HumMod vascular/pump primitives with organ beds lumped into effective conductances.',
+    source:Object.freeze([
+      humModSource('Structure/VascularCompartments','vascular compartments'),
+      {type:'project',statement:'Detailed organ circulations are reduced/lumped for the browser runtime.'},
+    ]),
+  }),
+  'circulation.integration_substep': record({
+    id:'circulation.integration_substep', kind:'constant',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_core_circulation.js',
+    symbol:'maxSubstepSec',
+    description:'Maximum Euler integration substep used by the reduced circulation.',
+    source:Object.freeze([{type:'project',statement:'Numerical integration choice for browser stability; not a HumMod physiological constant.'}]),
+  }),
+  'circulation.mass_balance_derivatives': record({
+    id:'circulation.mass_balance_derivatives', kind:'equation',
+    class:'DERIVED', module:'hummod_ards_core_circulation.js',
+    symbol:'derivative',
+    description:'Compartment volume derivatives from inflow minus outflow.',
+    source:Object.freeze([{type:'project',statement:'Conservation-law bookkeeping over the reduced topology.'}]),
+    dependsOn:Object.freeze(['circulation.reduced_topology']),
+  }),
+  'circulation.negative_forward_flow_failure': record({
+    id:'circulation.negative_forward_flow_failure', kind:'condition',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_core_circulation.js',
+    symbol:'pump.bloodFlowMlPerMin < 0',
+    description:'Treat negative source-pump forward flow as entry into a nonphysical domain and expose zero forward flow plus mechanicalPumpFailure.',
+    source:Object.freeze([{type:'project',statement:'Safety/terminal-state adaptation; native HumMod pump algebra is preserved as raw output but does not define this clamp.'}]),
+  }),
+  'circulation.svr_derived': record({
+    id:'circulation.svr_derived', kind:'equation',
+    class:'DERIVED', module:'hummod_ards_core_circulation.js',
+    symbol:'systemicVascularResistanceMmHgMinPerL',
+    description:'Derived systemic resistance from arterial-venous pressure difference divided by systemic outflow.',
+    source:Object.freeze([{type:'project',statement:'Deterministic derived reporting quantity.'}]),
+    dependsOn:Object.freeze(['circulation.reduced_topology']),
+  }),
+  'circulation.pvr_derived': record({
+    id:'circulation.pvr_derived', kind:'equation',
+    class:'DERIVED', module:'hummod_ards_core_circulation.js',
+    symbol:'pulmonaryVascularResistanceMmHgMinPerL',
+    description:'Derived pulmonary resistance from pulmonary arterial-capillary pressure difference divided by pulmonary arterial outflow.',
+    source:Object.freeze([{type:'project',statement:'Deterministic derived reporting quantity.'}]),
+    dependsOn:Object.freeze(['circulation.reduced_topology']),
+  }),
+  'oxygen_supply.delivery_equation': record({
+    id:'oxygen_supply.delivery_equation', kind:'equation',
+    class:'DERIVED', module:'hummod_ards_oxygen_supply_cliff.js',
+    symbol:'oxygenDeliveryMlPerMin',
+    description:'Oxygen delivery as cardiac output multiplied by arterial oxygen content.',
+    source:Object.freeze([{type:'physiology',statement:'Standard oxygen-delivery identity used as a deterministic derived relation.'}]),
+  }),
+  'oxygen_supply.critical_delivery_equation': record({
+    id:'oxygen_supply.critical_delivery_equation', kind:'equation',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_oxygen_supply_cliff.js',
+    symbol:'criticalOxygenDeliveryMlPerMin',
+    description:'Critical oxygen delivery inferred from requested VO2 divided by the calibrated critical extraction ratio.',
+    source:Object.freeze([{type:'literature',citation:'Ward ME. Anesthesiology. 1996;85:817-822.',role:'critical extraction anchors; project applies them as a bounded reduced-order DO2/VO2 relation'}]),
+    dependsOn:Object.freeze(['oxygen_supply.critical_extraction_curve']),
+  }),
+  'oxygen_supply.condition.supply_dependent': record({
+    id:'oxygen_supply.condition.supply_dependent', kind:'condition',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_oxygen_supply_cliff.js',
+    symbol:'oxygenSupplyDeficitMlPerMin > numerical tolerance',
+    description:'Numerical condition flagging supply-dependent oxygen consumption.',
+    source:Object.freeze([{type:'project',statement:'Numerical classification around the reduced DO2/VO2 relation.'}]),
+    dependsOn:Object.freeze(['oxygen_supply.critical_delivery_equation']),
+  }),
+  'decompensation.low_svo2_marker': record({
+    id:'decompensation.low_svo2_marker', kind:'boundary',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
+    symbol:'LOW_SVO2_SHOCK_MARKER_FRACTION',
+    description:'Low mixed-venous O2 saturation warning marker used by the educational shock-state classifier.',
+    source:Object.freeze([{type:'literature',citation:'Critical oxygen-delivery literature summarized in module comments.',role:'engineering marker selected within a reported depleted-extraction range; not a universal clinical threshold'}]),
+  }),
+  'decompensation.organ_flow_map_marker': record({
+    id:'decompensation.organ_flow_map_marker', kind:'boundary',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_decompensation_controller.js',
+    symbol:'ORGAN_FLOW_RISK_MAP_MMHG',
+    description:'MAP marker used to enter the compensated-shock teaching state.',
+    source:Object.freeze([{type:'project',statement:'Educational state-classification marker; not a validated mortality threshold.'}]),
+  }),
+  'decompensation.oxygen_debt_integral': record({
+    id:'decompensation.oxygen_debt_integral', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_decompensation_controller.js',
+    symbol:'oxygenDebtMl += oxygenSupplyDeficitMlPerMin * dtSec / 60',
+    description:'Integral of unmet requested aerobic oxygen demand.',
+    source:Object.freeze([{type:'project',statement:'Transparent reduced-order injury state based on cumulative unmet VO2.'}]),
+  }),
+  'decompensation.debt_calibration_minutes': record({
+    id:'decompensation.debt_calibration_minutes', kind:'boundary',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
+    symbol:'COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN',
+    description:'Equivalent oxygen-debt time used to normalize severe-shock injury.',
+    source:Object.freeze([{type:'literature',citation:'Navarro e Lima et al. J Trauma Acute Care Surg. 2012.',role:'porcine hemorrhagic-collapse timing anchor; not a human survival prediction'}]),
+  }),
+  'decompensation.myocardial_floor': record({
+    id:'decompensation.myocardial_floor', kind:'boundary',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
+    symbol:'MYOCARDIAL_CONTRACTILITY_FLOOR',
+    description:'Severe-shock myocardial contractility floor from experimental elastance ratio.',
+    source:Object.freeze([{type:'literature',citation:'Kimmoun et al. Anesthesiology. 2013.',role:'experimental severe shock/lactic-acidosis elastance anchor'}]),
+  }),
+  'decompensation.condition.map30_duration': record({
+    id:'decompensation.condition.map30_duration', kind:'condition',
+    class:'LITERATURE_DIRECT', module:'hummod_ards_decompensation_controller.js',
+    symbol:'MAP < 30 mmHg for 10 min',
+    description:'Experimental cardiovascular-collapse condition.',
+    source:Object.freeze([{type:'literature',citation:'Gomez et al. collapse criterion as documented in module comments.',role:'experimental collapse definition'}]),
+  }),
+  'decompensation.asphyxial_anchor': record({
+    id:'decompensation.asphyxial_anchor', kind:'boundary',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
+    symbol:'ASPHYXIAL_COLLAPSE_ANCHOR',
+    description:'Experimental canine asphyxia timing/gas landmarks used to calibrate a reduced asphyxial-collapse clock.',
+    source:Object.freeze([{type:'literature',citation:'DeBehnke et al. Resuscitation. 1995;30:169-175.',role:'experimental timing/gas anchor; project constructs the burden interpolation'}]),
+  }),
+  'decompensation.stage_classifier': record({
+    id:'decompensation.stage_classifier', kind:'transition',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_decompensation_controller.js',
+    symbol:'classifyStage',
+    description:'Educational stable/compensated/oxygen-debt/decompensated/refractory/arrest state machine.',
+    source:Object.freeze([{type:'project',statement:'Project-authored teaching-state classifier; not a clinical shock score.'}]),
+    dependsOn:Object.freeze(['decompensation.low_svo2_marker','decompensation.organ_flow_map_marker','decompensation.debt_calibration_minutes']),
+  }),
+  'ards.phenotype.baseline': record({
+    id:'ards.phenotype.baseline', kind:'scenario',
+    class:'SCENARIO_AUTHORED', module:'presets.js',
+    symbol:'presetBaseline',
+    description:'Baseline three-compartment mechanics/perfusion/dead-space/AOP parameter set.',
+    source:Object.freeze([{type:'project',statement:'Synthetic mechanical teaching phenotype; not fitted patient data.'}]),
+  }),
+  'ards.phenotype.low_recruitability': record({
+    id:'ards.phenotype.low_recruitability', kind:'scenario',
+    class:'SCENARIO_AUTHORED', module:'presets.js',
+    symbol:'presetPhenotypeLowRecruitability',
+    description:'Low-recruitability authored mechanics/perfusion/dead-space/AOP parameter set.',
+    source:Object.freeze([{type:'project',statement:'Synthetic mechanical teaching phenotype; not fitted patient data.'}]),
+  }),
+  'ards.phenotype.moderate_recruitability': record({
+    id:'ards.phenotype.moderate_recruitability', kind:'scenario',
+    class:'SCENARIO_AUTHORED', module:'presets.js',
+    symbol:'presetPhenotypeModerateRecruitability',
+    description:'Moderate-recruitability authored mechanics/perfusion/dead-space/AOP parameter set.',
+    source:Object.freeze([{type:'project',statement:'Synthetic mechanical teaching phenotype; not fitted patient data.'}]),
+  }),
+  'ards.phenotype.high_recruitability': record({
+    id:'ards.phenotype.high_recruitability', kind:'scenario',
+    class:'SCENARIO_AUTHORED', module:'presets.js',
+    symbol:'presetPhenotypeHighRecruitability',
+    description:'High-recruitability authored mechanics/perfusion/dead-space/AOP parameter set.',
+    source:Object.freeze([{type:'project',statement:'Synthetic mechanical teaching phenotype; not fitted patient data.'}]),
+  }),
+  'vent.recruitment.defaults': record({
+    id:'vent.recruitment.defaults', kind:'boundary',
+    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
+    symbol:'OPEN_DEFAULT/CLOSE_DEFAULT/K_OPEN_DEFAULT/K_CLOSE_DEFAULT',
+    description:'Fallback opening/closing pressures and kinetic coefficients.',
+    source:Object.freeze([{type:'project',statement:'Engineering defaults used only when phenotype-specific recruitment parameters are absent.'}]),
+  }),
+  'vent.recruitment.feasibility_projection': record({
+    id:'vent.recruitment.feasibility_projection', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
+    symbol:'stepRecruitmentWithFloor',
+    description:'Projection preserving finite-capacity volume feasibility during derecruitment.',
+    source:Object.freeze([{type:'project',statement:'Numerical/physical invariant rule preventing silent destruction of trapped elastic gas volume.'}]),
+  }),
+  'autonomic.v12.sympathetic_vascular_components': record({
+    id:'autonomic.v12.sympathetic_vascular_components', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_vascular_sympathetic_source_aligned.js',
+    symbol:'organ-bed alpha-receptor sympathetic conductance components',
+    description:'Source-aligned sympathetic conductance multipliers for visceral/other, skeletal-muscle, and cardiac vascular beds. Diagnostic only; not treated as full systemic vascular conductance because local PO2, ADH, angiotensin, metabolic, viscosity, skin, kidney, and brain controls remain outside this reduced component.',
+    source:Object.freeze([
+      humModSource('Structure/GITract/GITract-Flow.DES','SympsOnConductance'),
+      humModSource('Structure/OtherTissue/OtherTissue-Flow.DES','SympsOnConductance'),
+      humModSource('Structure/SkeletalMuscle/SkeletalMuscle-Flow.DES','SympsOnConductance'),
+      humModSource('Structure/LeftHeart/LeftHeart-Flow.DES','SympsOnConductance'),
+      humModSource('Structure/RightHeart/RightHeart-Flow.DES','SympsOnConductance'),
+      {type:'project',statement:'Reduced module exposes component multipliers only and deliberately does not aggregate them into full SVR.'},
+    ]),
+    dependsOn:Object.freeze(['autonomic.v12.baroreflex_source','autonomic.v12.catecholamine_pools']),
+  }),
+  'autonomic.v12.ecfv_boundary': record({
+    id:'autonomic.v12.ecfv_boundary', kind:'boundary',
+    class:'HUMMOD_ADAPTED', module:'hummod_native_reduced_calibration.js',
+    symbol:'ECFV.Vol -> catecholamineEcfvMl',
+    description:'Explicit extracellular-fluid-volume boundary required to convert HumMod catecholamine pool mass to concentration. Native ECFV is preferred when present; the authored reference case otherwise uses HumMod\'s checked-in 15,000 mL catecholamine benchmark rather than a synthetic patient default.',
+    source:Object.freeze([
+      humModSource('Structure/H2O/ECFV.DES','ECFV.Vol'),
+      humModSource("Benchmarks/Tom's July 28 2007 Benchmarks.TXT",'resting ECFV = 15,000 mL'),
+      {type:'project',statement:'The 15,000 mL benchmark is restricted to the authored HumMod reference case; native ECFV.Vol overrides it when available.'},
+    ]),
+  }),
+  'autonomic.v12.catecholamine_pools': record({
+    id:'autonomic.v12.catecholamine_pools', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_catecholamines_source_aligned.js',
+    symbol:'NEPool/EpiPool + secretion/clearance + AlphaPool/BetaPool',
+    description:'Source-aligned acute NE/Epi pool dynamics and alpha/beta humoral effects with explicit ECFV and fixed-ECFV backward-Euler reduced stepping.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/AdrenalNerve.DES','AdrenalNerve.NA(Hz)'),
+      humModSource('Structure/Catechols/NESecretion.DES','Rate/Spillover'),
+      humModSource('Structure/Catechols/EpiSecretion.DES','Rate'),
+      humModSource('Structure/Catechols/NEPool.DES','Mass/[NE]'),
+      humModSource('Structure/Catechols/EpiPool.DES','Mass/[Epi]'),
+      humModSource('Structure/Catechols/NEClearance.DES','Rate'),
+      humModSource('Structure/Catechols/EpiClearance.DES','Rate'),
+      humModSource('Structure/Catechols/AlphaPool.DES','Effect'),
+      humModSource('Structure/Catechols/BetaPool.DES','Effect'),
+      {type:'project',statement:'Uses analytic linear backward-Euler pool update with ECFV held fixed over each coupled step; midodrine branch omitted.'},
+    ]),
+    dependsOn:Object.freeze(['autonomic.v12.ecfv_boundary','autonomic.v12.baroreflex_source']),
+  }),
+  'autonomic.v12.cns_drive_limitations': record({
+    id:'autonomic.v12.cns_drive_limitations', kind:'boundary',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'SympsCNS omitted additive/modulatory inputs',
+    description:'Reduced v1.2 SympsCNS does not yet execute HumMod Brain-Fuel or A2Pool because their required brain substrate/perfusion and renin-angiotensin state dependencies are not present. CushingResponse is zero and CNSTrophicFactor is constant one in the pinned source snapshot.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/SympsCNS.DES','NA'),
+      humModSource('Structure/Brain/Brain-Fuel.DES','FractUseDelay'),
+      humModSource('Structure/Renin/A2Pool.DES','Log10Conc'),
+      humModSource('Structure/Nerves/CushingResponse.DES','Effect'),
+      humModSource('Structure/Nerves/CNSTrophicFactor.DES','Effect'),
+      {type:'project',statement:'No PaO2/MAP/oxygen-debt proxy is substituted for Brain-Fuel or A2Pool.'},
+    ]),
+  }),
+  'autonomic.v12.low_pressure_receptors': record({
+    id:'autonomic.v12.low_pressure_receptors', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'LowPressureReceptors.NA -> SympsCNS.LowPressureEffect',
+    description:'HumMod low-pressure receptor pathway driven by mean right/left atrial transmural pressure. Source delay semantics preserve RateConst=1/(1440*Tau), Tau=30, interpreted on the minute-based HumMod timebase.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/LowPressureReceptors.DES','LowPressureReceptors.NA'),
+      humModSource('Structure/Nerves/SympsCNS.DES','LowPressureEffect/ReflexNA'),
+      humModSource('Structure/VascularCompartments/RightAtrium.DES','RightAtrium.TMP'),
+      humModSource('Structure/VascularCompartments/LeftAtrium.DES','LeftAtrium.TMP'),
+    ]),
+    dependsOn:Object.freeze(['autonomic.v12.baroreflex_source']),
+  }),
+  'autonomic.v12.baroreflex_source': record({
+    id:'autonomic.v12.baroreflex_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'Baroreflex + SympsCNS acute subset',
+    description:'HumMod baroreflex adaptation/pressure-effect and CNS baroreflex mapping with source minute-based delay semantics preserved; non-baroreflex additive CNS inputs remain neutral in the acute ventilator slice.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/Baroreflex.DES','Baroreflex'),
+      humModSource('Structure/Nerves/SympsCNS.DES','BaroEffect/NA(Hz)'),
+      {type:'project',statement:'ExerciseSymps, CushingResponse, brain fuel/function, A2Pool, and CNSTrophicFactor remain neutralized in this acute subset.'},
+    ]),
+  }),
+  'autonomic.v12.vagus_source': record({
+    id:'autonomic.v12.vagus_source', kind:'equation',
+    class:'HUMMOD_EXACT', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'VagusNerve.NA(Hz)',
+    description:'HumMod vagal firing-rate response to SympsCNS firing rate, with no vagal block or clamp applied.',
+    source:Object.freeze([humModSource('Structure/Nerves/VagusNerve.DES','VagusNerve.NA(Hz)')]),
+  }),
+  'autonomic.v12.sa_node_source': record({
+    id:'autonomic.v12.sa_node_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'SANode-Rate.Rate',
+    description:'HumMod SA-node parasympathetic and beta-receptor sympathetic chronotropy. Dynamic HumMod beta-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used.',
+    source:Object.freeze([
+      humModSource('Structure/Heart/SANode-Rate.DES','SANode-Rate.Rate'),
+      humModSource('Structure/Heart/SANode-BetaReceptors.DES','SANode-BetaReceptors.Activity'),
+    ]),
+  }),
+  'autonomic.v12.ventricular_beta_source': record({
+    id:'autonomic.v12.ventricular_beta_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'ventricularBetaActivity',
+    description:'HumMod ventricular beta-receptor agonism used as the contractility multiplier. Dynamic HumMod beta-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used.',
+    source:Object.freeze([
+      humModSource('Structure/LeftHeart/LeftHeart-BetaReceptors.DES','Activity'),
+      humModSource('Structure/RightHeart/RightHeart-BetaReceptors.DES','Activity'),
+      humModSource('Structure/LeftHeartPumping/LeftHeartPumping-Systole.DES','Contractility'),
+    ]),
+  }),
+  'autonomic.v12.venous_alpha_source': record({
+    id:'autonomic.v12.venous_alpha_source', kind:'equation',
+    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
+    symbol:'SystemicVeins.V0',
+    description:'HumMod systemic venous alpha-receptor activity and V0 alpha-effect curve. Dynamic HumMod alpha-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used; A2 effect remains neutralized.',
+    source:Object.freeze([
+      humModSource('Structure/Nerves/SystemicVeins-AlphaReceptors.DES','Activity'),
+      humModSource('Structure/VascularCompartments/SystemicVeins.DES','V0_Alpha_Effect/V0'),
+    ]),
+  }),
+  'autonomic.target_map': record({
+    id:'autonomic.target_map', kind:'boundary',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'targetMapMmHg',
+    description:'Default MAP target driving the reduced baroreflex controller.',
+    source:Object.freeze([{type:'project',statement:'Locally selected control target for the reduced browser controller; not a HumMod-preserved set point.'}]),
+  }),
+  'autonomic.autonomic_tau': record({
+    id:'autonomic.autonomic_tau', kind:'constant',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'autonomicTauSec',
+    description:'First-order lag time constant for sympathetic and parasympathetic tone.',
+    source:Object.freeze([{type:'project',statement:'Locally authored controller time constant.'}]),
+  }),
+  'autonomic.vascular_tau': record({
+    id:'autonomic.vascular_tau', kind:'constant',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'vascularTauSec',
+    description:'First-order lag time constant for vascular responses.',
+    source:Object.freeze([{type:'project',statement:'Locally authored controller time constant.'}]),
+  }),
+  'autonomic.cardiac_tau': record({
+    id:'autonomic.cardiac_tau', kind:'constant',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'cardiacTauSec',
+    description:'First-order lag time constant for chronotropic/inotropic responses.',
+    source:Object.freeze([{type:'project',statement:'Locally authored controller time constant.'}]),
+  }),
+  'autonomic.hypoxic_drive_curve': record({
+    id:'autonomic.hypoxic_drive_curve', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'hypoxicDrive = clamp((70 - PaO2) / 45, 0, 1)',
+    description:'Reduced chemoreflex hypoxemia drive.',
+    source:Object.freeze([{type:'project',statement:'Locally authored transfer function; not a source-preserved HumMod chemoreflex.'}]),
+  }),
+  'autonomic.hypercapnic_drive_curve': record({
+    id:'autonomic.hypercapnic_drive_curve', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'hypercapnicDrive = clamp((PaCO2 - 45) / 35, 0, 1)',
+    description:'Reduced chemoreflex hypercapnia drive before HCA calibration terms.',
+    source:Object.freeze([{type:'project',statement:'Locally authored transfer function; separate from the literature-calibrated HCA anchor.'}]),
+  }),
+  'autonomic.reflex_target_equation': record({
+    id:'autonomic.reflex_target_equation', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'reflexTarget',
+    description:'Weighted MAP, hypoxemia, and hypercapnia drive used as sympathetic target.',
+    source:Object.freeze([{type:'project',statement:'Locally authored control equation and weights.'}]),
+    dependsOn:Object.freeze(['autonomic.baroreflex_gain','autonomic.hypoxic_drive_curve','autonomic.hypercapnic_drive_curve']),
+  }),
+  'autonomic.parasympathetic_target_equation': record({
+    id:'autonomic.parasympathetic_target_equation', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'parasympathetic target',
+    description:'Inverse reduced relation between sympathetic and parasympathetic tone.',
+    source:Object.freeze([{type:'project',statement:'Locally authored relation and bounds.'}]),
+  }),
+  'autonomic.reflex_hr_equation': record({
+    id:'autonomic.reflex_hr_equation', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'reflexHrTarget',
+    description:'Chronotropic response to sympathetic and parasympathetic tone.',
+    source:Object.freeze([{type:'project',statement:'Locally authored chronotropic coefficients and HR bounds.'}]),
+  }),
+  'autonomic.contractility_equation': record({
+    id:'autonomic.contractility_equation', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'contractilityTarget',
+    description:'Catecholamine-driven contractility multiplier and bounds.',
+    source:Object.freeze([{type:'project',statement:'Locally authored inotropic transfer function; direct acidotic depression is separately literature-calibrated.'}]),
+  }),
+  'autonomic.systemic_conductance_equation': record({
+    id:'autonomic.systemic_conductance_equation', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'reflexArterialConductanceTarget',
+    description:'Sympathetic systemic arterial conductance response.',
+    source:Object.freeze([{type:'project',statement:'Locally authored vascular transfer function.'}]),
+  }),
+  'autonomic.venous_v0_equation': record({
+    id:'autonomic.venous_v0_equation', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'venousV0Target',
+    description:'Sympathetic reduction in effective systemic venous unstressed volume.',
+    source:Object.freeze([{type:'project',statement:'Locally authored venoconstriction rule and 14% coefficient.'}]),
+  }),
+  'autonomic.pulmonary_load_equation': record({
+    id:'autonomic.pulmonary_load_equation', kind:'equation',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'pulmonaryLoad',
+    description:'Pulmonary vascular load from positive thoracic pressure and hypoxemia.',
+    source:Object.freeze([{type:'project',statement:'Locally authored pressure/hypoxemia transfer function; HCA multiplier is separately literature-calibrated.'}]),
+  }),
+  'autonomic.respiratory_acidosis_inotropy': record({
+    id:'autonomic.respiratory_acidosis_inotropy', kind:'interpolation',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_autonomic_controller.js',
+    symbol:'respiratoryAcidosisContractilityMultiplier',
+    description:'Bounded interpolation of direct myocardial depression from respiratory acidosis.',
+    source:Object.freeze([{type:'literature',citation:'Biais et al. Anesthesiology. 2012;117:1212-1222.',role:'isolated myocardial-force challenge anchor; interpolation and bounds are project-authored'}]),
+  }),
+  'autonomic.baroreflex_gain': record({
+    id:'autonomic.baroreflex_gain', kind:'constant',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
+    symbol:'baroreflexGain',
+    description:'Gain converting MAP error into reduced sympathetic-drive target.',
+    source:Object.freeze([{type:'project',statement:'Locally authored control gain; controller is inspired by HumMod architecture but not a HumMod subsystem.'}]),
+  }),
+  'autonomic.hypercapnic_acidosis_anchor': record({
+    id:'autonomic.hypercapnic_acidosis_anchor', kind:'boundary',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_autonomic_controller.js',
+    symbol:'HYPERCAPNIC_ACIDOSIS_ANCHOR',
+    description:'Experimental HCA anchor used to calibrate HR/SVR/PVR response.',
+    source:Object.freeze([{type:'literature',citation:'Stengl et al. Critical Care. 2013;17:R303.',role:'experimental challenge anchor; project interpolation is not asserted as a universal human response'}]),
+  }),
+  'oxygen_supply.critical_extraction_curve': record({
+    id:'oxygen_supply.critical_extraction_curve', kind:'interpolation',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_oxygen_supply_cliff.js',
+    symbol:'criticalExtractionRatioForPaco2',
+    description:'Bounded interpolation of critical oxygen-extraction ratio across published hypercapnia anchors.',
+    source:Object.freeze([{type:'literature',citation:'Ward ME. Anesthesiology. 1996;85:817-822.',role:'experimental oxygen-transport anchors; interpolation is project-authored'}]),
+  }),
+  'decompensation.condition.profound_map_arrest': record({
+    id:'decompensation.condition.profound_map_arrest', kind:'condition',
+    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
+    symbol:'meanArterialPressureMmHg < PROFOUND_COLLAPSE_MAP_MMHG for PROFOUND_COLLAPSE_MAP_SEC',
+    description:'Experimental profound-hypotension terminal condition used by the educational decompensation controller.',
+    source:Object.freeze([{type:'literature',citation:'Gomez et al. collapse criterion as documented in module comments.',role:'experimental collapse anchor; not a patient-specific mortality rule'}]),
+  }),
+  'decompensation.transition.pea': record({
+    id:'decompensation.transition.pea', kind:'transition',
+    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_decompensation_controller.js',
+    symbol:'cardiacArrest -> PEA',
+    description:'Terminal transition used by reduced browser decompensation model.',
+    source:Object.freeze([{type:'project',statement:'Educational/research terminal-state mapping; not a full HumMod rhythm model or validated human mortality prediction.'}]),
+  }),
+});
+
+function validateProvenanceRecord(x) {
+  if (!x || typeof x !== 'object') throw new Error('provenance record must be an object');
+  for (const k of ['id','kind','class','module','symbol','description','source']) {
+    if (x[k] == null || x[k] === '') throw new Error('provenance record missing ' + k);
+  }
+  if (!PROVENANCE_CLASSES.includes(x.class)) throw new Error('invalid provenance class: ' + x.class);
+  if (!PROVENANCE_KINDS.includes(x.kind)) throw new Error('invalid provenance kind: ' + x.kind);
+  if (!Array.isArray(x.source) || x.source.length === 0) throw new Error('provenance source must be non-empty');
+  if (!Array.isArray(x.dependsOn)) throw new Error('dependsOn must be an array');
+  return true;
+}
+
+function validateProvenanceRegistry(registry = MODEL_PROVENANCE) {
+  for (const [id, x] of Object.entries(registry)) {
+    validateProvenanceRecord(x);
+    if (x.id !== id) throw new Error('provenance key/id mismatch: ' + id);
+    for (const dep of x.dependsOn) {
+      if (!registry[dep]) throw new Error(id + ' depends on unknown provenance id ' + dep);
+    }
+  }
+  return true;
+}
+
+const LIVE_CLINICAL_PROVENANCE_IDS = Object.freeze([
+  'live.thorax.reference_pleural_pressure',
+  'live.thorax.chest_wall_elastance_fraction',
+  'live.metabolism.tissue_o2_use',
+  'hummod.breathing.dead_space_equation',
+  'hummod.bronchi.water_vapor_pressure',
+  'hummod.hemoglobin.p50_model',
+  'hummod.acid_base.ph_sid_pco2',
+  'hummod.pulmonary_membrane.interpolation',
+  'vent.mechanics.elastic_pressure_law',
+  'vent.recruitment.open_close_kinetics',
+  'vent.recruitment.condition.open',
+  'vent.recruitment.condition.close',
+  'hummod.gas_exchange.oxygen_runtime',
+  'hummod.gas_exchange.co2_runtime',
+  'hummod.hemodynamics.vascular_primitives',
+  'hummod.hemodynamics.ventricular_pump',
+  'live.circulation.reference_boundaries',
+  'live.gas.reference_boundaries',
+  'thorax.static_elastance_partition',
+  'circulation.reduced_topology',
+  'circulation.integration_substep',
+  'circulation.mass_balance_derivatives',
+  'circulation.negative_forward_flow_failure',
+  'circulation.svr_derived',
+  'circulation.pvr_derived',
+  'oxygen_supply.delivery_equation',
+  'oxygen_supply.critical_delivery_equation',
+  'oxygen_supply.condition.supply_dependent',
+  'decompensation.low_svo2_marker',
+  'decompensation.organ_flow_map_marker',
+  'decompensation.oxygen_debt_integral',
+  'decompensation.debt_calibration_minutes',
+  'decompensation.myocardial_floor',
+  'decompensation.condition.map30_duration',
+  'decompensation.asphyxial_anchor',
+  'decompensation.stage_classifier',
+  'ards.phenotype.baseline',
+  'ards.phenotype.low_recruitability',
+  'ards.phenotype.moderate_recruitability',
+  'ards.phenotype.high_recruitability',
+  'vent.recruitment.defaults',
+  'vent.recruitment.feasibility_projection',
+  'autonomic.v12.sympathetic_vascular_components',
+  'autonomic.v12.ecfv_boundary',
+  'autonomic.v12.catecholamine_pools',
+  'autonomic.v12.cns_drive_limitations',
+  'autonomic.v12.low_pressure_receptors',
+  'autonomic.v12.baroreflex_source',
+  'autonomic.v12.vagus_source',
+  'autonomic.v12.sa_node_source',
+  'autonomic.v12.ventricular_beta_source',
+  'autonomic.v12.venous_alpha_source',
+  'autonomic.target_map',
+  'autonomic.autonomic_tau',
+  'autonomic.vascular_tau',
+  'autonomic.cardiac_tau',
+  'autonomic.hypoxic_drive_curve',
+  'autonomic.hypercapnic_drive_curve',
+  'autonomic.reflex_target_equation',
+  'autonomic.parasympathetic_target_equation',
+  'autonomic.reflex_hr_equation',
+  'autonomic.contractility_equation',
+  'autonomic.systemic_conductance_equation',
+  'autonomic.venous_v0_equation',
+  'autonomic.pulmonary_load_equation',
+  'autonomic.respiratory_acidosis_inotropy',
+  'autonomic.baroreflex_gain',
+  'autonomic.hypercapnic_acidosis_anchor',
+  'oxygen_supply.critical_extraction_curve',
+  'decompensation.condition.profound_map_arrest',
+  'decompensation.transition.pea',
+]);
+
+function provenanceSummary(ids = LIVE_CLINICAL_PROVENANCE_IDS) {
+  const records = ids.map(id => {
+    if (!MODEL_PROVENANCE[id]) throw new Error('unknown provenance id: ' + id);
+    return MODEL_PROVENANCE[id];
+  });
+  const byClass = {};
+  for (const x of records) byClass[x.class] = (byClass[x.class] || 0) + 1;
+  return Object.freeze({
+    schema: PROVENANCE_SCHEMA,
+    ids: Object.freeze(ids.slice()),
+    countsByClass: Object.freeze(byClass),
+    hasUnknown: records.some(x => x.class === 'UNKNOWN'),
+    migrationCoverage: 'v1.1-rc-live-path-audited',
+  });
+}
+
+validateProvenanceRegistry();
+
+module.exports = {
+  PROVENANCE_SCHEMA,
+  PROVENANCE_CLASSES,
+  PROVENANCE_KINDS,
+  MODEL_PROVENANCE,
+  LIVE_CLINICAL_PROVENANCE_IDS,
+  validateProvenanceRecord,
+  validateProvenanceRegistry,
+  provenanceSummary,
+};
+},
+"src/hummod_source_identity.js":function(module,exports,require){
+'use strict';
+
+// Canonical HumMod source identity.
+//
+// Scientific authority:
+//   HumMod/hummod-standalone
+//
+// Reproducibility mirror:
+//   riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+//
+// The canonical repository is currently not resolvable through GitHub API
+// access in this environment. Until an official commit SHA is independently
+// resolved, do not claim that the mirror SHA is an official upstream SHA.
+
+const HUMMOD_CANONICAL_REPOSITORY = 'HumMod/hummod-standalone';
+const HUMMOD_CANONICAL_REVISION = null;
+
+const HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY =
+  'riliescu/hummod-standalone';
+const HUMMOD_REPRODUCIBILITY_MIRROR_REVISION =
+  '8dab57e05631f779bf5020fe0dd51874d8ae98c1';
+
+const HUMMOD_SOURCE_IDENTITY = Object.freeze({
+  canonicalRepository: HUMMOD_CANONICAL_REPOSITORY,
+  canonicalRevision: HUMMOD_CANONICAL_REVISION,
+  canonicalStatus: 'official-upstream-identity-confirmed-revision-unresolved',
+  reproducibilityMirrorRepository:
+    HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  reproducibilityMirrorRevision:
+    HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+  reproducibilityStatus:
+    'public-mirror-snapshot-used-for-byte-addressable-source-references',
+  rule:
+    'Scientific provenance names the official upstream. Exact file/line reproduction may use the pinned mirror until the official revision is independently resolved.',
+});
+
+function humModSource(path, symbol) {
+  return Object.freeze({
+    type: 'HumMod',
+    repository: HUMMOD_CANONICAL_REPOSITORY,
+    revision: HUMMOD_CANONICAL_REVISION,
+    path,
+    symbol,
+    mirrorRepository: HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+    mirrorRevision: HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+    canonicalStatus: HUMMOD_SOURCE_IDENTITY.canonicalStatus,
+  });
+}
+
+module.exports = {
+  HUMMOD_CANONICAL_REPOSITORY,
+  HUMMOD_CANONICAL_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+  HUMMOD_SOURCE_IDENTITY,
+  humModSource,
+};
+
+},
+"src/hummod_runtime_provider_contract.js":function(module,exports,require){
+'use strict';
+
+const HUMMOD_RUNTIME_PROVIDER_SCHEMA='vent-hummod-runtime-provider/v2';
+const HUMMOD_RUNTIME_STEP_SCHEMA='vent-hummod-runtime-step/v2';
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){finite(v,label);if(v<0)throw new Error(label+' must be >= 0');return v;}
+function requiredString(v,label){if(typeof v!=='string'||!v.length)throw new Error(label+' is required');return v;}
+
+function validateHumModRuntimeProvider(provider){
+  if(!provider||typeof provider!=='object') throw new Error('HumMod runtime provider must be an object');
+  ['createSession','stepSession','getSession','saveSession','restoreSession'].forEach(method=>{
+    if(typeof provider[method]!=='function') throw new Error('HumMod runtime provider must implement '+method+'()');
+  });
+  return true;
+}
+
+function makeHumModRuntimeStepRequest({sessionId,expectedModelTimeSec,dtSec,coupling,interventions=[]}={}){
+  requiredString(sessionId,'sessionId');
+  nonNegative(expectedModelTimeSec,'expectedModelTimeSec');
+  if(!(dtSec>0)) throw new Error('dtSec must be > 0');
+  if(!coupling||typeof coupling!=='object') throw new Error('coupling is required');
+  if(!Array.isArray(interventions)) throw new Error('interventions must be an array');
+  return Object.freeze({
+    schema:HUMMOD_RUNTIME_STEP_SCHEMA,
+    sessionId,
+    expectedModelTimeSec,
+    dtSec,
+    coupling:Object.freeze({...coupling}),
+    interventions:Object.freeze(interventions.slice()),
+  });
+}
+
+function makeHumModRuntimeDescriptor({
+  sessionId,sourceRepository,sourceRevision,runtimeVersion,modelTimeSec=0,implementation,capabilities={}
+}={}){
+  return Object.freeze({
+    schema:HUMMOD_RUNTIME_PROVIDER_SCHEMA,
+    sessionId:requiredString(sessionId,'sessionId'),
+    sourceRepository:requiredString(sourceRepository,'sourceRepository'),
+    sourceRevision:requiredString(sourceRevision,'sourceRevision'),
+    runtimeVersion:requiredString(runtimeVersion,'runtimeVersion'),
+    implementation:requiredString(implementation,'implementation'),
+    modelTimeSec:nonNegative(modelTimeSec,'modelTimeSec'),
+    capabilities:Object.freeze({
+      deterministicStep:Boolean(capabilities.deterministicStep),
+      saveRestore:Boolean(capabilities.saveRestore),
+      externalBoundaries:Boolean(capabilities.externalBoundaries),
+      unitMetadata:Boolean(capabilities.unitMetadata),
+      provenanceMetadata:Boolean(capabilities.provenanceMetadata),
+    }),
+  });
+}
+
+module.exports={
+  HUMMOD_RUNTIME_PROVIDER_SCHEMA,
+  HUMMOD_RUNTIME_STEP_SCHEMA,
+  validateHumModRuntimeProvider,
+  makeHumModRuntimeStepRequest,
+  makeHumModRuntimeDescriptor,
+};
+
+},
+"src/hummod_des_inventory.js":function(module,exports,require){
+'use strict';
+
+// Phase-0 HumMod DES source inventory.
+// This is intentionally NOT a solver. It inventories language constructs and
+// source metadata so unsupported semantics are explicit before execution work.
+
+const {
+  HUMMOD_CANONICAL_REPOSITORY,
+  HUMMOD_CANONICAL_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+} = require("src/hummod_source_identity.js");
+
+const HUMMOD_PINNED_REPOSITORY = HUMMOD_CANONICAL_REPOSITORY;
+const HUMMOD_PINNED_REVISION = HUMMOD_CANONICAL_REVISION;
+
+const KNOWN_TAGS = Object.freeze(new Set([
+  'model','title','basic','navigator','math','context','parms','dervs','wrapup',
+  'structure','name','variables','constant','parm','var','functions','curve',
+  'point','x','y','slope','definitions','block','testcase','case','test','def',
+  'val','conditional','true','false','copy','from','to','call'
+]));
+
+function uniqueSorted(values){
+  return Object.freeze(Array.from(new Set(values)).sort());
+}
+
+function inventoryHumModDesSource({
+  path,
+  content,
+  repository=HUMMOD_PINNED_REPOSITORY,
+  revision=HUMMOD_PINNED_REVISION,
+  mirrorRepository=HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  mirrorRevision=HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+}={}){
+  if(typeof path!=='string'||!path.length) throw new Error('path is required');
+  if(typeof content!=='string') throw new Error('content must be a string');
+  if(typeof repository!=='string'||!repository.length) throw new Error('repository is required');
+  if(revision!=null && (typeof revision!=='string'||!revision.length)) throw new Error('revision must be null or non-empty string');
+  if(typeof mirrorRepository!=='string'||!mirrorRepository.length) throw new Error('mirrorRepository is required');
+  if(typeof mirrorRevision!=='string'||!mirrorRevision.length) throw new Error('mirrorRevision is required');
+
+  const createTokens=[];
+  const includes=[];
+  const directives=[];
+  for(const m of content.matchAll(/<\?\s*(create|include)\s+([^?]+?)\s*\?>/gi)){
+    const kind=m[1].toLowerCase();
+    const value=m[2].trim();
+    directives.push(Object.freeze({kind,value}));
+    if(kind==='create') createTokens.push(value);
+    if(kind==='include') includes.push(value.replace(/\\/g,'/'));
+  }
+
+  const tags=[];
+  for(const m of content.matchAll(/<\/?\s*([A-Za-z][A-Za-z0-9_-]*)\b[^>]*>/g)){
+    tags.push(m[1].toLowerCase());
+  }
+  const tagSet=uniqueSorted(tags);
+  const unsupportedTags=Object.freeze(tagSet.filter(t=>!KNOWN_TAGS.has(t)));
+
+  const structureMatch=content.match(/<structure>\s*<name>\s*([^<]+?)\s*<\/name>/i);
+  const modelPresent=/<model\b/i.test(content);
+
+  const variables=[];
+  for(const type of ['constant','parm','var']){
+    const re=new RegExp('<'+type+'>\\s*<name>\\s*([^<]+?)\\s*<\\/name>(?:\\s*<val>\\s*([\\s\\S]*?)\\s*<\\/val>)?\\s*<\\/'+type+'>','gi');
+    for(const m of content.matchAll(re)){
+      variables.push(Object.freeze({
+        type,
+        name:m[1].trim(),
+        initialExpression:m[2]==null?null:m[2].replace(/\s+/g,' ').trim(),
+      }));
+    }
+  }
+
+  const curves=[];
+  for(const m of content.matchAll(/<curve>\s*<name>\s*([^<]+?)\s*<\/name>([\s\S]*?)<\/curve>/gi)){
+    const points=[];
+    for(const p of m[2].matchAll(/<point>\s*<x>\s*([^<]+?)\s*<\/x>\s*<y>\s*([^<]+?)\s*<\/y>\s*<slope>\s*([^<]+?)\s*<\/slope>\s*<\/point>/gi)){
+      points.push(Object.freeze({x:p[1].trim(),y:p[2].trim(),slope:p[3].trim()}));
+    }
+    curves.push(Object.freeze({name:m[1].trim(),points:Object.freeze(points)}));
+  }
+
+  const blocks=[];
+  for(const m of content.matchAll(/<block>\s*<name>\s*([^<]+?)\s*<\/name>/gi)){
+    blocks.push(m[1].trim());
+  }
+
+  const constructCounts=Object.freeze(Object.fromEntries(tagSet.map(tag=>[
+    tag,
+    tags.filter(x=>x===tag).length,
+  ])));
+
+  return Object.freeze({
+    schema:'hummod-des-source-inventory/v1',
+    source:Object.freeze({
+      repository,
+      revision,
+      path,
+      mirrorRepository,
+      mirrorRevision,
+      canonicalRevisionResolved: revision != null,
+    }),
+    modelPresent,
+    structureName:structureMatch?structureMatch[1].trim():null,
+    directives:Object.freeze(directives),
+    includes:Object.freeze(includes),
+    createTokens:Object.freeze(createTokens),
+    tags:tagSet,
+    unsupportedTags,
+    constructCounts,
+    variables:Object.freeze(variables),
+    curves:Object.freeze(curves),
+    blocks:Object.freeze(blocks),
+    solverReady:false,
+    limitations:Object.freeze([
+      'inventory-only-no-expression-evaluation',
+      'inventory-only-no-block-execution',
+      'inventory-only-no-curve-interpolation',
+      'inventory-only-no-state-integration',
+    ]),
+  });
+}
+
+function assertInventorySupported(inventory){
+  if(!inventory||inventory.schema!=='hummod-des-source-inventory/v1'){
+    throw new Error('invalid HumMod DES inventory');
+  }
+  if(inventory.unsupportedTags.length){
+    throw new Error('unsupported DES tags: '+inventory.unsupportedTags.join(', '));
+  }
+  return true;
+}
+
+module.exports={
+  HUMMOD_PINNED_REPOSITORY,
+  HUMMOD_PINNED_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+  KNOWN_TAGS,
+  inventoryHumModDesSource,
+  assertInventorySupported,
+};
+
+},
+"src/live_provenance_bindings.js":function(module,exports,require){
+'use strict';
+
+// Parallel provenance bindings for live clinical runtime values.
+// Values remain plain numbers/booleans for solver performance; this map
+// provides stable provenance IDs without wrapping numeric state.
+
+const LIVE_VALUE_PROVENANCE = Object.freeze({
+  engineeringBoundaries: Object.freeze({
+    thorax: Object.freeze({
+      referencePleuralPressureCmH2O: 'live.thorax.reference_pleural_pressure',
+      chestWallElastanceFraction: 'live.thorax.chest_wall_elastance_fraction',
+    }),
+    gas: Object.freeze({
+      systemic: Object.freeze({
+        tissueO2UseMlPerMin: 'live.metabolism.tissue_o2_use',
+      }),
+    }),
+  }),
+  autonomic: Object.freeze({
+    targetMapMmHg: 'autonomic.target_map',
+    baroreflexGain: 'autonomic.baroreflex_gain',
+    autonomicTauSec: 'autonomic.autonomic_tau',
+    vascularTauSec: 'autonomic.vascular_tau',
+    cardiacTauSec: 'autonomic.cardiac_tau',
+    hypoxicDrive: 'autonomic.hypoxic_drive_curve',
+    hypercapnicDrive: 'autonomic.hypercapnic_drive_curve',
+    reflexTarget: 'autonomic.reflex_target_equation',
+    parasympatheticTarget: 'autonomic.parasympathetic_target_equation',
+    reflexHrTarget: 'autonomic.reflex_hr_equation',
+    contractilityTarget: 'autonomic.contractility_equation',
+    systemicArterialConductanceTarget: 'autonomic.systemic_conductance_equation',
+    systemicVenousV0Target: 'autonomic.venous_v0_equation',
+    pulmonaryLoad: 'autonomic.pulmonary_load_equation',
+    respiratoryAcidosisContractility: 'autonomic.respiratory_acidosis_inotropy',
+    hypercapnicAcidosisAnchor: 'autonomic.hypercapnic_acidosis_anchor',
+  }),
+  runtime: Object.freeze({
+    deadSpaceBtpsMl: 'hummod.breathing.dead_space_equation',
+    bronchialWaterVaporPressureMmHg: 'hummod.bronchi.water_vapor_pressure',
+    arterialPh: 'hummod.acid_base.ph_sid_pco2',
+    hemoglobinP50MmHg: 'hummod.hemoglobin.p50_model',
+  }),
+});
+
+const LIVE_CONDITION_PROVENANCE = Object.freeze({
+  recruitmentOpening: 'vent.recruitment.condition.open',
+  recruitmentClosing: 'vent.recruitment.condition.close',
+  profoundMapArrest: 'decompensation.condition.profound_map_arrest',
+  peaTransition: 'decompensation.transition.pea',
+});
+
+function flattenBindings(value, prefix = '', out = []) {
+  for (const [key, child] of Object.entries(value)) {
+    const path = prefix ? prefix + '.' + key : key;
+    if (typeof child === 'string') out.push(Object.freeze({ path, provenanceId: child }));
+    else flattenBindings(child, path, out);
+  }
+  return out;
+}
+
+function liveProvenanceBindings() {
+  return Object.freeze({
+    values: Object.freeze(flattenBindings(LIVE_VALUE_PROVENANCE)),
+    conditions: Object.freeze(flattenBindings(LIVE_CONDITION_PROVENANCE)),
+  });
+}
+
+module.exports = {
+  LIVE_VALUE_PROVENANCE,
+  LIVE_CONDITION_PROVENANCE,
+  liveProvenanceBindings,
 };
 
 },
@@ -3094,6 +4330,13 @@ function derivePassiveRespiratoryMechanics({
   return Object.freeze(result);
 }
 
+function latestBreathMetrics(simulation) {
+  if (!simulation || typeof simulation.metrics !== 'function') return null;
+  const metrics = simulation.metrics();
+  if (!Array.isArray(metrics) || metrics.length === 0) return null;
+  return metrics[metrics.length - 1] || null;
+}
+
 function latestMeasurement(measurements, kind) {
   if (!Array.isArray(measurements)) return null;
   for (let i = measurements.length - 1; i >= 0; i--) {
@@ -3109,6 +4352,7 @@ function summarizeSimulationMeasurements(simulation) {
 
   const inspiratory = latestMeasurement(simulation.measurements, 'INSPIRATORY_HOLD');
   const expiratory = latestMeasurement(simulation.measurements, 'EXPIRATORY_HOLD');
+  const latestBreath = latestBreathMetrics(simulation);
   const aop = simulation.params
     ? finiteOrNull(simulation.params.airwayOpeningPressure)
     : null;
@@ -3122,6 +4366,9 @@ function summarizeSimulationMeasurements(simulation) {
 
   return Object.freeze({
     ...derived,
+    peakPressureCmH2O: latestBreath ? finiteOrNull(latestBreath.Ppeak) : null,
+    breathPeepCmH2O: latestBreath ? finiteOrNull(latestBreath.PEEP) : null,
+    latestBreath,
     inspiratoryHold: inspiratory,
     expiratoryHold: expiratory,
   });
@@ -4168,6 +5415,13 @@ module.exports = {
 "src/hummod_standalone_manifest.js":function(module,exports,require){
 'use strict';
 
+const {
+  HUMMOD_CANONICAL_REPOSITORY,
+  HUMMOD_CANONICAL_REVISION,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
+} = require("src/hummod_source_identity.js");
+
 // hummod_standalone_manifest.js
 //
 // Source-of-truth manifest for HumMod standalone symbols that have been
@@ -4179,9 +5433,13 @@ module.exports = {
 // Verify the defining .DES file in the pinned revision first.
 
 const HUMMOD_STANDALONE_UPSTREAM = Object.freeze({
-  repository: 'riliescu/hummod-standalone',
-  revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+  repository: HUMMOD_CANONICAL_REPOSITORY,
+  revision: HUMMOD_CANONICAL_REVISION,
+  mirrorRepository: HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
+  mirrorRevision: HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
   schemaFamily: 'DES V1.0 / HumMod standalone',
+  authorityPolicy:
+    'official HumMod repository is canonical; pinned public mirror is retained only for exact reproducibility while official revision is unresolved',
 });
 
 const HUMMOD_STANDALONE_SYMBOLS = Object.freeze({
@@ -4347,6 +5605,7 @@ function nonEmptyString(value, label) {
  */
 function createHumModStandaloneExportMapper({
   hummodRevision,
+  hummodMirrorRevision,
   exporterVersion,
   timestampPath,
   exportPaths,
@@ -4356,7 +5615,11 @@ function createHumModStandaloneExportMapper({
 } = {}) {
   if (hummodRevision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
     throw new Error(
-      `HumMod revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.revision}, got ${hummodRevision || 'missing'}`);
+      `HumMod canonical revision mismatch: expected ${String(HUMMOD_STANDALONE_UPSTREAM.revision)}, got ${String(hummodRevision)}`);
+  }
+  if (hummodMirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error(
+      `HumMod mirror revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.mirrorRevision}, got ${String(hummodMirrorRevision)}`);
   }
   nonEmptyString(exporterVersion, 'exporterVersion');
   nonEmptyString(timestampPath, 'timestampPath');
@@ -4388,7 +5651,10 @@ function createHumModStandaloneExportMapper({
   });
 
   return createHumModSnapshotMapper({
-    modelVersion: `${HUMMOD_STANDALONE_UPSTREAM.repository}@${hummodRevision}; exporter=${exporterVersion}`,
+    modelVersion:
+      `${HUMMOD_STANDALONE_UPSTREAM.repository}@${String(hummodRevision)}` +
+      `; mirror=${HUMMOD_STANDALONE_UPSTREAM.mirrorRepository}@${hummodMirrorRevision}` +
+      `; exporter=${exporterVersion}`,
     fields,
     requiredTargets,
     subjectId,
@@ -4462,7 +5728,13 @@ function validateHumModTrajectoryExport(exportObject) {
   }
   if (source.revision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
     throw new Error(
-      `HumMod revision mismatch: expected ${HUMMOD_STANDALONE_UPSTREAM.revision}, got ${source.revision || 'missing'}`);
+      `HumMod canonical revision mismatch: expected ${String(HUMMOD_STANDALONE_UPSTREAM.revision)}, got ${String(source.revision)}`);
+  }
+  if (source.mirrorRepository !== HUMMOD_STANDALONE_UPSTREAM.mirrorRepository) {
+    throw new Error('HumMod mirror repository mismatch');
+  }
+  if (source.mirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error('HumMod mirror revision mismatch');
   }
   nonEmptyString(source.exporterVersion, 'source.exporterVersion');
   nonEmptyString(exportObject.trajectoryId, 'trajectoryId');
@@ -4550,6 +5822,7 @@ function normalizeHumModTrajectoryExport(exportObject, { subjectId = null, runId
   const exportPaths = makeCanonicalExportPaths(exportObject.symbols);
   const mapper = createHumModStandaloneExportMapper({
     hummodRevision: exportObject.source.revision,
+    hummodMirrorRevision: exportObject.source.mirrorRevision,
     exporterVersion: exportObject.source.exporterVersion,
     timestampPath: 'timestampSec',
     exportPaths,
@@ -4758,7 +6031,13 @@ function validateHumModRawSeries(raw) {
     throw new Error('unexpected HumMod repository: ' + String(source.repository || 'missing'));
   }
   if (source.revision !== HUMMOD_STANDALONE_UPSTREAM.revision) {
-    throw new Error('HumMod revision mismatch');
+    throw new Error('HumMod canonical revision mismatch');
+  }
+  if (source.mirrorRepository !== HUMMOD_STANDALONE_UPSTREAM.mirrorRepository) {
+    throw new Error('HumMod mirror repository mismatch');
+  }
+  if (source.mirrorRevision !== HUMMOD_STANDALONE_UPSTREAM.mirrorRevision) {
+    throw new Error('HumMod mirror revision mismatch');
   }
   nonEmptyString(source.exporterVersion, 'source.exporterVersion');
   nonEmptyString(raw.trajectoryId, 'trajectoryId');
@@ -4821,6 +6100,8 @@ function convertHumModRawSeries(raw) {
     source: {
       repository: raw.source.repository,
       revision: raw.source.revision,
+      mirrorRepository: raw.source.mirrorRepository,
+      mirrorRevision: raw.source.mirrorRevision,
       exporterVersion: raw.source.exporterVersion,
     },
     symbols: raw.symbols.slice(),
@@ -4867,8 +6148,8 @@ module.exports = {
 "src/hummod_native_solution.js":function(module,exports,require){
 'use strict';
 
-// Strict parser for native HumMod .SOLN files produced by the pinned
-// riliescu/hummod-standalone runtime. This parser intentionally extracts only
+// Strict parser for native HumMod .SOLN files produced from the pinned
+// reproducibility mirror of the official HumMod standalone model. This parser intentionally extracts only
 // the verified direct-export symbols already approved by the Vent mapping layer.
 
 const {
@@ -4877,6 +6158,7 @@ const {
 } = require("src/hummod_standalone_manifest.js");
 const { HUMMOD_SOURCE_CLOCK } = require("src/hummod_runner_contract.js");
 const { HUMMOD_NATIVE_MUTABLE_PARAMETERS } = require("src/hummod_native_scenario.js");
+const { listV13AutonomicNativeSymbols } = require("src/hummod_v13_autonomic_native_symbols.js");
 const {
   HUMMOD_RAW_SERIES_SCHEMA,
   validateHumModRawSeries,
@@ -4898,6 +6180,7 @@ const HUMMOD_NATIVE_REDUCED_STATE_SYMBOLS = Object.freeze([
 ]);
 
 const HUMMOD_NATIVE_REDUCED_BOUNDARY_SYMBOLS = Object.freeze([
+  'ECFV.Vol',
   'PulmonaryMembrane.Permeability',
   'LungBloodFlow.AlveolarVentilated',
   'O2Total.Outflow',
@@ -5067,12 +6350,28 @@ function parseHumModNativeSolution(text, {
     });
   }
 
+  const autonomicDiagnostics = {};
+  for (const symbol of listV13AutonomicNativeSymbols()) {
+    const values = variables.get(symbol);
+    if (values && values.length === expectedSamples) {
+      autonomicDiagnostics[symbol] = Object.freeze({
+        first: values[0],
+        final: values[values.length - 1],
+        min: Math.min(...values),
+        max: Math.max(...values),
+        values: Object.freeze(values.slice()),
+      });
+    }
+  }
+
   const raw = {
     schema: HUMMOD_RAW_SERIES_SCHEMA,
     trajectoryId,
     source: {
       repository: HUMMOD_STANDALONE_UPSTREAM.repository,
       revision: HUMMOD_STANDALONE_UPSTREAM.revision,
+      mirrorRepository: HUMMOD_STANDALONE_UPSTREAM.mirrorRepository,
+      mirrorRevision: HUMMOD_STANDALONE_UPSTREAM.mirrorRevision,
       exporterVersion,
     },
     clock: {
@@ -5089,6 +6388,7 @@ function parseHumModNativeSolution(text, {
       reducedState: Object.freeze({ ...reducedState }),
       reducedBoundary: Object.freeze({ ...reducedBoundary }),
       diagnostics: Object.freeze({ ...nativeDiagnostics }),
+      autonomicDiagnostics: Object.freeze({ ...autonomicDiagnostics }),
       scenarioApplied: Boolean(scenario),
       scenario: scenario ? Object.freeze({
         id: scenario.id || null,
@@ -5177,6 +6477,105 @@ module.exports={
   HUMMOD_NATIVE_SCENARIO_SCHEMA,
   HUMMOD_NATIVE_MUTABLE_PARAMETERS,
   validateNativeHumModScenario,
+};
+
+},
+"src/hummod_v13_autonomic_native_symbols.js":function(module,exports,require){
+'use strict';
+
+// v1.3 native HumMod autonomic trace roster.
+// Each symbol below has been verified against the pinned HumMod standalone
+// source snapshot. These are diagnostic outputs only; they do not change
+// reduced-model physiology.
+
+const HUMMOD_V13_AUTONOMIC_NATIVE_SYMBOLS = Object.freeze([
+  Object.freeze({ symbol:'Brain-Fuel.FractUseDelay', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'SympsCNS FuelEffect input' }),
+  Object.freeze({ symbol:'Brain-Fuel.FractUse', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'Brain-Fuel delayed input' }),
+  Object.freeze({ symbol:'Brain-Fuel.MinimumFractionalDelivery', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'minimum brain substrate delivery fraction' }),
+  Object.freeze({ symbol:'Brain-Fuel.KAFractionalDelivery', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'brain ketoacid delivery fraction' }),
+  Object.freeze({ symbol:'Brain-Fuel.AerobicGlucoseFractionalDelivery', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'brain aerobic glucose delivery fraction' }),
+  Object.freeze({ symbol:'Brain-Fuel.AnaerobicGlucoseFractionalDelivery', sourceFile:'Structure/Brain/Brain-Fuel.DES', role:'brain anaerobic glucose delivery fraction' }),
+  Object.freeze({ symbol:'Brain-Flow.BloodFlow', sourceFile:'Structure/Brain/Brain-Flow.DES', role:'brain blood flow' }),
+  Object.freeze({ symbol:'Brain-Flow.PlasmaFlow', sourceFile:'Structure/Brain/Brain-Flow.DES', role:'brain plasma flow' }),
+  Object.freeze({ symbol:'Brain-Flow.PO2', sourceFile:'Structure/Brain/Brain-Flow.DES', role:'brain tissue PO2' }),
+  Object.freeze({ symbol:'Brain-Metabolism.O2Need', sourceFile:'Structure/Brain/Brain-Metabolism.DES', role:'brain oxygen need' }),
+  Object.freeze({ symbol:'Brain-Metabolism.O2Lack', sourceFile:'Structure/Brain/Brain-Metabolism.DES', role:'brain oxygen lack' }),
+  Object.freeze({ symbol:'Brain-Lactate.[Lac-(mG/dL)]', sourceFile:'Structure/Brain/Brain-Lactate.DES', role:'brain lactate concentration' }),
+  Object.freeze({ symbol:'Brain-Function.Effect', sourceFile:'Structure/Brain/Brain-Function.DES', role:'SympsCNS branch condition' }),
+  Object.freeze({ symbol:'A2Pool.Log10Conc', sourceFile:'Structure/Renin/A2Pool.DES', role:'SympsCNS A2Effect input' }),
+  Object.freeze({ symbol:'CNSTrophicFactor.Effect', sourceFile:'Structure/Nerves/CNSTrophicFactor.DES', role:'SympsCNS multiplicative effect' }),
+  Object.freeze({ symbol:'CushingResponse.Effect', sourceFile:'Structure/Nerves/CushingResponse.DES', role:'SympsCNS additive effect' }),
+  Object.freeze({ symbol:'ExerciseSymps.TotalEffect', sourceFile:'Structure/Nerves/ExerciseSymps.DES', role:'SympsCNS additive effect' }),
+  Object.freeze({ symbol:'MotorRadiation.TotalEffect', sourceFile:'Structure/Nerves/MotorRadiation.DES', role:'exercise central-command contribution' }),
+  Object.freeze({ symbol:'SkeletalMuscle-Metaboreflex.NerveActivity', sourceFile:'Structure/SkeletalMuscle/SkeletalMuscle-Metaboreflex.DES', role:'exercise metaboreflex afferent activity' }),
+  Object.freeze({ symbol:'SkeletalMuscle-Ph.Ph', sourceFile:'Structure/SkeletalMuscle/SkeletalMuscle-Ph.DES', role:'metaboreflex intracellular pH input' }),
+  Object.freeze({ symbol:'SkeletalMuscle-Function.Failed', sourceFile:'Structure/SkeletalMuscle/SkeletalMuscle-Function.DES', role:'metaboreflex failure gate' }),
+  Object.freeze({ symbol:'Mechanoreceptors.FiringRate', sourceFile:'Structure/Nerves/Mechanoreceptors.DES', role:'SympsCNS MechanoEffect input' }),
+  Object.freeze({ symbol:'SympsChemo.Effect', sourceFile:'Structure/Nerves/SympsChemo.DES', role:'SympsCNS reflex multiplier' }),
+  Object.freeze({ symbol:'Baroreflex.NA', sourceFile:'Structure/Nerves/Baroreflex.DES', role:'SympsCNS BaroEffect input' }),
+  Object.freeze({ symbol:'LowPressureReceptors.NA', sourceFile:'Structure/Nerves/LowPressureReceptors.DES', role:'SympsCNS LowPressureEffect input' }),
+  Object.freeze({ symbol:'SympsCNS.FuelEffect', sourceFile:'Structure/Nerves/SympsCNS.DES', role:'resolved fuel contribution' }),
+  Object.freeze({ symbol:'SympsCNS.A2Effect', sourceFile:'Structure/Nerves/SympsCNS.DES', role:'resolved angiotensin-II multiplier' }),
+  Object.freeze({ symbol:'SympsCNS.BaroEffect', sourceFile:'Structure/Nerves/SympsCNS.DES', role:'resolved baroreflex multiplier' }),
+  Object.freeze({ symbol:'SympsCNS.LowPressureEffect', sourceFile:'Structure/Nerves/SympsCNS.DES', role:'resolved low-pressure multiplier' }),
+  Object.freeze({ symbol:'SympsCNS.ReflexNA', sourceFile:'Structure/Nerves/SympsCNS.DES', role:'reflex sympathetic neural activity' }),
+  Object.freeze({ symbol:'SympsCNS.NA', sourceFile:'Structure/Nerves/SympsCNS.DES', role:'total sympathetic CNS neural activity' }),
+  Object.freeze({ symbol:'SympsCNS.NA(Hz)', sourceFile:'Structure/Nerves/SympsCNS.DES', role:'sympathetic CNS firing rate' }),
+  Object.freeze({ symbol:'GangliaGeneral.NA(Hz)', sourceFile:'Structure/Nerves/GangliaGeneral.DES', role:'general sympathetic ganglion firing rate' }),
+  Object.freeze({ symbol:'VagusNerve.NA(Hz)', sourceFile:'Structure/Nerves/VagusNerve.DES', role:'vagal firing rate' }),
+  Object.freeze({ symbol:'BetaPool.Effect', sourceFile:'Structure/Catechols/BetaPool.DES', role:'humoral beta agonism' }),
+  Object.freeze({ symbol:'SANode-BetaReceptors.Activity', sourceFile:'Structure/Heart/SANode-BetaReceptors.DES', role:'SA-node beta receptor activity' }),
+  Object.freeze({ symbol:'SANode-Rate.ParasympatheticEffect', sourceFile:'Structure/Heart/SANode-Rate.DES', role:'parasympathetic HR contribution' }),
+  Object.freeze({ symbol:'SANode-Rate.SympatheticEffect', sourceFile:'Structure/Heart/SANode-Rate.DES', role:'sympathetic HR contribution' }),
+  Object.freeze({ symbol:'SANode-Rate.Rate', sourceFile:'Structure/Heart/SANode-Rate.DES', role:'native sinus-node rate' }),
+  Object.freeze({ symbol:'SANode-Rate.Is_SinusRhythm', sourceFile:'Structure/Heart/SANode-Rate.DES', role:'native sinus-rhythm state' }),
+  Object.freeze({ symbol:'LeftHeart-Flow.BloodFlow', sourceFile:'Structure/LeftHeart/LeftHeart-Flow.DES', role:'left myocardial blood flow' }),
+  Object.freeze({ symbol:'RightHeart-Flow.BloodFlow', sourceFile:'Structure/RightHeart/RightHeart-Flow.DES', role:'right myocardial blood flow' }),
+  Object.freeze({ symbol:'LeftHeart-Flow.PO2', sourceFile:'Structure/LeftHeart/LeftHeart-Flow.DES', role:'left myocardial tissue PO2 solved by native implicit flow equation' }),
+  Object.freeze({ symbol:'RightHeart-Flow.PO2', sourceFile:'Structure/RightHeart/RightHeart-Flow.DES', role:'right myocardial tissue PO2 solved by native implicit flow equation' }),
+  Object.freeze({ symbol:'LeftHeart-Flow.O2Use', sourceFile:'Structure/LeftHeart/LeftHeart-Flow.DES', role:'left myocardial aerobic oxygen use' }),
+  Object.freeze({ symbol:'RightHeart-Flow.O2Use', sourceFile:'Structure/RightHeart/RightHeart-Flow.DES', role:'right myocardial aerobic oxygen use' }),
+  Object.freeze({ symbol:'LeftHeart-Metabolism.O2Need', sourceFile:'Structure/LeftHeart/LeftHeart-Metabolism.DES', role:'left myocardial oxygen need' }),
+  Object.freeze({ symbol:'RightHeart-Metabolism.O2Need', sourceFile:'Structure/RightHeart/RightHeart-Metabolism.DES', role:'right myocardial oxygen need' }),
+  Object.freeze({ symbol:'LeftHeart-Metabolism.O2Lack', sourceFile:'Structure/LeftHeart/LeftHeart-Metabolism.DES', role:'left myocardial oxygen deficit' }),
+  Object.freeze({ symbol:'RightHeart-Metabolism.O2Lack', sourceFile:'Structure/RightHeart/RightHeart-Metabolism.DES', role:'right myocardial oxygen deficit' }),
+  Object.freeze({ symbol:'LeftHeart-Metabolism.AnaerobicCals', sourceFile:'Structure/LeftHeart/LeftHeart-Metabolism.DES', role:'left myocardial anaerobic metabolic load' }),
+  Object.freeze({ symbol:'RightHeart-Metabolism.AnaerobicCals', sourceFile:'Structure/RightHeart/RightHeart-Metabolism.DES', role:'right myocardial anaerobic metabolic load' }),
+  Object.freeze({ symbol:'LeftHeart-Fuel.AnaerobicGlucoseUsed(mG/Min)', sourceFile:'Structure/LeftHeart/LeftHeart-Fuel.DES', role:'left myocardial lactate-production precursor' }),
+  Object.freeze({ symbol:'RightHeart-Fuel.AnaerobicGlucoseUsed(mG/Min)', sourceFile:'Structure/RightHeart/RightHeart-Fuel.DES', role:'right myocardial lactate-production precursor' }),
+  Object.freeze({ symbol:'LeftHeart-Fuel.LacUsed(mG/Min)', sourceFile:'Structure/LeftHeart/LeftHeart-Fuel.DES', role:'left myocardial lactate utilization' }),
+  Object.freeze({ symbol:'RightHeart-Fuel.LacUsed(mG/Min)', sourceFile:'Structure/RightHeart/RightHeart-Fuel.DES', role:'right myocardial lactate utilization' }),
+  Object.freeze({ symbol:'LeftHeart-Fuel.MinimumFractionalDelivery', sourceFile:'Structure/LeftHeart/LeftHeart-Fuel.DES', role:'left myocardial minimum substrate delivery fraction' }),
+  Object.freeze({ symbol:'RightHeart-Fuel.MinimumFractionalDelivery', sourceFile:'Structure/RightHeart/RightHeart-Fuel.DES', role:'right myocardial minimum substrate delivery fraction' }),
+  Object.freeze({ symbol:'LeftHeart-Fuel.FractUseDelay', sourceFile:'Structure/LeftHeart/LeftHeart-Fuel.DES', role:'left myocardial delayed fuel adequacy used by function' }),
+  Object.freeze({ symbol:'RightHeart-Fuel.FractUseDelay', sourceFile:'Structure/RightHeart/RightHeart-Fuel.DES', role:'right myocardial delayed fuel adequacy used by function' }),
+  Object.freeze({ symbol:'LeftHeart-CO2.PCO2', sourceFile:'Structure/LeftHeart/LeftHeart-CO2.DES', role:'left myocardial intracellular PCO2 input to pH' }),
+  Object.freeze({ symbol:'RightHeart-CO2.PCO2', sourceFile:'Structure/RightHeart/RightHeart-CO2.DES', role:'right myocardial intracellular PCO2 input to pH' }),
+  Object.freeze({ symbol:'LeftHeart-Lactate.[Lac-]', sourceFile:'Structure/LeftHeart/LeftHeart-Lactate.DES', role:'left myocardial lactate contribution to intracellular SID' }),
+  Object.freeze({ symbol:'RightHeart-Lactate.[Lac-]', sourceFile:'Structure/RightHeart/RightHeart-Lactate.DES', role:'right myocardial lactate contribution to intracellular SID' }),
+  Object.freeze({ symbol:'LeftHeart-Ph.[SID]', sourceFile:'Structure/LeftHeart/LeftHeart-Ph.DES', role:'left myocardial intracellular strong-ion difference' }),
+  Object.freeze({ symbol:'RightHeart-Ph.[SID]', sourceFile:'Structure/RightHeart/RightHeart-Ph.DES', role:'right myocardial intracellular strong-ion difference' }),
+  Object.freeze({ symbol:'LeftHeart-Ph.Ph', sourceFile:'Structure/LeftHeart/LeftHeart-Ph.DES', role:'left myocardial intracellular pH' }),
+  Object.freeze({ symbol:'RightHeart-Ph.Ph', sourceFile:'Structure/RightHeart/RightHeart-Ph.DES', role:'right myocardial intracellular pH' }),
+  Object.freeze({ symbol:'LeftHeart-Function.PhEffect', sourceFile:'Structure/LeftHeart/LeftHeart-Function.DES', role:'left myocardial pH function effect' }),
+  Object.freeze({ symbol:'RightHeart-Function.PhEffect', sourceFile:'Structure/RightHeart/RightHeart-Function.DES', role:'right myocardial pH function effect' }),
+  Object.freeze({ symbol:'LeftHeart-Function.FuelEffect', sourceFile:'Structure/LeftHeart/LeftHeart-Function.DES', role:'left myocardial fuel function effect' }),
+  Object.freeze({ symbol:'RightHeart-Function.FuelEffect', sourceFile:'Structure/RightHeart/RightHeart-Function.DES', role:'right myocardial fuel function effect' }),
+  Object.freeze({ symbol:'LeftHeart-Function.Effect', sourceFile:'Structure/LeftHeart/LeftHeart-Function.DES', role:'left total myocardial function effect' }),
+  Object.freeze({ symbol:'RightHeart-Function.Effect', sourceFile:'Structure/RightHeart/RightHeart-Function.DES', role:'right total myocardial function effect' }),
+  Object.freeze({ symbol:'LeftHeart-Function.Failed', sourceFile:'Structure/LeftHeart/LeftHeart-Function.DES', role:'left myocardial failure latch' }),
+  Object.freeze({ symbol:'RightHeart-Function.Failed', sourceFile:'Structure/RightHeart/RightHeart-Function.DES', role:'right myocardial failure latch' }),
+  Object.freeze({ symbol:'Heart-Asystole.Is_Asystole', sourceFile:'Structure/Heart/Heart-Asystole.DES', role:'native asystole state driven by left-heart failure' }),
+  Object.freeze({ symbol:'Heart-Rate.Rate', sourceFile:'Structure/Heart/Heart-Rate.DES', role:'native displayed heart rate' }),
+]);
+
+function listV13AutonomicNativeSymbols() {
+  return HUMMOD_V13_AUTONOMIC_NATIVE_SYMBOLS.map(entry => entry.symbol);
+}
+
+module.exports = {
+  HUMMOD_V13_AUTONOMIC_NATIVE_SYMBOLS,
+  listV13AutonomicNativeSymbols,
 };
 
 },
@@ -8963,6 +10362,19 @@ function createBerlinLiveHumModSession({
           last.chronotropicBridgeEnvelope ?? null,
         chronotropicExposureSec:
           last.chronotropicExposureSec ?? 0,
+        brainTissuePo2MmHg:
+          last.brainHypoxia?.flow?.po2MmHg ?? null,
+        brainPo2DelayMmHg:
+          last.brainHypoxia?.po2DelayMmHg ?? null,
+        brainHypoxiaEffect:
+          last.brainHypoxia?.po2Effect ?? null,
+        brainFunctionEffect:
+          last.nativeAutonomicInputs?.brainFunctionEffect ??
+          last.brainHypoxia?.brainFunctionEffect ?? null,
+        brainFunctionFailed:
+          last.brainHypoxia?.brainFunctionFailed ?? null,
+        brainHypoxiaProvenance:
+          last.brainHypoxia?.provenance ?? null,
         sympatheticTone: last.autonomic?.sympatheticTone ?? null,
         parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
         catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
@@ -9714,6 +11126,7 @@ const { createHumModArdsAutonomicController } = require("src/hummod_ards_autonom
 const { createHumModSourceAlignedAutonomicController } = require("src/hummod_ards_autonomic_source_aligned.js");
 const { createHumModSourceAlignedCatecholamines } = require("src/hummod_ards_catecholamines_source_aligned.js");
 const { sourceSympatheticVascularComponents } = require("src/hummod_ards_vascular_sympathetic_source_aligned.js");
+const { createHumModSourceAlignedBrainHypoxia } = require("src/hummod_brain_hypoxia_source_aligned.js");
 const {
   createHumModArdsDecompensationController,
 } = require("src/hummod_ards_decompensation_controller.js");
@@ -9785,6 +11198,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   const catecholamines = catecholamineEcfvMl == null
     ? null
     : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
+  const brainHypoxia = createHumModSourceAlignedBrainHypoxia();
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -9811,8 +11225,12 @@ function createHumModArdsCardiopulmonaryRuntime({
       pericardialPressureMmHg,
     });
 
-    const priorGas = last && last.gas && last.gas.gases
-      ? last.gas.gases.arterial
+    const gasBefore = last && last.gas ? last.gas : gasRuntime.snapshot();
+    const priorGas = gasBefore && gasBefore.gases
+      ? gasBefore.gases.arterial
+      : null;
+    const priorVenousGas = gasBefore && gasBefore.gases
+      ? gasBefore.gases.venous
       : null;
     const legacyControl = autonomic.step({
       dtSec,
@@ -9821,6 +11239,21 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
+    });
+    const brainHypoxiaState = brainHypoxia.step({
+      dtSec,
+      arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
+      arterialO2ContentMlPerMl: priorGas ? priorGas.o2ContentMlPerMl : 0.196,
+      o2MaxMlPerMl: gasBefore?.boundary?.blood?.o2MaxMlPerMl || 0.201,
+      venousPh: priorVenousGas ? priorVenousGas.pH : 7.38,
+      venousPco2MmHg: priorVenousGas ? priorVenousGas.pco2MmHg : 44.8,
+      carboxyPercent: gasBefore?.boundary?.blood?.carboxyPercent || 0,
+      tempC: gasBefore?.boundary?.blood?.tempC || 37,
+      pressureGradientMmHg: Math.max(
+        0,
+        circ.pressures.systemicArterialMmHg -
+        circ.pressures.systemicVenousMmHg),
+      brainPco2MmHg: priorVenousGas ? priorVenousGas.pco2MmHg : 46.6,
     });
     const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
     const rightAtrialTmpMmHg =
@@ -9856,7 +11289,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       a2PoolLog10Conc:
         nativeAutonomicInputs?.a2PoolLog10Conc ?? null,
       brainFunctionEffect:
-        nativeAutonomicInputs?.brainFunctionEffect ?? 1,
+        nativeAutonomicInputs?.brainFunctionEffect ??
+        brainHypoxiaState.brainFunctionEffect,
       exerciseSympsTotalEffect:
         nativeAutonomicInputs?.exerciseSympsTotalEffect ?? 0,
     });
@@ -9912,37 +11346,30 @@ function createHumModArdsCardiopulmonaryRuntime({
     const chronotropicReserveMultiplier =
       priorDecomp.chronotropicReserveMultiplier;
 
-    // HumMod sinus HR remains the source baseline. While the reduced model
-    // lacks native Brain-Fuel/metaboreflex state, v1.3 may add a separately
-    // labeled, bounded in-vivo hypercapnic chronotropy bridge from the legacy
-    // control layer. The bridge is not folded into SANode gains and is faded
-    // during the late asphyxial-collapse phase so the response can peak and
-    // then deteriorate instead of remaining artificially tachycardic.
+    // Fidelity path: source-aligned mode uses the HumMod SA-node rate only.
+    // The former empirical hypercapnic chronotropy overlay is retained in the
+    // legacy controller for comparison but is never added to source-aligned HR.
+    // Hypoxia reaches source HR through the native Brain-Flow ->
+    // BrainInsult-PO2 -> Brain-Function -> SympsCNS path above.
     const nativeMetabolicAutonomicActive = Boolean(
       nativeAutonomicInputs &&
       (
         nativeAutonomicInputs.brainFuelFractUseDelay != null ||
         nativeAutonomicInputs.a2PoolLog10Conc != null ||
-        nativeAutonomicInputs.exerciseSympsTotalEffect != null
+        nativeAutonomicInputs.exerciseSympsTotalEffect != null ||
+        nativeAutonomicInputs.brainFunctionEffect != null
       )
     );
     const empiricalChronotropicBoostPerMin =
-      autonomicMode==='source-aligned' && !nativeMetabolicAutonomicActive
-        ? (legacyControl.empiricalChronotropicBoostPerMin || 0)
-        : 0;
+      legacyControl.empiricalChronotropicBoostPerMin || 0;
     const chronotropicExposureSec =
       legacyControl.hypercapnicChronotropyExposureSec || 0;
-    const chronotropicBridgeEnvelope =
-      chronotropicExposureSec <= 180
-        ? 1
-        : Math.max(
-            0,
-            (684 - chronotropicExposureSec) /
-            (684 - 180));
-    const appliedEmpiricalChronotropicBoostPerMin =
-      empiricalChronotropicBoostPerMin * chronotropicBridgeEnvelope;
+    const chronotropicBridgeEnvelope = 0;
+    const appliedEmpiricalChronotropicBoostPerMin = 0;
     const effectiveHeartRatePerMin =
-      sourceSaNodeHeartRatePerMin + appliedEmpiricalChronotropicBoostPerMin;
+      autonomicMode==='source-aligned'
+        ? sourceSaNodeHeartRatePerMin
+        : control.heartRatePerMin;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
@@ -10028,6 +11455,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
+      brainHypoxia:brainHypoxiaState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
       chronotropicExposureSec,
@@ -10062,7 +11490,7 @@ function createHumModArdsCardiopulmonaryRuntime({
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
           ? 'external native HumMod autonomic input provider'
-          : 'unavailable; empirical chronotropy bridge may be used',
+          : 'source-aligned browser brain-hypoxia subset; no empirical chronotropy overlay',
         catecholamineAuthority: catecholamines
           ? 'HumMod source-aligned NE/Epi pools with explicit ECFV boundary'
           : 'normalized humoral fallback; dynamic catecholamine pools disabled because ECFV unavailable',
@@ -10749,6 +12177,1010 @@ module.exports = {
   hypercapnicAcidosisSeverity,
   respiratoryAcidosisContractilityMultiplier,
   createHumModArdsAutonomicController,
+};
+
+},
+"src/hummod_ards_autonomic_source_aligned.js":function(module,exports,require){
+'use strict';
+
+// Acute source-aligned HumMod autonomic subset for v1.2.
+//
+// Canonical source: HumMod/hummod-standalone
+// Reproducibility mirror snapshot:
+// riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+//
+// Preserved source relations:
+// - Baroreflex adaptation/pressure-effect structure
+// - SympsCNS baroreflex effect
+// - GangliaGeneral neural activity scaling
+// - VagusNerve response
+// - SANode-BetaReceptors neural/humoral weighting
+// - SANode-Rate parasympathetic/sympathetic response
+// - SystemicVeins alpha-receptor weighting and V0 effect
+// - ventricular beta-receptor contractility relation
+//
+// Deliberate reductions:
+// - LowPressureReceptors source pathway is preserved from average atrial TMP;
+// - mechanoreceptor/exercise/Cushing/brain-fuel terms remain neutral for the acute ventilator slice;
+// - humoral alpha/beta pool effects are explicit normalized boundaries;
+// - DES curve interpolation is reproduced with local cubic Hermite segments;
+// - distributed organ vascular control is not represented here.
+
+const {
+  HUMMOD_SOURCE_IDENTITY,
+} = require("src/hummod_source_identity.js");
+
+const HUMMOD_AUTONOMIC_SOURCE_REVISION =
+  HUMMOD_SOURCE_IDENTITY.canonicalRevision;
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){ finite(v,label); if(!(v>0)) throw new Error(label+' must be > 0'); return v; }
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(!Array.isArray(points)||points.length<2) throw new Error('curve requires >= 2 points');
+  if(x<=points[0].x) return points[0].y + points[0].slope*(x-points[0].x);
+  const last=points[points.length-1];
+  if(x>=last.x) return last.y + last.slope*(x-last.x);
+  let i=0;
+  while(i+1<points.length && x>points[i+1].x) i++;
+  const a=points[i], b=points[i+1];
+  const h=b.x-a.x;
+  const t=(x-a.x)/h;
+  const h00=2*t*t*t-3*t*t+1;
+  const h10=t*t*t-2*t*t+t;
+  const h01=-2*t*t*t+3*t*t;
+  const h11=t*t*t-t*t;
+  return h00*a.y+h10*h*a.slope+h01*b.y+h11*h*b.slope;
+}
+
+const CURVES=Object.freeze({
+  baroreflexPressureEffect:Object.freeze([
+    Object.freeze({x:-50,y:0,slope:0}),
+    Object.freeze({x:0,y:1,slope:0.02}),
+    Object.freeze({x:50,y:2,slope:0}),
+  ]),
+  sympsCnsBaroEffect:Object.freeze([
+    Object.freeze({x:0,y:1.5,slope:0}),
+    Object.freeze({x:1,y:1,slope:-0.5}),
+    Object.freeze({x:2,y:0.5,slope:0}),
+  ]),
+  lowPressurePressureChangeOnNa:Object.freeze([
+    Object.freeze({x:-4,y:0,slope:0}),
+    Object.freeze({x:0,y:1,slope:0.3}),
+    Object.freeze({x:12,y:4,slope:0}),
+  ]),
+  sympsCnsFuelEffect:Object.freeze([
+    Object.freeze({x:0.30,y:0.0,slope:0}),
+    Object.freeze({x:0.60,y:3.0,slope:0}),
+    Object.freeze({x:0.80,y:0.0,slope:0}),
+  ]),
+  sympsCnsA2Effect:Object.freeze([
+    Object.freeze({x:1.7,y:1.0,slope:0}),
+    Object.freeze({x:2.3,y:1.4,slope:0}),
+  ]),
+  sympsCnsLowPressureEffect:Object.freeze([
+    Object.freeze({x:0,y:1.1,slope:0}),
+    Object.freeze({x:1,y:1,slope:-0.1}),
+    Object.freeze({x:4,y:0.9,slope:0}),
+  ]),
+  vagusHz:Object.freeze([
+    Object.freeze({x:0,y:8,slope:0}),
+    Object.freeze({x:1.5,y:2,slope:-2}),
+    Object.freeze({x:4.5,y:0,slope:0}),
+  ]),
+  saParasympatheticEffect:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:2,y:-20,slope:-8}),
+    Object.freeze({x:8,y:-40,slope:0}),
+  ]),
+  saSympatheticEffect:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:1,y:10,slope:10}),
+    Object.freeze({x:5,y:120,slope:0}),
+  ]),
+  systemicVeinsV0AlphaEffect:Object.freeze([
+    Object.freeze({x:0,y:1.2,slope:0}),
+    Object.freeze({x:1,y:1,slope:-0.30}),
+    Object.freeze({x:3,y:0.6,slope:0}),
+  ]),
+});
+
+const SOURCE_CONSTANTS=Object.freeze({
+  baroreflexTauSourceHours:10,
+  lowPressureTauSourceDays:30,
+  lowPressureInitialAdaptedPressureMmHg:6,
+  sympsCnsHzScale:1.5,
+  gangliaNaScale:0.667,
+  vagusNaScale:0.667,
+  receptorNeuralK:0.333,
+  receptorHumoralK:0.5,
+  saNodeBasicRatePerMin:82,
+  systemicVeinsV0BasicMl:1700,
+});
+
+function receptorActivity({
+  gangliaHz,
+  humoralPoolEffect=1,
+  neuralK=SOURCE_CONSTANTS.receptorNeuralK,
+  humoralK=SOURCE_CONSTANTS.receptorHumoralK,
+}={}){
+  finite(gangliaHz,'gangliaHz');
+  finite(humoralPoolEffect,'humoralPoolEffect');
+  return neuralK*gangliaHz + humoralK*humoralPoolEffect;
+}
+
+function createHumModSourceAlignedAutonomicController({
+  initialCarotidPressureMmHg=97,
+  humoralAlphaPoolEffect=1,
+  humoralBetaPoolEffect=1,
+  baroSensitivity=1,
+  saNodeBasicRatePerMin=SOURCE_CONSTANTS.saNodeBasicRatePerMin,
+  systemicVenousV0BasicMl=SOURCE_CONSTANTS.systemicVeinsV0BasicMl,
+}={}){
+  positive(initialCarotidPressureMmHg,'initialCarotidPressureMmHg');
+  finite(humoralAlphaPoolEffect,'humoralAlphaPoolEffect');
+  finite(humoralBetaPoolEffect,'humoralBetaPoolEffect');
+  finite(baroSensitivity,'baroSensitivity');
+  positive(saNodeBasicRatePerMin,'saNodeBasicRatePerMin');
+  positive(systemicVenousV0BasicMl,'systemicVenousV0BasicMl');
+
+  let adaptedPressureMmHg=initialCarotidPressureMmHg;
+  let adaptedLowPressureMmHg=SOURCE_CONSTANTS.lowPressureInitialAdaptedPressureMmHg;
+  let last=null;
+
+  function step({
+    dtSec,
+    carotidPressureMmHg,
+    averageAtrialTmpMmHg=SOURCE_CONSTANTS.lowPressureInitialAdaptedPressureMmHg,
+    humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect=humoralAlphaPoolEffect,
+    humoralBetaPoolEffect:stepHumoralBetaPoolEffect=humoralBetaPoolEffect,
+    brainFuelFractUseDelay=null,
+    a2PoolLog10Conc=null,
+    brainFunctionEffect=1,
+    exerciseSympsTotalEffect=0,
+  }={}){
+    positive(dtSec,'dtSec');
+    finite(carotidPressureMmHg,'carotidPressureMmHg');
+    finite(averageAtrialTmpMmHg,'averageAtrialTmpMmHg');
+    finite(stepHumoralAlphaPoolEffect,'humoralAlphaPoolEffect');
+    finite(stepHumoralBetaPoolEffect,'humoralBetaPoolEffect');
+    if(brainFuelFractUseDelay!=null) finite(brainFuelFractUseDelay,'brainFuelFractUseDelay');
+    if(a2PoolLog10Conc!=null) finite(a2PoolLog10Conc,'a2PoolLog10Conc');
+    finite(brainFunctionEffect,'brainFunctionEffect');
+    finite(exerciseSympsTotalEffect,'exerciseSympsTotalEffect');
+
+    // HumMod circulation and dynamic equations use a minute-based timebase.
+    // Baroreflex.DES: RateConst = 1/(60*Tau), Tau=10 -> 600 min = 10 h.
+    const baroreflexTauSec=
+      60 * 60 * SOURCE_CONSTANTS.baroreflexTauSourceHours;
+    adaptedPressureMmHg +=
+      (carotidPressureMmHg-adaptedPressureMmHg)*
+      (1-Math.exp(-dtSec/baroreflexTauSec));
+
+    const pressureChangeMmHg=carotidPressureMmHg-adaptedPressureMmHg;
+    const baroreflexNa=hermite(CURVES.baroreflexPressureEffect,pressureChangeMmHg);
+
+    // LowPressureReceptors.DES:
+    // AvePressure=(RightAtrium.TMP+LeftAtrium.TMP)/2
+    // RateConst=1/(1440*Tau), Tau=30 -> 30 days.
+    const lowPressureTauSec=
+      24 * 60 * 60 * SOURCE_CONSTANTS.lowPressureTauSourceDays;
+    adaptedLowPressureMmHg +=
+      (averageAtrialTmpMmHg-adaptedLowPressureMmHg)*
+      (1-Math.exp(-dtSec/lowPressureTauSec));
+    const lowPressureChangeMmHg=
+      averageAtrialTmpMmHg-adaptedLowPressureMmHg;
+    const lowPressureNa=
+      hermite(CURVES.lowPressurePressureChangeOnNa,lowPressureChangeMmHg);
+
+    const sourceBaroEffect=hermite(CURVES.sympsCnsBaroEffect,baroreflexNa);
+    const sympsCnsBaroEffect=1+baroSensitivity*(sourceBaroEffect-1);
+    const sympsCnsLowPressureEffect=
+      hermite(CURVES.sympsCnsLowPressureEffect,lowPressureNa);
+
+    // SympsCNS.ReflexNA = BaroEffect * LowPressureEffect *
+    // MechanoEffect * SympsChemo.Effect. In this source snapshot,
+    // Mechanoreceptors.FiringRate=0 -> MechanoEffect=1 and
+    // SympsChemo.Effect=1, so the retained reflex product is exact here.
+    const sympsCnsReflexNa=
+      sympsCnsBaroEffect * sympsCnsLowPressureEffect;
+
+    // Exact HumMod SympsCNS source terms. These remain neutral unless their
+    // upstream native state is supplied; v1.3 does not infer Brain-Fuel or
+    // A2Pool state from arterial gases or MAP.
+    const sympsCnsFuelEffect = brainFuelFractUseDelay == null
+      ? 0
+      : hermite(CURVES.sympsCnsFuelEffect, brainFuelFractUseDelay);
+    const sympsCnsA2Effect = a2PoolLog10Conc == null
+      ? 1
+      : hermite(CURVES.sympsCnsA2Effect, a2PoolLog10Conc);
+    const sympsCnsNa = brainFunctionEffect > 0.1
+      ? (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
+        sympsCnsA2Effect
+      : (1 + sympsCnsFuelEffect);
+    const sympsCnsHz=SOURCE_CONSTANTS.sympsCnsHzScale*sympsCnsNa;
+
+    const gangliaHz=sympsCnsHz;
+    const gangliaNa=SOURCE_CONSTANTS.gangliaNaScale*gangliaHz;
+
+    const vagusHz=clamp(hermite(CURVES.vagusHz,sympsCnsHz),0,8);
+    const vagusNa=SOURCE_CONSTANTS.vagusNaScale*vagusHz;
+
+    const saBetaActivity=receptorActivity({
+      gangliaHz,
+      humoralPoolEffect:stepHumoralBetaPoolEffect,
+    });
+    const parasympatheticEffectPerMin=
+      hermite(CURVES.saParasympatheticEffect,vagusHz);
+    const sympatheticEffectPerMin=
+      hermite(CURVES.saSympatheticEffect,saBetaActivity);
+    const heartRatePerMin=clamp(
+      saNodeBasicRatePerMin+
+      parasympatheticEffectPerMin+
+      sympatheticEffectPerMin,
+      0,260);
+
+    const ventricularBetaActivity=receptorActivity({
+      gangliaHz,
+      humoralPoolEffect:stepHumoralBetaPoolEffect,
+    });
+
+    const venousAlphaActivity=receptorActivity({
+      gangliaHz,
+      humoralPoolEffect:stepHumoralAlphaPoolEffect,
+    });
+    const systemicVenousV0AlphaEffect=
+      hermite(CURVES.systemicVeinsV0AlphaEffect,venousAlphaActivity);
+    const systemicVenousV0Ml=
+      systemicVenousV0BasicMl*systemicVenousV0AlphaEffect;
+
+    last=Object.freeze({
+      carotidPressureMmHg,
+      adaptedPressureMmHg,
+      pressureChangeMmHg,
+      baroreflexNa,
+      averageAtrialTmpMmHg,
+      adaptedLowPressureMmHg,
+      lowPressureChangeMmHg,
+      lowPressureNa,
+      sympsCnsBaroEffect,
+      sympsCnsLowPressureEffect,
+      sympsCnsReflexNa,
+      sympsCnsFuelEffect,
+      sympsCnsA2Effect,
+      brainFuelFractUseDelay,
+      a2PoolLog10Conc,
+      brainFunctionEffect,
+      exerciseSympsTotalEffect,
+      sympsCnsNa,
+      sympsCnsHz,
+      gangliaHz,
+      gangliaNa,
+      vagusHz,
+      vagusNa,
+      saBetaActivity,
+      parasympatheticEffectPerMin,
+      sympatheticEffectPerMin,
+      heartRatePerMin,
+      ventricularBetaActivity,
+      contractilityMultiplier:ventricularBetaActivity,
+      venousAlphaActivity,
+      humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect,
+      humoralBetaPoolEffect:stepHumoralBetaPoolEffect,
+      systemicVenousV0AlphaEffect,
+      systemicVenousV0Ml,
+    });
+    return snapshot();
+  }
+
+  function snapshot(){
+    return Object.freeze({
+      schema:'hummod-source-aligned-autonomic/v1.2',
+      ...(last||{
+        adaptedPressureMmHg,
+        adaptedLowPressureMmHg,
+        heartRatePerMin:null,
+        contractilityMultiplier:null,
+        systemicVenousV0Ml:null,
+      }),
+      provenance:Object.freeze({
+        status:'source-aligned-acute-subset',
+        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
+        sourceRevision:HUMMOD_AUTONOMIC_SOURCE_REVISION,
+        sourceCanonicalStatus:HUMMOD_SOURCE_IDENTITY.canonicalStatus,
+        reproducibilityMirrorRepository:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
+        reproducibilityMirrorRevision:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
+        clinicalValidation:false,
+        neutralizedDependencies:Object.freeze([
+          'Mechanoreceptors',
+          'ExerciseSymps',
+          'CushingResponse',
+          'Brain-Fuel upstream state (hook present; native input not yet supplied)',
+          'A2Pool upstream state (hook present; native input not yet supplied)',
+          'Brain-Function upstream state (default preserved while native input unavailable)',
+        ]),
+        defaultHumoralBoundaries:Object.freeze({
+          alphaPoolEffect:humoralAlphaPoolEffect,
+          betaPoolEffect:humoralBetaPoolEffect,
+          note:'step-level dynamic HumMod pool effects may override these defaults',
+        }),
+      }),
+    });
+  }
+
+  return Object.freeze({
+    kind:'hummod-source-aligned-autonomic',
+    step,
+    snapshot,
+  });
+}
+
+module.exports={
+  HUMMOD_AUTONOMIC_SOURCE_REVISION,
+  CURVES,
+  SOURCE_CONSTANTS,
+  hermite,
+  receptorActivity,
+  createHumModSourceAlignedAutonomicController,
+};
+
+},
+"src/hummod_ards_catecholamines_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const { HUMMOD_SOURCE_IDENTITY } = require("src/hummod_source_identity.js");
+
+function finite(v,l){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(l+' must be finite');return v;}
+function positive(v,l){finite(v,l);if(!(v>0))throw new Error(l+' must be > 0');return v;}
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(x<=points[0].x)return points[0].y+points[0].slope*(x-points[0].x);
+  const z=points[points.length-1];
+  if(x>=z.x)return z.y+z.slope*(x-z.x);
+  let i=0; while(i+1<points.length&&x>points[i+1].x)i++;
+  const a=points[i],b=points[i+1],h=b.x-a.x,t=(x-a.x)/h;
+  return (2*t*t*t-3*t*t+1)*a.y+(t*t*t-2*t*t+t)*h*a.slope+
+    (-2*t*t*t+3*t*t)*b.y+(t*t*t-t*t)*h*b.slope;
+}
+
+const ADRENAL_EFFECT=Object.freeze([
+  Object.freeze({x:2,y:1,slope:0}),
+  Object.freeze({x:8,y:20,slope:0}),
+]);
+
+const SOURCE_CONSTANTS=Object.freeze({
+  neTargetNgPerMl:0.240,
+  epiTargetNgPerMl:0.040,
+  neSecretionBase:220,
+  epiSecretionBase:375,
+  neSpilloverK:570,
+  neClearanceK:4.5,
+  epiClearanceK:9.4,
+  alphaNeScale:0.021,
+  alphaEpiScale:0.125,
+  betaNeScale:0.021,
+  betaEpiScale:0.125,
+});
+
+function poolEffects({nePgPerMl,epiPgPerMl}={}){
+  finite(nePgPerMl,'nePgPerMl'); finite(epiPgPerMl,'epiPgPerMl');
+  const alphaTotal=
+    nePgPerMl*SOURCE_CONSTANTS.alphaNeScale+
+    epiPgPerMl*SOURCE_CONSTANTS.alphaEpiScale;
+  const betaTotal=
+    nePgPerMl*SOURCE_CONSTANTS.betaNeScale+
+    epiPgPerMl*SOURCE_CONSTANTS.betaEpiScale;
+  return Object.freeze({
+    alphaTotal,
+    betaTotal,
+    alphaEffect:alphaTotal>1?Math.log10(alphaTotal):0,
+    betaEffect:betaTotal>1?Math.log10(betaTotal):0,
+  });
+}
+
+function createHumModSourceAlignedCatecholamines({
+  ecfvMl,
+  initialNeNgPerMl=SOURCE_CONSTANTS.neTargetNgPerMl,
+  initialEpiNgPerMl=SOURCE_CONSTANTS.epiTargetNgPerMl,
+}={}){
+  positive(ecfvMl,'ecfvMl');
+  positive(initialNeNgPerMl,'initialNeNgPerMl');
+  positive(initialEpiNgPerMl,'initialEpiNgPerMl');
+
+  let neMass=initialNeNgPerMl*ecfvMl;
+  let epiMass=initialEpiNgPerMl*ecfvMl;
+  let last=null;
+
+  function step({
+    dtSec,
+    adrenalNerveHz,
+    generalGangliaHz,
+    otherTissueFunctionEffect=1,
+  }={}){
+    positive(dtSec,'dtSec');
+    finite(adrenalNerveHz,'adrenalNerveHz');
+    finite(generalGangliaHz,'generalGangliaHz');
+    finite(otherTissueFunctionEffect,'otherTissueFunctionEffect');
+
+    const adrenalEffect=hermite(ADRENAL_EFFECT,adrenalNerveHz);
+    const neSecretion=
+      SOURCE_CONSTANTS.neSecretionBase*adrenalEffect*otherTissueFunctionEffect;
+    const neSpillover=
+      SOURCE_CONSTANTS.neSpilloverK*generalGangliaHz;
+    const epiSecretion=
+      SOURCE_CONSTANTS.epiSecretionBase*adrenalEffect*otherTissueFunctionEffect;
+
+    // Native DES uses backward Euler. With ECFV fixed over this acute reduced
+    // step, each linear pool has an analytic backward-Euler update.
+    const dtMin=dtSec/60;
+    const neF2=1000*SOURCE_CONSTANTS.neClearanceK/ecfvMl;
+    const epiF2=1000*SOURCE_CONSTANTS.epiClearanceK/ecfvMl;
+    neMass=(neMass+dtMin*(neSecretion+neSpillover))/(1+dtMin*neF2);
+    epiMass=(epiMass+dtMin*epiSecretion)/(1+dtMin*epiF2);
+
+    const nePgPerMl=1000*(neMass/ecfvMl);
+    const epiPgPerMl=1000*(epiMass/ecfvMl);
+    const effects=poolEffects({nePgPerMl,epiPgPerMl});
+    last=Object.freeze({
+      ecfvMl,
+      adrenalNerveHz,
+      generalGangliaHz,
+      adrenalEffect,
+      neMass,
+      epiMass,
+      nePgPerMl,
+      epiPgPerMl,
+      neSecretion,
+      neSpillover,
+      epiSecretion,
+      neClearance:SOURCE_CONSTANTS.neClearanceK*nePgPerMl,
+      epiClearance:SOURCE_CONSTANTS.epiClearanceK*epiPgPerMl,
+      ...effects,
+    });
+    return snapshot();
+  }
+
+  function snapshot(){
+    const nePgPerMl=1000*(neMass/ecfvMl);
+    const epiPgPerMl=1000*(epiMass/ecfvMl);
+    return Object.freeze({
+      schema:'hummod-source-aligned-catecholamines/v1.2',
+      ...(last||{
+        ecfvMl,neMass,epiMass,nePgPerMl,epiPgPerMl,
+        ...poolEffects({nePgPerMl,epiPgPerMl}),
+      }),
+      provenance:Object.freeze({
+        status:'source-aligned-acute-subset',
+        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
+        sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
+        reproducibilityMirrorRepository:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
+        reproducibilityMirrorRevision:
+          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
+        ecfvBoundary:'explicit-required',
+        solverAdaptation:
+          'linear backward-Euler pool update with fixed ECFV over coupled step',
+        clinicalValidation:false,
+      }),
+    });
+  }
+
+  return Object.freeze({
+    kind:'hummod-source-aligned-catecholamines',
+    step,
+    snapshot,
+  });
+}
+
+module.exports={
+  ADRENAL_EFFECT,
+  SOURCE_CONSTANTS,
+  poolEffects,
+  createHumModSourceAlignedCatecholamines,
+};
+
+},
+"src/hummod_ards_vascular_sympathetic_source_aligned.js":function(module,exports,require){
+'use strict';
+
+const { HUMMOD_SOURCE_IDENTITY } = require("src/hummod_source_identity.js");
+
+function finite(v,l){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(l+' must be finite');return v;}
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(x<=points[0].x)return points[0].y+points[0].slope*(x-points[0].x);
+  const z=points[points.length-1];
+  if(x>=z.x)return z.y+z.slope*(x-z.x);
+  let i=0;while(i+1<points.length&&x>points[i+1].x)i++;
+  const a=points[i],b=points[i+1],h=b.x-a.x,t=(x-a.x)/h;
+  return (2*t*t*t-3*t*t+1)*a.y+(t*t*t-2*t*t+t)*h*a.slope+
+    (-2*t*t*t+3*t*t)*b.y+(t*t*t-t*t)*h*b.slope;
+}
+
+const CURVES=Object.freeze({
+  visceralOther:Object.freeze([
+    Object.freeze({x:0,y:1.3,slope:0}),
+    Object.freeze({x:1,y:1.0,slope:-0.3}),
+    Object.freeze({x:5,y:0.1,slope:0}),
+  ]),
+  skeletalMuscle:Object.freeze([
+    Object.freeze({x:0,y:1.3,slope:0}),
+    Object.freeze({x:1,y:1.0,slope:-0.2}),
+    Object.freeze({x:4,y:0.5,slope:0}),
+  ]),
+  cardiac:Object.freeze([
+    Object.freeze({x:0,y:1.3,slope:0}),
+    Object.freeze({x:1,y:1.0,slope:-0.16}),
+    Object.freeze({x:4,y:0.8,slope:0}),
+  ]),
+});
+
+function alphaReceptorActivity({gangliaHz,alphaPoolEffect=1}={}){
+  finite(gangliaHz,'gangliaHz');
+  finite(alphaPoolEffect,'alphaPoolEffect');
+  return 0.333*gangliaHz+0.5*alphaPoolEffect;
+}
+
+function sourceSympatheticVascularComponents({gangliaHz,alphaPoolEffect=1}={}){
+  const activity=alphaReceptorActivity({gangliaHz,alphaPoolEffect});
+  return Object.freeze({
+    schema:'hummod-source-sympathetic-vascular-components/v1.2',
+    alphaReceptorActivity:activity,
+    conductanceMultipliers:Object.freeze({
+      boneFatGiOtherRespiratoryMuscle:
+        hermite(CURVES.visceralOther,activity),
+      skeletalMuscle:
+        hermite(CURVES.skeletalMuscle,activity),
+      leftRightHeart:
+        hermite(CURVES.cardiac,activity),
+    }),
+    authority:'diagnostic-component-only',
+    excludedFromSystemicAuthority:Object.freeze([
+      'local tissue PO2 control',
+      'A2/angiotensin control',
+      'ADH control',
+      'metabolic vasodilation',
+      'viscosity effects',
+      'anesthesia effects',
+      'organ vasculature modifiers',
+      'skin thermoregulatory sympathetic dilation',
+      'kidney-specific vascular control',
+      'brain autoregulation',
+    ]),
+    provenance:Object.freeze({
+      sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
+      sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
+      reproducibilityMirrorRepository:
+        HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
+      reproducibilityMirrorRevision:
+        HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
+      clinicalValidation:false,
+    }),
+  });
+}
+
+module.exports={
+  CURVES,
+  hermite,
+  alphaReceptorActivity,
+  sourceSympatheticVascularComponents,
+};
+
+},
+"src/hummod_brain_hypoxia_source_aligned.js":function(module,exports,require){
+'use strict';
+
+// Source-aligned HumMod brain hypoxia subset for v1.3.
+// Pinned source:
+// riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+//
+// Preserved equations:
+// - Brain-Pressure pressure gradient
+// - Brain-Flow tissue PO2 implicit relation
+// - Brain-Flow O2-use/aerobic-fraction relation
+// - BrainInsult-PO2 StableDelay derivative and PO2->Effect curve
+// - Brain-Function Effect contribution from BrainInsult-PO2
+//
+// Deliberate reduced boundary:
+// Brain-CO2.PCO2 is not yet dynamically ported in the browser runtime.
+// The caller must provide a local-brain-PCO2 boundary. The v1.3 runtime
+// currently uses venous PCO2 as an explicitly labeled temporary boundary.
+// No arterial PO2 -> HR shortcut is used.
+
+const {
+  setupHgbProps,
+  o2ContentToPo2,
+}=require("src/hummod_hgb_tissue_source_aligned.js");
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){ finite(v,label); if(!(v>0)) throw new Error(label+' must be > 0'); return v; }
+function nonNegative(v,label){ finite(v,label); if(v<0) throw new Error(label+' must be >= 0'); return v; }
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(x<=points[0].x) return points[0].y + points[0].slope*(x-points[0].x);
+  const last=points[points.length-1];
+  if(x>=last.x) return last.y + last.slope*(x-last.x);
+  let i=0;
+  while(i+1<points.length && x>points[i+1].x) i++;
+  const a=points[i], b=points[i+1];
+  const h=b.x-a.x, t=(x-a.x)/h;
+  const h00=2*t*t*t-3*t*t+1;
+  const h10=t*t*t-2*t*t+t;
+  const h01=-2*t*t*t+3*t*t;
+  const h11=t*t*t-t*t;
+  return h00*a.y+h10*h*a.slope+h01*b.y+h11*h*b.slope;
+}
+
+const SOURCE=Object.freeze({
+  brainFlowBasicConductance:9.1,
+  brainFlowInitialPo2MmHg:37,
+  brainFlowErrorLimitMmHg:0.37,
+  brainPo2DelayInitialMmHg:37,
+  brainPo2DelayKPerMin:4,
+  brainPo2DelayErrorLimitMmHg:0.37,
+  brainPo2DelayDxMaxMin:1,
+  run06BaselineO2NeedMlPerMin:39.3065407483815,
+});
+
+const CURVES=Object.freeze({
+  po2OnTension:Object.freeze([
+    Object.freeze({x:22,y:0,slope:0}),
+    Object.freeze({x:36,y:1,slope:0.02}),
+    Object.freeze({x:60,y:1.2,slope:0}),
+  ]),
+  pco2OnTension:Object.freeze([
+    Object.freeze({x:20,y:1.8,slope:0}),
+    Object.freeze({x:45,y:1,slope:-0.05}),
+    Object.freeze({x:75,y:0,slope:0}),
+  ]),
+  tensionOnConductance:Object.freeze([
+    Object.freeze({x:0,y:2.2,slope:0}),
+    Object.freeze({x:1,y:1,slope:-0.5}),
+    Object.freeze({x:2,y:0.6,slope:0}),
+  ]),
+  po2OnAerobicFraction:Object.freeze([
+    Object.freeze({x:2,y:0,slope:0}),
+    Object.freeze({x:20,y:1,slope:0}),
+  ]),
+  brainInsultPo2Effect:Object.freeze([
+    Object.freeze({x:10,y:0,slope:0}),
+    Object.freeze({x:30,y:1,slope:0}),
+  ]),
+});
+
+function flowStateAtPo2(po2,{
+  pressureGradientMmHg,
+  brainPco2MmHg,
+  anesthesiaVascularConductance,
+  viscosityConductanceEffect,
+  brainVasculatureEffect,
+  o2NeedMlPerMin,
+  arterialO2ContentMlPerMl,
+  o2MaxMlPerMl,
+  hgbP50,
+  hgbScaleForSat,
+}){
+  const po2OnTension=hermite(CURVES.po2OnTension,po2);
+  const pco2OnTension=hermite(CURVES.pco2OnTension,brainPco2MmHg);
+  const totalTension=
+    po2OnTension*pco2OnTension*anesthesiaVascularConductance;
+  const tensionEffect=hermite(CURVES.tensionOnConductance,totalTension);
+  const conductance=
+    SOURCE.brainFlowBasicConductance*
+    tensionEffect*
+    viscosityConductanceEffect*
+    brainVasculatureEffect;
+  const bloodFlowMlPerMin=Math.max(pressureGradientMmHg*conductance,0);
+  const aerobicFraction=hermite(CURVES.po2OnAerobicFraction,po2);
+  const o2UseMlPerMin=o2NeedMlPerMin*aerobicFraction;
+  const tissueO2ContentMlPerMl=bloodFlowMlPerMin>0
+    ? arterialO2ContentMlPerMl-(o2UseMlPerMin/bloodFlowMlPerMin)
+    : 0;
+  const po2EndMmHg=o2ContentToPo2({
+    o2ContentMlPerMl:tissueO2ContentMlPerMl,
+    o2MaxMlPerMl,
+    p50:hgbP50,
+    scaleForSat:hgbScaleForSat,
+  });
+  return Object.freeze({
+    po2MmHg:po2,
+    po2OnTension,
+    pco2OnTension,
+    totalTension,
+    tensionEffect,
+    conductance,
+    bloodFlowMlPerMin,
+    aerobicFraction,
+    o2UseMlPerMin,
+    tissueO2ContentMlPerMl,
+    po2EndMmHg,
+    residualMmHg:po2EndMmHg-po2,
+  });
+}
+
+function solveBrainFlow({
+  arterialPo2MmHg,
+  arterialO2ContentMlPerMl,
+  o2MaxMlPerMl,
+  venousPh,
+  venousPco2MmHg,
+  carboxyPercent=0,
+  tempC=37,
+  pressureGradientMmHg,
+  brainPco2MmHg,
+  o2NeedMlPerMin=SOURCE.run06BaselineO2NeedMlPerMin,
+  anesthesiaVascularConductance=1,
+  viscosityConductanceEffect=1,
+  brainVasculatureEffect=1,
+  errorLimitMmHg=SOURCE.brainFlowErrorLimitMmHg,
+  maxIterations=100,
+}={}){
+  nonNegative(arterialPo2MmHg,'arterialPo2MmHg');
+  nonNegative(arterialO2ContentMlPerMl,'arterialO2ContentMlPerMl');
+  positive(o2MaxMlPerMl,'o2MaxMlPerMl');
+  finite(venousPh,'arterialPh');
+  finite(venousPco2MmHg,'arterialPco2MmHg');
+  nonNegative(carboxyPercent,'carboxyPercent');
+  finite(tempC,'tempC');
+  nonNegative(pressureGradientMmHg,'pressureGradientMmHg');
+  finite(brainPco2MmHg,'brainPco2MmHg');
+  positive(o2NeedMlPerMin,'o2NeedMlPerMin');
+  positive(anesthesiaVascularConductance,'anesthesiaVascularConductance');
+  positive(viscosityConductanceEffect,'viscosityConductanceEffect');
+  nonNegative(brainVasculatureEffect,'brainVasculatureEffect');
+  positive(errorLimitMmHg,'errorLimitMmHg');
+
+  const hgb=setupHgbProps({
+    tempC,
+    pH:venousPh,
+    pCO2MmHg:venousPco2MmHg,
+    carboxyPercent,
+  });
+  const args={
+    pressureGradientMmHg,
+    brainPco2MmHg,
+    anesthesiaVascularConductance,
+    viscosityConductanceEffect,
+    brainVasculatureEffect,
+    o2NeedMlPerMin,
+    arterialO2ContentMlPerMl,
+    o2MaxMlPerMl,
+    hgbP50:hgb.p50,
+    hgbScaleForSat:hgb.scaleForSat,
+  };
+
+  let lo=0, hi=Math.max(arterialPo2MmHg,1e-9);
+  let loState=flowStateAtPo2(lo,args);
+  let hiState=flowStateAtPo2(hi,args);
+  let best=Math.abs(loState.residualMmHg)<=Math.abs(hiState.residualMmHg)
+    ? loState : hiState;
+  let iterations=0;
+  for(;iterations<maxIterations;iterations++){
+    const mid=(lo+hi)/2;
+    const s=flowStateAtPo2(mid,args);
+    if(Math.abs(s.residualMmHg)<Math.abs(best.residualMmHg)) best=s;
+    if(Math.abs(s.residualMmHg)<=errorLimitMmHg){ best=s; break; }
+    if(Math.sign(loState.residualMmHg)!==Math.sign(s.residualMmHg)){
+      hi=mid; hiState=s;
+    }else{
+      lo=mid; loState=s;
+    }
+  }
+  return Object.freeze({
+    ...best,
+    hgb,
+    solver:Object.freeze({
+      method:'bounded-bisection',
+      sourceErrorLimitMmHg:SOURCE.brainFlowErrorLimitMmHg,
+      requestedErrorLimitMmHg:errorLimitMmHg,
+      exactDesSolverIdentity:false,
+      iterations,
+      converged:Math.abs(best.residualMmHg)<=errorLimitMmHg,
+    }),
+  });
+}
+
+function createHumModSourceAlignedBrainHypoxia({
+  initialPo2DelayMmHg=SOURCE.brainPo2DelayInitialMmHg,
+}={}){
+  finite(initialPo2DelayMmHg,'initialPo2DelayMmHg');
+  let po2DelayMmHg=initialPo2DelayMmHg;
+  let last=null;
+
+  function step({dtSec,...flowInputs}={}){
+    positive(dtSec,'dtSec');
+    const flow=solveBrainFlow(flowInputs);
+    const dtMin=dtSec/60;
+    const alpha=1-Math.exp(-SOURCE.brainPo2DelayKPerMin*dtMin);
+    const delayDerivativeMmHgPerMin=
+      SOURCE.brainPo2DelayKPerMin*(flow.po2MmHg-po2DelayMmHg);
+    po2DelayMmHg += alpha*(flow.po2MmHg-po2DelayMmHg);
+    const po2Effect=hermite(CURVES.brainInsultPo2Effect,po2DelayMmHg);
+    last=Object.freeze({
+      flow,
+      po2DelayMmHg,
+      po2DelayInputMmHg:flow.po2MmHg,
+      po2DelayDerivativeMmHgPerMin:delayDerivativeMmHgPerMin,
+      po2Effect,
+      brainFunctionEffect:po2Effect,
+      brainFunctionFailed:po2Effect<0.2,
+      provenance:Object.freeze({
+        status:'source-aligned-brain-hypoxia-subset',
+        brainFunctionAuthority:'BrainInsult-PO2 only; other BrainInsult terms held neutral',
+        brainPco2Boundary:'caller supplied; browser currently uses venous PCO2 temporary boundary',
+        empiricalArterialPo2ToHrShortcut:false,
+        exactDesSolverIdentity:false,
+      }),
+    });
+    return snapshot();
+  }
+
+  function snapshot(){
+    return Object.freeze(last||{
+      po2DelayMmHg,
+      po2Effect:hermite(CURVES.brainInsultPo2Effect,po2DelayMmHg),
+      brainFunctionEffect:hermite(CURVES.brainInsultPo2Effect,po2DelayMmHg),
+      brainFunctionFailed:false,
+      provenance:Object.freeze({
+        status:'source-aligned-brain-hypoxia-subset',
+        brainFunctionAuthority:'BrainInsult-PO2 only; other BrainInsult terms held neutral',
+        brainPco2Boundary:'caller supplied; browser currently uses venous PCO2 temporary boundary',
+        empiricalArterialPo2ToHrShortcut:false,
+        exactDesSolverIdentity:false,
+      }),
+    });
+  }
+
+  return Object.freeze({kind:'hummod-source-aligned-brain-hypoxia',step,snapshot});
+}
+
+module.exports={
+  SOURCE,
+  CURVES,
+  hermite,
+  flowStateAtPo2,
+  solveBrainFlow,
+  createHumModSourceAlignedBrainHypoxia,
+};
+
+},
+"src/hummod_hgb_tissue_source_aligned.js":function(module,exports,require){
+'use strict';
+
+// Exact HumMod hemoglobin property algebra used by HgbTissue.
+// Pinned source:
+// riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
+// Structure/Hemoglobin/HgbProps.DES
+// Structure/Hemoglobin/HgbTissue.DES
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+
+const HILL_CONSTANT=2.3;
+const PO2_SATURATED=120;
+const O2_SOLUBILITY=0.00003;
+const TEMP_K=0.024;
+const PH_K=-0.40;
+const PCO2_K=0.06;
+const CO_K=-0.0067;
+const TEMP_NORM=37;
+const PH_NORM=7.40;
+const CO2_NORM=40;
+const CO_NORM=0;
+const P50_BASIC=26.6;
+
+function setupHgbProps({
+  tempC,
+  pH,
+  pCO2MmHg,
+  carboxyPercent,
+  tempSensitivity=1,
+  pHSensitivity=1,
+  pCO2Sensitivity=1,
+  coSensitivity=1,
+}={}){
+  [tempC,pH,pCO2MmHg,carboxyPercent,tempSensitivity,pHSensitivity,pCO2Sensitivity,coSensitivity]
+    .forEach((v,i)=>finite(v,['tempC','pH','pCO2MmHg','carboxyPercent','tempSensitivity','pHSensitivity','pCO2Sensitivity','coSensitivity'][i]));
+
+  const tempEffect=10**(tempSensitivity*TEMP_K*(tempC-TEMP_NORM));
+  const phEffect=10**(pHSensitivity*PH_K*(pH-PH_NORM));
+  const logPco2=pCO2MmHg<1?0:Math.log10(pCO2MmHg);
+  const pco2Effect=10**(pCO2Sensitivity*PCO2_K*(logPco2-Math.log10(CO2_NORM)));
+  const coEffect=10**(coSensitivity*CO_K*(carboxyPercent-CO_NORM));
+  const p50=P50_BASIC*tempEffect*phEffect*pco2Effect*coEffect;
+  const an=(PO2_SATURATED/p50)**HILL_CONSTANT;
+  const scaleForSat=(1+an)/an;
+
+  return Object.freeze({
+    tempEffect,
+    phEffect,
+    pco2Effect,
+    coEffect,
+    p50,
+    scaleForSat,
+  });
+}
+
+function o2ContentToPo2({
+  o2ContentMlPerMl,
+  o2MaxMlPerMl,
+  p50,
+  scaleForSat,
+}={}){
+  finite(o2ContentMlPerMl,'o2ContentMlPerMl');
+  positive(o2MaxMlPerMl,'o2MaxMlPerMl');
+  positive(p50,'p50');
+  positive(scaleForSat,'scaleForSat');
+
+  if(o2ContentMlPerMl<=0) return 0;
+  if(o2ContentMlPerMl>o2MaxMlPerMl){
+    return PO2_SATURATED+
+      ((o2ContentMlPerMl-o2MaxMlPerMl)/O2_SOLUBILITY);
+  }
+
+  const sat=o2ContentMlPerMl/o2MaxMlPerMl;
+  const s=sat/scaleForSat;
+  const a=(s/(1-s))**(1/HILL_CONSTANT);
+  return a*p50;
+}
+
+function po2ToO2Content({
+  po2MmHg,
+  o2MaxMlPerMl,
+  p50,
+  scaleForSat,
+}={}){
+  finite(po2MmHg,'po2MmHg');
+  positive(o2MaxMlPerMl,'o2MaxMlPerMl');
+  positive(p50,'p50');
+  positive(scaleForSat,'scaleForSat');
+
+  if(po2MmHg<=0) return 0;
+  if(po2MmHg>=PO2_SATURATED){
+    return o2MaxMlPerMl+((po2MmHg-PO2_SATURATED)*O2_SOLUBILITY);
+  }
+
+  const an=(po2MmHg/p50)**HILL_CONSTANT;
+  const sat=scaleForSat*an/(1+an);
+  return sat*o2MaxMlPerMl;
+}
+
+module.exports={
+  HILL_CONSTANT,
+  PO2_SATURATED,
+  O2_SOLUBILITY,
+  TEMP_K,
+  PH_K,
+  PCO2_K,
+  CO_K,
+  TEMP_NORM,
+  PH_NORM,
+  CO2_NORM,
+  CO_NORM,
+  P50_BASIC,
+  setupHgbProps,
+  o2ContentToPo2,
+  po2ToO2Content,
 };
 
 },
@@ -11450,1621 +13882,8 @@ function runScenario(s, progress = () => {}) {
   return summarize(sim, s);
 }
 module.exports = { VERSION, validateScenario, createScenario, summarize, runScenario };
-},
-"src/hummod_source_identity.js":function(module,exports,require){
-'use strict';
 
-// Canonical HumMod source identity.
-//
-// Scientific authority:
-//   HumMod/hummod-standalone
-//
-// Reproducibility mirror:
-//   riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
-//
-// The canonical repository is currently not resolvable through GitHub API
-// access in this environment. Until an official commit SHA is independently
-// resolved, do not claim that the mirror SHA is an official upstream SHA.
-
-const HUMMOD_CANONICAL_REPOSITORY = 'HumMod/hummod-standalone';
-const HUMMOD_CANONICAL_REVISION = null;
-
-const HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY =
-  'riliescu/hummod-standalone';
-const HUMMOD_REPRODUCIBILITY_MIRROR_REVISION =
-  '8dab57e05631f779bf5020fe0dd51874d8ae98c1';
-
-const HUMMOD_SOURCE_IDENTITY = Object.freeze({
-  canonicalRepository: HUMMOD_CANONICAL_REPOSITORY,
-  canonicalRevision: HUMMOD_CANONICAL_REVISION,
-  canonicalStatus: 'official-upstream-identity-confirmed-revision-unresolved',
-  reproducibilityMirrorRepository:
-    HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
-  reproducibilityMirrorRevision:
-    HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
-  reproducibilityStatus:
-    'public-mirror-snapshot-used-for-byte-addressable-source-references',
-  rule:
-    'Scientific provenance names the official upstream. Exact file/line reproduction may use the pinned mirror until the official revision is independently resolved.',
-});
-
-function humModSource(path, symbol) {
-  return Object.freeze({
-    type: 'HumMod',
-    repository: HUMMOD_CANONICAL_REPOSITORY,
-    revision: HUMMOD_CANONICAL_REVISION,
-    path,
-    symbol,
-    mirrorRepository: HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
-    mirrorRevision: HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
-    canonicalStatus: HUMMOD_SOURCE_IDENTITY.canonicalStatus,
-  });
-}
-
-module.exports = {
-  HUMMOD_CANONICAL_REPOSITORY,
-  HUMMOD_CANONICAL_REVISION,
-  HUMMOD_REPRODUCIBILITY_MIRROR_REPOSITORY,
-  HUMMOD_REPRODUCIBILITY_MIRROR_REVISION,
-  HUMMOD_SOURCE_IDENTITY,
-  humModSource,
-};
-
-},
-"src/hummod_ards_autonomic_source_aligned.js":function(module,exports,require){
-'use strict';
-
-// Acute source-aligned HumMod autonomic subset for v1.2.
-//
-// Canonical source: HumMod/hummod-standalone
-// Reproducibility mirror snapshot:
-// riliescu/hummod-standalone@8dab57e05631f779bf5020fe0dd51874d8ae98c1
-//
-// Preserved source relations:
-// - Baroreflex adaptation/pressure-effect structure
-// - SympsCNS baroreflex effect
-// - GangliaGeneral neural activity scaling
-// - VagusNerve response
-// - SANode-BetaReceptors neural/humoral weighting
-// - SANode-Rate parasympathetic/sympathetic response
-// - SystemicVeins alpha-receptor weighting and V0 effect
-// - ventricular beta-receptor contractility relation
-//
-// Deliberate reductions:
-// - LowPressureReceptors source pathway is preserved from average atrial TMP;
-// - mechanoreceptor/exercise/Cushing/brain-fuel terms remain neutral for the acute ventilator slice;
-// - humoral alpha/beta pool effects are explicit normalized boundaries;
-// - DES curve interpolation is reproduced with local cubic Hermite segments;
-// - distributed organ vascular control is not represented here.
-
-const {
-  HUMMOD_SOURCE_IDENTITY,
-} = require("src/hummod_source_identity.js");
-
-const HUMMOD_AUTONOMIC_SOURCE_REVISION =
-  HUMMOD_SOURCE_IDENTITY.canonicalRevision;
-
-function finite(v,label){
-  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
-  return v;
-}
-function positive(v,label){ finite(v,label); if(!(v>0)) throw new Error(label+' must be > 0'); return v; }
-function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
-
-function hermite(points,x){
-  finite(x,'curve input');
-  if(!Array.isArray(points)||points.length<2) throw new Error('curve requires >= 2 points');
-  if(x<=points[0].x) return points[0].y + points[0].slope*(x-points[0].x);
-  const last=points[points.length-1];
-  if(x>=last.x) return last.y + last.slope*(x-last.x);
-  let i=0;
-  while(i+1<points.length && x>points[i+1].x) i++;
-  const a=points[i], b=points[i+1];
-  const h=b.x-a.x;
-  const t=(x-a.x)/h;
-  const h00=2*t*t*t-3*t*t+1;
-  const h10=t*t*t-2*t*t+t;
-  const h01=-2*t*t*t+3*t*t;
-  const h11=t*t*t-t*t;
-  return h00*a.y+h10*h*a.slope+h01*b.y+h11*h*b.slope;
-}
-
-const CURVES=Object.freeze({
-  baroreflexPressureEffect:Object.freeze([
-    Object.freeze({x:-50,y:0,slope:0}),
-    Object.freeze({x:0,y:1,slope:0.02}),
-    Object.freeze({x:50,y:2,slope:0}),
-  ]),
-  sympsCnsBaroEffect:Object.freeze([
-    Object.freeze({x:0,y:1.5,slope:0}),
-    Object.freeze({x:1,y:1,slope:-0.5}),
-    Object.freeze({x:2,y:0.5,slope:0}),
-  ]),
-  lowPressurePressureChangeOnNa:Object.freeze([
-    Object.freeze({x:-4,y:0,slope:0}),
-    Object.freeze({x:0,y:1,slope:0.3}),
-    Object.freeze({x:12,y:4,slope:0}),
-  ]),
-  sympsCnsFuelEffect:Object.freeze([
-    Object.freeze({x:0.30,y:0.0,slope:0}),
-    Object.freeze({x:0.60,y:3.0,slope:0}),
-    Object.freeze({x:0.80,y:0.0,slope:0}),
-  ]),
-  sympsCnsA2Effect:Object.freeze([
-    Object.freeze({x:1.7,y:1.0,slope:0}),
-    Object.freeze({x:2.3,y:1.4,slope:0}),
-  ]),
-  sympsCnsLowPressureEffect:Object.freeze([
-    Object.freeze({x:0,y:1.1,slope:0}),
-    Object.freeze({x:1,y:1,slope:-0.1}),
-    Object.freeze({x:4,y:0.9,slope:0}),
-  ]),
-  vagusHz:Object.freeze([
-    Object.freeze({x:0,y:8,slope:0}),
-    Object.freeze({x:1.5,y:2,slope:-2}),
-    Object.freeze({x:4.5,y:0,slope:0}),
-  ]),
-  saParasympatheticEffect:Object.freeze([
-    Object.freeze({x:0,y:0,slope:0}),
-    Object.freeze({x:2,y:-20,slope:-8}),
-    Object.freeze({x:8,y:-40,slope:0}),
-  ]),
-  saSympatheticEffect:Object.freeze([
-    Object.freeze({x:0,y:0,slope:0}),
-    Object.freeze({x:1,y:10,slope:10}),
-    Object.freeze({x:5,y:120,slope:0}),
-  ]),
-  systemicVeinsV0AlphaEffect:Object.freeze([
-    Object.freeze({x:0,y:1.2,slope:0}),
-    Object.freeze({x:1,y:1,slope:-0.30}),
-    Object.freeze({x:3,y:0.6,slope:0}),
-  ]),
-});
-
-const SOURCE_CONSTANTS=Object.freeze({
-  baroreflexTauSourceHours:10,
-  lowPressureTauSourceDays:30,
-  lowPressureInitialAdaptedPressureMmHg:6,
-  sympsCnsHzScale:1.5,
-  gangliaNaScale:0.667,
-  vagusNaScale:0.667,
-  receptorNeuralK:0.333,
-  receptorHumoralK:0.5,
-  saNodeBasicRatePerMin:82,
-  systemicVeinsV0BasicMl:1700,
-});
-
-function receptorActivity({
-  gangliaHz,
-  humoralPoolEffect=1,
-  neuralK=SOURCE_CONSTANTS.receptorNeuralK,
-  humoralK=SOURCE_CONSTANTS.receptorHumoralK,
-}={}){
-  finite(gangliaHz,'gangliaHz');
-  finite(humoralPoolEffect,'humoralPoolEffect');
-  return neuralK*gangliaHz + humoralK*humoralPoolEffect;
-}
-
-function createHumModSourceAlignedAutonomicController({
-  initialCarotidPressureMmHg=97,
-  humoralAlphaPoolEffect=1,
-  humoralBetaPoolEffect=1,
-  baroSensitivity=1,
-  saNodeBasicRatePerMin=SOURCE_CONSTANTS.saNodeBasicRatePerMin,
-  systemicVenousV0BasicMl=SOURCE_CONSTANTS.systemicVeinsV0BasicMl,
-}={}){
-  positive(initialCarotidPressureMmHg,'initialCarotidPressureMmHg');
-  finite(humoralAlphaPoolEffect,'humoralAlphaPoolEffect');
-  finite(humoralBetaPoolEffect,'humoralBetaPoolEffect');
-  finite(baroSensitivity,'baroSensitivity');
-  positive(saNodeBasicRatePerMin,'saNodeBasicRatePerMin');
-  positive(systemicVenousV0BasicMl,'systemicVenousV0BasicMl');
-
-  let adaptedPressureMmHg=initialCarotidPressureMmHg;
-  let adaptedLowPressureMmHg=SOURCE_CONSTANTS.lowPressureInitialAdaptedPressureMmHg;
-  let last=null;
-
-  function step({
-    dtSec,
-    carotidPressureMmHg,
-    averageAtrialTmpMmHg=SOURCE_CONSTANTS.lowPressureInitialAdaptedPressureMmHg,
-    humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect=humoralAlphaPoolEffect,
-    humoralBetaPoolEffect:stepHumoralBetaPoolEffect=humoralBetaPoolEffect,
-    brainFuelFractUseDelay=null,
-    a2PoolLog10Conc=null,
-    brainFunctionEffect=1,
-    exerciseSympsTotalEffect=0,
-  }={}){
-    positive(dtSec,'dtSec');
-    finite(carotidPressureMmHg,'carotidPressureMmHg');
-    finite(averageAtrialTmpMmHg,'averageAtrialTmpMmHg');
-    finite(stepHumoralAlphaPoolEffect,'humoralAlphaPoolEffect');
-    finite(stepHumoralBetaPoolEffect,'humoralBetaPoolEffect');
-    if(brainFuelFractUseDelay!=null) finite(brainFuelFractUseDelay,'brainFuelFractUseDelay');
-    if(a2PoolLog10Conc!=null) finite(a2PoolLog10Conc,'a2PoolLog10Conc');
-    finite(brainFunctionEffect,'brainFunctionEffect');
-    finite(exerciseSympsTotalEffect,'exerciseSympsTotalEffect');
-
-    // HumMod circulation and dynamic equations use a minute-based timebase.
-    // Baroreflex.DES: RateConst = 1/(60*Tau), Tau=10 -> 600 min = 10 h.
-    const baroreflexTauSec=
-      60 * 60 * SOURCE_CONSTANTS.baroreflexTauSourceHours;
-    adaptedPressureMmHg +=
-      (carotidPressureMmHg-adaptedPressureMmHg)*
-      (1-Math.exp(-dtSec/baroreflexTauSec));
-
-    const pressureChangeMmHg=carotidPressureMmHg-adaptedPressureMmHg;
-    const baroreflexNa=hermite(CURVES.baroreflexPressureEffect,pressureChangeMmHg);
-
-    // LowPressureReceptors.DES:
-    // AvePressure=(RightAtrium.TMP+LeftAtrium.TMP)/2
-    // RateConst=1/(1440*Tau), Tau=30 -> 30 days.
-    const lowPressureTauSec=
-      24 * 60 * 60 * SOURCE_CONSTANTS.lowPressureTauSourceDays;
-    adaptedLowPressureMmHg +=
-      (averageAtrialTmpMmHg-adaptedLowPressureMmHg)*
-      (1-Math.exp(-dtSec/lowPressureTauSec));
-    const lowPressureChangeMmHg=
-      averageAtrialTmpMmHg-adaptedLowPressureMmHg;
-    const lowPressureNa=
-      hermite(CURVES.lowPressurePressureChangeOnNa,lowPressureChangeMmHg);
-
-    const sourceBaroEffect=hermite(CURVES.sympsCnsBaroEffect,baroreflexNa);
-    const sympsCnsBaroEffect=1+baroSensitivity*(sourceBaroEffect-1);
-    const sympsCnsLowPressureEffect=
-      hermite(CURVES.sympsCnsLowPressureEffect,lowPressureNa);
-
-    // SympsCNS.ReflexNA = BaroEffect * LowPressureEffect *
-    // MechanoEffect * SympsChemo.Effect. In this source snapshot,
-    // Mechanoreceptors.FiringRate=0 -> MechanoEffect=1 and
-    // SympsChemo.Effect=1, so the retained reflex product is exact here.
-    const sympsCnsReflexNa=
-      sympsCnsBaroEffect * sympsCnsLowPressureEffect;
-
-    // Exact HumMod SympsCNS source terms. These remain neutral unless their
-    // upstream native state is supplied; v1.3 does not infer Brain-Fuel or
-    // A2Pool state from arterial gases or MAP.
-    const sympsCnsFuelEffect = brainFuelFractUseDelay == null
-      ? 0
-      : hermite(CURVES.sympsCnsFuelEffect, brainFuelFractUseDelay);
-    const sympsCnsA2Effect = a2PoolLog10Conc == null
-      ? 1
-      : hermite(CURVES.sympsCnsA2Effect, a2PoolLog10Conc);
-    const sympsCnsNa = brainFunctionEffect > 0.1
-      ? (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
-        sympsCnsA2Effect
-      : (1 + sympsCnsFuelEffect);
-    const sympsCnsHz=SOURCE_CONSTANTS.sympsCnsHzScale*sympsCnsNa;
-
-    const gangliaHz=sympsCnsHz;
-    const gangliaNa=SOURCE_CONSTANTS.gangliaNaScale*gangliaHz;
-
-    const vagusHz=clamp(hermite(CURVES.vagusHz,sympsCnsHz),0,8);
-    const vagusNa=SOURCE_CONSTANTS.vagusNaScale*vagusHz;
-
-    const saBetaActivity=receptorActivity({
-      gangliaHz,
-      humoralPoolEffect:stepHumoralBetaPoolEffect,
-    });
-    const parasympatheticEffectPerMin=
-      hermite(CURVES.saParasympatheticEffect,vagusHz);
-    const sympatheticEffectPerMin=
-      hermite(CURVES.saSympatheticEffect,saBetaActivity);
-    const heartRatePerMin=clamp(
-      saNodeBasicRatePerMin+
-      parasympatheticEffectPerMin+
-      sympatheticEffectPerMin,
-      0,260);
-
-    const ventricularBetaActivity=receptorActivity({
-      gangliaHz,
-      humoralPoolEffect:stepHumoralBetaPoolEffect,
-    });
-
-    const venousAlphaActivity=receptorActivity({
-      gangliaHz,
-      humoralPoolEffect:stepHumoralAlphaPoolEffect,
-    });
-    const systemicVenousV0AlphaEffect=
-      hermite(CURVES.systemicVeinsV0AlphaEffect,venousAlphaActivity);
-    const systemicVenousV0Ml=
-      systemicVenousV0BasicMl*systemicVenousV0AlphaEffect;
-
-    last=Object.freeze({
-      carotidPressureMmHg,
-      adaptedPressureMmHg,
-      pressureChangeMmHg,
-      baroreflexNa,
-      averageAtrialTmpMmHg,
-      adaptedLowPressureMmHg,
-      lowPressureChangeMmHg,
-      lowPressureNa,
-      sympsCnsBaroEffect,
-      sympsCnsLowPressureEffect,
-      sympsCnsReflexNa,
-      sympsCnsFuelEffect,
-      sympsCnsA2Effect,
-      brainFuelFractUseDelay,
-      a2PoolLog10Conc,
-      brainFunctionEffect,
-      exerciseSympsTotalEffect,
-      sympsCnsNa,
-      sympsCnsHz,
-      gangliaHz,
-      gangliaNa,
-      vagusHz,
-      vagusNa,
-      saBetaActivity,
-      parasympatheticEffectPerMin,
-      sympatheticEffectPerMin,
-      heartRatePerMin,
-      ventricularBetaActivity,
-      contractilityMultiplier:ventricularBetaActivity,
-      venousAlphaActivity,
-      humoralAlphaPoolEffect:stepHumoralAlphaPoolEffect,
-      humoralBetaPoolEffect:stepHumoralBetaPoolEffect,
-      systemicVenousV0AlphaEffect,
-      systemicVenousV0Ml,
-    });
-    return snapshot();
-  }
-
-  function snapshot(){
-    return Object.freeze({
-      schema:'hummod-source-aligned-autonomic/v1.2',
-      ...(last||{
-        adaptedPressureMmHg,
-        adaptedLowPressureMmHg,
-        heartRatePerMin:null,
-        contractilityMultiplier:null,
-        systemicVenousV0Ml:null,
-      }),
-      provenance:Object.freeze({
-        status:'source-aligned-acute-subset',
-        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
-        sourceRevision:HUMMOD_AUTONOMIC_SOURCE_REVISION,
-        sourceCanonicalStatus:HUMMOD_SOURCE_IDENTITY.canonicalStatus,
-        reproducibilityMirrorRepository:
-          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
-        reproducibilityMirrorRevision:
-          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
-        clinicalValidation:false,
-        neutralizedDependencies:Object.freeze([
-          'Mechanoreceptors',
-          'ExerciseSymps',
-          'CushingResponse',
-          'Brain-Fuel upstream state (hook present; native input not yet supplied)',
-          'A2Pool upstream state (hook present; native input not yet supplied)',
-          'Brain-Function upstream state (default preserved while native input unavailable)',
-        ]),
-        defaultHumoralBoundaries:Object.freeze({
-          alphaPoolEffect:humoralAlphaPoolEffect,
-          betaPoolEffect:humoralBetaPoolEffect,
-          note:'step-level dynamic HumMod pool effects may override these defaults',
-        }),
-      }),
-    });
-  }
-
-  return Object.freeze({
-    kind:'hummod-source-aligned-autonomic',
-    step,
-    snapshot,
-  });
-}
-
-module.exports={
-  HUMMOD_AUTONOMIC_SOURCE_REVISION,
-  CURVES,
-  SOURCE_CONSTANTS,
-  hermite,
-  receptorActivity,
-  createHumModSourceAlignedAutonomicController,
-};
-
-},
-"src/hummod_ards_catecholamines_source_aligned.js":function(module,exports,require){
-'use strict';
-
-const { HUMMOD_SOURCE_IDENTITY } = require("src/hummod_source_identity.js");
-
-function finite(v,l){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(l+' must be finite');return v;}
-function positive(v,l){finite(v,l);if(!(v>0))throw new Error(l+' must be > 0');return v;}
-
-function hermite(points,x){
-  finite(x,'curve input');
-  if(x<=points[0].x)return points[0].y+points[0].slope*(x-points[0].x);
-  const z=points[points.length-1];
-  if(x>=z.x)return z.y+z.slope*(x-z.x);
-  let i=0; while(i+1<points.length&&x>points[i+1].x)i++;
-  const a=points[i],b=points[i+1],h=b.x-a.x,t=(x-a.x)/h;
-  return (2*t*t*t-3*t*t+1)*a.y+(t*t*t-2*t*t+t)*h*a.slope+
-    (-2*t*t*t+3*t*t)*b.y+(t*t*t-t*t)*h*b.slope;
-}
-
-const ADRENAL_EFFECT=Object.freeze([
-  Object.freeze({x:2,y:1,slope:0}),
-  Object.freeze({x:8,y:20,slope:0}),
-]);
-
-const SOURCE_CONSTANTS=Object.freeze({
-  neTargetNgPerMl:0.240,
-  epiTargetNgPerMl:0.040,
-  neSecretionBase:220,
-  epiSecretionBase:375,
-  neSpilloverK:570,
-  neClearanceK:4.5,
-  epiClearanceK:9.4,
-  alphaNeScale:0.021,
-  alphaEpiScale:0.125,
-  betaNeScale:0.021,
-  betaEpiScale:0.125,
-});
-
-function poolEffects({nePgPerMl,epiPgPerMl}={}){
-  finite(nePgPerMl,'nePgPerMl'); finite(epiPgPerMl,'epiPgPerMl');
-  const alphaTotal=
-    nePgPerMl*SOURCE_CONSTANTS.alphaNeScale+
-    epiPgPerMl*SOURCE_CONSTANTS.alphaEpiScale;
-  const betaTotal=
-    nePgPerMl*SOURCE_CONSTANTS.betaNeScale+
-    epiPgPerMl*SOURCE_CONSTANTS.betaEpiScale;
-  return Object.freeze({
-    alphaTotal,
-    betaTotal,
-    alphaEffect:alphaTotal>1?Math.log10(alphaTotal):0,
-    betaEffect:betaTotal>1?Math.log10(betaTotal):0,
-  });
-}
-
-function createHumModSourceAlignedCatecholamines({
-  ecfvMl,
-  initialNeNgPerMl=SOURCE_CONSTANTS.neTargetNgPerMl,
-  initialEpiNgPerMl=SOURCE_CONSTANTS.epiTargetNgPerMl,
-}={}){
-  positive(ecfvMl,'ecfvMl');
-  positive(initialNeNgPerMl,'initialNeNgPerMl');
-  positive(initialEpiNgPerMl,'initialEpiNgPerMl');
-
-  let neMass=initialNeNgPerMl*ecfvMl;
-  let epiMass=initialEpiNgPerMl*ecfvMl;
-  let last=null;
-
-  function step({
-    dtSec,
-    adrenalNerveHz,
-    generalGangliaHz,
-    otherTissueFunctionEffect=1,
-  }={}){
-    positive(dtSec,'dtSec');
-    finite(adrenalNerveHz,'adrenalNerveHz');
-    finite(generalGangliaHz,'generalGangliaHz');
-    finite(otherTissueFunctionEffect,'otherTissueFunctionEffect');
-
-    const adrenalEffect=hermite(ADRENAL_EFFECT,adrenalNerveHz);
-    const neSecretion=
-      SOURCE_CONSTANTS.neSecretionBase*adrenalEffect*otherTissueFunctionEffect;
-    const neSpillover=
-      SOURCE_CONSTANTS.neSpilloverK*generalGangliaHz;
-    const epiSecretion=
-      SOURCE_CONSTANTS.epiSecretionBase*adrenalEffect*otherTissueFunctionEffect;
-
-    // Native DES uses backward Euler. With ECFV fixed over this acute reduced
-    // step, each linear pool has an analytic backward-Euler update.
-    const dtMin=dtSec/60;
-    const neF2=1000*SOURCE_CONSTANTS.neClearanceK/ecfvMl;
-    const epiF2=1000*SOURCE_CONSTANTS.epiClearanceK/ecfvMl;
-    neMass=(neMass+dtMin*(neSecretion+neSpillover))/(1+dtMin*neF2);
-    epiMass=(epiMass+dtMin*epiSecretion)/(1+dtMin*epiF2);
-
-    const nePgPerMl=1000*(neMass/ecfvMl);
-    const epiPgPerMl=1000*(epiMass/ecfvMl);
-    const effects=poolEffects({nePgPerMl,epiPgPerMl});
-    last=Object.freeze({
-      ecfvMl,
-      adrenalNerveHz,
-      generalGangliaHz,
-      adrenalEffect,
-      neMass,
-      epiMass,
-      nePgPerMl,
-      epiPgPerMl,
-      neSecretion,
-      neSpillover,
-      epiSecretion,
-      neClearance:SOURCE_CONSTANTS.neClearanceK*nePgPerMl,
-      epiClearance:SOURCE_CONSTANTS.epiClearanceK*epiPgPerMl,
-      ...effects,
-    });
-    return snapshot();
-  }
-
-  function snapshot(){
-    const nePgPerMl=1000*(neMass/ecfvMl);
-    const epiPgPerMl=1000*(epiMass/ecfvMl);
-    return Object.freeze({
-      schema:'hummod-source-aligned-catecholamines/v1.2',
-      ...(last||{
-        ecfvMl,neMass,epiMass,nePgPerMl,epiPgPerMl,
-        ...poolEffects({nePgPerMl,epiPgPerMl}),
-      }),
-      provenance:Object.freeze({
-        status:'source-aligned-acute-subset',
-        sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
-        sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
-        reproducibilityMirrorRepository:
-          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
-        reproducibilityMirrorRevision:
-          HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
-        ecfvBoundary:'explicit-required',
-        solverAdaptation:
-          'linear backward-Euler pool update with fixed ECFV over coupled step',
-        clinicalValidation:false,
-      }),
-    });
-  }
-
-  return Object.freeze({
-    kind:'hummod-source-aligned-catecholamines',
-    step,
-    snapshot,
-  });
-}
-
-module.exports={
-  ADRENAL_EFFECT,
-  SOURCE_CONSTANTS,
-  poolEffects,
-  createHumModSourceAlignedCatecholamines,
-};
-
-},
-"src/hummod_ards_vascular_sympathetic_source_aligned.js":function(module,exports,require){
-'use strict';
-
-const { HUMMOD_SOURCE_IDENTITY } = require("src/hummod_source_identity.js");
-
-function finite(v,l){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(l+' must be finite');return v;}
-
-function hermite(points,x){
-  finite(x,'curve input');
-  if(x<=points[0].x)return points[0].y+points[0].slope*(x-points[0].x);
-  const z=points[points.length-1];
-  if(x>=z.x)return z.y+z.slope*(x-z.x);
-  let i=0;while(i+1<points.length&&x>points[i+1].x)i++;
-  const a=points[i],b=points[i+1],h=b.x-a.x,t=(x-a.x)/h;
-  return (2*t*t*t-3*t*t+1)*a.y+(t*t*t-2*t*t+t)*h*a.slope+
-    (-2*t*t*t+3*t*t)*b.y+(t*t*t-t*t)*h*b.slope;
-}
-
-const CURVES=Object.freeze({
-  visceralOther:Object.freeze([
-    Object.freeze({x:0,y:1.3,slope:0}),
-    Object.freeze({x:1,y:1.0,slope:-0.3}),
-    Object.freeze({x:5,y:0.1,slope:0}),
-  ]),
-  skeletalMuscle:Object.freeze([
-    Object.freeze({x:0,y:1.3,slope:0}),
-    Object.freeze({x:1,y:1.0,slope:-0.2}),
-    Object.freeze({x:4,y:0.5,slope:0}),
-  ]),
-  cardiac:Object.freeze([
-    Object.freeze({x:0,y:1.3,slope:0}),
-    Object.freeze({x:1,y:1.0,slope:-0.16}),
-    Object.freeze({x:4,y:0.8,slope:0}),
-  ]),
-});
-
-function alphaReceptorActivity({gangliaHz,alphaPoolEffect=1}={}){
-  finite(gangliaHz,'gangliaHz');
-  finite(alphaPoolEffect,'alphaPoolEffect');
-  return 0.333*gangliaHz+0.5*alphaPoolEffect;
-}
-
-function sourceSympatheticVascularComponents({gangliaHz,alphaPoolEffect=1}={}){
-  const activity=alphaReceptorActivity({gangliaHz,alphaPoolEffect});
-  return Object.freeze({
-    schema:'hummod-source-sympathetic-vascular-components/v1.2',
-    alphaReceptorActivity:activity,
-    conductanceMultipliers:Object.freeze({
-      boneFatGiOtherRespiratoryMuscle:
-        hermite(CURVES.visceralOther,activity),
-      skeletalMuscle:
-        hermite(CURVES.skeletalMuscle,activity),
-      leftRightHeart:
-        hermite(CURVES.cardiac,activity),
-    }),
-    authority:'diagnostic-component-only',
-    excludedFromSystemicAuthority:Object.freeze([
-      'local tissue PO2 control',
-      'A2/angiotensin control',
-      'ADH control',
-      'metabolic vasodilation',
-      'viscosity effects',
-      'anesthesia effects',
-      'organ vasculature modifiers',
-      'skin thermoregulatory sympathetic dilation',
-      'kidney-specific vascular control',
-      'brain autoregulation',
-    ]),
-    provenance:Object.freeze({
-      sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
-      sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
-      reproducibilityMirrorRepository:
-        HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRepository,
-      reproducibilityMirrorRevision:
-        HUMMOD_SOURCE_IDENTITY.reproducibilityMirrorRevision,
-      clinicalValidation:false,
-    }),
-  });
-}
-
-module.exports={
-  CURVES,
-  hermite,
-  alphaReceptorActivity,
-  sourceSympatheticVascularComponents,
-};
-
-},
-"src/model_provenance.js":function(module,exports,require){
-'use strict';
-
-const { humModSource } = require("src/hummod_source_identity.js");
-
-const PROVENANCE_SCHEMA = 'vent-model-provenance/v1';
-
-const PROVENANCE_CLASSES = Object.freeze([
-  'HUMMOD_EXACT',
-  'HUMMOD_ADAPTED',
-  'LITERATURE_DIRECT',
-  'LITERATURE_CALIBRATED',
-  'ENGINEERING_ASSUMPTION',
-  'SCENARIO_AUTHORED',
-  'MEASURED_OR_USER_SUPPLIED',
-  'DERIVED',
-  'UNKNOWN',
-]);
-
-const PROVENANCE_KINDS = Object.freeze([
-  'variable','constant','equation','condition','transition',
-  'boundary','topology','interpolation','scenario',
-]);
-
-function record(value) {
-  return Object.freeze({ clinicalValidation: false, dependsOn: Object.freeze([]), ...value });
-}
-
-const MODEL_PROVENANCE = Object.freeze({
-  'live.thorax.reference_pleural_pressure': record({
-    id:'live.thorax.reference_pleural_pressure', kind:'boundary',
-    class:'ENGINEERING_ASSUMPTION',
-    module:'clinical_twin_live_hummod_session.js',
-    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.referencePleuralPressureCmH2O',
-    description:'Reference pleural pressure for the live synthetic aspiration case.',
-    source:Object.freeze([{type:'project',statement:'Explicit synthetic phase-1 thorax boundary; not inferred from Berlin severity or recruitability.'}]),
-  }),
-  'live.thorax.chest_wall_elastance_fraction': record({
-    id:'live.thorax.chest_wall_elastance_fraction', kind:'boundary',
-    class:'ENGINEERING_ASSUMPTION',
-    module:'clinical_twin_live_hummod_session.js',
-    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.chestWallElastanceFraction',
-    description:'Fraction of passive respiratory-system elastance assigned to the chest wall.',
-    source:Object.freeze([{type:'project',statement:'Explicit synthetic phase-1 thorax boundary.'}]),
-  }),
-  'live.metabolism.tissue_o2_use': record({
-    id:'live.metabolism.tissue_o2_use', kind:'boundary',
-    class:'ENGINEERING_ASSUMPTION',
-    module:'clinical_twin_live_hummod_session.js',
-    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic.tissueO2UseMlPerMin',
-    description:'Whole-body oxygen-use boundary for the reduced acute gas core.',
-    source:Object.freeze([{type:'project',statement:'Fixed phase-1 metabolic boundary; full HumMod tissue metabolism is not running.'}]),
-  }),
-  'hummod.breathing.dead_space_equation': record({
-    id:'hummod.breathing.dead_space_equation', kind:'equation',
-    class:'HUMMOD_EXACT', module:'hummod_ards_core_breathing.js',
-    symbol:'humModLegacyDeadSpaceMl',
-    description:'DeadSpace = 0.20 * TidalVolume + 60 mL.',
-    source:Object.freeze([humModSource('Structure/Lungs/Breathing.DES','Breathing.DeadSpace')]),
-  }),
-  'hummod.bronchi.water_vapor_pressure': record({
-    id:'hummod.bronchi.water_vapor_pressure', kind:'constant',
-    class:'HUMMOD_EXACT', module:'hummod_ards_core_breathing.js',
-    symbol:'BRONCHI_VAPOR_PRESSURE_MMHG',
-    description:'Bronchial saturated water-vapor pressure boundary.',
-    source:Object.freeze([humModSource('Structure/Lungs/Bronchi.DES','Bronchi.VaporPressure')]),
-  }),
-  'hummod.hemoglobin.p50_model': record({
-    id:'hummod.hemoglobin.p50_model', kind:'equation',
-    class:'HUMMOD_EXACT', module:'hummod_ards_core_chemistry.js',
-    symbol:'hemoglobinProperties',
-    description:'HumMod hemoglobin P50 response to temperature, pH, PCO2, and carboxyhemoglobin.',
-    source:Object.freeze([humModSource('Structure/Hemoglobin/HgbProps.DES','HgbProps.Setup')]),
-  }),
-  'hummod.acid_base.ph_sid_pco2': record({
-    id:'hummod.acid_base.ph_sid_pco2', kind:'equation',
-    class:'HUMMOD_EXACT', module:'hummod_ards_core_chemistry.js',
-    symbol:'phFromPco2Sid',
-    description:'HumMod pH relation using pK + log10(SID/PCO2) with source boundary cases.',
-    source:Object.freeze([humModSource('Structure/AcidBase/PhGeneral.DES','PhGeneral.Calc')]),
-  }),
-  'hummod.pulmonary_membrane.interpolation': record({
-    id:'hummod.pulmonary_membrane.interpolation', kind:'interpolation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_core_pulmonary_membrane.js',
-    symbol:'hermiteSegment',
-    description:'Piecewise cubic Hermite interpolation across HumMod pulmonary-membrane recruitment points/slopes.',
-    source:Object.freeze([
-      humModSource('Structure/Lungs/PulmonaryMembrane.DES','PulmonaryMembrane.Recruitment'),
-      {type:'project',statement:'Interpolation algorithm is a browser implementation choice because the DES runtime interpolation was not independently reproduced.'},
-    ]),
-  }),
-  'vent.mechanics.elastic_pressure_law': record({
-    id:'vent.mechanics.elastic_pressure_law', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'compartments.js',
-    symbol:'elasticPressureAboveAOP',
-    description:'Finite-capacity exponential compartment elastic recoil law.',
-    source:Object.freeze([{type:'project',statement:'Purpose-built Vent mechanical constitutive law; not derived from HumMod.'}]),
-  }),
-  'vent.recruitment.open_close_kinetics': record({
-    id:'vent.recruitment.open_close_kinetics', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
-    symbol:'recruitmentRate',
-    description:'Bounded opening/closing recruitment kinetics with dead band.',
-    source:Object.freeze([{type:'project',statement:'Purpose-built stateful recruitment kinetics; not a direct Chen R/I or HumMod equation.'}]),
-  }),
-  'vent.recruitment.condition.open': record({
-    id:'vent.recruitment.condition.open', kind:'condition',
-    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
-    symbol:'pDist > P_open',
-    description:'Recruitment opening branch.',
-    source:Object.freeze([{type:'project',statement:'Engineering branch condition; phenotype P_open is separately provenance-tagged.'}]),
-  }),
-  'vent.recruitment.condition.close': record({
-    id:'vent.recruitment.condition.close', kind:'condition',
-    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
-    symbol:'pDist < P_close',
-    description:'Derecruitment closing branch.',
-    source:Object.freeze([{type:'project',statement:'Engineering branch condition; phenotype P_close is separately provenance-tagged.'}]),
-  }),
-  'hummod.gas_exchange.oxygen_runtime': record({
-    id:'hummod.gas_exchange.oxygen_runtime', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_core_gas_exchange.js',
-    symbol:'reduced pulmonary O2 exchange runtime',
-    description:'Reduced browser execution of source-aligned HumMod oxygen transport/exchange equations.',
-    source:Object.freeze([
-      humModSource('Structure/Lungs/LungO2.DES','LungO2'),
-      {type:'project',statement:'Runtime topology, solver numerics, and Vent-derived perfusion/recruitment boundaries are adapted for browser execution.'},
-    ]),
-  }),
-  'hummod.gas_exchange.co2_runtime': record({
-    id:'hummod.gas_exchange.co2_runtime', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_core_gas_exchange.js',
-    symbol:'reduced pulmonary CO2 exchange runtime',
-    description:'Reduced browser execution of source-aligned HumMod carbon-dioxide transport/exchange equations.',
-    source:Object.freeze([
-      humModSource('Structure/Lungs/LungCO2.DES','LungCO2'),
-      {type:'project',statement:'Runtime topology and numerical execution are adapted for browser execution.'},
-    ]),
-  }),
-  'hummod.hemodynamics.vascular_primitives': record({
-    id:'hummod.hemodynamics.vascular_primitives', kind:'equation',
-    class:'HUMMOD_EXACT', module:'hummod_ards_core_hemodynamics.js',
-    symbol:'VASCULAR_DEFAULTS/stressedVolumePressure/conductanceFlow',
-    description:'Source-preserved vascular V0/compliance/conductance constants and pressure/flow primitives.',
-    source:Object.freeze([humModSource('Structure/VascularCompartments','SystemicArtys/SystemicVeins/RightAtrium/PulmArty/PulmCapys/PulmVeins/LeftAtrium')]),
-  }),
-  'hummod.hemodynamics.ventricular_pump': record({
-    id:'hummod.hemodynamics.ventricular_pump', kind:'equation',
-    class:'HUMMOD_EXACT', module:'hummod_ards_core_hemodynamics.js',
-    symbol:'ventricularPump/PUMP_DEFAULTS',
-    description:'Source-preserved right/left ventricular diastolic/systolic pressure-volume and stroke-volume equations.',
-    source:Object.freeze([humModSource('Structure/RightHeartPumping and Structure/LeftHeartPumping','Diastole/Systole/Pumping')]),
-  }),
-  'live.circulation.reference_boundaries': record({
-    id:'live.circulation.reference_boundaries', kind:'boundary',
-    class:'HUMMOD_ADAPTED', module:'clinical_twin_live_hummod_session.js',
-    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.circulation',
-    description:'Reference-case initial volumes, heart rate, conductances, and pump multipliers used to initialize the reduced circulation.',
-    source:Object.freeze([
-      humModSource('Structure/VascularCompartments','source initial volumes/conductances where available'),
-      {type:'project',statement:'Systemic venous initial volume and reduced-network boundary composition are adapted engineering boundaries.'},
-    ]),
-  }),
-  'live.gas.reference_boundaries': record({
-    id:'live.gas.reference_boundaries', kind:'boundary',
-    class:'ENGINEERING_ASSUMPTION', module:'clinical_twin_live_hummod_session.js',
-    symbol:'LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas',
-    description:'Reference systemic metabolic, pulmonary, blood, and environmental boundaries for the reduced gas runtime.',
-    source:Object.freeze([{type:'project',statement:'Explicit reference-case boundaries; individual HumMod-derived constants retain their own source records where applicable.'}]),
-  }),
-  'thorax.static_elastance_partition': record({
-    id:'thorax.static_elastance_partition', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_core_thorax.js',
-    symbol:'dPpl = dPaw * Ecw/Ers',
-    description:'Passive quasi-static partition of airway-pressure change into pleural and transpulmonary components.',
-    source:Object.freeze([{type:'project',statement:'Physiologically motivated reduced coupling relation; not a source-preserved HumMod thorax subsystem.'}]),
-    dependsOn:Object.freeze(['live.thorax.chest_wall_elastance_fraction','live.thorax.reference_pleural_pressure']),
-  }),
-  'circulation.reduced_topology': record({
-    id:'circulation.reduced_topology', kind:'topology',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_core_circulation.js',
-    symbol:'createHumModArdsCirculation',
-    description:'Seven-compartment closed-loop circulation using HumMod vascular/pump primitives with organ beds lumped into effective conductances.',
-    source:Object.freeze([
-      humModSource('Structure/VascularCompartments','vascular compartments'),
-      {type:'project',statement:'Detailed organ circulations are reduced/lumped for the browser runtime.'},
-    ]),
-  }),
-  'circulation.integration_substep': record({
-    id:'circulation.integration_substep', kind:'constant',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_core_circulation.js',
-    symbol:'maxSubstepSec',
-    description:'Maximum Euler integration substep used by the reduced circulation.',
-    source:Object.freeze([{type:'project',statement:'Numerical integration choice for browser stability; not a HumMod physiological constant.'}]),
-  }),
-  'circulation.mass_balance_derivatives': record({
-    id:'circulation.mass_balance_derivatives', kind:'equation',
-    class:'DERIVED', module:'hummod_ards_core_circulation.js',
-    symbol:'derivative',
-    description:'Compartment volume derivatives from inflow minus outflow.',
-    source:Object.freeze([{type:'project',statement:'Conservation-law bookkeeping over the reduced topology.'}]),
-    dependsOn:Object.freeze(['circulation.reduced_topology']),
-  }),
-  'circulation.negative_forward_flow_failure': record({
-    id:'circulation.negative_forward_flow_failure', kind:'condition',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_core_circulation.js',
-    symbol:'pump.bloodFlowMlPerMin < 0',
-    description:'Treat negative source-pump forward flow as entry into a nonphysical domain and expose zero forward flow plus mechanicalPumpFailure.',
-    source:Object.freeze([{type:'project',statement:'Safety/terminal-state adaptation; native HumMod pump algebra is preserved as raw output but does not define this clamp.'}]),
-  }),
-  'circulation.svr_derived': record({
-    id:'circulation.svr_derived', kind:'equation',
-    class:'DERIVED', module:'hummod_ards_core_circulation.js',
-    symbol:'systemicVascularResistanceMmHgMinPerL',
-    description:'Derived systemic resistance from arterial-venous pressure difference divided by systemic outflow.',
-    source:Object.freeze([{type:'project',statement:'Deterministic derived reporting quantity.'}]),
-    dependsOn:Object.freeze(['circulation.reduced_topology']),
-  }),
-  'circulation.pvr_derived': record({
-    id:'circulation.pvr_derived', kind:'equation',
-    class:'DERIVED', module:'hummod_ards_core_circulation.js',
-    symbol:'pulmonaryVascularResistanceMmHgMinPerL',
-    description:'Derived pulmonary resistance from pulmonary arterial-capillary pressure difference divided by pulmonary arterial outflow.',
-    source:Object.freeze([{type:'project',statement:'Deterministic derived reporting quantity.'}]),
-    dependsOn:Object.freeze(['circulation.reduced_topology']),
-  }),
-  'oxygen_supply.delivery_equation': record({
-    id:'oxygen_supply.delivery_equation', kind:'equation',
-    class:'DERIVED', module:'hummod_ards_oxygen_supply_cliff.js',
-    symbol:'oxygenDeliveryMlPerMin',
-    description:'Oxygen delivery as cardiac output multiplied by arterial oxygen content.',
-    source:Object.freeze([{type:'physiology',statement:'Standard oxygen-delivery identity used as a deterministic derived relation.'}]),
-  }),
-  'oxygen_supply.critical_delivery_equation': record({
-    id:'oxygen_supply.critical_delivery_equation', kind:'equation',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_oxygen_supply_cliff.js',
-    symbol:'criticalOxygenDeliveryMlPerMin',
-    description:'Critical oxygen delivery inferred from requested VO2 divided by the calibrated critical extraction ratio.',
-    source:Object.freeze([{type:'literature',citation:'Ward ME. Anesthesiology. 1996;85:817-822.',role:'critical extraction anchors; project applies them as a bounded reduced-order DO2/VO2 relation'}]),
-    dependsOn:Object.freeze(['oxygen_supply.critical_extraction_curve']),
-  }),
-  'oxygen_supply.condition.supply_dependent': record({
-    id:'oxygen_supply.condition.supply_dependent', kind:'condition',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_oxygen_supply_cliff.js',
-    symbol:'oxygenSupplyDeficitMlPerMin > numerical tolerance',
-    description:'Numerical condition flagging supply-dependent oxygen consumption.',
-    source:Object.freeze([{type:'project',statement:'Numerical classification around the reduced DO2/VO2 relation.'}]),
-    dependsOn:Object.freeze(['oxygen_supply.critical_delivery_equation']),
-  }),
-  'decompensation.low_svo2_marker': record({
-    id:'decompensation.low_svo2_marker', kind:'boundary',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
-    symbol:'LOW_SVO2_SHOCK_MARKER_FRACTION',
-    description:'Low mixed-venous O2 saturation warning marker used by the educational shock-state classifier.',
-    source:Object.freeze([{type:'literature',citation:'Critical oxygen-delivery literature summarized in module comments.',role:'engineering marker selected within a reported depleted-extraction range; not a universal clinical threshold'}]),
-  }),
-  'decompensation.organ_flow_map_marker': record({
-    id:'decompensation.organ_flow_map_marker', kind:'boundary',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_decompensation_controller.js',
-    symbol:'ORGAN_FLOW_RISK_MAP_MMHG',
-    description:'MAP marker used to enter the compensated-shock teaching state.',
-    source:Object.freeze([{type:'project',statement:'Educational state-classification marker; not a validated mortality threshold.'}]),
-  }),
-  'decompensation.oxygen_debt_integral': record({
-    id:'decompensation.oxygen_debt_integral', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_decompensation_controller.js',
-    symbol:'oxygenDebtMl += oxygenSupplyDeficitMlPerMin * dtSec / 60',
-    description:'Integral of unmet requested aerobic oxygen demand.',
-    source:Object.freeze([{type:'project',statement:'Transparent reduced-order injury state based on cumulative unmet VO2.'}]),
-  }),
-  'decompensation.debt_calibration_minutes': record({
-    id:'decompensation.debt_calibration_minutes', kind:'boundary',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
-    symbol:'COLLAPSE_CALIBRATION_EQUIVALENT_DEBT_MIN',
-    description:'Equivalent oxygen-debt time used to normalize severe-shock injury.',
-    source:Object.freeze([{type:'literature',citation:'Navarro e Lima et al. J Trauma Acute Care Surg. 2012.',role:'porcine hemorrhagic-collapse timing anchor; not a human survival prediction'}]),
-  }),
-  'decompensation.myocardial_floor': record({
-    id:'decompensation.myocardial_floor', kind:'boundary',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
-    symbol:'MYOCARDIAL_CONTRACTILITY_FLOOR',
-    description:'Severe-shock myocardial contractility floor from experimental elastance ratio.',
-    source:Object.freeze([{type:'literature',citation:'Kimmoun et al. Anesthesiology. 2013.',role:'experimental severe shock/lactic-acidosis elastance anchor'}]),
-  }),
-  'decompensation.condition.map30_duration': record({
-    id:'decompensation.condition.map30_duration', kind:'condition',
-    class:'LITERATURE_DIRECT', module:'hummod_ards_decompensation_controller.js',
-    symbol:'MAP < 30 mmHg for 10 min',
-    description:'Experimental cardiovascular-collapse condition.',
-    source:Object.freeze([{type:'literature',citation:'Gomez et al. collapse criterion as documented in module comments.',role:'experimental collapse definition'}]),
-  }),
-  'decompensation.asphyxial_anchor': record({
-    id:'decompensation.asphyxial_anchor', kind:'boundary',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
-    symbol:'ASPHYXIAL_COLLAPSE_ANCHOR',
-    description:'Experimental canine asphyxia timing/gas landmarks used to calibrate a reduced asphyxial-collapse clock.',
-    source:Object.freeze([{type:'literature',citation:'DeBehnke et al. Resuscitation. 1995;30:169-175.',role:'experimental timing/gas anchor; project constructs the burden interpolation'}]),
-  }),
-  'decompensation.stage_classifier': record({
-    id:'decompensation.stage_classifier', kind:'transition',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_decompensation_controller.js',
-    symbol:'classifyStage',
-    description:'Educational stable/compensated/oxygen-debt/decompensated/refractory/arrest state machine.',
-    source:Object.freeze([{type:'project',statement:'Project-authored teaching-state classifier; not a clinical shock score.'}]),
-    dependsOn:Object.freeze(['decompensation.low_svo2_marker','decompensation.organ_flow_map_marker','decompensation.debt_calibration_minutes']),
-  }),
-  'ards.phenotype.baseline': record({
-    id:'ards.phenotype.baseline', kind:'scenario',
-    class:'SCENARIO_AUTHORED', module:'presets.js',
-    symbol:'presetBaseline',
-    description:'Baseline three-compartment mechanics/perfusion/dead-space/AOP parameter set.',
-    source:Object.freeze([{type:'project',statement:'Synthetic mechanical teaching phenotype; not fitted patient data.'}]),
-  }),
-  'ards.phenotype.low_recruitability': record({
-    id:'ards.phenotype.low_recruitability', kind:'scenario',
-    class:'SCENARIO_AUTHORED', module:'presets.js',
-    symbol:'presetPhenotypeLowRecruitability',
-    description:'Low-recruitability authored mechanics/perfusion/dead-space/AOP parameter set.',
-    source:Object.freeze([{type:'project',statement:'Synthetic mechanical teaching phenotype; not fitted patient data.'}]),
-  }),
-  'ards.phenotype.moderate_recruitability': record({
-    id:'ards.phenotype.moderate_recruitability', kind:'scenario',
-    class:'SCENARIO_AUTHORED', module:'presets.js',
-    symbol:'presetPhenotypeModerateRecruitability',
-    description:'Moderate-recruitability authored mechanics/perfusion/dead-space/AOP parameter set.',
-    source:Object.freeze([{type:'project',statement:'Synthetic mechanical teaching phenotype; not fitted patient data.'}]),
-  }),
-  'ards.phenotype.high_recruitability': record({
-    id:'ards.phenotype.high_recruitability', kind:'scenario',
-    class:'SCENARIO_AUTHORED', module:'presets.js',
-    symbol:'presetPhenotypeHighRecruitability',
-    description:'High-recruitability authored mechanics/perfusion/dead-space/AOP parameter set.',
-    source:Object.freeze([{type:'project',statement:'Synthetic mechanical teaching phenotype; not fitted patient data.'}]),
-  }),
-  'vent.recruitment.defaults': record({
-    id:'vent.recruitment.defaults', kind:'boundary',
-    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
-    symbol:'OPEN_DEFAULT/CLOSE_DEFAULT/K_OPEN_DEFAULT/K_CLOSE_DEFAULT',
-    description:'Fallback opening/closing pressures and kinetic coefficients.',
-    source:Object.freeze([{type:'project',statement:'Engineering defaults used only when phenotype-specific recruitment parameters are absent.'}]),
-  }),
-  'vent.recruitment.feasibility_projection': record({
-    id:'vent.recruitment.feasibility_projection', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'recruitment.js',
-    symbol:'stepRecruitmentWithFloor',
-    description:'Projection preserving finite-capacity volume feasibility during derecruitment.',
-    source:Object.freeze([{type:'project',statement:'Numerical/physical invariant rule preventing silent destruction of trapped elastic gas volume.'}]),
-  }),
-  'autonomic.v12.sympathetic_vascular_components': record({
-    id:'autonomic.v12.sympathetic_vascular_components', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_vascular_sympathetic_source_aligned.js',
-    symbol:'organ-bed alpha-receptor sympathetic conductance components',
-    description:'Source-aligned sympathetic conductance multipliers for visceral/other, skeletal-muscle, and cardiac vascular beds. Diagnostic only; not treated as full systemic vascular conductance because local PO2, ADH, angiotensin, metabolic, viscosity, skin, kidney, and brain controls remain outside this reduced component.',
-    source:Object.freeze([
-      humModSource('Structure/GITract/GITract-Flow.DES','SympsOnConductance'),
-      humModSource('Structure/OtherTissue/OtherTissue-Flow.DES','SympsOnConductance'),
-      humModSource('Structure/SkeletalMuscle/SkeletalMuscle-Flow.DES','SympsOnConductance'),
-      humModSource('Structure/LeftHeart/LeftHeart-Flow.DES','SympsOnConductance'),
-      humModSource('Structure/RightHeart/RightHeart-Flow.DES','SympsOnConductance'),
-      {type:'project',statement:'Reduced module exposes component multipliers only and deliberately does not aggregate them into full SVR.'},
-    ]),
-    dependsOn:Object.freeze(['autonomic.v12.baroreflex_source','autonomic.v12.catecholamine_pools']),
-  }),
-  'autonomic.v12.ecfv_boundary': record({
-    id:'autonomic.v12.ecfv_boundary', kind:'boundary',
-    class:'HUMMOD_ADAPTED', module:'hummod_native_reduced_calibration.js',
-    symbol:'ECFV.Vol -> catecholamineEcfvMl',
-    description:'Explicit extracellular-fluid-volume boundary required to convert HumMod catecholamine pool mass to concentration. Native ECFV is preferred when present; the authored reference case otherwise uses HumMod\'s checked-in 15,000 mL catecholamine benchmark rather than a synthetic patient default.',
-    source:Object.freeze([
-      humModSource('Structure/H2O/ECFV.DES','ECFV.Vol'),
-      humModSource("Benchmarks/Tom's July 28 2007 Benchmarks.TXT",'resting ECFV = 15,000 mL'),
-      {type:'project',statement:'The 15,000 mL benchmark is restricted to the authored HumMod reference case; native ECFV.Vol overrides it when available.'},
-    ]),
-  }),
-  'autonomic.v12.catecholamine_pools': record({
-    id:'autonomic.v12.catecholamine_pools', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_catecholamines_source_aligned.js',
-    symbol:'NEPool/EpiPool + secretion/clearance + AlphaPool/BetaPool',
-    description:'Source-aligned acute NE/Epi pool dynamics and alpha/beta humoral effects with explicit ECFV and fixed-ECFV backward-Euler reduced stepping.',
-    source:Object.freeze([
-      humModSource('Structure/Nerves/AdrenalNerve.DES','AdrenalNerve.NA(Hz)'),
-      humModSource('Structure/Catechols/NESecretion.DES','Rate/Spillover'),
-      humModSource('Structure/Catechols/EpiSecretion.DES','Rate'),
-      humModSource('Structure/Catechols/NEPool.DES','Mass/[NE]'),
-      humModSource('Structure/Catechols/EpiPool.DES','Mass/[Epi]'),
-      humModSource('Structure/Catechols/NEClearance.DES','Rate'),
-      humModSource('Structure/Catechols/EpiClearance.DES','Rate'),
-      humModSource('Structure/Catechols/AlphaPool.DES','Effect'),
-      humModSource('Structure/Catechols/BetaPool.DES','Effect'),
-      {type:'project',statement:'Uses analytic linear backward-Euler pool update with ECFV held fixed over each coupled step; midodrine branch omitted.'},
-    ]),
-    dependsOn:Object.freeze(['autonomic.v12.ecfv_boundary','autonomic.v12.baroreflex_source']),
-  }),
-  'autonomic.v12.cns_drive_limitations': record({
-    id:'autonomic.v12.cns_drive_limitations', kind:'boundary',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
-    symbol:'SympsCNS omitted additive/modulatory inputs',
-    description:'Reduced v1.2 SympsCNS does not yet execute HumMod Brain-Fuel or A2Pool because their required brain substrate/perfusion and renin-angiotensin state dependencies are not present. CushingResponse is zero and CNSTrophicFactor is constant one in the pinned source snapshot.',
-    source:Object.freeze([
-      humModSource('Structure/Nerves/SympsCNS.DES','NA'),
-      humModSource('Structure/Brain/Brain-Fuel.DES','FractUseDelay'),
-      humModSource('Structure/Renin/A2Pool.DES','Log10Conc'),
-      humModSource('Structure/Nerves/CushingResponse.DES','Effect'),
-      humModSource('Structure/Nerves/CNSTrophicFactor.DES','Effect'),
-      {type:'project',statement:'No PaO2/MAP/oxygen-debt proxy is substituted for Brain-Fuel or A2Pool.'},
-    ]),
-  }),
-  'autonomic.v12.low_pressure_receptors': record({
-    id:'autonomic.v12.low_pressure_receptors', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
-    symbol:'LowPressureReceptors.NA -> SympsCNS.LowPressureEffect',
-    description:'HumMod low-pressure receptor pathway driven by mean right/left atrial transmural pressure. Source delay semantics preserve RateConst=1/(1440*Tau), Tau=30, interpreted on the minute-based HumMod timebase.',
-    source:Object.freeze([
-      humModSource('Structure/Nerves/LowPressureReceptors.DES','LowPressureReceptors.NA'),
-      humModSource('Structure/Nerves/SympsCNS.DES','LowPressureEffect/ReflexNA'),
-      humModSource('Structure/VascularCompartments/RightAtrium.DES','RightAtrium.TMP'),
-      humModSource('Structure/VascularCompartments/LeftAtrium.DES','LeftAtrium.TMP'),
-    ]),
-    dependsOn:Object.freeze(['autonomic.v12.baroreflex_source']),
-  }),
-  'autonomic.v12.baroreflex_source': record({
-    id:'autonomic.v12.baroreflex_source', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
-    symbol:'Baroreflex + SympsCNS acute subset',
-    description:'HumMod baroreflex adaptation/pressure-effect and CNS baroreflex mapping with source minute-based delay semantics preserved; non-baroreflex additive CNS inputs remain neutral in the acute ventilator slice.',
-    source:Object.freeze([
-      humModSource('Structure/Nerves/Baroreflex.DES','Baroreflex'),
-      humModSource('Structure/Nerves/SympsCNS.DES','BaroEffect/NA(Hz)'),
-      {type:'project',statement:'ExerciseSymps, CushingResponse, brain fuel/function, A2Pool, and CNSTrophicFactor remain neutralized in this acute subset.'},
-    ]),
-  }),
-  'autonomic.v12.vagus_source': record({
-    id:'autonomic.v12.vagus_source', kind:'equation',
-    class:'HUMMOD_EXACT', module:'hummod_ards_autonomic_source_aligned.js',
-    symbol:'VagusNerve.NA(Hz)',
-    description:'HumMod vagal firing-rate response to SympsCNS firing rate, with no vagal block or clamp applied.',
-    source:Object.freeze([humModSource('Structure/Nerves/VagusNerve.DES','VagusNerve.NA(Hz)')]),
-  }),
-  'autonomic.v12.sa_node_source': record({
-    id:'autonomic.v12.sa_node_source', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
-    symbol:'SANode-Rate.Rate',
-    description:'HumMod SA-node parasympathetic and beta-receptor sympathetic chronotropy. Dynamic HumMod beta-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used.',
-    source:Object.freeze([
-      humModSource('Structure/Heart/SANode-Rate.DES','SANode-Rate.Rate'),
-      humModSource('Structure/Heart/SANode-BetaReceptors.DES','SANode-BetaReceptors.Activity'),
-    ]),
-  }),
-  'autonomic.v12.ventricular_beta_source': record({
-    id:'autonomic.v12.ventricular_beta_source', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
-    symbol:'ventricularBetaActivity',
-    description:'HumMod ventricular beta-receptor agonism used as the contractility multiplier. Dynamic HumMod beta-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used.',
-    source:Object.freeze([
-      humModSource('Structure/LeftHeart/LeftHeart-BetaReceptors.DES','Activity'),
-      humModSource('Structure/RightHeart/RightHeart-BetaReceptors.DES','Activity'),
-      humModSource('Structure/LeftHeartPumping/LeftHeartPumping-Systole.DES','Contractility'),
-    ]),
-  }),
-  'autonomic.v12.venous_alpha_source': record({
-    id:'autonomic.v12.venous_alpha_source', kind:'equation',
-    class:'HUMMOD_ADAPTED', module:'hummod_ards_autonomic_source_aligned.js',
-    symbol:'SystemicVeins.V0',
-    description:'HumMod systemic venous alpha-receptor activity and V0 alpha-effect curve. Dynamic HumMod alpha-pool effect is used when ECFV-backed catecholamine state is available; otherwise an explicit normalized humoral fallback is used; A2 effect remains neutralized.',
-    source:Object.freeze([
-      humModSource('Structure/Nerves/SystemicVeins-AlphaReceptors.DES','Activity'),
-      humModSource('Structure/VascularCompartments/SystemicVeins.DES','V0_Alpha_Effect/V0'),
-    ]),
-  }),
-  'autonomic.target_map': record({
-    id:'autonomic.target_map', kind:'boundary',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'targetMapMmHg',
-    description:'Default MAP target driving the reduced baroreflex controller.',
-    source:Object.freeze([{type:'project',statement:'Locally selected control target for the reduced browser controller; not a HumMod-preserved set point.'}]),
-  }),
-  'autonomic.autonomic_tau': record({
-    id:'autonomic.autonomic_tau', kind:'constant',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'autonomicTauSec',
-    description:'First-order lag time constant for sympathetic and parasympathetic tone.',
-    source:Object.freeze([{type:'project',statement:'Locally authored controller time constant.'}]),
-  }),
-  'autonomic.vascular_tau': record({
-    id:'autonomic.vascular_tau', kind:'constant',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'vascularTauSec',
-    description:'First-order lag time constant for vascular responses.',
-    source:Object.freeze([{type:'project',statement:'Locally authored controller time constant.'}]),
-  }),
-  'autonomic.cardiac_tau': record({
-    id:'autonomic.cardiac_tau', kind:'constant',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'cardiacTauSec',
-    description:'First-order lag time constant for chronotropic/inotropic responses.',
-    source:Object.freeze([{type:'project',statement:'Locally authored controller time constant.'}]),
-  }),
-  'autonomic.hypoxic_drive_curve': record({
-    id:'autonomic.hypoxic_drive_curve', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'hypoxicDrive = clamp((70 - PaO2) / 45, 0, 1)',
-    description:'Reduced chemoreflex hypoxemia drive.',
-    source:Object.freeze([{type:'project',statement:'Locally authored transfer function; not a source-preserved HumMod chemoreflex.'}]),
-  }),
-  'autonomic.hypercapnic_drive_curve': record({
-    id:'autonomic.hypercapnic_drive_curve', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'hypercapnicDrive = clamp((PaCO2 - 45) / 35, 0, 1)',
-    description:'Reduced chemoreflex hypercapnia drive before HCA calibration terms.',
-    source:Object.freeze([{type:'project',statement:'Locally authored transfer function; separate from the literature-calibrated HCA anchor.'}]),
-  }),
-  'autonomic.reflex_target_equation': record({
-    id:'autonomic.reflex_target_equation', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'reflexTarget',
-    description:'Weighted MAP, hypoxemia, and hypercapnia drive used as sympathetic target.',
-    source:Object.freeze([{type:'project',statement:'Locally authored control equation and weights.'}]),
-    dependsOn:Object.freeze(['autonomic.baroreflex_gain','autonomic.hypoxic_drive_curve','autonomic.hypercapnic_drive_curve']),
-  }),
-  'autonomic.parasympathetic_target_equation': record({
-    id:'autonomic.parasympathetic_target_equation', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'parasympathetic target',
-    description:'Inverse reduced relation between sympathetic and parasympathetic tone.',
-    source:Object.freeze([{type:'project',statement:'Locally authored relation and bounds.'}]),
-  }),
-  'autonomic.reflex_hr_equation': record({
-    id:'autonomic.reflex_hr_equation', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'reflexHrTarget',
-    description:'Chronotropic response to sympathetic and parasympathetic tone.',
-    source:Object.freeze([{type:'project',statement:'Locally authored chronotropic coefficients and HR bounds.'}]),
-  }),
-  'autonomic.contractility_equation': record({
-    id:'autonomic.contractility_equation', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'contractilityTarget',
-    description:'Catecholamine-driven contractility multiplier and bounds.',
-    source:Object.freeze([{type:'project',statement:'Locally authored inotropic transfer function; direct acidotic depression is separately literature-calibrated.'}]),
-  }),
-  'autonomic.systemic_conductance_equation': record({
-    id:'autonomic.systemic_conductance_equation', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'reflexArterialConductanceTarget',
-    description:'Sympathetic systemic arterial conductance response.',
-    source:Object.freeze([{type:'project',statement:'Locally authored vascular transfer function.'}]),
-  }),
-  'autonomic.venous_v0_equation': record({
-    id:'autonomic.venous_v0_equation', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'venousV0Target',
-    description:'Sympathetic reduction in effective systemic venous unstressed volume.',
-    source:Object.freeze([{type:'project',statement:'Locally authored venoconstriction rule and 14% coefficient.'}]),
-  }),
-  'autonomic.pulmonary_load_equation': record({
-    id:'autonomic.pulmonary_load_equation', kind:'equation',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'pulmonaryLoad',
-    description:'Pulmonary vascular load from positive thoracic pressure and hypoxemia.',
-    source:Object.freeze([{type:'project',statement:'Locally authored pressure/hypoxemia transfer function; HCA multiplier is separately literature-calibrated.'}]),
-  }),
-  'autonomic.respiratory_acidosis_inotropy': record({
-    id:'autonomic.respiratory_acidosis_inotropy', kind:'interpolation',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_autonomic_controller.js',
-    symbol:'respiratoryAcidosisContractilityMultiplier',
-    description:'Bounded interpolation of direct myocardial depression from respiratory acidosis.',
-    source:Object.freeze([{type:'literature',citation:'Biais et al. Anesthesiology. 2012;117:1212-1222.',role:'isolated myocardial-force challenge anchor; interpolation and bounds are project-authored'}]),
-  }),
-  'autonomic.baroreflex_gain': record({
-    id:'autonomic.baroreflex_gain', kind:'constant',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_autonomic_controller.js',
-    symbol:'baroreflexGain',
-    description:'Gain converting MAP error into reduced sympathetic-drive target.',
-    source:Object.freeze([{type:'project',statement:'Locally authored control gain; controller is inspired by HumMod architecture but not a HumMod subsystem.'}]),
-  }),
-  'autonomic.hypercapnic_acidosis_anchor': record({
-    id:'autonomic.hypercapnic_acidosis_anchor', kind:'boundary',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_autonomic_controller.js',
-    symbol:'HYPERCAPNIC_ACIDOSIS_ANCHOR',
-    description:'Experimental HCA anchor used to calibrate HR/SVR/PVR response.',
-    source:Object.freeze([{type:'literature',citation:'Stengl et al. Critical Care. 2013;17:R303.',role:'experimental challenge anchor; project interpolation is not asserted as a universal human response'}]),
-  }),
-  'oxygen_supply.critical_extraction_curve': record({
-    id:'oxygen_supply.critical_extraction_curve', kind:'interpolation',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_oxygen_supply_cliff.js',
-    symbol:'criticalExtractionRatioForPaco2',
-    description:'Bounded interpolation of critical oxygen-extraction ratio across published hypercapnia anchors.',
-    source:Object.freeze([{type:'literature',citation:'Ward ME. Anesthesiology. 1996;85:817-822.',role:'experimental oxygen-transport anchors; interpolation is project-authored'}]),
-  }),
-  'decompensation.condition.profound_map_arrest': record({
-    id:'decompensation.condition.profound_map_arrest', kind:'condition',
-    class:'LITERATURE_CALIBRATED', module:'hummod_ards_decompensation_controller.js',
-    symbol:'meanArterialPressureMmHg < PROFOUND_COLLAPSE_MAP_MMHG for PROFOUND_COLLAPSE_MAP_SEC',
-    description:'Experimental profound-hypotension terminal condition used by the educational decompensation controller.',
-    source:Object.freeze([{type:'literature',citation:'Gomez et al. collapse criterion as documented in module comments.',role:'experimental collapse anchor; not a patient-specific mortality rule'}]),
-  }),
-  'decompensation.transition.pea': record({
-    id:'decompensation.transition.pea', kind:'transition',
-    class:'ENGINEERING_ASSUMPTION', module:'hummod_ards_decompensation_controller.js',
-    symbol:'cardiacArrest -> PEA',
-    description:'Terminal transition used by reduced browser decompensation model.',
-    source:Object.freeze([{type:'project',statement:'Educational/research terminal-state mapping; not a full HumMod rhythm model or validated human mortality prediction.'}]),
-  }),
-});
-
-function validateProvenanceRecord(x) {
-  if (!x || typeof x !== 'object') throw new Error('provenance record must be an object');
-  for (const k of ['id','kind','class','module','symbol','description','source']) {
-    if (x[k] == null || x[k] === '') throw new Error('provenance record missing ' + k);
-  }
-  if (!PROVENANCE_CLASSES.includes(x.class)) throw new Error('invalid provenance class: ' + x.class);
-  if (!PROVENANCE_KINDS.includes(x.kind)) throw new Error('invalid provenance kind: ' + x.kind);
-  if (!Array.isArray(x.source) || x.source.length === 0) throw new Error('provenance source must be non-empty');
-  if (!Array.isArray(x.dependsOn)) throw new Error('dependsOn must be an array');
-  return true;
-}
-
-function validateProvenanceRegistry(registry = MODEL_PROVENANCE) {
-  for (const [id, x] of Object.entries(registry)) {
-    validateProvenanceRecord(x);
-    if (x.id !== id) throw new Error('provenance key/id mismatch: ' + id);
-    for (const dep of x.dependsOn) {
-      if (!registry[dep]) throw new Error(id + ' depends on unknown provenance id ' + dep);
-    }
-  }
-  return true;
-}
-
-const LIVE_CLINICAL_PROVENANCE_IDS = Object.freeze([
-  'live.thorax.reference_pleural_pressure',
-  'live.thorax.chest_wall_elastance_fraction',
-  'live.metabolism.tissue_o2_use',
-  'hummod.breathing.dead_space_equation',
-  'hummod.bronchi.water_vapor_pressure',
-  'hummod.hemoglobin.p50_model',
-  'hummod.acid_base.ph_sid_pco2',
-  'hummod.pulmonary_membrane.interpolation',
-  'vent.mechanics.elastic_pressure_law',
-  'vent.recruitment.open_close_kinetics',
-  'vent.recruitment.condition.open',
-  'vent.recruitment.condition.close',
-  'hummod.gas_exchange.oxygen_runtime',
-  'hummod.gas_exchange.co2_runtime',
-  'hummod.hemodynamics.vascular_primitives',
-  'hummod.hemodynamics.ventricular_pump',
-  'live.circulation.reference_boundaries',
-  'live.gas.reference_boundaries',
-  'thorax.static_elastance_partition',
-  'circulation.reduced_topology',
-  'circulation.integration_substep',
-  'circulation.mass_balance_derivatives',
-  'circulation.negative_forward_flow_failure',
-  'circulation.svr_derived',
-  'circulation.pvr_derived',
-  'oxygen_supply.delivery_equation',
-  'oxygen_supply.critical_delivery_equation',
-  'oxygen_supply.condition.supply_dependent',
-  'decompensation.low_svo2_marker',
-  'decompensation.organ_flow_map_marker',
-  'decompensation.oxygen_debt_integral',
-  'decompensation.debt_calibration_minutes',
-  'decompensation.myocardial_floor',
-  'decompensation.condition.map30_duration',
-  'decompensation.asphyxial_anchor',
-  'decompensation.stage_classifier',
-  'ards.phenotype.baseline',
-  'ards.phenotype.low_recruitability',
-  'ards.phenotype.moderate_recruitability',
-  'ards.phenotype.high_recruitability',
-  'vent.recruitment.defaults',
-  'vent.recruitment.feasibility_projection',
-  'autonomic.v12.sympathetic_vascular_components',
-  'autonomic.v12.ecfv_boundary',
-  'autonomic.v12.catecholamine_pools',
-  'autonomic.v12.cns_drive_limitations',
-  'autonomic.v12.low_pressure_receptors',
-  'autonomic.v12.baroreflex_source',
-  'autonomic.v12.vagus_source',
-  'autonomic.v12.sa_node_source',
-  'autonomic.v12.ventricular_beta_source',
-  'autonomic.v12.venous_alpha_source',
-  'autonomic.target_map',
-  'autonomic.autonomic_tau',
-  'autonomic.vascular_tau',
-  'autonomic.cardiac_tau',
-  'autonomic.hypoxic_drive_curve',
-  'autonomic.hypercapnic_drive_curve',
-  'autonomic.reflex_target_equation',
-  'autonomic.parasympathetic_target_equation',
-  'autonomic.reflex_hr_equation',
-  'autonomic.contractility_equation',
-  'autonomic.systemic_conductance_equation',
-  'autonomic.venous_v0_equation',
-  'autonomic.pulmonary_load_equation',
-  'autonomic.respiratory_acidosis_inotropy',
-  'autonomic.baroreflex_gain',
-  'autonomic.hypercapnic_acidosis_anchor',
-  'oxygen_supply.critical_extraction_curve',
-  'decompensation.condition.profound_map_arrest',
-  'decompensation.transition.pea',
-]);
-
-function provenanceSummary(ids = LIVE_CLINICAL_PROVENANCE_IDS) {
-  const records = ids.map(id => {
-    if (!MODEL_PROVENANCE[id]) throw new Error('unknown provenance id: ' + id);
-    return MODEL_PROVENANCE[id];
-  });
-  const byClass = {};
-  for (const x of records) byClass[x.class] = (byClass[x.class] || 0) + 1;
-  return Object.freeze({
-    schema: PROVENANCE_SCHEMA,
-    ids: Object.freeze(ids.slice()),
-    countsByClass: Object.freeze(byClass),
-    hasUnknown: records.some(x => x.class === 'UNKNOWN'),
-    migrationCoverage: 'v1.1-rc-live-path-audited',
-  });
-}
-
-validateProvenanceRegistry();
-
-module.exports = {
-  PROVENANCE_SCHEMA,
-  PROVENANCE_CLASSES,
-  PROVENANCE_KINDS,
-  MODEL_PROVENANCE,
-  LIVE_CLINICAL_PROVENANCE_IDS,
-  validateProvenanceRecord,
-  validateProvenanceRegistry,
-  provenanceSummary,
-};
-},
-"src/live_provenance_bindings.js":function(module,exports,require){
-'use strict';
-
-// Parallel provenance bindings for live clinical runtime values.
-// Values remain plain numbers/booleans for solver performance; this map
-// provides stable provenance IDs without wrapping numeric state.
-
-const LIVE_VALUE_PROVENANCE = Object.freeze({
-  engineeringBoundaries: Object.freeze({
-    thorax: Object.freeze({
-      referencePleuralPressureCmH2O: 'live.thorax.reference_pleural_pressure',
-      chestWallElastanceFraction: 'live.thorax.chest_wall_elastance_fraction',
-    }),
-    gas: Object.freeze({
-      systemic: Object.freeze({
-        tissueO2UseMlPerMin: 'live.metabolism.tissue_o2_use',
-      }),
-    }),
-  }),
-  autonomic: Object.freeze({
-    targetMapMmHg: 'autonomic.target_map',
-    baroreflexGain: 'autonomic.baroreflex_gain',
-    autonomicTauSec: 'autonomic.autonomic_tau',
-    vascularTauSec: 'autonomic.vascular_tau',
-    cardiacTauSec: 'autonomic.cardiac_tau',
-    hypoxicDrive: 'autonomic.hypoxic_drive_curve',
-    hypercapnicDrive: 'autonomic.hypercapnic_drive_curve',
-    reflexTarget: 'autonomic.reflex_target_equation',
-    parasympatheticTarget: 'autonomic.parasympathetic_target_equation',
-    reflexHrTarget: 'autonomic.reflex_hr_equation',
-    contractilityTarget: 'autonomic.contractility_equation',
-    systemicArterialConductanceTarget: 'autonomic.systemic_conductance_equation',
-    systemicVenousV0Target: 'autonomic.venous_v0_equation',
-    pulmonaryLoad: 'autonomic.pulmonary_load_equation',
-    respiratoryAcidosisContractility: 'autonomic.respiratory_acidosis_inotropy',
-    hypercapnicAcidosisAnchor: 'autonomic.hypercapnic_acidosis_anchor',
-  }),
-  runtime: Object.freeze({
-    deadSpaceBtpsMl: 'hummod.breathing.dead_space_equation',
-    bronchialWaterVaporPressureMmHg: 'hummod.bronchi.water_vapor_pressure',
-    arterialPh: 'hummod.acid_base.ph_sid_pco2',
-    hemoglobinP50MmHg: 'hummod.hemoglobin.p50_model',
-  }),
-});
-
-const LIVE_CONDITION_PROVENANCE = Object.freeze({
-  recruitmentOpening: 'vent.recruitment.condition.open',
-  recruitmentClosing: 'vent.recruitment.condition.close',
-  profoundMapArrest: 'decompensation.condition.profound_map_arrest',
-  peaTransition: 'decompensation.transition.pea',
-});
-
-function flattenBindings(value, prefix = '', out = []) {
-  for (const [key, child] of Object.entries(value)) {
-    const path = prefix ? prefix + '.' + key : key;
-    if (typeof child === 'string') out.push(Object.freeze({ path, provenanceId: child }));
-    else flattenBindings(child, path, out);
-  }
-  return out;
-}
-
-function liveProvenanceBindings() {
-  return Object.freeze({
-    values: Object.freeze(flattenBindings(LIVE_VALUE_PROVENANCE)),
-    conditions: Object.freeze(flattenBindings(LIVE_CONDITION_PROVENANCE)),
-  });
-}
-
-module.exports = {
-  LIVE_VALUE_PROVENANCE,
-  LIVE_CONDITION_PROVENANCE,
-  liveProvenanceBindings,
-};
-
-},
-"src/v11_provenance_manifest.js":function(module,exports,require){
-'use strict';
-
-const { MODEL_PROVENANCE } = require("src/model_provenance.js");
-
-const V11_RC_PROVENANCE_MANIFEST_SCHEMA = 'vent-v1.1-provenance-manifest/rc1';
-
-const V11_RC_SUBSYSTEMS = Object.freeze({
-  ventilatorMechanics: Object.freeze([
-    'vent.mechanics.elastic_pressure_law',
-    'vent.recruitment.open_close_kinetics',
-    'vent.recruitment.condition.open',
-    'vent.recruitment.condition.close',
-    'vent.recruitment.defaults',
-    'vent.recruitment.feasibility_projection',
-  ]),
-  ardsPhenotypes: Object.freeze([
-    'ards.phenotype.baseline',
-    'ards.phenotype.low_recruitability',
-    'ards.phenotype.moderate_recruitability',
-    'ards.phenotype.high_recruitability',
-  ]),
-  thorax: Object.freeze([
-    'live.thorax.reference_pleural_pressure',
-    'live.thorax.chest_wall_elastance_fraction',
-    'thorax.static_elastance_partition',
-  ]),
-  circulation: Object.freeze([
-    'hummod.hemodynamics.vascular_primitives',
-    'hummod.hemodynamics.ventricular_pump',
-    'live.circulation.reference_boundaries',
-    'circulation.reduced_topology',
-    'circulation.integration_substep',
-    'circulation.mass_balance_derivatives',
-    'circulation.negative_forward_flow_failure',
-    'circulation.svr_derived',
-    'circulation.pvr_derived',
-  ]),
-  autonomics: Object.freeze([
-    'autonomic.target_map',
-    'autonomic.baroreflex_gain',
-    'autonomic.autonomic_tau',
-    'autonomic.vascular_tau',
-    'autonomic.cardiac_tau',
-    'autonomic.hypoxic_drive_curve',
-    'autonomic.hypercapnic_drive_curve',
-    'autonomic.reflex_target_equation',
-    'autonomic.parasympathetic_target_equation',
-    'autonomic.reflex_hr_equation',
-    'autonomic.contractility_equation',
-    'autonomic.systemic_conductance_equation',
-    'autonomic.venous_v0_equation',
-    'autonomic.pulmonary_load_equation',
-    'autonomic.respiratory_acidosis_inotropy',
-    'autonomic.hypercapnic_acidosis_anchor',
-  ]),
-  gasExchange: Object.freeze([
-    'live.metabolism.tissue_o2_use',
-    'live.gas.reference_boundaries',
-    'hummod.breathing.dead_space_equation',
-    'hummod.bronchi.water_vapor_pressure',
-    'hummod.hemoglobin.p50_model',
-    'hummod.acid_base.ph_sid_pco2',
-    'hummod.pulmonary_membrane.interpolation',
-    'hummod.gas_exchange.oxygen_runtime',
-    'hummod.gas_exchange.co2_runtime',
-  ]),
-  oxygenSupply: Object.freeze([
-    'oxygen_supply.critical_extraction_curve',
-    'oxygen_supply.delivery_equation',
-    'oxygen_supply.critical_delivery_equation',
-    'oxygen_supply.condition.supply_dependent',
-  ]),
-  decompensation: Object.freeze([
-    'decompensation.low_svo2_marker',
-    'decompensation.organ_flow_map_marker',
-    'decompensation.oxygen_debt_integral',
-    'decompensation.debt_calibration_minutes',
-    'decompensation.myocardial_floor',
-    'decompensation.condition.map30_duration',
-    'decompensation.condition.profound_map_arrest',
-    'decompensation.asphyxial_anchor',
-    'decompensation.stage_classifier',
-    'decompensation.transition.pea',
-  ]),
-});
-
-const V11_RC_OUTPUT_PROVENANCE = Object.freeze({
-  'systemic.gasExchange.pao2MmHg': Object.freeze(['hummod.gas_exchange.oxygen_runtime']),
-  'systemic.gasExchange.paco2MmHg': Object.freeze(['hummod.gas_exchange.co2_runtime']),
-  'systemic.gasExchange.pH': Object.freeze(['hummod.acid_base.ph_sid_pco2']),
-  'systemic.gasExchange.sao2Fraction': Object.freeze(['hummod.hemoglobin.p50_model','hummod.gas_exchange.oxygen_runtime']),
-  'systemic.gasExchange.pvo2MmHg': Object.freeze(['hummod.gas_exchange.oxygen_runtime','oxygen_supply.critical_delivery_equation']),
-  'systemic.gasExchange.svo2Fraction': Object.freeze(['hummod.hemoglobin.p50_model','hummod.gas_exchange.oxygen_runtime']),
-  'systemic.gasExchange.oxygenDeliveryMlPerMin': Object.freeze(['oxygen_supply.delivery_equation']),
-  'systemic.gasExchange.criticalOxygenDeliveryMlPerMin': Object.freeze(['oxygen_supply.critical_delivery_equation']),
-  'systemic.gasExchange.supplyDependent': Object.freeze(['oxygen_supply.condition.supply_dependent']),
-  'systemic.hemodynamics.heartRatePerMin': Object.freeze(['autonomic.reflex_hr_equation','decompensation.stage_classifier']),
-  'systemic.hemodynamics.meanArterialPressureMmHg': Object.freeze(['circulation.reduced_topology','hummod.hemodynamics.vascular_primitives']),
-  'systemic.hemodynamics.cardiacOutputMlPerMin': Object.freeze(['hummod.hemodynamics.ventricular_pump','circulation.reduced_topology','circulation.negative_forward_flow_failure']),
-  'systemic.hemodynamics.strokeVolumeMl': Object.freeze(['hummod.hemodynamics.ventricular_pump','circulation.negative_forward_flow_failure']),
-  'systemic.hemodynamics.systemicVascularResistanceMmHgMinPerL': Object.freeze(['circulation.svr_derived']),
-  'systemic.hemodynamics.pulmonaryVascularResistanceMmHgMinPerL': Object.freeze(['circulation.pvr_derived']),
-  'systemic.hemodynamics.contractilityMultiplier': Object.freeze(['autonomic.contractility_equation','autonomic.respiratory_acidosis_inotropy','decompensation.stage_classifier']),
-  'systemic.hemodynamics.sympatheticTone': Object.freeze(['autonomic.reflex_target_equation']),
-  'systemic.hemodynamics.parasympatheticTone': Object.freeze(['autonomic.parasympathetic_target_equation']),
-  'systemic.hemodynamics.catecholamineDrive': Object.freeze(['autonomic.reflex_target_equation','autonomic.cardiac_tau']),
-  'systemic.thorax.pleuralPressureCmH2O': Object.freeze(['thorax.static_elastance_partition']),
-  'systemic.thorax.transpulmonaryPressureCmH2O': Object.freeze(['thorax.static_elastance_partition']),
-  'systemic.decompensation.stage': Object.freeze(['decompensation.stage_classifier']),
-  'systemic.decompensation.cardiacArrest': Object.freeze(['decompensation.condition.map30_duration','decompensation.condition.profound_map_arrest','decompensation.asphyxial_anchor']),
-  'systemic.decompensation.arrestRhythm': Object.freeze(['decompensation.transition.pea']),
-  'systemic.decompensation.oxygenDebtMl': Object.freeze(['decompensation.oxygen_debt_integral']),
-});
-
-function allRequiredIds() {
-  return Object.freeze(Array.from(new Set(Object.values(V11_RC_SUBSYSTEMS).flat())));
-}
-
-function validateV11RcProvenanceManifest() {
-  const required = allRequiredIds();
-  const missing = required.filter(id => !MODEL_PROVENANCE[id]);
-  const unknown = required.filter(id => MODEL_PROVENANCE[id] && MODEL_PROVENANCE[id].class === 'UNKNOWN');
-  const outputMissing = [];
-  for (const [path, ids] of Object.entries(V11_RC_OUTPUT_PROVENANCE)) {
-    for (const id of ids) if (!MODEL_PROVENANCE[id]) outputMissing.push(path + ' -> ' + id);
-  }
-  if (missing.length) throw new Error('v1.1 provenance manifest missing ids: ' + missing.join(', '));
-  if (unknown.length) throw new Error('v1.1 provenance manifest contains UNKNOWN ids: ' + unknown.join(', '));
-  if (outputMissing.length) throw new Error('v1.1 output provenance references missing ids: ' + outputMissing.join(', '));
-  return Object.freeze({
-    schema: V11_RC_PROVENANCE_MANIFEST_SCHEMA,
-    releaseCandidate: '1.1.0-rc.1',
-    requiredCount: required.length,
-    unknownCount: 0,
-    outputPathCount: Object.keys(V11_RC_OUTPUT_PROVENANCE).length,
-    subsystems: Object.freeze(Object.keys(V11_RC_SUBSYSTEMS)),
-    scope: 'live-clinical-physiology-model-elements-and-exported-monitor-outputs',
-    note: 'Local temporary algebra variables inherit provenance from their tagged governing equation and dependencies.',
-  });
-}
-
-module.exports = {
-  V11_RC_PROVENANCE_MANIFEST_SCHEMA,
-  V11_RC_SUBSYSTEMS,
-  V11_RC_OUTPUT_PROVENANCE,
-  allRequiredIds,
-  validateV11RcProvenanceManifest,
-};
-
-}
-};
+}};
 const cache={};
 function require(id){if(cache[id])return cache[id].exports;const m=cache[id]={exports:{}};modules[id](m,m.exports,require);return m.exports;}
 return require('src/browser-entry.js');
