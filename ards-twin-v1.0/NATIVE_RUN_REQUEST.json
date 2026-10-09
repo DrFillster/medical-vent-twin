@@ -26,6 +26,7 @@
     "scenario-verification.json",
     "native-export-status.json",
     "myocardial-collapse-analysis.json",
+    "myocardial-equation-replay.json",
     "run07-final-30s-checkpoints.csv",
     "source-and-executable-hashes.json"
   ],
