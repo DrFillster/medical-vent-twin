@@ -10,6 +10,7 @@ const { createHumModSourceAlignedBrainHypoxia } = require('./hummod_brain_hypoxi
 const { exerciseSympsTotalEffect } = require('./hummod_exercise_sympathetic_source_aligned.js');
 const { createHumModExerciseMetabolism } = require('./hummod_exercise_metabolism_source_aligned.js');
 const { createHumModBloodVolume } = require('./hummod_blood_volume_source_aligned.js');
+const { exerciseMusclePumpEffect } = require('./hummod_exercise_muscle_pump_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -224,6 +225,10 @@ function createHumModArdsCardiopulmonaryRuntime({
       exerciseSympsEffect=nativeAutonomicInputs.exerciseSympsTotalEffect;
     }
 
+    const exerciseMusclePumpState = sourceExerciseTotalWatts == null
+      ? null
+      : exerciseMusclePumpEffect(sourceExerciseTotalWatts);
+
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
@@ -329,6 +334,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       systemicArterialConductanceMlPerMinPerMmHg:
         control.systemicArterialConductanceMlPerMinPerMmHg,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
+      systemicVenousConductanceMultiplier:
+        exerciseMusclePumpState ? exerciseMusclePumpState.effect : 1,
       pulmonaryArterialConductanceMultiplier:
         control.pulmonaryArterialConductanceMultiplier,
     });
@@ -408,6 +415,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
       exerciseMetabolism:exerciseMetabolismState,
+      exerciseMusclePump:exerciseMusclePumpState,
       exerciseSympathetic:exerciseSympatheticState,
       sourceBloodVolume:bloodVolumeState,
       brainHypoxia:brainHypoxiaState,
@@ -452,6 +460,8 @@ function createHumModArdsCardiopulmonaryRuntime({
         bloodVolumeAuthority: sourceBloodVolume
           ? 'HumMod source-aligned RBC/plasma hemorrhage balance coupled to circulation total-volume residual'
           : 'disabled; reduced circulation conserves its initialized modeled vascular volume',
+        exerciseVenousReturnAuthority:
+          'HumMod Exercise-MusclePump effect multiplies systemic venous conductance when source exercise TotalWatts is available',
         clinicalValidation:false,
       }),
     });
