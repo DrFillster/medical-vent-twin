@@ -1,0 +1,20 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "v1.3-native-exercise-bike-200w",
+  "scenarioClass": "native-hummod-exercise-stress",
+  "description": "Native HumMod higher-work bicycle exercise probe. Engineering fidelity test only.",
+  "assignments": {
+    "Exercise-Control.Request": 3,
+    "Exercise-Bike.Power(W)": 200,
+    "Exercise-Bike.RPM": 50
+  },
+  "provenance": {
+    "clinicalValidation": false,
+    "ardsScenario": false,
+    "purpose": "Determine the native HumMod high-work tachycardic/autonomic response without imposing a browser HR target.",
+    "limitations": [
+      "Engineering stress probe, not a patient exercise prescription.",
+      "HumMod's maximum-exercise reference discusses approximately 256 W for its reference sedentary middle-aged male; this probe remains below that reference estimate."
+    ]
+  }
+}
