@@ -5,11 +5,19 @@ const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
 const {extractAllVariables,verifyScenario}=require('./postprocess-v13-native-run07.js');
+const {NATIVE_ORGAN_FLOW_SYMBOLS,AGGREGATE_FLOW_SYMBOLS}=require('../src/hummod_native_organ_flow_manifest.js');
+const {sourceAlignedSystemicOutflow}=require('../src/hummod_systemic_outflow_source_aligned.js');
 
 const PINNED_REVISION='8dab57e05631f779bf5020fe0dd51874d8ae98c1';
 
 function sha256(file){return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');}
 function series(v,name){const x=v[name];if(!Array.isArray(x)||!x.length)throw new Error('missing native variable: '+name);return x;}
+function maxAbsDiff(a,b){
+  if(a.length!==b.length) throw new Error('series length mismatch');
+  let max=0,index=0;
+  for(let i=0;i<a.length;i++){const d=Math.abs(a[i]-b[i]);if(d>max){max=d;index=i;}}
+  return {maxAbsoluteDifference:max,sampleIndex:index};
+}
 function extrema(values,clock,mode){
   let idx=0;
   for(let i=1;i<values.length;i++){
@@ -40,6 +48,41 @@ function summarize(extraction,scenario){
   const paco2=series(v,'CO2Artys.Pressure');
   const ph=series(v,'BloodPh.ArtysPh');
   const brain=series(v,'Brain-Function.Effect');
+  const organFlows={};
+  for(const [key,symbol] of Object.entries(NATIVE_ORGAN_FLOW_SYMBOLS)){
+    organFlows[key]=series(v,symbol);
+  }
+  const aggregateFlows={};
+  for(const [key,symbol] of Object.entries(AGGREGATE_FLOW_SYMBOLS)){
+    aggregateFlows[key]=series(v,symbol);
+  }
+  const computedPeripheral=[];
+  const computedHepaticVein=[];
+  const computedSystemicOutflow=[];
+  for(let i=0;i<clock.length;i++){
+    const peripheralFlowsMlPerMin={};
+    for(const key of Object.keys(require('../src/hummod_native_organ_flow_manifest.js').PERIPHERAL_FLOW_SYMBOLS)){
+      peripheralFlowsMlPerMin[key]=organFlows[key][i];
+    }
+    const splanchnicFlowsMlPerMin={
+      giTract:organFlows.giTract[i],
+      hepaticArtery:organFlows.hepaticArtery[i],
+    };
+    const closure=sourceAlignedSystemicOutflow({peripheralFlowsMlPerMin,splanchnicFlowsMlPerMin});
+    computedPeripheral.push(closure.peripheralFlowMlPerMin);
+    computedHepaticVein.push(closure.hepaticVeinFlowMlPerMin);
+    computedSystemicOutflow.push(closure.systemicArterialOutflowMlPerMin);
+  }
+  const nativeOrganFlowSummary={};
+  for(const [key,values] of Object.entries(organFlows)){
+    nativeOrganFlowSummary[key]={min:extrema(values,clock,'min'),max:extrema(values,clock,'max')};
+  }
+  const organFlowClosure={
+    peripheral:maxAbsDiff(computedPeripheral,aggregateFlows.peripheral),
+    hepaticVein:maxAbsDiff(computedHepaticVein,aggregateFlows.hepaticVein),
+    systemicArterialOutflow:maxAbsDiff(computedSystemicOutflow,aggregateFlows.systemicArterialOutflow),
+    arterialReservoirDeltaVsCardiacOutput:maxAbsDiff(aggregateFlows.systemicArterialOutflow,co),
+  };
   const thresholdIndices=[];
   for(let i=0;i<hr.length;i++) if(hr[i]>120) thresholdIndices.push(i);
   return {
@@ -69,7 +112,15 @@ function summarize(extraction,scenario){
     arterialPo2:{max:extrema(pao2,clock,'max'),min:extrema(pao2,clock,'min')},
     arterialPco2:{max:extrema(paco2,clock,'max'),min:extrema(paco2,clock,'min')},
     arterialPh:{max:extrema(ph,clock,'max'),min:extrema(ph,clock,'min')},
-    brainFunction:{max:extrema(brain,clock,'max'),min:extrema(brain,clock,'min')}
+    brainFunction:{max:extrema(brain,clock,'max'),min:extrema(brain,clock,'min')},
+    nativeOrganFlows:nativeOrganFlowSummary,
+    nativeAggregateFlows:{
+      peripheral:{max:extrema(aggregateFlows.peripheral,clock,'max'),min:extrema(aggregateFlows.peripheral,clock,'min')},
+      hepaticVein:{max:extrema(aggregateFlows.hepaticVein,clock,'max'),min:extrema(aggregateFlows.hepaticVein,clock,'min')},
+      systemicArterialOutflow:{max:extrema(aggregateFlows.systemicArterialOutflow,clock,'max'),min:extrema(aggregateFlows.systemicArterialOutflow,clock,'min')},
+      systemicArterialInflow:{max:extrema(aggregateFlows.systemicArterialInflow,clock,'max'),min:extrema(aggregateFlows.systemicArterialInflow,clock,'min')}
+    },
+    organFlowClosure
   };
 }
 function processPerturbation(runDir,scenarioPath){

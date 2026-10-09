@@ -60,7 +60,12 @@ jobs:
           node test/hummod_exercise_metabolism_source_aligned.test.js
           node test/hummod_exercise_muscle_pump_source_aligned.test.js
           node test/hummod_blood_volume_source_aligned.test.js
-          node test/hummod_skeletal_muscle_source_aligned.test.js\n          node test/hummod_systemic_organ_flow_accounting.test.js
+          node test/hummod_skeletal_muscle_source_aligned.test.js
+          node test/hummod_systemic_organ_flow_accounting.test.js
+          node test/hummod_native_organ_flow_manifest.test.js
+          node test/hummod_simple_organ_flow_source_aligned.test.js
+          node test/hummod_systemic_outflow_source_aligned.test.js
+          node test/hummod_native_organ_flow_validation.test.js
           node test/v13_hr_hypoxia_fidelity_guard.test.js
           node test/v13_extremis_chronotropy.test.js
 
@@ -308,6 +313,15 @@ jobs:
               tests:[
                 'hummod_brain_hypoxia_source_aligned.test.js',
                 'hummod_ards_autonomic_source_aligned.test.js',
+                'hummod_exercise_metabolism_source_aligned.test.js',
+                'hummod_exercise_muscle_pump_source_aligned.test.js',
+                'hummod_blood_volume_source_aligned.test.js',
+                'hummod_skeletal_muscle_source_aligned.test.js',
+                'hummod_systemic_organ_flow_accounting.test.js',
+                'hummod_native_organ_flow_manifest.test.js',
+                'hummod_simple_organ_flow_source_aligned.test.js',
+                'hummod_systemic_outflow_source_aligned.test.js',
+                'hummod_native_organ_flow_validation.test.js',
                 'v13_hr_hypoxia_fidelity_guard.test.js',
                 'v13_extremis_chronotropy.test.js'
               ],

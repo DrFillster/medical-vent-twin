@@ -11,15 +11,18 @@ function finiteNonNegative(value,label){
 function freezeObject(obj){return Object.freeze({...obj});}
 
 function accountSystemicOrganFlows({
-  cardiacOutputMlPerMin,
+  referenceSystemicOutflowMlPerMin=null,
   organFlowsMlPerMin={},
   toleranceMlPerMin=1e-6,
 }={}){
-  finiteNonNegative(cardiacOutputMlPerMin,'cardiacOutputMlPerMin');
   finiteNonNegative(toleranceMlPerMin,'toleranceMlPerMin');
+  if(referenceSystemicOutflowMlPerMin!==null){
+    finiteNonNegative(referenceSystemicOutflowMlPerMin,'referenceSystemicOutflowMlPerMin');
+  }
   if(!organFlowsMlPerMin||typeof organFlowsMlPerMin!=='object'||Array.isArray(organFlowsMlPerMin)){
     throw new Error('organFlowsMlPerMin must be an object');
   }
+
   const accounted={};
   let accountedFlowMlPerMin=0;
   for(const [name,value] of Object.entries(organFlowsMlPerMin)){
@@ -28,28 +31,40 @@ function accountSystemicOrganFlows({
     accounted[name]=value;
     accountedFlowMlPerMin+=value;
   }
-  const rawResidual=cardiacOutputMlPerMin-accountedFlowMlPerMin;
-  if(rawResidual < -toleranceMlPerMin){
-    throw new Error('accounted organ flow exceeds native cardiac output by '+Math.abs(rawResidual)+' mL/min');
+
+  let unresolvedFlowMlPerMin=null;
+  let coverageFraction=null;
+  let complete=false;
+  if(referenceSystemicOutflowMlPerMin!==null){
+    const rawResidual=referenceSystemicOutflowMlPerMin-accountedFlowMlPerMin;
+    if(rawResidual < -toleranceMlPerMin){
+      throw new Error(
+        'accounted organ flow exceeds native systemic arterial outflow by '+
+        Math.abs(rawResidual)+' mL/min'
+      );
+    }
+    unresolvedFlowMlPerMin=Math.max(rawResidual,0);
+    coverageFraction=referenceSystemicOutflowMlPerMin>0
+      ? accountedFlowMlPerMin/referenceSystemicOutflowMlPerMin
+      : (accountedFlowMlPerMin===0?1:0);
+    complete=unresolvedFlowMlPerMin<=toleranceMlPerMin;
   }
-  const unresolvedFlowMlPerMin=Math.max(rawResidual,0);
-  const coverageFraction=cardiacOutputMlPerMin>0
-    ? accountedFlowMlPerMin/cardiacOutputMlPerMin
-    : (accountedFlowMlPerMin===0?1:0);
+
   return Object.freeze({
-    cardiacOutputMlPerMin,
+    referenceSystemicOutflowMlPerMin,
     organFlowsMlPerMin:freezeObject(accounted),
     accountedFlowMlPerMin,
     unresolvedFlowMlPerMin,
     coverageFraction,
-    complete:unresolvedFlowMlPerMin<=toleranceMlPerMin,
+    complete,
     derivedPeripheralResistance:null,
     residualOrganAllocation:null,
     provenance:Object.freeze({
       status:'native-flow-accounting-only',
+      closureReference:'SystemicArtys.Outflow',
+      cardiacOutputIsNotClosureReference:true,
       sourceRepository:HUMMOD_SOURCE_IDENTITY.canonicalRepository,
       sourceRevision:HUMMOD_SOURCE_IDENTITY.canonicalRevision,
-      nativeVariableManifestRequired:true,
       residualAllocationInvented:false,
       tprInvented:false,
       clinicalValidation:false,
@@ -58,38 +73,51 @@ function accountSystemicOrganFlows({
 }
 
 function accountSystemicOrganFlowSeries({
-  cardiacOutputMlPerMin,
+  referenceSystemicOutflowMlPerMin=null,
   organFlowSeriesMlPerMin={},
   toleranceMlPerMin=1e-6,
 }={}){
-  if(!Array.isArray(cardiacOutputMlPerMin)||cardiacOutputMlPerMin.length===0){
-    throw new Error('cardiacOutputMlPerMin must be a non-empty array');
+  if(referenceSystemicOutflowMlPerMin!==null &&
+     (!Array.isArray(referenceSystemicOutflowMlPerMin)||referenceSystemicOutflowMlPerMin.length===0)){
+    throw new Error('referenceSystemicOutflowMlPerMin must be null or a non-empty array');
   }
   if(!organFlowSeriesMlPerMin||typeof organFlowSeriesMlPerMin!=='object'||Array.isArray(organFlowSeriesMlPerMin)){
     throw new Error('organFlowSeriesMlPerMin must be an object');
   }
   const names=Object.keys(organFlowSeriesMlPerMin);
-  for(const name of names){
+  const lengths=names.map(name=>{
     const values=organFlowSeriesMlPerMin[name];
-    if(!Array.isArray(values)||values.length!==cardiacOutputMlPerMin.length){
-      throw new Error('organ flow series length mismatch for '+name);
-    }
+    if(!Array.isArray(values)||values.length===0) throw new Error('organ flow series must be non-empty for '+name);
+    return values.length;
+  });
+  const sampleCount=referenceSystemicOutflowMlPerMin!==null
+    ? referenceSystemicOutflowMlPerMin.length
+    : (lengths[0]||0);
+  if(sampleCount===0) throw new Error('at least one organ flow series is required');
+  for(let i=0;i<lengths.length;i++){
+    if(lengths[i]!==sampleCount) throw new Error('organ flow series length mismatch for '+names[i]);
   }
-  const samples=cardiacOutputMlPerMin.map((co,index)=>{
+
+  const samples=[];
+  for(let index=0;index<sampleCount;index++){
     const flows={};
     for(const name of names) flows[name]=organFlowSeriesMlPerMin[name][index];
-    return accountSystemicOrganFlows({
-      cardiacOutputMlPerMin:co,
+    samples.push(accountSystemicOrganFlows({
+      referenceSystemicOutflowMlPerMin:referenceSystemicOutflowMlPerMin===null
+        ? null
+        : referenceSystemicOutflowMlPerMin[index],
       organFlowsMlPerMin:flows,
       toleranceMlPerMin,
-    });
-  });
+    }));
+  }
   return Object.freeze({
-    sampleCount:samples.length,
+    sampleCount,
     organFlowNames:Object.freeze([...names]),
     samples:Object.freeze(samples),
     provenance:Object.freeze({
       status:'native-flow-series-accounting-only',
+      closureReference:'SystemicArtys.Outflow',
+      cardiacOutputIsNotClosureReference:true,
       residualAllocationInvented:false,
       tprInvented:false,
     }),

@@ -10,55 +10,47 @@ function test(name,fn){try{fn();console.log('ok -',name);passed++;}catch(e){cons
 function assert(v,m){if(!v)throw new Error(m||'assertion failed');}
 function near(a,b,tol=1e-9){if(Math.abs(a-b)>tol)throw new Error(a+' not near '+b);}
 
-test('accounts only supplied native organ flows and leaves residual unresolved',()=>{
+test('accounts supplied flows without assuming cardiac output equals arterial outflow',()=>{
   const s=accountSystemicOrganFlows({
-    cardiacOutputMlPerMin:6000,
-    organFlowsMlPerMin:{skeletalMuscle:1800,verifiedBrain:750},
+    organFlowsMlPerMin:{skeletalMuscle:1800,brain:750},
   });
   near(s.accountedFlowMlPerMin,2550);
-  near(s.unresolvedFlowMlPerMin,3450);
-  near(s.coverageFraction,2550/6000);
+  assert(s.referenceSystemicOutflowMlPerMin===null);
+  assert(s.unresolvedFlowMlPerMin===null);
+  assert(s.coverageFraction===null);
   assert(s.complete===false);
-  assert(s.residualOrganAllocation===null);
-  assert(s.derivedPeripheralResistance===null);
-  assert(s.provenance.residualAllocationInvented===false);
-  assert(s.provenance.tprInvented===false);
+  assert(s.provenance.cardiacOutputIsNotClosureReference===true);
 });
 
-test('marks accounting complete only when supplied native flows close cardiac output',()=>{
+test('closes only against native SystemicArtys.Outflow when supplied',()=>{
   const s=accountSystemicOrganFlows({
-    cardiacOutputMlPerMin:5000,
-    organFlowsMlPerMin:{a:1200,b:3800},
+    referenceSystemicOutflowMlPerMin:6000,
+    organFlowsMlPerMin:{a:2500,b:2000},
   });
-  near(s.unresolvedFlowMlPerMin,0);
-  assert(s.complete===true);
+  near(s.unresolvedFlowMlPerMin,1500);
+  near(s.coverageFraction,0.75);
+  assert(s.complete===false);
 });
 
-test('rejects organ-flow totals that exceed native cardiac output',()=>{
+test('rejects organ totals above native systemic arterial outflow',()=>{
   let threw=false;
   try{
     accountSystemicOrganFlows({
-      cardiacOutputMlPerMin:4000,
+      referenceSystemicOutflowMlPerMin:4000,
       organFlowsMlPerMin:{a:2500,b:2000},
     });
-  }catch(e){threw=/exceeds native cardiac output/.test(e.message);}
-  assert(threw,'expected overspecified native-flow accounting to fail closed');
+  }catch(e){threw=/exceeds native systemic arterial outflow/.test(e.message);}
+  assert(threw);
 });
 
-test('series accounting preserves sample alignment without fitting a residual bed',()=>{
+test('series accounting preserves arterial reservoir dynamics',()=>{
   const s=accountSystemicOrganFlowSeries({
-    cardiacOutputMlPerMin:[5000,6500,8000],
-    organFlowSeriesMlPerMin:{
-      skeletalMuscle:[900,2000,3500],
-      verifiedOther:[2600,2700,2800],
-    },
+    referenceSystemicOutflowMlPerMin:[5000,6000],
+    organFlowSeriesMlPerMin:{a:[2000,2500],b:[3000,3500]},
   });
-  assert(s.sampleCount===3);
-  near(s.samples[0].unresolvedFlowMlPerMin,1500);
-  near(s.samples[1].unresolvedFlowMlPerMin,1800);
-  near(s.samples[2].unresolvedFlowMlPerMin,1700);
-  assert(s.samples.every(x=>x.residualOrganAllocation===null));
-  assert(s.samples.every(x=>x.derivedPeripheralResistance===null));
+  near(s.samples[0].unresolvedFlowMlPerMin,0);
+  near(s.samples[1].unresolvedFlowMlPerMin,0);
+  assert(s.provenance.cardiacOutputIsNotClosureReference===true);
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);

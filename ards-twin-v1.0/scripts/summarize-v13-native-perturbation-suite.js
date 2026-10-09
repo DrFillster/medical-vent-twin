@@ -27,7 +27,8 @@ for(const d of dirs){
     peakStrokeVolumeMl:s.strokeVolumeMl.max.value,
     minimumBloodVolumeMl:s.bloodVolumeMl.min.value,
     minimumMap:s.systemicArterialPressure.min.value,
-    peakPeripheralResistance:s.peripheralResistance.max.value
+    peakPeripheralResistance:s.peripheralResistance.max.value,
+    organFlowClosure:s.organFlowClosure||null
   });
 }
 const report={
@@ -35,6 +36,11 @@ const report={
   scenarioCount:rows.length,
   anyHeartRateAbove120:rows.some(x=>x.heartRateExceeded120),
   maximumObservedHeartRate:rows.length?Math.max(...rows.map(x=>x.peakHeartRate)):null,
+  maximumOrganFlowClosureErrorMlPerMin:rows.length?Math.max(...rows.flatMap(x=>x.organFlowClosure?[
+    x.organFlowClosure.peripheral.maxAbsoluteDifference,
+    x.organFlowClosure.hepaticVein.maxAbsoluteDifference,
+    x.organFlowClosure.systemicArterialOutflow.maxAbsoluteDifference
+  ]:[0])):null,
   scenarios:rows
 };
 fs.writeFileSync(path.join(root,'native-perturbation-suite-summary.json'),JSON.stringify(report,null,2)+'\n');
