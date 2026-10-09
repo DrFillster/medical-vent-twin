@@ -1,24 +1,24 @@
 {
   "schema": "hummod-v13-handoff-result/v1",
   "sourceBranch": "v1.3",
-  "sourceCommit": "5493cce4089896bec93226cc620e34c9b711e7f2",
-  "buildCommit": "5493cce4089896bec93226cc620e34c9b711e7f2",
-  "previewDeploymentCommit": "ae4676294197581160ee92c3125e3baf1966e9ae",
-  "timestampUtc": "2026-10-09T19:58:28.225Z",
+  "sourceCommit": "f32e70ce42a88bc547b13da5f989593926aa26f5",
+  "buildCommit": "f32e70ce42a88bc547b13da5f989593926aa26f5",
+  "previewDeploymentCommit": null,
+  "timestampUtc": "2026-10-09T20:03:41.685Z",
   "status": "FAILED",
   "automation": {
     "provider": "GitHub Actions",
     "workflow": "v1.3 Preview CI Deploy",
-    "runId": 37982925743,
+    "runId": 37984190459,
     "nativeHumModExecuted": false
   },
   "build": {
     "command": "npm run build",
-    "passed": true,
-    "notes": "Build, focused tests, full suite, deploy verifier, and Chromium smoke passed."
+    "passed": false,
+    "notes": "Validation job failed; inspect Actions logs."
   },
   "focusedTests": {
-    "passed": true,
+    "passed": false,
     "tests": [
       "hummod_brain_hypoxia_source_aligned.test.js",
       "hummod_ards_autonomic_source_aligned.test.js",
@@ -43,6 +43,7 @@
       "hummod_global_vascular_modifiers_source_aligned.test.js",
       "hummod_tissue_metabolism_source_aligned.test.js",
       "hummod_hormone_pools_source_aligned.test.js",
+      "hummod_organ_oxygen_delivery.test.js",
       "v13_simulation_speed_control.test.js",
       "v13_hr_hypoxia_fidelity_guard.test.js",
       "v13_extremis_chronotropy.test.js"
@@ -51,13 +52,13 @@
   },
   "fullTestSuite": {
     "command": "npm test",
-    "passed": true,
-    "failureCount": 0,
+    "passed": false,
+    "failureCount": null,
     "failures": []
   },
   "deployment": {
     "attempted": true,
-    "deployed": true,
+    "deployed": false,
     "previewUrl": "https://hummod.defying-logic.com/ards-twin-v1.3-preview/web/",
     "originRestartRequired": null,
     "httpStatus": {
@@ -70,15 +71,15 @@
     "browserConsoleErrors": []
   },
   "fidelityChecks": {
-    "effectiveHrEqualsSourceSaNodeBeforeArrest": true,
-    "empiricalHrOverlayZero": true,
-    "brainPo2FallsWithHypoxemia": true,
-    "brainFunctionBranchObserved": true,
-    "sympatheticAndVagalDiagnosticsVisible": true
+    "effectiveHrEqualsSourceSaNodeBeforeArrest": null,
+    "empiricalHrOverlayZero": null,
+    "brainPo2FallsWithHypoxemia": null,
+    "brainFunctionBranchObserved": null,
+    "sympatheticAndVagalDiagnosticsVisible": null
   },
   "nativeArtifacts": [],
   "notes": [
     "Native HumMod remains Mac-only and is not executed by this workflow.",
-    "validate=success; deploy=success; live=failure"
+    "validate=cancelled; deploy=cancelled; live=cancelled"
   ]
 }
