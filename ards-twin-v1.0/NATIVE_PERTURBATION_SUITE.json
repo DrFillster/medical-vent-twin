@@ -60,7 +60,24 @@
     "PO2Artys.Pressure",
     "CO2Artys.Pressure",
     "BloodPh.ArtysPh",
-    "Brain-Function.Effect"
+    "Brain-Function.Effect",
+    "A-VFistula-Flow.BloodFlow",
+    "Bone-Flow.BloodFlow",
+    "Brain-Flow.BloodFlow",
+    "Fat-Flow.BloodFlow",
+    "Kidney-Flow.BloodFlow",
+    "LeftHeart-Flow.BloodFlow",
+    "OtherTissue-Flow.BloodFlow",
+    "RespiratoryMuscle-Flow.BloodFlow",
+    "RightHeart-Flow.BloodFlow",
+    "SkeletalMuscle-Flow.BloodFlow",
+    "Skin-Flow.BloodFlow",
+    "GITract-Flow.BloodFlow",
+    "HepaticArty.Flow",
+    "OrganFlow.PeripheralFlow",
+    "OrganFlow.HepaticVeinFlow",
+    "SystemicArtys.Outflow",
+    "SystemicArtys.Inflow"
   ],
-  "decisionRule": "Subsystems that materially mediate native trajectories become candidates for the v1.3 browser fidelity closure. No empirical HR, SVR, catecholamine, or arrest target may be fitted merely to make a clinical-looking curve."
+  "decisionRule": "Subsystems that materially mediate native trajectories become candidates for the v1.3 browser fidelity closure. No empirical HR, SVR, catecholamine, or arrest target may be fitted merely to make a clinical-looking curve. Native organ-flow perturbation exports must include the exact OrganFlow/SystemicArtys closure series; cardiac output is not used as an instantaneous outflow closure target."
 }

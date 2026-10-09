@@ -187,24 +187,48 @@ function createBerlinLiveHumModSession({
 
   function interpolateNativeAutonomicInputs(timeSec) {
     if (!nativeAutonomicTrajectory || nativeAutonomicTrajectory.length === 0) return null;
+
+    const continuousKeys = [
+      'brainFuelFractUseDelay',
+      'a2PoolLog10Conc',
+      'brainFunctionEffect',
+      'exerciseBikePowerW',
+      'exerciseBikeRpm',
+      'exerciseBikeEfficiencyFraction',
+      'exerciseTotalWatts',
+      'exerciseSympsTotalEffect',
+      'skeletalMusclePh',
+      'hemorrhageTargetRateMlPerMin',
+      'rbcGainMlPerMin',
+      'plasmaGainMlPerMin',
+      'otherRbcLossMlPerMin',
+      'otherPlasmaLossMlPerMin',
+    ];
+    const discreteKeys = [
+      'exerciseMode',
+      'skeletalMuscleFunctionFailed',
+      'hemorrhageSwitch',
+    ];
+
+    function rowInputs(row) {
+      const out={};
+      for (const key of continuousKeys) {
+        if (Number.isFinite(row[key])) out[key]=row[key];
+      }
+      for (const key of discreteKeys) {
+        if (row[key] != null) out[key]=row[key];
+      }
+      return Object.freeze(out);
+    }
+
     if (timeSec <= nativeAutonomicTrajectory[0].timestampSec) {
-      const r = nativeAutonomicTrajectory[0];
-      return Object.freeze({
-        brainFuelFractUseDelay: r.brainFuelFractUseDelay,
-        a2PoolLog10Conc: r.a2PoolLog10Conc,
-        brainFunctionEffect: r.brainFunctionEffect,
-        exerciseSympsTotalEffect: r.exerciseSympsTotalEffect,
-      });
+      return rowInputs(nativeAutonomicTrajectory[0]);
     }
     const lastRow = nativeAutonomicTrajectory[nativeAutonomicTrajectory.length - 1];
     if (timeSec >= lastRow.timestampSec) {
-      return Object.freeze({
-        brainFuelFractUseDelay: lastRow.brainFuelFractUseDelay,
-        a2PoolLog10Conc: lastRow.a2PoolLog10Conc,
-        brainFunctionEffect: lastRow.brainFunctionEffect,
-        exerciseSympsTotalEffect: lastRow.exerciseSympsTotalEffect,
-      });
+      return rowInputs(lastRow);
     }
+
     let hi = 1;
     while (hi < nativeAutonomicTrajectory.length &&
            nativeAutonomicTrajectory[hi].timestampSec < timeSec) hi++;
@@ -213,13 +237,25 @@ function createBerlinLiveHumModSession({
     const b = nativeAutonomicTrajectory[hi];
     const span = b.timestampSec - a.timestampSec;
     const w = span > 0 ? (timeSec - a.timestampSec) / span : 0;
-    const lerp = key => a[key] + (b[key] - a[key]) * w;
-    return Object.freeze({
-      brainFuelFractUseDelay: lerp('brainFuelFractUseDelay'),
-      a2PoolLog10Conc: lerp('a2PoolLog10Conc'),
-      brainFunctionEffect: lerp('brainFunctionEffect'),
-      exerciseSympsTotalEffect: lerp('exerciseSympsTotalEffect'),
-    });
+    const out={};
+
+    for (const key of continuousKeys) {
+      if (Number.isFinite(a[key]) && Number.isFinite(b[key])) {
+        out[key]=a[key]+(b[key]-a[key])*w;
+      } else if (Number.isFinite(a[key])) {
+        out[key]=a[key];
+      } else if (Number.isFinite(b[key])) {
+        out[key]=b[key];
+      }
+    }
+    // HumMod mode/switch/failed-state variables are discrete. Preserve the
+    // earlier native state until the recorded transition rather than
+    // interpolating a non-physical fractional mode or boolean.
+    for (const key of discreteKeys) {
+      if (a[key] != null) out[key]=a[key];
+      else if (b[key] != null) out[key]=b[key];
+    }
+    return Object.freeze(out);
   }
 
   const catecholamineEcfvMl =
