@@ -1,0 +1,329 @@
+name: v1.3 Preview CI Deploy
+
+on:
+  push:
+    branches: [v1.3]
+    paths:
+      - '.github/workflows/v13-preview-ci-deploy.yml'
+      - 'ards-twin-v1.0/package.json'
+      - 'ards-twin-v1.0/package-lock.json'
+      - 'ards-twin-v1.0/src/**'
+      - 'ards-twin-v1.0/test/**'
+      - 'ards-twin-v1.0/web/**'
+      - 'ards-twin-v1.0/scripts/build.js'
+      - 'ards-twin-v1.0/scripts/build-clinical-manifest.js'
+      - 'ards-twin-v1.0/scripts/verify-deployable-web.js'
+  workflow_dispatch:
+
+concurrency:
+  group: v13-preview-ci-deploy
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - name: Checkout v1.3 source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ards-twin-v1.0/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build browser bundle
+        run: npm run build
+
+      - name: Focused HumMod fidelity tests
+        run: |
+          node test/hummod_brain_hypoxia_source_aligned.test.js
+          node test/hummod_ards_autonomic_source_aligned.test.js
+          node test/v13_hr_hypoxia_fidelity_guard.test.js
+          node test/v13_extremis_chronotropy.test.js
+
+      - name: Full Node test suite
+        run: npm test
+
+      - name: Verify deployable static web
+        run: npm run verify:deploy
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke
+        env:
+          BROWSER: chromium
+        run: npm run test:browser
+
+      - name: Upload validated v1.3 static web
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-static-web
+          path: ards-twin-v1.0/web/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload browser smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-browser-smoke
+          path: ards-twin-v1.0/browser-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  deploy-preview:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      preview_commit: ${{ steps.commit.outputs.sha }}
+    steps:
+      - name: Checkout main deployment tree
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Prepare isolated v1.3 preview directory
+        run: |
+          rm -rf ards-twin-v1.3-preview/web
+          mkdir -p ards-twin-v1.3-preview/web
+
+      - name: Download validated v1.3 static web
+        uses: actions/download-artifact@v4
+        with:
+          name: v13-static-web
+          path: ards-twin-v1.3-preview/web
+
+      - name: Stamp source commit
+        run: |
+          printf '%s\n' "${GITHUB_SHA}" > ards-twin-v1.3-preview/web/DEPLOY_SOURCE_SHA.txt
+
+      - name: Verify deployment isolation
+        run: |
+          test -f ards-twin-v1.3-preview/web/index.html
+          test -f ards-twin-v1.3-preview/web/engine.js
+          test -f ards-twin-v1.3-preview/web/DEPLOY_SOURCE_SHA.txt
+          git diff --name-only | tee /tmp/changed.txt
+          if grep -Ev '^(ards-twin-v1\.3-preview/web/)' /tmp/changed.txt | grep -q .; then
+            echo "Refusing deployment: files outside isolated v1.3 preview changed."
+            exit 1
+          fi
+
+      - name: Commit preview to main
+        id: commit
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ards-twin-v1.3-preview/web
+          if git diff --cached --quiet; then
+            echo "No preview content change."
+          else
+            git commit -m "deploy(v1.3): preview ${SOURCE_SHA}"
+            git push origin HEAD:main
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  live-smoke:
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - name: Verify live preview and stable v1.21
+        id: smoke
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          BASE: https://hummod.defying-logic.com
+        run: |
+          set +e
+          mkdir -p smoke
+          ok=0
+          homepage_code=000
+          v121_code=000
+          v13_code=000
+          source_code=000
+          asset_failures=""
+
+          for attempt in $(seq 1 20); do
+            homepage_code=$(curl -L -sS -o smoke/homepage.html -w '%{http_code}' --max-time 20 "$BASE/" || printf '000')
+            v121_code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/ards-twin-v1.21/web/" || printf '000')
+            v13_code=$(curl -L -sS -o smoke/v13.html -w '%{http_code}' --max-time 20 "$BASE/ards-twin-v1.3-preview/web/" || printf '000')
+            source_code=$(curl -L -sS -o smoke/source-sha.txt -w '%{http_code}' --max-time 20 "$BASE/ards-twin-v1.3-preview/web/DEPLOY_SOURCE_SHA.txt" || printf '000')
+
+            live_sha=$(tr -d '\r\n' < smoke/source-sha.txt 2>/dev/null)
+            if [ "$homepage_code" = "200" ] && [ "$v121_code" = "200" ] && [ "$v13_code" = "200" ] && [ "$source_code" = "200" ] && [ "$live_sha" = "$SOURCE_SHA" ]; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+
+          for asset in app.js engine.js worker.js clinical-worker.js styles.css clinical-cases.json; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/ards-twin-v1.3-preview/web/$asset" || printf '000')
+            if [ "$code" != "200" ]; then
+              asset_failures="$asset:$code $asset_failures"
+            fi
+          done
+
+          node -e '
+            const fs=require("fs");
+            const out={
+              sourceCommit:process.env.SOURCE_SHA,
+              homepage:Number(process.env.HOMEPAGE_CODE||0),
+              v121:Number(process.env.V121_CODE||0),
+              v13Preview:Number(process.env.V13_CODE||0),
+              sourceMarker:Number(process.env.SOURCE_CODE||0),
+              sourceMarkerMatches:process.env.OK==="1",
+              assetFailures:(process.env.ASSET_FAILURES||"").trim().split(/\s+/).filter(Boolean)
+            };
+            fs.writeFileSync("smoke/live-smoke.json",JSON.stringify(out,null,2)+"\n");
+          '           HOMEPAGE_CODE="$homepage_code"           V121_CODE="$v121_code"           V13_CODE="$v13_code"           SOURCE_CODE="$source_code"           OK="$ok"           ASSET_FAILURES="$asset_failures"
+
+          cat smoke/live-smoke.json
+          if [ "$ok" != "1" ] || [ -n "$asset_failures" ]; then
+            echo "Live smoke failed."
+            exit 1
+          fi
+
+      - name: Upload live smoke result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-live-smoke
+          path: smoke/live-smoke.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  record-result:
+    if: always()
+    needs: [validate, deploy-preview, live-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout v1.3 result branch
+        uses: actions/checkout@v4
+        with:
+          ref: v1.3
+          fetch-depth: 0
+
+      - name: Download live smoke result
+        if: needs.live-smoke.result != 'skipped'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: v13-live-smoke
+          path: /tmp/v13-live-smoke
+
+      - name: Write HANDOFF_RESULT.json
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          DEPLOY_RESULT: ${{ needs.deploy-preview.result }}
+          LIVE_RESULT: ${{ needs.live-smoke.result }}
+          PREVIEW_COMMIT: ${{ needs.deploy-preview.outputs.preview_commit }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const p='ards-twin-v1.0/HANDOFF_RESULT.json';
+          let smoke={};
+          try { smoke=JSON.parse(fs.readFileSync('/tmp/v13-live-smoke/live-smoke.json','utf8')); } catch {}
+          const validate=process.env.VALIDATE_RESULT;
+          const deploy=process.env.DEPLOY_RESULT;
+          const live=process.env.LIVE_RESULT;
+          const allGreen=validate==='success'&&deploy==='success'&&live==='success';
+          const result={
+            schema:'hummod-v13-handoff-result/v1',
+            sourceBranch:'v1.3',
+            sourceCommit:process.env.SOURCE_SHA,
+            buildCommit:process.env.SOURCE_SHA,
+            previewDeploymentCommit:process.env.PREVIEW_COMMIT||null,
+            timestampUtc:new Date().toISOString(),
+            status:allGreen?'PASS_DEPLOYED':'FAILED',
+            automation:{
+              provider:'GitHub Actions',
+              workflow:'v1.3 Preview CI Deploy',
+              runId:Number(process.env.RUN_ID),
+              nativeHumModExecuted:false
+            },
+            build:{
+              command:'npm run build',
+              passed:validate==='success',
+              notes:validate==='success'?'Build, focused tests, full suite, deploy verifier, and Chromium smoke passed.':'Validation job failed; inspect Actions logs.'
+            },
+            focusedTests:{
+              passed:validate==='success',
+              tests:[
+                'hummod_brain_hypoxia_source_aligned.test.js',
+                'hummod_ards_autonomic_source_aligned.test.js',
+                'v13_hr_hypoxia_fidelity_guard.test.js',
+                'v13_extremis_chronotropy.test.js'
+              ],
+              failures:[]
+            },
+            fullTestSuite:{
+              command:'npm test',
+              passed:validate==='success',
+              failureCount:validate==='success'?0:null,
+              failures:[]
+            },
+            deployment:{
+              attempted:deploy!=='skipped',
+              deployed:deploy==='success',
+              previewUrl:'https://hummod.defying-logic.com/ards-twin-v1.3-preview/web/',
+              originRestartRequired:null,
+              httpStatus:{
+                homepage:smoke.homepage??null,
+                v121:smoke.v121??null,
+                v13Preview:smoke.v13Preview??null
+              },
+              sourceMarkerMatches:smoke.sourceMarkerMatches??null,
+              assetErrors:smoke.assetFailures??[],
+              browserConsoleErrors:[]
+            },
+            fidelityChecks:{
+              effectiveHrEqualsSourceSaNodeBeforeArrest:validate==='success'?true:null,
+              empiricalHrOverlayZero:validate==='success'?true:null,
+              brainPo2FallsWithHypoxemia:validate==='success'?true:null,
+              brainFunctionBranchObserved:validate==='success'?true:null,
+              sympatheticAndVagalDiagnosticsVisible:validate==='success'?true:null
+            },
+            nativeArtifacts:[],
+            notes:[
+              'Native HumMod remains Mac-only and is not executed by this workflow.',
+              `validate=${validate}; deploy=${deploy}; live=${live}`
+            ]
+          };
+          fs.writeFileSync(p,JSON.stringify(result,null,2)+'\n');
+          NODE
+
+      - name: Commit result without retriggering CI
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ards-twin-v1.0/HANDOFF_RESULT.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore(v1.3): record CI/deploy result [skip ci]"
+          git push origin HEAD:v1.3
