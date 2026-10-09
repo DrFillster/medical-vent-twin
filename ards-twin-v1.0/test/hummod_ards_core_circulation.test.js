@@ -72,5 +72,43 @@ test('raising thoracic/pericardial pressure changes right-heart loading',()=>{
   assert(Number.isFinite(b.rightVentricle.bloodFlowMlPerMin));
 });
 
+
+test('source blood-volume mode makes systemic veins the residual compartment',()=>{
+  const initialVolumes={
+    systemicArteries:999,
+    systemicVeins:2675,
+    rightAtrium:51,
+    pulmonaryArtery:201,
+    pulmonaryCapillaries:200,
+    pulmonaryVeins:211,
+    leftAtrium:51,
+  };
+  const modeledTotal=Object.values(initialVolumes).reduce((a,b)=>a+b,0);
+  const bloodVolumeMl=5400;
+  const residual=bloodVolumeMl-modeledTotal;
+  const rt=createHumModArdsCirculation({
+    initialVolumesMl:initialVolumes,
+    boundaries:{
+      heartRatePerMin:75,
+      systemicArterialConductanceMlPerMinPerMmHg:60,
+      systemicVenousConductanceMlPerMinPerMmHg:692,
+      rightContractilityMultiplier:1,
+      leftContractilityMultiplier:1,
+      bloodVolumeMl,
+      unmodeledVascularVolumeMl:residual,
+    },
+    maxSubstepSec:0.005,
+  });
+  rt.setBoundaries({bloodVolumeMl:5300});
+  const s=rt.step({
+    dtSec:0.01,
+    thoracicPressureMmHg:0,
+    pericardialPressureMmHg:0,
+  });
+  const represented=Object.values(s.volumesMl).reduce((a,b)=>a+b,0);
+  assert(Math.abs((represented+residual)-5300)<1e-6,'source blood-volume residual constraint failed');
+  assert(s.provenance.bloodVolumeConstraint!=='disabled');
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);
