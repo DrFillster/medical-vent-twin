@@ -18,7 +18,8 @@
 //
 // Deliberate reductions:
 // - LowPressureReceptors source pathway is preserved from average atrial TMP;
-// - mechanoreceptor/exercise/Cushing/brain-fuel terms remain neutral for the acute ventilator slice;
+// - mechanoreceptor/Cushing terms remain neutral for the acute ventilator slice;
+ // - ExerciseSymps is source-aligned when upstream exercise state is supplied by the runtime;
 // - humoral alpha/beta pool effects are explicit normalized boundaries;
 // - DES curve interpolation is reproduced with local cubic Hermite segments;
 // - distributed organ vascular control is not represented here.
@@ -317,7 +318,7 @@ function createHumModSourceAlignedAutonomicController({
         clinicalValidation:false,
         neutralizedDependencies:Object.freeze([
           'Mechanoreceptors',
-          'ExerciseSymps',
+          'ExerciseSymps upstream state when runtime exercise inputs are unavailable',
           'CushingResponse',
           'Brain-Fuel upstream state (hook present; native input not yet supplied)',
           'A2Pool upstream state (hook present; native input not yet supplied)',
