@@ -1,0 +1,20 @@
+{
+  "schema": "vent-hummod-native-scenario/v1",
+  "id": "v1.3-native-exercise-bike-100w",
+  "scenarioClass": "native-hummod-exercise-reference",
+  "description": "Native HumMod bicycle exercise probe using the built-in 100 W exercise reference condition. Engineering fidelity test only.",
+  "assignments": {
+    "Exercise-Control.Request": 3,
+    "Exercise-Bike.Power(W)": 100,
+    "Exercise-Bike.RPM": 50
+  },
+  "provenance": {
+    "clinicalValidation": false,
+    "ardsScenario": false,
+    "purpose": "Measure native HumMod cardiovascular/autonomic response to the model's built-in 100 W bicycle exercise condition.",
+    "limitations": [
+      "Reference physiology probe, not a patient exercise prescription.",
+      "Exercise-Control.Request = 3 is the native bicycle-exercise mode used by Exercise-Bike.DES."
+    ]
+  }
+}
