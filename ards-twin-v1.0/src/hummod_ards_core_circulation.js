@@ -65,6 +65,19 @@ function createHumModArdsCirculation({
     'systemicVenousConductanceMlPerMinPerMmHg');
   positive(maxSubstepSec, 'maxSubstepSec');
 
+  const modeledInitialVolumeMl=requiredVolumes.reduce((sum,name)=>sum+volumes[name],0);
+  let sourceBloodVolumeResidualMl=null;
+  if(activeBoundaries.bloodVolumeMl!=null){
+    positive(activeBoundaries.bloodVolumeMl,'bloodVolumeMl');
+    sourceBloodVolumeResidualMl=
+      activeBoundaries.unmodeledVascularVolumeMl==null
+        ? activeBoundaries.bloodVolumeMl-modeledInitialVolumeMl
+        : nonNegative(activeBoundaries.unmodeledVascularVolumeMl,'unmodeledVascularVolumeMl');
+    if(sourceBloodVolumeResidualMl<0){
+      throw new Error('bloodVolumeMl is smaller than modeled vascular volume');
+    }
+  }
+
   let timeSec = 0;
   let last = null;
 
@@ -262,6 +275,19 @@ function createHumModArdsCirculation({
       positive(merged.pulmonaryArterialConductanceMultiplier,
         'pulmonaryArterialConductanceMultiplier');
     }
+    if (merged.bloodVolumeMl != null) {
+      positive(merged.bloodVolumeMl, 'bloodVolumeMl');
+      if (sourceBloodVolumeResidualMl == null) {
+        const modeledNow=requiredVolumes.reduce((sum,name)=>sum+volumes[name],0);
+        sourceBloodVolumeResidualMl=
+          merged.unmodeledVascularVolumeMl == null
+            ? merged.bloodVolumeMl-modeledNow
+            : nonNegative(merged.unmodeledVascularVolumeMl,'unmodeledVascularVolumeMl');
+        if(sourceBloodVolumeResidualMl<0){
+          throw new Error('bloodVolumeMl is smaller than modeled vascular volume');
+        }
+      }
+    }
     activeBoundaries = merged;
     return Object.freeze({ ...activeBoundaries });
   }
@@ -283,6 +309,25 @@ function createHumModArdsCirculation({
         if (!(volumes[name] > 0) || !Number.isFinite(volumes[name])) {
           throw new Error('circulation volume became non-physical: ' + name);
         }
+      }
+
+      // Native HumMod defines SystemicVeins.Vol algebraically as total
+      // BloodVol minus all other vascular compartments. In the reduced model,
+      // ventricular/splanchnic/BVSeq volume not explicitly represented is
+      // retained as a fixed residual boundary established when source
+      // blood-volume mode is enabled.
+      if(activeBoundaries.bloodVolumeMl!=null){
+        const otherModeled=requiredVolumes
+          .filter(name=>name!=='systemicVeins')
+          .reduce((sum,name)=>sum+volumes[name],0);
+        const residual=
+          activeBoundaries.bloodVolumeMl-
+          sourceBloodVolumeResidualMl-
+          otherModeled;
+        if(!(residual>0)||!Number.isFinite(residual)){
+          throw new Error('source blood-volume constraint produced non-physical systemic venous volume');
+        }
+        volumes.systemicVeins=residual;
       }
       timeSec += hSec;
       last = e;
@@ -313,6 +358,10 @@ function createHumModArdsCirculation({
         status: 'reduced-order-source-aligned-circulation',
         detailedOrganCirculation:
           'lumped into explicit systemic conductance boundaries',
+        bloodVolumeConstraint: activeBoundaries.bloodVolumeMl==null
+          ? 'disabled'
+          : 'SystemicVeins residual constrained by source BloodVol with fixed explicit unmodeled vascular-volume boundary',
+        sourceBloodVolumeResidualMl,
         clinicalValidation: false,
       }),
     });
