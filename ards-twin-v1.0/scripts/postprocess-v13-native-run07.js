@@ -6,6 +6,7 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const { HUMMOD_NATIVE_MUTABLE_PARAMETERS }=require('../src/hummod_native_scenario.js');
 const { analyze }=require('./analyze-v13-native-myocardial-collapse.js');
+const { analyze:replayMyocardialEquations }=require('./compare-v13-native-myocardial-equations.js');
 const { build:buildCheckpoints }=require('./build-v13-run07-checkpoints.js');
 
 const PINNED_SOURCE={
@@ -19,6 +20,7 @@ const REQUIRED_ARTIFACTS=[
   'scenario-verification.json',
   'native-export-status.json',
   'myocardial-collapse-analysis.json',
+  'myocardial-equation-replay.json',
   'run07-final-30s-checkpoints.csv',
   'source-and-executable-hashes.json',
 ];
@@ -179,6 +181,10 @@ function processRun07(runDir,{scenarioPath}={}){
   const analysisPath=path.join(dir,'myocardial-collapse-analysis.json');
   fs.writeFileSync(analysisPath,JSON.stringify(analysis,null,2)+'\n');
 
+  const equationReplay=replayMyocardialEquations(extraction);
+  const equationReplayPath=path.join(dir,'myocardial-equation-replay.json');
+  fs.writeFileSync(equationReplayPath,JSON.stringify(equationReplay,null,2)+'\n');
+
   const checkpoints=buildCheckpoints(extraction,30);
   const checkpointPath=path.join(dir,'run07-final-30s-checkpoints.csv');
   fs.writeFileSync(checkpointPath,checkpoints.csv);
@@ -206,6 +212,7 @@ function processRun07(runDir,{scenarioPath}={}){
     variableCount:extraction.variableCount,
     terminalSec,
     asystoleSec:analysis.terminalTimestampSec,
+    equationReplayMaxima:equationReplay.maxima,
     checkpointRows:checkpoints.rows.length,
     requiredArtifacts:REQUIRED_ARTIFACTS.slice(),
   };
