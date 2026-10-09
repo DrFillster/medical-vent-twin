@@ -10,6 +10,7 @@ const { createHumModSourceAlignedBrainHypoxia } = require('./hummod_brain_hypoxi
 const { exerciseSympsTotalEffect } = require('./hummod_exercise_sympathetic_source_aligned.js');
 const { createHumModExerciseMetabolism } = require('./hummod_exercise_metabolism_source_aligned.js');
 const { createHumModBloodVolume } = require('./hummod_blood_volume_source_aligned.js');
+const { hgbConcentrationFromHematocrit } = require('./hummod_hgb_concentration_source_aligned.js');
 const { exerciseMusclePumpEffect } = require('./hummod_exercise_muscle_pump_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
@@ -186,6 +187,31 @@ function createHumModArdsCardiopulmonaryRuntime({
       brainPco2MmHg: priorVenousGas ? priorVenousGas.pco2MmHg : 46.6,
     });
     const currentCatecholamines = catecholamines ? catecholamines.snapshot() : null;
+
+    // Read upstream native inputs before applying source blood-volume changes.
+    // The prior implementation could reference nativeAutonomicInputs before
+    // initialization when the source blood-volume module was enabled.
+    const preBloodRightAtrialTmpMmHg =
+      circ.pressures.rightAtrialMmHg - pericardialPressureMmHg;
+    const preBloodLeftAtrialTmpMmHg =
+      circ.pressures.leftAtrialMmHg - pericardialPressureMmHg;
+    const preBloodAverageAtrialTmpMmHg =
+      (preBloodRightAtrialTmpMmHg + preBloodLeftAtrialTmpMmHg) / 2;
+    const nativeAutonomicInputs = nativeAutonomicInputsProvider
+      ? nativeAutonomicInputsProvider({
+          timeSec,
+          dtSec,
+          meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
+          averageAtrialTmpMmHg:preBloodAverageAtrialTmpMmHg,
+          priorArterialGas: priorGas,
+        })
+      : null;
+    if(nativeAutonomicInputs!=null &&
+       (typeof nativeAutonomicInputs!=='object' ||
+        Array.isArray(nativeAutonomicInputs))){
+      throw new Error('nativeAutonomicInputsProvider must return an object or null');
+    }
+
     const bloodVolumeState = sourceBloodVolume
       ? sourceBloodVolume.step({
           dtSec,
@@ -199,11 +225,16 @@ function createHumModArdsCardiopulmonaryRuntime({
             nativeAutonomicInputs?.otherPlasmaLossMlPerMin ?? 0,
         })
       : null;
+    let hgbConcentrationState=null;
     if(bloodVolumeState){
       circulation.setBoundaries({
         bloodVolumeMl:bloodVolumeState.bloodVolumeMl,
       });
       circ=circulation.snapshot();
+      hgbConcentrationState=hgbConcentrationFromHematocrit({
+        hematocritFraction:bloodVolumeState.hematocritFraction,
+        carboxyPercent:bloodBoundaries.carboxyPercent || 0,
+      });
     }
     const rightAtrialTmpMmHg =
       circ.pressures.rightAtrialMmHg - pericardialPressureMmHg;
@@ -211,20 +242,6 @@ function createHumModArdsCardiopulmonaryRuntime({
       circ.pressures.leftAtrialMmHg - pericardialPressureMmHg;
     const averageAtrialTmpMmHg =
       (rightAtrialTmpMmHg + leftAtrialTmpMmHg) / 2;
-    const nativeAutonomicInputs = nativeAutonomicInputsProvider
-      ? nativeAutonomicInputsProvider({
-          timeSec,
-          dtSec,
-          meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
-          averageAtrialTmpMmHg,
-          priorArterialGas: priorGas,
-        })
-      : null;
-    if(nativeAutonomicInputs!=null &&
-       (typeof nativeAutonomicInputs!=='object' ||
-        Array.isArray(nativeAutonomicInputs))){
-      throw new Error('nativeAutonomicInputsProvider must return an object or null');
-    }
     let exerciseMetabolismState=null;
     let exerciseSympatheticState=null;
     let exerciseSympsEffect=0;
@@ -405,7 +422,12 @@ function createHumModArdsCardiopulmonaryRuntime({
         cardiacOutputMlPerMin,
       },
       pulmonary:pulmonaryBoundaries,
-      blood:bloodBoundaries,
+      blood:hgbConcentrationState
+        ? {
+            ...bloodBoundaries,
+            o2MaxMlPerMl:hgbConcentrationState.o2MaxMlPerMl,
+          }
+        : bloodBoundaries,
       environment:environmentBoundaries,
     });
 
@@ -448,6 +470,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       exerciseMusclePump:exerciseMusclePumpState,
       exerciseSympathetic:exerciseSympatheticState,
       sourceBloodVolume:bloodVolumeState,
+      hgbConcentration:hgbConcentrationState,
       brainHypoxia:brainHypoxiaState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
