@@ -32,6 +32,14 @@ jobs:
       - name: Checkout v1.3 source
         uses: actions/checkout@v4
 
+      - name: Checkout pinned HumMod source
+        uses: actions/checkout@v4
+        with:
+          repository: riliescu/hummod-standalone
+          ref: 8dab57e05631f779bf5020fe0dd51874d8ae98c1
+          path: hummod-standalone
+          persist-credentials: false
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -54,6 +62,20 @@ jobs:
 
       - name: Full Node test suite
         run: npm test
+
+      - name: Build broad HumMod v1.3 fidelity dependency graph
+        run: |
+          node scripts/build-hummod-ards-core-graph.js \
+            --hummod-root ../hummod-standalone \
+            --out hummod-ards-core-analysis/v13-fidelity-dependency-graph.json
+
+      - name: Upload HumMod fidelity dependency graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-hummod-fidelity-dependency-graph
+          path: ards-twin-v1.0/hummod-ards-core-analysis/v13-fidelity-dependency-graph.json
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Verify deployable static web
         run: npm run verify:deploy
