@@ -91,3 +91,25 @@ Use Drive only for:
 - native-run ZIP archives.
 
 Do not use handoff ZIPs for normal browser source iteration.
+
+
+## Mac origin auto-sync
+
+The public hostname currently serves the Mac deployment checkout. GitHub Actions
+commits the validated preview to `main`; the Mac must fast-forward that checkout
+before the public origin sees it.
+
+One-time setup on the Mac deployment checkout:
+
+```bash
+git checkout main
+git pull --ff-only origin main
+bash .deploy/install-preview-sync-launchd.sh
+```
+
+After installation, launchd checks `origin/main` every 30 seconds and performs
+only a clean fast-forward merge. It refuses to operate if:
+- the checkout is not on `main`; or
+- the working tree contains local changes.
+
+No native HumMod process is run by this sync agent.
