@@ -7,6 +7,8 @@ const { createHumModSourceAlignedAutonomicController } = require('./hummod_ards_
 const { createHumModSourceAlignedCatecholamines } = require('./hummod_ards_catecholamines_source_aligned.js');
 const { sourceSympatheticVascularComponents } = require('./hummod_ards_vascular_sympathetic_source_aligned.js');
 const { createHumModSourceAlignedBrainHypoxia } = require('./hummod_brain_hypoxia_source_aligned.js');
+const { createHumModChemoreceptors } = require('./hummod_chemoreceptors_source_aligned.js');
+const { oxygenDeliveryFidelityPoint } = require('./hummod_oxygen_delivery_fidelity.js');
 const { exerciseSympsTotalEffect } = require('./hummod_exercise_sympathetic_source_aligned.js');
 const { createHumModExerciseMetabolism } = require('./hummod_exercise_metabolism_source_aligned.js');
 const { createHumModBloodVolume } = require('./hummod_blood_volume_source_aligned.js');
@@ -99,6 +101,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     ? null
     : createHumModSourceAlignedCatecholamines({ ecfvMl: catecholamineEcfvMl });
   const brainHypoxia = createHumModSourceAlignedBrainHypoxia();
+  const chemoreceptors = createHumModChemoreceptors();
   const exerciseMetabolism = createHumModExerciseMetabolism();
   const sourceBloodVolume = sourceBloodVolumeInitialMl == null
     ? null
@@ -293,6 +296,15 @@ function createHumModArdsCardiopulmonaryRuntime({
         brainHypoxiaState.brainFunctionEffect,
       exerciseSympsTotalEffect:exerciseSympsEffect,
     });
+    const chemoreceptorState=chemoreceptors.step({
+      dtSec,
+      arterialPo2MmHg:priorGas ? priorGas.po2MmHg : 90,
+      arterialPh:priorGas ? priorGas.pH : 7.40,
+      gangliaGeneralHz:sourceControl.gangliaHz,
+      alphaPoolEffect:currentCatecholamines ? currentCatecholamines.alphaEffect : 1,
+      alphaBlockadeEffect:1,
+      otherTissueFunctionFailed:false,
+    });
     const updatedCatecholamines = catecholamines
       ? catecholamines.step({
           dtSec,
@@ -439,6 +451,16 @@ function createHumModArdsCardiopulmonaryRuntime({
     const massBalance=gas.exchange && gas.exchange.massBalance
       ? gas.exchange.massBalance
       : null;
+    const oxygenDeliveryState=oxygenDeliveryFidelityPoint({
+      cardiacOutputMlPerMin,
+      arterialO2ContentMlPerMl:gas.gases.arterial.o2ContentMlPerMl,
+      mixedVenousO2ContentMlPerMl:gas.gases.venous.o2ContentMlPerMl,
+      requestedTissueO2UseMlPerMin:
+        massBalance?.requestedTissueO2UseMlPerMin ?? null,
+      sympatheticFiringHz:sourceControl.sympsCnsHz,
+      saBetaReceptorActivity:sourceControl.saBetaActivity,
+      heartRatePerMin:effectiveHeartRatePerMin,
+    });
     const decomp=decompensation.step({
       dtSec,
       meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
@@ -472,6 +494,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       sourceBloodVolume:bloodVolumeState,
       hgbConcentration:hgbConcentrationState,
       brainHypoxia:brainHypoxiaState,
+      chemoreceptors:chemoreceptorState,
+      oxygenDelivery:oxygenDeliveryState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
       chronotropicExposureSec,
