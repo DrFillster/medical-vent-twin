@@ -5,6 +5,8 @@ const path = require('node:path');
 const {
   HUMMOD_ARDS_CORE,
   HUMMOD_ARDS_CORE_PHASE1_POLICY,
+  HUMMOD_V13_FIDELITY_ROOT_STRUCTURES,
+  HUMMOD_V13_FIDELITY_POLICY,
   hummodArdsCoreRootStructures,
 } = require('../src/hummod_ards_core_manifest.js');
 
@@ -160,6 +162,8 @@ function main() {
   const fullClosure = dependencyClosure(index, roots, args.maxDepth);
   const phase1Closure = dependencyClosure(
     index, roots, args.maxDepth, HUMMOD_ARDS_CORE_PHASE1_POLICY);
+  const v13FidelityClosure = dependencyClosure(
+    index, HUMMOD_V13_FIDELITY_ROOT_STRUCTURES, args.maxDepth, HUMMOD_V13_FIDELITY_POLICY);
 
   const result = {
     schema: 'hummod-ards-core-dependency-graph/v1',
@@ -182,6 +186,16 @@ function main() {
       frontier: phase1Closure.frontier,
       structures: phase1Closure.structures,
     },
+    v13FidelityPolicy: HUMMOD_V13_FIDELITY_POLICY,
+    v13FidelityClosure: {
+      rootStructures: HUMMOD_V13_FIDELITY_ROOT_STRUCTURES,
+      structureCount: v13FidelityClosure.structures.length,
+      systems: summarize(v13FidelityClosure.structures),
+      missingStructures: v13FidelityClosure.missing,
+      frontierCount: v13FidelityClosure.frontier.length,
+      frontier: v13FidelityClosure.frontier,
+      structures: v13FidelityClosure.structures,
+    },
     duplicateStructureNames: Object.fromEntries(duplicateNames),
     interpretation: {
       status: 'static-source-dependency-closure-not-runnable-submodel',
@@ -198,6 +212,9 @@ function main() {
     fullClosure: fullClosure.structures.length,
     phase1Closure: phase1Closure.structures.length,
     phase1Frontier: phase1Closure.frontier.length,
+    v13FidelityClosure: v13FidelityClosure.structures.length,
+    v13FidelityFrontier: v13FidelityClosure.frontier.length,
+    v13FidelityMissing: v13FidelityClosure.missing.length,
     missing: phase1Closure.missing.length,
     phase1TopSystems: Object.entries(result.phase1Closure.systems).slice(0, 12),
   }, null, 2));
