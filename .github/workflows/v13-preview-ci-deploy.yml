@@ -77,6 +77,7 @@ jobs:
           node test/hummod_explicit_organ_network_readiness.test.js
           node test/hummod_global_vascular_modifiers_source_aligned.test.js
           node test/hummod_tissue_metabolism_source_aligned.test.js
+          node test/hummod_hormone_pools_source_aligned.test.js
           node test/v13_simulation_speed_control.test.js
           node test/v13_hr_hypoxia_fidelity_guard.test.js
           node test/v13_extremis_chronotropy.test.js
@@ -345,6 +346,7 @@ jobs:
                 'hummod_explicit_organ_network_readiness.test.js',
                 'hummod_global_vascular_modifiers_source_aligned.test.js',
                 'hummod_tissue_metabolism_source_aligned.test.js',
+                'hummod_hormone_pools_source_aligned.test.js',
                 'v13_simulation_speed_control.test.js',
                 'v13_hr_hypoxia_fidelity_guard.test.js',
                 'v13_extremis_chronotropy.test.js'
