@@ -147,7 +147,8 @@ function createHumModArdsCirculation({
 
     const venousReturn = conductanceFlow({
       conductanceMlPerMinPerMmHg:
-        activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg,
+        activeBoundaries.systemicVenousConductanceMlPerMinPerMmHg *
+        (activeBoundaries.systemicVenousConductanceMultiplier || 1),
       upstreamPressureMmHg: p.sv.pressureMmHg,
       downstreamPressureMmHg: p.ra.pressureMmHg,
     });
@@ -270,6 +271,10 @@ function createHumModArdsCirculation({
       'systemicVenousConductanceMlPerMinPerMmHg');
     if (merged.systemicVenousV0Ml != null) {
       nonNegative(merged.systemicVenousV0Ml, 'systemicVenousV0Ml');
+    }
+    if (merged.systemicVenousConductanceMultiplier != null) {
+      positive(merged.systemicVenousConductanceMultiplier,
+        'systemicVenousConductanceMultiplier');
     }
     if (merged.pulmonaryArterialConductanceMultiplier != null) {
       positive(merged.pulmonaryArterialConductanceMultiplier,
