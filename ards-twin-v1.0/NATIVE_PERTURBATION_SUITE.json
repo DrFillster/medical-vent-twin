@@ -1,0 +1,64 @@
+{
+  "schema": "hummod-native-perturbation-suite/v1",
+  "id": "v13-hummod-first-reference-suite",
+  "sourceBranch": "v1.3",
+  "nativeSource": {
+    "repository": "riliescu/hummod-standalone",
+    "revision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1"
+  },
+  "objective": "Use native HumMod perturbation trajectories to define the dependency surface required by the browser runtime. Do not calibrate to invented clinical targets.",
+  "scenarios": [
+    {
+      "id": "exercise-100w",
+      "scenarioFile": "hummod-runner/native-v13-exercise-bike-100w.json",
+      "durationSec": 60,
+      "primaryQuestion": "Does native HumMod generate substantial exercise tachycardia and what upstream pathways drive it?"
+    },
+    {
+      "id": "exercise-200w",
+      "scenarioFile": "hummod-runner/native-v13-exercise-bike-200w.json",
+      "durationSec": 120,
+      "primaryQuestion": "Does native HumMod exceed 120/min under higher-work exercise and which autonomic/metabolic pathways account for it?"
+    },
+    {
+      "id": "hemorrhage",
+      "scenarioFile": "hummod-runner/native-v13-hemorrhage-probe.json",
+      "durationSec": 120,
+      "primaryQuestion": "How strongly do native volume loss, baroreflex, venous return, catecholamines, HR, SV, CO, and SVR couple?"
+    },
+    {
+      "id": "hypoxia",
+      "scenarioFile": "hummod-runner/native-v13-hypoxia-isolation-probe.json",
+      "durationSec": 180,
+      "primaryQuestion": "What is the native hypoxic autonomic response without the run06 severe hypoventilation confound?"
+    },
+    {
+      "id": "hypercapnia",
+      "scenarioFile": "hummod-runner/native-v13-hypercapnia-isolation-probe.json",
+      "durationSec": 180,
+      "primaryQuestion": "What is the native hypercapnic autonomic response without severe hypoventilation?"
+    }
+  ],
+  "requiredSeries": [
+    "System.X",
+    "Heart-Rate.Rate",
+    "SANode-Rate.Rate",
+    "CardiacOutput.Flow",
+    "SystemicArtys.Pressure",
+    "SympsCNS.NA(Hz)",
+    "Vagus-SA.FiringRate",
+    "Baroreflex.NA",
+    "LowPressureReceptors.NA",
+    "ExerciseSymps.TotalEffect",
+    "AdrenalNerve.NA(Hz)",
+    "EpiPool.[Epi]",
+    "NEPool.[NE]",
+    "BloodVol.Volume",
+    "RightAtrium.Pressure",
+    "PO2Artys.Pressure",
+    "CO2Artys.Pressure",
+    "BloodPh.ArtysPh",
+    "Brain-Function.Effect"
+  ],
+  "decisionRule": "Subsystems that materially mediate native trajectories become candidates for the v1.3 browser fidelity closure. No empirical HR, SVR, catecholamine, or arrest target may be fitted merely to make a clinical-looking curve."
+}
