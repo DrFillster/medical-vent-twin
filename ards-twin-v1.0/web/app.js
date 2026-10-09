@@ -605,6 +605,11 @@
       Number.isFinite(hemo.pulmonaryVascularResistanceMmHgMinPerL)
       ? hemo.pulmonaryVascularResistanceMmHgMinPerL.toFixed(2)
       : '—';
+    const circulationMode = hemo.systemicOutflowMode || 'conductance';
+    $('clinical-circulation-mode').textContent =
+      circulationMode === 'explicit-organ-network'
+        ? 'Explicit HumMod organ flow'
+        : 'Reduced conductance';
     $('clinical-sympathetic-hz').textContent =
       typeof hemo.sympatheticFiringHz === 'number' && Number.isFinite(hemo.sympatheticFiringHz)
         ? hemo.sympatheticFiringHz.toFixed(2) : '—';
