@@ -92,14 +92,18 @@ const { chromium, webkit } = require('playwright');
       });
       await page.locator('#clinical-measure-mechanics').click();
       await page.waitForFunction(() => {
-        const pplat = document.querySelector('#clinical-pplat').textContent.trim();
-        const peep = document.querySelector('#clinical-total-peep').textContent.trim();
-        const dp = document.querySelector('#clinical-dp').textContent.trim();
-        return pplat !== '—' && peep !== '—' && dp !== '—';
+        const pplat = document.querySelector('#clinical-pplat');
+        const dp = document.querySelector('#clinical-dp');
+        const result = document.querySelector('#clinical-maneuver-result');
+        return pplat && dp && result &&
+          pplat.textContent.trim() !== '—' &&
+          dp.textContent.trim() !== '—' &&
+          result.textContent.includes('Both holds completed') &&
+          result.textContent.includes('total PEEP');
       }, null, { timeout: 30000 });
       assert(Number.isFinite(Number((await page.locator('#clinical-pplat').textContent()).trim())));
-      assert(Number.isFinite(Number((await page.locator('#clinical-total-peep').textContent()).trim())));
       assert(Number.isFinite(Number((await page.locator('#clinical-dp').textContent()).trim())));
+      assert((await page.locator('#clinical-maneuver-result').textContent()).includes('total PEEP'));
 
       await page.locator('#clinical-mode').selectOption('PC_AC');
       await page.locator('#clinical-fio2').fill('0.5');
@@ -114,7 +118,7 @@ const { chromium, webkit } = require('playwright');
       await page.locator('#clinical-run-seconds').fill('2.2');
       await page.locator('#clinical-run').click();
       await page.waitForFunction(()=>document.querySelector('#clinical-current-mode').textContent.trim()==='PC_AC',null,{timeout:30000});
-      assert.equal((await page.locator('#clinical-current-peep').textContent()).trim(),'10');
+      assert.equal((await page.locator('#clinical-pressure-peep').textContent()).trim(),'10');
 
       const dimensions=await page.evaluate(()=>{
         const viewport=innerWidth;
