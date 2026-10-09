@@ -1,5 +1,7 @@
 name: v1.3 Preview CI Deploy
 
+# Browser preview CI; Mac origin auto-sync is installed separately.
+
 on:
   push:
     branches: [v1.3]
