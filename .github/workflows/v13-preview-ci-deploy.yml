@@ -60,7 +60,7 @@ jobs:
           node test/hummod_exercise_metabolism_source_aligned.test.js
           node test/hummod_exercise_muscle_pump_source_aligned.test.js
           node test/hummod_blood_volume_source_aligned.test.js
-          node test/hummod_skeletal_muscle_source_aligned.test.js
+          node test/hummod_skeletal_muscle_source_aligned.test.js\n          node test/hummod_systemic_organ_flow_accounting.test.js
           node test/v13_hr_hypoxia_fidelity_guard.test.js
           node test/v13_extremis_chronotropy.test.js
 
