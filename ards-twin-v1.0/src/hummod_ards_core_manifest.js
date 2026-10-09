@@ -251,6 +251,7 @@ const HUMMOD_V13_FIDELITY_ROOT_STRUCTURES = Object.freeze([
   'CO2Artys',
   'BloodPh',
   'SympsCNS',
+  'VagusNerve',
   'Baroreflex',
   'LowPressureReceptors',
   'Mechanoreceptors',
