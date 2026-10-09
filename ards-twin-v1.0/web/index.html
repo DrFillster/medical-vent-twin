@@ -209,7 +209,9 @@
 <h3>Patient clock</h3>
 <div class="field-grid clinical-actions-grid">
 <div><label for="clinical-run-seconds">Advance <span>s</span></label><input id="clinical-run-seconds" type="number" min="0.1" step="0.1" value="30"></div>
+<div><label for="clinical-speed">Simulation speed</label><select id="clinical-speed" aria-describedby="clinical-speed-note"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1× · real time</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option></select></div>
 </div>
+<p id="clinical-speed-note" class="hint">Default 1× = one simulated patient second per real second. Speed changes pacing only; physiologic timestep and model equations are unchanged. Current: <strong id="clinical-speed-indicator">1×</strong>.</p>
 <div class="actions clinical-actions">
 <button id="clinical-run" type="button">Advance patient</button>
 <button id="clinical-run-continuous" type="button" disabled>Run continuously</button>
