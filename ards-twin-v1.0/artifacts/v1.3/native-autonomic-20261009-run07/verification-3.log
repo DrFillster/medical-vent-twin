@@ -1,0 +1,19 @@
+ok - live session initializes with finite HumMod-derived gas and circulation outputs
+ok - native ECFV enables dynamic source-aligned catecholamine pools
+ok - PEEP intervention persists and live systemic state advances rather than replaying a fixed row
+ok - PEEP challenge produces dynamic cardiopulmonary and autonomic response
+ok - FiO2/VC setting changes are applied at a breath boundary and feed the live core
+ok - prolonged profound hypoxemic hypercapnic failure decompensates instead of remaining hemodynamically normal
+ok - live core rejects PC-AC until its Vent adapter is implemented
+ok - live core is restricted to the authored reference case while boundaries are synthetic
+
+Tests: passed=8 failed=0
+✔ ards-twin-v1.0/test/clinical_twin_live_hummod_session.test.js (2286.916292ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2289.324542
