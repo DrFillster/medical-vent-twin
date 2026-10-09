@@ -157,10 +157,11 @@ function processRun07(runDir,{scenarioPath}={}){
   if(!fs.existsSync(solnPath)) throw new Error('missing Vent.SOLN');
   if(!fs.existsSync(statusPath)) throw new Error('missing native-export-status.json');
 
-  const scenarioFile=scenarioPath||path.resolve(__dirname,'..','hummod-runner','native-v13-myocardial-collapse-probe.json');
-  const scenario=JSON.parse(fs.readFileSync(scenarioFile,'utf8'));
   const status=JSON.parse(fs.readFileSync(statusPath,'utf8'));
   validateExportStatus(status);
+
+  const scenarioFile=scenarioPath||path.resolve(__dirname,'..','hummod-runner','native-v13-myocardial-collapse-probe.json');
+  const scenario=JSON.parse(fs.readFileSync(scenarioFile,'utf8'));
 
   const extraction=extractAllVariables(fs.readFileSync(solnPath,'utf8'));
   const terminalSec=validateTerminalTime(extraction);
