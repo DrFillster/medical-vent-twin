@@ -23,6 +23,11 @@ const HUMMOD_NATIVE_MUTABLE_PARAMETERS=Object.freeze({
   'LungBloodFlow.BasicR-LShunt':Object.freeze({kind:'pulmonary-injury',source:'Structure/Lungs/LungBloodFlow.DES',unit:'mL/min',persistence:'parameter'}),
   'RightHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/RightHemithorax.DES',unit:'model-pressure',persistence:'parameter'}),
   'LeftHemithorax.NormalPressure':Object.freeze({kind:'thorax',source:'Structure/Lungs/LeftHemithorax.DES',unit:'model-pressure',persistence:'parameter'}),
+  'Exercise-Control.Request':Object.freeze({kind:'exercise',source:'Structure/Exercise/Exercise-Control.DES',unit:'mode-code',persistence:'parameter'}),
+  'Exercise-Bike.Power(W)':Object.freeze({kind:'exercise',source:'Structure/Exercise/Exercise-Bike.DES',unit:'W',persistence:'parameter'}),
+  'Exercise-Bike.RPM':Object.freeze({kind:'exercise',source:'Structure/Exercise/Exercise-Bike.DES',unit:'1/min',persistence:'parameter'}),
+  'Hemorrhage.Switch':Object.freeze({kind:'hemorrhage',source:'Structure/Hemorrhage/Hemorrhage.DES',unit:'boolean-numeric',persistence:'parameter'}),
+  'Hemorrhage.TargetRate':Object.freeze({kind:'hemorrhage',source:'Structure/Hemorrhage/Hemorrhage.DES',unit:'model-volume/min',persistence:'parameter'}),
 });
 
 function validateNativeHumModScenario(spec){
@@ -40,7 +45,7 @@ function validateNativeHumModScenario(spec){
     const value=spec.assignments[key];
     if(typeof value!=='number'||!Number.isFinite(value)) throw new Error('assignment '+key+' must be finite');
   }
-  for(const key of ['Ventilator.Switch','AirSupply-GasTanks.Switch']){
+  for(const key of ['Ventilator.Switch','AirSupply-GasTanks.Switch','Hemorrhage.Switch']){
     if(Object.prototype.hasOwnProperty.call(spec.assignments,key)){
       const v=spec.assignments[key];
       if(v!==0&&v!==1) throw new Error(key+' must be 0 or 1');
@@ -52,8 +57,12 @@ function validateNativeHumModScenario(spec){
       if(v<0||v>100) throw new Error(key+' must be in [0,100]');
     }
   }
-  for(const key of ['Ventilator.Rate','Ventilator.TidalVolume','AirSupply-GasTanks.COValve(PPM)','ExcessLungWater.Volume','PulmonaryMembrane.TotalArea','PulmonaryMembrane.Thickness-Structure','LungBloodFlow.BasicR-LShunt']){
+  for(const key of ['Ventilator.Rate','Ventilator.TidalVolume','AirSupply-GasTanks.COValve(PPM)','ExcessLungWater.Volume','PulmonaryMembrane.TotalArea','PulmonaryMembrane.Thickness-Structure','LungBloodFlow.BasicR-LShunt','Exercise-Bike.Power(W)','Exercise-Bike.RPM','Hemorrhage.TargetRate']){
     if(Object.prototype.hasOwnProperty.call(spec.assignments,key)&&spec.assignments[key]<0) throw new Error(key+' must be non-negative');
+  }
+  if(Object.prototype.hasOwnProperty.call(spec.assignments,'Exercise-Control.Request')){
+    const v=spec.assignments['Exercise-Control.Request'];
+    if(!Number.isInteger(v)||v<0||v>4) throw new Error('Exercise-Control.Request must be an integer mode code in [0,4]');
   }
   return spec;
 }
