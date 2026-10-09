@@ -1,0 +1,24 @@
+[
+  {
+    "command": [
+      "node",
+      "ards-twin-v1.0/artifacts/v1.3/native-autonomic-20261009-run07/run07-browser-reduced-probe.js"
+    ],
+    "exitCode": 0
+  },
+  {
+    "command": [
+      "python3",
+      "ards-twin-v1.0/artifacts/v1.3/native-autonomic-20261009-run07/run07-extract-align.py"
+    ],
+    "exitCode": 0
+  },
+  {
+    "command": [
+      "node",
+      "--test",
+      "ards-twin-v1.0/test/clinical_twin_live_hummod_session.test.js"
+    ],
+    "exitCode": 0
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "schema": "hummod-vent-core/mac-wine-probe/v1",
+  "ok": true,
+  "transport": "HumMod.EXE under Wine/CrossOver on macOS",
+  "mainWindowDetected": true,
+  "humModWindowDetected": true,
+  "mainWindowPid": 220,
+  "menuSurfaceDetected": false,
+  "menuLineCount": 0,
+  "wineBin": "/Users/philipbernard/.Trash/CrossOver.app/Contents/SharedSupport/CrossOver/lib/wine/x86_64-unix/wine",
+  "wineVersion": "wine-11.0-8726-g2e2f5fca349",
+  "humModExe": "/Users/philipbernard/Documents/Codex/2026-09-26/referenced-chatgpt-conversation-this-is-an/work/hummod-wine-compatibility/HumMod.EXE",
+  "humModExeSha256": "4243E8721F77A5FABF3128FAC5AC139588B20A8285D35D2021C6852D596803CB",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "probeOutput": "/Users/philipbernard/.hermes/cache/scratch/hummod-native-run07-relaunch/window-probe.txt"
+}
