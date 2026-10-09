@@ -15,7 +15,8 @@
     "verify:deploy": "node scripts/verify-deployable-web.js",
     "test:rc": "node test/runner.js",
     "verify:v1.1-rc": "node scripts/verify-v11-rc.js",
-    "trace:v1.3-autonomic": "node scripts/v121-extremis-autonomic-trace.js"
+    "trace:v1.3-autonomic": "node scripts/v121-extremis-autonomic-trace.js",
+    "native:run07:postprocess": "node scripts/postprocess-v13-native-run07.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
