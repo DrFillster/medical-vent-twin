@@ -1,8 +1,8 @@
 # ARDS Digital Twin Build Plan
 
 Status: active build plan  
-Branch: `feature/berlin-virtual-patients`  
-Scope target: v0.5 clinical digital-twin milestone
+Branch: `v1.5`  
+Scope target: v1.5 evidence-first autonomic/respiratory modernization
 
 ## 1. Product intent
 
@@ -323,3 +323,19 @@ Key decisions:
 - Aortic CaO2-content chemoreflex and fever chronotropy remain on hold until source-backed quantitative equations are established.
 
 No physiology implementation is considered ready merely because a plausible response can be produced. Empirical or fitted relationships are permitted only when the fitting method, source data, rationale, and independent validation are documented. No physiologic gain or mapping may be introduced solely to produce a desired simulation response.
+
+
+## 11. v1.5 execution status — first five physiology steps
+
+- [x] Build Ursino/Magosso equation transcription ledger.
+- [x] Record equation identifiers, primary citations, units, parameters, intended effects, and project mappings.
+- [x] Implement Phases 1-3 as a non-authoritative Ursino/Magosso shadow controller.
+- [x] Couple the published pulmonary stretch-receptor equation to actual Vent delivered tidal volume.
+- [x] Complete the Magosso/Ursino 2001 CO2 parameter audit.
+
+### Provenance blockers retained
+
+- 2001 peripheral O2-CO2 Eq. 1 remains inactive until the printed piecewise interaction coefficient is visually verified from the primary article.
+- Ursino `f_ab` remains unmapped because HumMod `Baroreflex.NA` has not been proven equivalent to baroreceptor afferent firing in spikes/s.
+- Consequently, `f_sp`, `f_sh`, and `f_v` are implemented as source-faithful functions but are not driven from HumMod baroreflex state.
+- No new controller output has live authority over HR, SVR, venous tone, or SA-node behavior.
