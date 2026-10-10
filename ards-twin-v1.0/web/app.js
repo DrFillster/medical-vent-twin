@@ -392,6 +392,10 @@
       brainFunction: Number(snapshot?.systemic?.hemodynamics?.brainFunctionEffect),
       sympatheticHz: Number(snapshot?.systemic?.hemodynamics?.sympatheticFiringHz),
       vagalHz: Number(snapshot?.systemic?.hemodynamics?.vagalFiringHz),
+      shadowFsh: Number(snapshot?.systemic?.autonomicShadow?.fShSpikesPerSec),
+      shadowFv: Number(snapshot?.systemic?.autonomicShadow?.fVSpikesPerSec),
+      globalDo2: Number(snapshot?.systemic?.gasExchange?.convectiveOxygenDeliveryMlPerMin),
+      oxygenDebt: Number(snapshot?.systemic?.decompensation?.oxygenDebtMl),
       pH: Number(snapshot?.systemic?.gasExchange?.pH),
     };
     if (!Number.isFinite(point.timeSec)) return;
@@ -467,6 +471,10 @@
     drawClinicalTrend('clinical-brain-function-trend', 'brainFunction', 2);
     drawClinicalTrend('clinical-symps-trend', 'sympatheticHz', 2);
     drawClinicalTrend('clinical-vagus-trend', 'vagalHz', 2);
+    drawClinicalTrend('clinical-shadow-fsh-trend', 'shadowFsh', 2);
+    drawClinicalTrend('clinical-shadow-fv-trend', 'shadowFv', 2);
+    drawClinicalTrend('clinical-do2-trend', 'globalDo2', 0);
+    drawClinicalTrend('clinical-o2-debt-trend', 'oxygenDebt', 0);
     drawClinicalTrend('clinical-ph-trend', 'pH', 2);
   }
 
@@ -626,6 +634,29 @@
     $('clinical-epi').textContent =
       typeof catecholamines.epiPgPerMl === 'number' && Number.isFinite(catecholamines.epiPgPerMl)
         ? Math.round(catecholamines.epiPgPerMl) : '—';
+
+    const shadow = snapshot.systemic?.autonomicShadow || {};
+    const gasx = snapshot.systemic?.gasExchange || {};
+    const decomp = snapshot.systemic?.decompensation || {};
+    const setShadow = (id, value, digits = 2) => {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = typeof value === 'number' && Number.isFinite(value)
+        ? value.toFixed(digits)
+        : '—';
+    };
+    setShadow('clinical-shadow-fab', shadow.fAbSpikesPerSec);
+    setShadow('clinical-shadow-fac', shadow.fAcSpikesPerSec);
+    setShadow('clinical-shadow-fap', shadow.fApSpikesPerSec);
+    setShadow('clinical-shadow-theta-sp', shadow.thetaSpSpikesPerSec);
+    setShadow('clinical-shadow-theta-sh', shadow.thetaShSpikesPerSec);
+    setShadow('clinical-shadow-fsp', shadow.fSpSpikesPerSec);
+    setShadow('clinical-shadow-fsh', shadow.fShSpikesPerSec);
+    setShadow('clinical-shadow-fv', shadow.fVSpikesPerSec);
+    setShadow('clinical-global-do2', gasx.convectiveOxygenDeliveryMlPerMin, 0);
+    setShadow('clinical-global-oer', gasx.globalExtractionRatio, 3);
+    setShadow('clinical-o2-deficit', gasx.oxygenSupplyDeficitMlPerMin, 1);
+    setShadow('clinical-o2-debt', decomp.oxygenDebtMl, 1);
     $('clinical-ppeak').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.peakPressureCmH2O);
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
