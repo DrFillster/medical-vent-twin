@@ -357,3 +357,21 @@ Activation remains blocked by:
 3. incomplete full efferent native comparison.
 
 See `docs/V1_5_AUTONOMIC_SHADOW_VALIDATION.md` and `artifacts/v1.5/V1_5_NATIVE_URSINO_SHADOW_COMPARISON.json`.
+
+
+## 13. v1.5 Steps 7-16 — execution status
+
+See `docs/V1_5_NEXT_10_STEPS_EXECUTION.md`.
+
+- [x] Published arterial-pressure -> Ursino baroreceptor afferent `f_ab` shadow.
+- [x] Full `f_ab/f_ac/f_ap/theta_sp/theta_sh/f_sp/f_sh/f_v` shadow chain.
+- [x] Full-chain non-authority/provenance test guards added.
+- [x] SA-node vs Ursino heart-period ownership audit + fail-closed contract.
+- [x] DO2/tissue-O2 regression guard.
+- [x] Hennigs respiratory-center interface + fail-closed contract.
+- [x] Yamanaka sepsis equation ledger + parameterized disease-layer shadow functions.
+- [x] Foteinou/Scheff inflammation-autonomic audit + fail-closed contract.
+- [x] Sympathetic fatigue reclassified as source-backed Yamanaka candidate; remains disease-layer shadow only.
+- [x] CaO2-content chemoreflex and fever chronotropy formalized as HOLD items.
+
+**No new physiologic controller has been activated.** The principal unresolved autonomic blocker is still the exact Magosso/Ursino 2001 Eq. 1 peripheral O2-CO2 interaction transcription. The Ursino heart-period effector also remains blocked pending complete primary-source parameter transcription.
