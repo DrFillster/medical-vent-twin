@@ -102,7 +102,7 @@ Purpose: allow severe/deep hypoxia to modify cardiac and vascular autonomic cont
 Source: Ursino & Magosso 2000 I/II above.
 
 ### Phase 3 — Separate autonomic channels
-**Status: implement-ready.**
+**Status: implemented end-to-end in shadow mode using published pressure-derived f_ab; not authoritative.**
 
 Expose and preserve distinct controller outputs:
 
@@ -165,7 +165,7 @@ Primary source:
 - Hennigs C, Bilda F, Selpien H, Lerg T, Männel G, Becher T, Schädler D, Rostalski P. Patient-ventilator interaction—Development of a mathematical model of the respiratory center. Comput Methods Programs Biomed. 2026;280:109329. DOI: 10.1016/j.cmpb.2026.109329. PMID: 41905158.
 
 ### Phase 6 — Full autonomic controller in shadow mode
-**Status: mandatory before activation.**
+**Status: O2/baroreflex/lung-stretch/efferent chain implemented in shadow mode; CO2 completion remains blocked by 2001 Eq. 1 transcription.**
 
 The new controller runs from the same physiologic inputs as the live simulation but cannot change the authoritative patient state.
 
@@ -192,7 +192,7 @@ Required perturbations:
 Activation requires clinically and source-consistent direction, time course, interaction, and stability. It does not require numerical identity with the current HumMod controller.
 
 ### Phase 7 — SA-node ownership: HumMod vs Ursino heart-period equations
-**Status: requires validation; no current cutover.**
+**Status: ownership audit and fail-closed comparator contract complete; full primary parameter transcription still required; no cutover.**
 
 Compare two downstream alternatives using the same controller inputs:
 
@@ -205,7 +205,7 @@ Supporting source:
 - Ursino M, Magosso E. Role of short-term cardiovascular regulation in heart period variability: a modeling study. Am J Physiol Heart Circ Physiol. 2003;284:H1479-H1493. DOI: 10.1152/ajpheart.00850.2002. PMID: 12595291.
 
 ### Phase 8 — Preserve DO2, tissue O2, and organ redistribution
-**Status: already conceptually correct; protect with regression tests.**
+**Status: protected with an explicit v1.5 DO2/tissue-O2 mass-balance regression guard; no autonomic gain added.**
 
 Do not replace the existing whole-body oxygen-delivery accounting merely to repair HR.
 
@@ -223,7 +223,7 @@ Validation anchor:
 - Albanese A, Cheng L, Ursino M, Chbat NW. An integrated mathematical model of the human cardiopulmonary system: model development. Am J Physiol Heart Circ Physiol. 2016. DOI: 10.1152/ajpheart.00230.2014. PMID: 26683899.
 
 ### Phase 9 — Yamanaka sepsis state
-**Status: candidate disease layer after normal autonomic physiology is validated.**
+**Status: source equation ledger and parameterized shadow functions implemented; disease-layer activation remains blocked until normal autonomic physiology and sepsis parameters are validated.**
 
 Add inflammation as a disease-state modifier capable of producing source-supported effects on:
 - vascular permeability / intravascular volume loss;
@@ -237,7 +237,7 @@ Source:
 - Yamanaka Y et al. Mathematical modeling of septic shock based on clinical data. Theor Biol Med Model. 2019;16:5. DOI: 10.1186/s12976-019-0101-9. PMID: 30841902.
 
 ### Phase 10 — Foteinou/Scheff inflammation-autonomic dynamics
-**Status: candidate; shadow mode first.**
+**Status: source audit and fail-closed shadow contract complete; equation/parameter implementation deferred until sepsis validation.**
 
 Evaluate inflammatory/neuroendocrine/autonomic coupling as an additional layer over the validated normal controller and initial sepsis model.
 
@@ -246,7 +246,7 @@ Sources:
 - Scheff JD et al. Modeling autonomic regulation of cardiac function and heart rate variability in human endotoxemia. Physiol Genomics. 2011;43:951-964. DOI: 10.1152/physiolgenomics.00040.2011. PMID: 21673075.
 
 ### Phase 11 — Sympathetic fatigue/desensitization
-**Status: candidate only after sepsis validation.**
+**Status: source-backed candidate from Yamanaka Eqs. 17-18; parameterized shadow functions implemented; activation only after sepsis validation.**
 
 Do not add an empirical fatigue term now. First determine whether the validated Yamanaka/Foteinou/Scheff implementation already produces the required late autonomic behavior. Add a separate fatigue/desensitization state only if a source-backed equation is identified and an unmet validation requirement remains.
 
