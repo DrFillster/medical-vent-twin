@@ -10511,6 +10511,12 @@ function createBerlinLiveHumModSession({
           last.chemoreceptors?.phEffect ?? null,
         chemoreceptorDrivesSympsCns:
           last.chemoreceptors?.provenance?.drivesSympsCnsInBrowser ?? false,
+        sympsChemoEffect:
+          last.sympsChemoEffect ?? 1,
+        sympsChemoMode:
+          last.sympsChemoEffect == null || last.sympsChemoEffect === 1
+            ? 'pinned-native-neutral'
+            : 'explicit-extension',
         ventricularBetaReceptorActivity:
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
@@ -11387,6 +11393,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   sourceBloodVolumeInitialHematocritFraction=0.44,
   systemicOutflowMode='conductance',
   explicitSystemicOutflowProvider=null,
+  sympsChemoEffectProvider=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -11412,6 +11419,9 @@ function createHumModArdsCardiopulmonaryRuntime({
   }
   if(explicitSystemicOutflowProvider!=null && typeof explicitSystemicOutflowProvider!=='function'){
     throw new Error('explicitSystemicOutflowProvider must be a function or null');
+  }
+  if(sympsChemoEffectProvider!=null && typeof sympsChemoEffectProvider!=='function'){
+    throw new Error('sympsChemoEffectProvider must be a function or null');
   }
 
   let timeSec=0;
@@ -11615,6 +11625,20 @@ function createHumModArdsCardiopulmonaryRuntime({
       ? null
       : exerciseMusclePumpEffect(sourceExerciseTotalWatts);
 
+    const suppliedSympsChemoEffect = sympsChemoEffectProvider
+      ? sympsChemoEffectProvider({
+          timeSec,
+          dtSec,
+          previousChemoreceptorState:last?.chemoreceptors ?? null,
+          priorArterialGas:priorGas,
+          previousStep:last,
+        })
+      : 1;
+    finite(suppliedSympsChemoEffect,'suppliedSympsChemoEffect');
+    if(suppliedSympsChemoEffect<0){
+      throw new Error('suppliedSympsChemoEffect must be >= 0');
+    }
+
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
@@ -11631,6 +11655,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         nativeAutonomicInputs?.brainFunctionEffect ??
         brainHypoxiaState.brainFunctionEffect,
       exerciseSympsTotalEffect:exerciseSympsEffect,
+      sympsChemoEffect:suppliedSympsChemoEffect,
     });
     const chemoreceptorState=chemoreceptors.step({
       dtSec,
@@ -11831,6 +11856,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       hgbConcentration:hgbConcentrationState,
       brainHypoxia:brainHypoxiaState,
       chemoreceptors:chemoreceptorState,
+      sympsChemoEffect:suppliedSympsChemoEffect,
       oxygenDelivery:oxygenDeliveryState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
@@ -12729,6 +12755,7 @@ function createHumModSourceAlignedAutonomicController({
     a2PoolLog10Conc=null,
     brainFunctionEffect=1,
     exerciseSympsTotalEffect=0,
+    sympsChemoEffect=1,
   }={}){
     positive(dtSec,'dtSec');
     finite(carotidPressureMmHg,'carotidPressureMmHg');
@@ -12739,6 +12766,8 @@ function createHumModSourceAlignedAutonomicController({
     if(a2PoolLog10Conc!=null) finite(a2PoolLog10Conc,'a2PoolLog10Conc');
     finite(brainFunctionEffect,'brainFunctionEffect');
     finite(exerciseSympsTotalEffect,'exerciseSympsTotalEffect');
+    finite(sympsChemoEffect,'sympsChemoEffect');
+    if(sympsChemoEffect<0) throw new Error('sympsChemoEffect must be >= 0');
 
     // HumMod circulation and dynamic equations use a minute-based timebase.
     // Baroreflex.DES: RateConst = 1/(60*Tau), Tau=10 -> 600 min = 10 h.
@@ -12774,7 +12803,7 @@ function createHumModSourceAlignedAutonomicController({
     // Mechanoreceptors.FiringRate=0 -> MechanoEffect=1 and
     // SympsChemo.Effect=1, so the retained reflex product is exact here.
     const sympsCnsReflexNa=
-      sympsCnsBaroEffect * sympsCnsLowPressureEffect;
+      sympsCnsBaroEffect * sympsCnsLowPressureEffect * sympsChemoEffect;
 
     // Exact HumMod SympsCNS source terms. These remain neutral unless their
     // upstream native state is supplied; v1.3 does not infer Brain-Fuel or
@@ -12843,6 +12872,7 @@ function createHumModSourceAlignedAutonomicController({
       a2PoolLog10Conc,
       brainFunctionEffect,
       exerciseSympsTotalEffect,
+      sympsChemoEffect,
       sympsCnsNa,
       sympsCnsHz,
       gangliaHz,
@@ -12886,6 +12916,7 @@ function createHumModSourceAlignedAutonomicController({
         clinicalValidation:false,
         neutralizedDependencies:Object.freeze([
           'Mechanoreceptors',
+          'SympsChemo defaults to neutral 1.0 unless explicitly supplied',
           'ExerciseSymps upstream state when runtime exercise inputs are unavailable',
           'CushingResponse',
           'Brain-Fuel upstream state (hook present; native input not yet supplied)',
