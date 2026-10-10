@@ -28,7 +28,7 @@ if(failures.length===0){
     [html.includes('Not clinically validated'),'clinical-validation warning missing'],
     [html.includes('Not for patient care'),'patient-care warning missing'],
     [html.includes('MODEL_PROVENANCE_AUDIT.md'),'model provenance audit link missing'],
-    [html.includes('github.com/DrFillster/medical-vent-twin/tree/v1.3'),'v1.3 source-branch link missing'],
+    [html.includes('github.com/DrFillster/medical-vent-twin/tree/v1.5'),'v1.5 source-branch link missing'],
     [app.includes("clinical-quick-start"),'quick-start behavior missing'],
     [html.includes('id="clinical-run-continuous"'),'continuous-run control missing'],
     [html.includes('id="clinical-pause-continuous"'),'continuous-pause control missing'],
