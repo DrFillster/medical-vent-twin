@@ -38,3 +38,54 @@ function row(snapshot, scenarioId) {
     baroreceptorMappingStatus: sh.baroreceptorMappingStatus || null,
   };
 }
+
+const scenarios = [
+  {
+    id:'baseline',
+    initial:{ mode:'VC_AC', fio2:0.60, peep:8, rr:20, vtL:0.42, inspiratoryFlowLps:0.70, inspiratoryPauseSec:0.20 },
+    change:null,
+    durationSec:120,
+  },
+  {
+    id:'hypoxia',
+    initial:{ mode:'VC_AC', fio2:0.60, peep:8, rr:20, vtL:0.42, inspiratoryFlowLps:0.70, inspiratoryPauseSec:0.20 },
+    change:{ mode:'VC_AC', fio2:0.12, peep:8, rr:20, vtL:0.42, inspiratoryFlowLps:0.70, inspiratoryPauseSec:0.20 },
+    durationSec:300,
+  },
+  {
+    id:'hypercapnia-low-ventilation',
+    initial:{ mode:'VC_AC', fio2:0.60, peep:8, rr:20, vtL:0.42, inspiratoryFlowLps:0.70, inspiratoryPauseSec:0.20 },
+    change:{ mode:'VC_AC', fio2:0.60, peep:8, rr:6, vtL:0.20, inspiratoryFlowLps:0.30, inspiratoryPauseSec:0 },
+    durationSec:300,
+  },
+  {
+    id:'combined-hypoxic-hypercapnic',
+    initial:{ mode:'VC_AC', fio2:0.60, peep:8, rr:20, vtL:0.42, inspiratoryFlowLps:0.70, inspiratoryPauseSec:0.20 },
+    change:{ mode:'VC_AC', fio2:0.14, peep:8, rr:6, vtL:0.20, inspiratoryFlowLps:0.30, inspiratoryPauseSec:0 },
+    durationSec:300,
+  },
+  {
+    id:'high-vt-stretch',
+    initial:{ mode:'VC_AC', fio2:0.60, peep:8, rr:20, vtL:0.42, inspiratoryFlowLps:0.70, inspiratoryPauseSec:0.20 },
+    change:{ mode:'VC_AC', fio2:0.60, peep:8, rr:20, vtL:0.70, inspiratoryFlowLps:0.90, inspiratoryPauseSec:0.10 },
+    durationSec:180,
+  },
+];
+
+const rows=[];
+for (const scenario of scenarios) {
+  const session=createBerlinLiveHumModSession({
+    caseId:'berlin-moderate-moderate-aspiration',
+    ventilation:scenario.initial,
+    initialRecruitmentState:{ normal:1, recruitable:0.35, consolidated:0 },
+    dt:0.002,
+    mechanicalWarmupSec:3,
+  });
+  session.initialize();
+  if (scenario.change) session.requestVentilationChange(scenario.change);
+  for (let elapsed=0; elapsed<scenario.durationSec; elapsed+=10) {
+    const snap=session.runFor(10);
+    rows.push(row(snap,scenario.id));
+    if (snap.systemic?.decompensation?.cardiacArrest) break;
+  }
+}
