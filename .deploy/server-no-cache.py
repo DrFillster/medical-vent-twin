@@ -1,4 +1,4 @@
-"""No-cache static server for hummod.defying-logic.com v1.3.
+"""No-cache static server for hummod.defying-logic.com v1.5.
 
 Serves only ards-twin-v1.0/web on 127.0.0.1:8770.
 """
