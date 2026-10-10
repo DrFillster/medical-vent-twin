@@ -21,6 +21,20 @@
  * This is a geometry bridge only. It does not create myocardial stress.
  */
 
+const HUMAN_REFERENCE_GEOMETRY=Object.freeze({
+  provenance:'MONARCH/CircAdapt human example input; implementation reference, not patient-specific geometry',
+  sourceRepository:'BeatLabUCI/monarch',
+  sourcePath:'examples/input_files/human.json',
+  lvFreeWall:Object.freeze({
+    midwallReferenceAreaMm2:7920,
+    wallVolumeMm3:58200,
+  }),
+  septum:Object.freeze({
+    midwallReferenceAreaMm2:4160,
+    wallVolumeMm3:41896,
+  }),
+});
+
 const SOURCE=Object.freeze({
   family:'CircAdapt/TriSeg wall mechanics',
   implementationReference:'BeatLabUCI/monarch src/monarch/heart.py',
@@ -36,6 +50,22 @@ function positive(v,label){
     throw new Error(label+' must be finite and > 0');
   }
   return v;
+}
+
+function shimayoshiStressMpaFromMilliNewtonPerMm2(value){
+  positive(value,'shimayoshiStressMilliNewtonPerMm2');
+  // 1 mN/mm^2 = 1 kPa = 0.001 MPa.
+  return value*0.001;
+}
+
+function sphericalMidwallRadiusMmFromCavityAndWall({
+  cavityVolumeMl,
+  wallVolumeMm3,
+}={}){
+  positive(cavityVolumeMl,'cavityVolumeMl');
+  positive(wallVolumeMm3,'wallVolumeMm3');
+  const midwallVolumeMm3=cavityVolumeMl*1000+0.5*wallVolumeMm3;
+  return Math.cbrt((3*midwallVolumeMm3)/(4*Math.PI));
 }
 
 function ventricularPressureFromFiberStress({
@@ -109,6 +139,9 @@ function myocardialToChamberContract({
 
 module.exports=Object.freeze({
   SOURCE,
+  HUMAN_REFERENCE_GEOMETRY,
+  shimayoshiStressMpaFromMilliNewtonPerMm2,
+  sphericalMidwallRadiusMmFromCavityAndWall,
   ventricularPressureFromFiberStress,
   myocardialToChamberContract,
 });
