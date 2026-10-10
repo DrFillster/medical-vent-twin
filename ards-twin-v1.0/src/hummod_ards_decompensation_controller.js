@@ -32,6 +32,18 @@ const CARDIOVASCULAR_COLLAPSE_MAP_SEC = 10 * 60;
 const PROFOUND_COLLAPSE_MAP_MMHG = 20;
 const PROFOUND_COLLAPSE_MAP_SEC = 10;
 
+const OXYGEN_DEBT_PROVENANCE = Object.freeze({
+  debtDefinition:
+    'integral of modeled unmet aerobic O2 demand over time',
+  debtUnit: 'mL O2',
+  universalMortalityThreshold: false,
+  universalDo2CritApplied: false,
+  collapseCalibration:
+    '35-minute equivalent-debt normalization is an explicit engineering bridge anchored to a porcine hemorrhage collapse-time study; it is not a universal human survival threshold',
+  lowSvo2Marker:
+    '45% is an engineering warning marker within a published critical-delivery range; it is not a universal shock threshold',
+});
+
 // DeBehnke et al. standardized canine asphyxia model:
 // HR peaked at 2-3 min, systolic pressure peaked at 7 min, and aortic
 // pulsations were lost at 11.4 +/- 2.4 min. At loss of pulsations,
@@ -241,6 +253,7 @@ function createHumModArdsDecompensationController() {
       lowMapBelow20Sec,
       lowSvo2ShockMarkerFraction:
         LOW_SVO2_SHOCK_MARKER_FRACTION,
+      oxygenDebtProvenance: OXYGEN_DEBT_PROVENANCE,
     });
     return snapshot();
   }
@@ -294,6 +307,7 @@ function createHumModArdsDecompensationController() {
       lowMapBelow20Sec,
       lowSvo2ShockMarkerFraction:
         LOW_SVO2_SHOCK_MARKER_FRACTION,
+      oxygenDebtProvenance: OXYGEN_DEBT_PROVENANCE,
     });
   }
 
@@ -315,5 +329,6 @@ module.exports = {
   PROFOUND_COLLAPSE_MAP_MMHG,
   PROFOUND_COLLAPSE_MAP_SEC,
   ASPHYXIAL_COLLAPSE_ANCHOR,
+  OXYGEN_DEBT_PROVENANCE,
   createHumModArdsDecompensationController,
 };
