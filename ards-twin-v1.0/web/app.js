@@ -387,6 +387,7 @@
       map: Number(snapshot?.systemic?.hemodynamics?.meanArterialPressureMmHg),
       heartRate: Number(snapshot?.systemic?.hemodynamics?.heartRatePerMin),
       sourceHeartRate: Number(snapshot?.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin),
+      shadowHeartRate: Number(snapshot?.systemic?.physicianComparison?.publishedModelInterim?.heartRatePerMin),
       empiricalHrOverlay: Number(snapshot?.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin),
       brainPo2: Number(snapshot?.systemic?.hemodynamics?.brainTissuePo2MmHg),
       brainFunction: Number(snapshot?.systemic?.hemodynamics?.brainFunctionEffect),
@@ -466,6 +467,7 @@
     drawClinicalTrend('clinical-map-trend', 'map', 0);
     drawClinicalTrend('clinical-hr-trend', 'heartRate', 0);
     drawClinicalTrend('clinical-source-hr-trend', 'sourceHeartRate', 0);
+    drawClinicalTrend('clinical-shadow-hr-trend', 'shadowHeartRate', 0);
     drawClinicalTrend('clinical-hr-overlay-trend', 'empiricalHrOverlay', 0);
     drawClinicalTrend('clinical-brain-po2-trend', 'brainPo2', 1);
     drawClinicalTrend('clinical-brain-function-trend', 'brainFunction', 2);
@@ -657,6 +659,24 @@
     setShadow('clinical-global-oer', gasx.globalExtractionRatio, 3);
     setShadow('clinical-o2-deficit', gasx.oxygenSupplyDeficitMlPerMin, 1);
     setShadow('clinical-o2-debt', decomp.oxygenDebtMl, 1);
+
+    const comparison = snapshot.systemic?.physicianComparison || {};
+    const liveComparison = comparison.liveHumMod || {};
+    const shadowComparison = comparison.publishedModelInterim || {};
+    setShadow('clinical-compare-live-hr', liveComparison.heartRatePerMin, 0);
+    setShadow('clinical-compare-shadow-hr', shadowComparison.heartRatePerMin, 0);
+    setShadow('clinical-compare-live-map', liveComparison.meanArterialPressureMmHg, 0);
+    setShadow('clinical-compare-live-co',
+      typeof liveComparison.cardiacOutputMlPerMin === 'number'
+        ? liveComparison.cardiacOutputMlPerMin / 1000
+        : null, 2);
+    setShadow('clinical-compare-live-sv', liveComparison.strokeVolumeMl, 0);
+    setShadow('clinical-compare-live-svr',
+      liveComparison.systemicVascularResistanceMmHgMinPerL, 0);
+    const comparisonStatus = $('clinical-compare-status');
+    if (comparisonStatus && shadowComparison.status) {
+      comparisonStatus.textContent = shadowComparison.status;
+    }
     $('clinical-ppeak').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.peakPressureCmH2O);
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
