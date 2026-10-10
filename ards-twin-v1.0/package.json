@@ -12,7 +12,7 @@
     "benchmark:live-core-target": "node scripts/live-core-peep-target.js",
     "benchmark:cardiopulmonary-target": "node scripts/live-cardiopulmonary-peep-target.js",
     "benchmark:recruitability-challenge": "node scripts/recruitability-phenotype-challenge.js",
-    "verify:deploy": "node scripts/verify-deployable-web.js",
+    "verify:deploy": "node scripts/verify-deployable-web.js && node scripts/verify-browser-js.js",
     "test:rc": "node test/runner.js",
     "verify:v1.1-rc": "node scripts/verify-v11-rc.js",
     "trace:v1.3-autonomic": "node scripts/v121-extremis-autonomic-trace.js",
