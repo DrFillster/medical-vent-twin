@@ -98,5 +98,29 @@ test('native Brain-Function <=0.1 branch suppresses normal reflex sympathetic dr
     'native SA-node rate should fall when Brain-Function crosses the source branch threshold');
 });
 
+
+test('SympsChemo defaults neutral and a supplied effect propagates through native autonomic cascade',()=>{
+  const base=createHumModSourceAlignedAutonomicController({initialCarotidPressureMmHg:97});
+  const stim=createHumModSourceAlignedAutonomicController({initialCarotidPressureMmHg:97});
+  const a=base.step({
+    dtSec:1,carotidPressureMmHg:97,averageAtrialTmpMmHg:6,
+    humoralAlphaPoolEffect:1,humoralBetaPoolEffect:1,
+    brainFunctionEffect:1,exerciseSympsTotalEffect:0,
+  });
+  const b=stim.step({
+    dtSec:1,carotidPressureMmHg:97,averageAtrialTmpMmHg:6,
+    humoralAlphaPoolEffect:1,humoralBetaPoolEffect:1,
+    brainFunctionEffect:1,exerciseSympsTotalEffect:0,
+    sympsChemoEffect:2,
+  });
+  near(a.sympsChemoEffect,1,1e-12);
+  assert(b.sympsCnsReflexNa>a.sympsCnsReflexNa,'chemoreflex must enter at SympsCNS.ReflexNA');
+  assert(b.sympsCnsHz>a.sympsCnsHz,'SympsCNS firing must rise upstream');
+  assert(b.gangliaHz>a.gangliaHz,'ganglia firing must follow SympsCNS');
+  assert(b.vagusHz<a.vagusHz,'vagal firing must withdraw through native curve');
+  assert(b.saBetaActivity>a.saBetaActivity,'SA beta activity must rise through native receptor weighting');
+  assert(b.heartRatePerMin>a.heartRatePerMin,'HR may rise only after upstream autonomic changes');
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);
