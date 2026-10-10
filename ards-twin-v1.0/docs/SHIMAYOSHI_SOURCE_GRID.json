@@ -1,0 +1,53 @@
+{
+  "schema": "shimayoshi-source-grid/v1",
+  "source": {
+    "repository": "atakeuti/TS-AT-SM-2026-IRmodel",
+    "branch": "main",
+    "paper": "Shimayoshi T, Takeuchi A, Matsuoka S. Integrative simulation analysis of myocardial ischaemia-reperfusion injury. J Physiol. 2026.",
+    "doi": "10.1113/JP290440",
+    "pmid": "42625359"
+  },
+  "principle": "Run original equations unchanged; modify only protocol controls, simulation duration, output path, and selected output variables.",
+  "outputs": [
+    "time_ms",
+    "Fb_mN_per_mm2",
+    "Cyt_pHi",
+    "ExtCell_O2o_mM",
+    "O2i_mM",
+    "ATPTotal_mM",
+    "PhosphoCreatine_mM",
+    "PITotal_mM",
+    "Cyt_Cai_mM"
+  ],
+  "protocols": [
+    {
+      "id": "control",
+      "type": "control",
+      "description": "Normoxic, baseline extracellular CO2 control trajectory."
+    },
+    {
+      "id": "respiratory_acidosis",
+      "type": "co2",
+      "description": "Use the source model respiratory-acidosis protocol; preserve the source CO2 perturbation and equations."
+    },
+    {
+      "id": "ischemia_hypoxia",
+      "type": "ischemia",
+      "description": "Use the source ischemia protocol in which extracellular O2 availability falls according to the source implementation."
+    }
+  ],
+  "fitTarget": "cycle peak active cross-bridge stress Fb, normalized to each run's pre-perturbation control",
+  "forbiddenTargets": [
+    "heart rate",
+    "MAP",
+    "cardiac output",
+    "stroke volume",
+    "SVR"
+  ],
+  "activationGate": {
+    "requiresHeldOutValidation": true,
+    "requiresMonotonicityAudit": true,
+    "requiresNoBedsideVariableFitting": true,
+    "wholeHeartControlAuthority": false
+  }
+}
