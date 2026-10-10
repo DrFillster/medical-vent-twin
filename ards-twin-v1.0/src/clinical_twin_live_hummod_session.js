@@ -412,11 +412,11 @@ function createBerlinLiveHumModSession({
         controlAuthority: false,
       }),
       hemodynamics: Object.freeze({
-          heartRatePerMin:
-            effectiveCirculationBoundaries.heartRatePerMin,
-          meanArterialPressureMmHg: null,
-        }),
-      });
+        heartRatePerMin:
+          effectiveCirculationBoundaries.heartRatePerMin,
+        meanArterialPressureMmHg: null,
+      }),
+    });
     }
     const circ = last.circulation;
     const gas = last.gas;
@@ -456,6 +456,12 @@ function createBerlinLiveHumModSession({
           last.oxygenDelivery?.globalVenousO2ReturnMlPerMin ?? null,
         globalExtractionRatio:
           last.oxygenDelivery?.globalExtractionRatio ?? null,
+      }),
+      autonomicShadow: Object.freeze({
+        ...autonomicShadowState,
+        tidalVolumeSource: 'Vent simulation.deliveredSinceBreathStart',
+        arterialPo2Source: 'reduced-HumMod arterial gas state',
+        controlAuthority: false,
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin: arrested
