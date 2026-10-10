@@ -375,3 +375,19 @@ See `docs/V1_5_NEXT_10_STEPS_EXECUTION.md`.
 - [x] CaO2-content chemoreflex and fever chronotropy formalized as HOLD items.
 
 **No new physiologic controller has been activated.** The principal unresolved autonomic blocker is still the exact Magosso/Ursino 2001 Eq. 1 peripheral O2-CO2 interaction transcription. The Ursino heart-period effector also remains blocked pending complete primary-source parameter transcription.
+
+
+## 14. v1.5 Steps 17-26 — oxygen-delivery modernization
+
+- [x] Add Cain/Schumacker foundational DO2-VO2 physiology to the literature hierarchy.
+- [x] Add human critical-illness evidence to prevent universal transfer of animal DO2crit values.
+- [x] Add Cheng/Albanese/Ursino integrated-model validation as the implementation anchor.
+- [x] Add modern microcirculatory oxygen-transport literature.
+- [x] Reclassify the 15-mmHg venous PO2 floor as a provisional engineering boundary without silently changing behavior.
+- [x] Add a machine-readable oxygen-delivery evidence registry and provenance guard.
+- [x] Add regional oxygen-transport audit functions without universal critical thresholds.
+- [x] Add fail-closed microcirculation and sepsis extraction contracts.
+- [x] Make oxygen-debt/collapse calibration provenance explicit.
+- [x] Add a mechanism-separated oxygen-transport shadow harness and synchronize the roadmap.
+
+No new oxygen-delivery threshold has been activated. No Cain animal threshold is used as a universal patient cutoff.
