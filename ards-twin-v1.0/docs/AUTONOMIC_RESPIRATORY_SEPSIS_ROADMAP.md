@@ -394,3 +394,18 @@ baroreceptor + peripheral chemoreceptor + lung stretch + CNS O2/CO2
 ```
 
 Only after this path is complete should ownership be considered for transfer.
+
+
+## Myocardial depression candidate — selected 2026-10-10
+
+The preferred myocardial-depression pathway is now:
+
+- **Acidosis:** Crampin-Smith intracellular-pH excitation-contraction coupling, as integrated and extended by Shimayoshi/Takeuchi/Matsuoka 2026.
+- **Hypoxia:** myocardial O2 availability -> mitochondrial Complex IV / oxidative phosphorylation -> ATP/ADP/PCr/Pi -> Ca handling and cross-bridge energetics -> force.
+- **Whole-heart output:** requires a separately validated cell-force -> ventricular-Emax adapter before control authority.
+
+Direct arterial PaO2 -> contractility or arterial pH -> Emax multipliers are not the target architecture.
+
+The current oxygen-debt/asphyxial contractility multiplier remains a legacy engineering bridge only and should be retired after the mechanistic myocardial pathway is integrated and validated.
+
+See `docs/MYOCARDIAL_HYPOXIA_ACIDOSIS_CANDIDATE.md`.
