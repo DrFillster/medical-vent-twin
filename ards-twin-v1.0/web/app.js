@@ -639,7 +639,6 @@
 
     const shadow = snapshot.systemic?.autonomicShadow || {};
     const gasx = snapshot.systemic?.gasExchange || {};
-    const decomp = snapshot.systemic?.decompensation || {};
     const setShadow = (id, value, digits = 2) => {
       const el = $(id);
       if (!el) return;
