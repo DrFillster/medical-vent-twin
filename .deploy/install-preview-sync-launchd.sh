@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/medical-vent-twin}"
 SYNC_LABEL="com.defyinglogic.hummod-preview-sync"
-SERVER_LABEL="com.defyinglogic.hummod-v13-server"
+SERVER_LABEL="com.defyinglogic.hummod-v15-server"
 PLIST="$HOME/Library/LaunchAgents/$SYNC_LABEL.plist"
 SERVER_PLIST="$HOME/Library/LaunchAgents/$SERVER_LABEL.plist"
 LOG_DIR="$HOME/Library/Logs"
@@ -68,9 +68,9 @@ cat > "$SERVER_PLIST" <<PLIST
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>$LOG_DIR/hummod-v13-server.log</string>
+  <string>$LOG_DIR/hummod-v15-server.log</string>
   <key>StandardErrorPath</key>
-  <string>$LOG_DIR/hummod-v13-server.err.log</string>
+  <string>$LOG_DIR/hummod-v15-server.err.log</string>
 </dict>
 </plist>
 PLIST
