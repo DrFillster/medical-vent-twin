@@ -175,6 +175,24 @@
 <article><h3>Epinephrine</h3><p><span id="clinical-epi">—</span><small> pg/mL</small></p></article>
 </div>
 
+<section class="card physician-comparison-card">
+<div class="card-heading"><h2>HumMod vs published-model interim</h2><span class="pill">Physician comparison</span></div>
+<p class="hint"><strong>Publication gate:</strong> an interim physician-evaluation build must expose clinically interpretable side-by-side outputs. HR is now available from the published-model heart-period pathway; MAP, CO, SV, and SVR remain explicitly unavailable until downstream vascular/contractility mappings are source-complete.</p>
+<div class="clinical-grid monitor-grid">
+<article><h3>HumMod HR</h3><p><span id="clinical-compare-live-hr">—</span><small> /min</small></p></article>
+<article><h3>Published-model HR</h3><p><span id="clinical-compare-shadow-hr">—</span><small> /min</small></p></article>
+<article><h3>HumMod MAP</h3><p><span id="clinical-compare-live-map">—</span><small> mmHg</small></p></article>
+<article><h3>Published-model MAP</h3><p><span id="clinical-compare-shadow-map">Not source-complete</span></p></article>
+<article><h3>HumMod cardiac output</h3><p><span id="clinical-compare-live-co">—</span><small> L/min</small></p></article>
+<article><h3>Published-model cardiac output</h3><p><span id="clinical-compare-shadow-co">Not source-complete</span></p></article>
+<article><h3>HumMod stroke volume</h3><p><span id="clinical-compare-live-sv">—</span><small> mL</small></p></article>
+<article><h3>Published-model stroke volume</h3><p><span id="clinical-compare-shadow-sv">Not source-complete</span></p></article>
+<article><h3>HumMod SVR</h3><p><span id="clinical-compare-live-svr">—</span><small> mmHg·min/L</small></p></article>
+<article><h3>Published-model SVR</h3><p><span id="clinical-compare-shadow-svr">Not source-complete</span></p></article>
+</div>
+<p class="hint" id="clinical-compare-status">Published-model HR is an interim secondary transcription and still requires primary-paper verification before control authority.</p>
+</section>
+
 <details class="advanced research-shadow-panel" open>
 <summary>v1.5 research physiology · shadow comparison</summary>
 <p class="hint"><strong>Evaluation only:</strong> these published-model states are diagnostic and have no control authority over HR, vascular tone, venous tone, or the SA node.</p>
@@ -209,6 +227,7 @@
 <div class="plot"><h3>MAP <span>mmHg</span></h3><svg id="clinical-map-trend" role="img" aria-label="Mean arterial pressure trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Heart rate <span>/min</span></h3><svg id="clinical-hr-trend" role="img" aria-label="Heart rate trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>HumMod SA-node rate <span>/min</span></h3><svg id="clinical-source-hr-trend" role="img" aria-label="Source HumMod SA-node rate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Published-model interim HR <span>/min</span></h3><svg id="clinical-shadow-hr-trend" role="img" aria-label="Published-model interim heart rate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Empirical HR overlay <span>/min</span></h3><svg id="clinical-hr-overlay-trend" role="img" aria-label="Empirical heart-rate overlay contribution trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Brain tissue PO₂ <span>mmHg</span></h3><svg id="clinical-brain-po2-trend" role="img" aria-label="Source-aligned brain tissue PO2 trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Brain function effect</h3><svg id="clinical-brain-function-trend" role="img" aria-label="HumMod Brain-Function effect trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
