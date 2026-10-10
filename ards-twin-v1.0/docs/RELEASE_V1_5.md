@@ -67,3 +67,39 @@ All shadow outputs are labeled evaluation-only and non-authoritative.
 This release is intended for scientific/engineering evaluation of model behavior. It is not clinically validated and must not be used for patient care.
 
 No physiological gain, mapping, threshold, or fitted relationship may be promoted to control authority without explicit published provenance, unit mapping, deterministic tests, shadow validation, and an explicit activation decision.
+
+
+## HARD REQUIREMENT — interim physician-evaluation publication gate
+
+The v1.5 interim model **must not be published as an interim physician-evaluation solution** until the UI provides side-by-side clinically interpretable outputs for both the live HumMod pathway and the published-model counterfactual pathway.
+
+Required comparison outputs:
+
+- [x] Heart rate
+- [ ] Mean arterial pressure
+- [ ] Cardiac output
+- [ ] Stroke volume
+- [ ] Systemic vascular resistance
+
+The comparison must use the same patient state and simulation time.
+
+Each published-model value must identify:
+1. governing equation/model family;
+2. parameter provenance;
+3. units;
+4. whether the parameter transcription is primary-source verified or interim/secondary;
+5. whether the output has control authority.
+
+A blank, hidden internal neural signal, or an inferred/empirical clinical value does not satisfy this gate.
+
+### Current interim status
+
+Heart rate is now available from an interim Ursino/Magosso heart-period transcription using `f_sh` and `f_v`. It remains counterfactual only and requires final primary-paper verification before authority.
+
+MAP, CO, SV, and SVR are **publication blockers** until the downstream vascular, venous-volume, contractility, and circulation mappings are source-complete enough to calculate them without ad hoc scaling.
+
+### Release-state consequence
+
+The existing `v1.5-release` branch remains a frozen engineering/evaluation snapshot, but it is **not the publishable interim physician model** under this gate.
+
+A publishable interim build requires the five-output physician comparison above to pass.
