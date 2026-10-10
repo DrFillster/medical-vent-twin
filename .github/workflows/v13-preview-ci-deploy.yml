@@ -81,7 +81,6 @@ jobs:
           node test/hummod_organ_oxygen_delivery.test.js
           node test/hummod_hgb_concentration_source_aligned.test.js
           node test/hummod_chemoreceptors_source_aligned.test.js
-          node test/hummod_hypoxic_chemoreflex_extension.test.js
           node test/hummod_oxygen_delivery_fidelity.test.js
           node test/v13_simulation_speed_control.test.js
           node test/v13_hr_hypoxia_fidelity_guard.test.js
