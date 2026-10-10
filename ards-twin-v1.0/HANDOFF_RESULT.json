@@ -3,7 +3,7 @@
   "sourceBranch": "v1.5",
   "targetBranch": "v1.5-release",
   "packageVersion": "1.5.0",
-  "status": "READY_FOR_FORMAL_V1_5_EVALUATION_DEPLOYMENT",
+  "status": "BLOCKED_BY_PHYSICIAN_INTERIM_PUBLICATION_GATE",
   "deploymentModel": "Mac launchd origin at 127.0.0.1:8770 behind hummod.defying-logic.com",
   "githubActionsRequired": false,
   "requiredCommand": "cd ~/medical-vent-twin && bash .deploy/migrate-preview-to-v15.sh",
@@ -28,5 +28,25 @@
     "Ursino heart-period complete parameter transcription",
     "Hennigs complete equation/parameter transcription",
     "quantitative microcirculatory/sepsis extraction model"
-  ]
+  ],
+  "publishableInterim": false,
+  "physicianPublicationGate": {
+    "required": [
+      "heartRatePerMin",
+      "meanArterialPressureMmHg",
+      "cardiacOutputMlPerMin",
+      "strokeVolumeMl",
+      "systemicVascularResistanceMmHgMinPerL"
+    ],
+    "availablePublishedModel": [
+      "heartRatePerMin"
+    ],
+    "blockedPublishedModel": [
+      "meanArterialPressureMmHg",
+      "cardiacOutputMlPerMin",
+      "strokeVolumeMl",
+      "systemicVascularResistanceMmHgMinPerL"
+    ],
+    "rule": "Do not publish interim physician model until all five side-by-side outputs are source-derived and visible."
+  }
 }
