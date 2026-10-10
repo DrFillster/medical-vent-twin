@@ -391,3 +391,20 @@ See `docs/V1_5_NEXT_10_STEPS_EXECUTION.md`.
 - [x] Add a mechanism-separated oxygen-transport shadow harness and synchronize the roadmap.
 
 No new oxygen-delivery threshold has been activated. No Cain animal threshold is used as a universal patient cutoff.
+
+
+## 15. Physician-facing interim publication gate
+
+**Hard requirement:** do not publish an interim physician-evaluation model until both HumMod and the published-model counterfactual expose, at the same simulated time:
+
+- [x] HR
+- [ ] MAP
+- [ ] CO
+- [ ] SV
+- [ ] SVR
+
+Current downstream status:
+- HR: interim counterfactual implemented from the Ursino/Magosso heart-period structure using a secondary open-model transcription cross-checked to the source family; primary-paper verification still required before authority.
+- MAP/CO/SV/SVR: blocked pending source-complete vascular resistance, venous unstressed-volume, cardiac elastance, and circulation coupling.
+
+No ad hoc scaling from `f_sp`, `f_sh`, or `f_v` to clinical outputs is permitted.
