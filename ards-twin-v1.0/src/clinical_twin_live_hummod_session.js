@@ -17,6 +17,7 @@ const {
 } = require('./hummod_ards_cardiopulmonary_runtime.js');
 const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adapter.js');
 const { cmH2OToMmHg } = require('./clinical_units.js');
+const { hypoxicSympsChemoEffect } = require('./hummod_hypoxic_chemoreflex_extension.js');
 const { provenanceSummary } = require('./model_provenance.js');
 const { liveProvenanceBindings } = require('./live_provenance_bindings.js');
 const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('./v11_provenance_manifest.js');
@@ -352,6 +353,10 @@ function createBerlinLiveHumModSession({
     nativeAutonomicInputsProvider: nativeAutonomicTrajectory
       ? ({ timeSec }) => interpolateNativeAutonomicInputs(timeSec)
       : null,
+    sympsChemoEffectProvider: ({ priorArterialGas }) =>
+      hypoxicSympsChemoEffect({
+        arterialPo2MmHg: priorArterialGas?.po2MmHg ?? 90,
+      }).effect,
   });
 
   const sessionEvents = [];
@@ -503,6 +508,10 @@ function createBerlinLiveHumModSession({
           last.sympsChemoEffect == null || last.sympsChemoEffect === 1
             ? 'pinned-native-neutral'
             : 'explicit-extension',
+        hypoxicChemoreflexExtension:
+          hypoxicSympsChemoEffect({
+            arterialPo2MmHg: gas.gases.arterial.po2MmHg,
+          }),
         ventricularBetaReceptorActivity:
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
