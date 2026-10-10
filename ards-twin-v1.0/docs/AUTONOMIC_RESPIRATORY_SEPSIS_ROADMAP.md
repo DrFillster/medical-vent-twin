@@ -10,7 +10,13 @@ Replace ad hoc physiologic corrections with source-traceable controller equation
 
 The immediate problem is not to force tachycardia. The goal is to reproduce the coupled physiology that can generate tachycardia, bradycardia, vasoconstriction, vasodilation, altered cardiac output, respiratory drive, and eventual decompensation from the modeled state.
 
-The recently tested linear PaO2-to-`SympsChemo.Effect` extension is not an accepted physiologic solution and must remain inactive. No direct empirical heart-rate gain should be reintroduced.
+## Physiologic provenance requirement
+
+All gains, transfer functions, thresholds, mappings, time constants, saturation limits, and other physiologic parameters must be explicitly derived from published medical or physiologic references. Each implemented relationship must document its source, equation or parameter basis, units, intended physiologic effect, and any transformation required to map the published model into HumMod/Vent variables.
+
+Empirical or fitted relationships are permitted only when the fitting method, source data, and rationale are explicitly documented and independently validated. No physiologic gain or mapping may be introduced solely to produce a desired simulation response.
+
+The previously tested linear PaO2-to-`SympsChemo.Effect` extension remains inactive because it did not meet this provenance requirement.
 
 ## Architecture
 
@@ -317,13 +323,12 @@ Owns:
 7. Run the integrated controller in shadow mode.
 8. Only then evaluate SA-node ownership and activation.
 
-## Prohibited shortcuts
+## Provenance and activation constraints
 
-- no direct PaO2 -> HR gain;
-- no direct PaCO2 -> HR gain;
-- no invented `SympsChemo.Effect` transfer function;
-- no parameter tuning solely to make HR exceed a target;
-- no activation before shadow validation;
-- no sepsis layer used to repair normal physiology;
-- no fever or CaO2 chemoreflex implementation without a source equation;
-- no replacement of DO2/tissue-O2 accounting without independent justification.
+- Apply the physiologic provenance requirement to every gain, mapping, threshold, time constant, transfer function, saturation limit, and fitted parameter.
+- Do not introduce or tune a physiologic relationship solely to produce a desired HR, blood pressure, gas, or other simulation response.
+- Keep all unproven mappings non-authoritative until the source basis, units, transformations, and validation are documented.
+- Do not activate a controller before shadow validation.
+- Do not use the sepsis layer to repair normal physiology.
+- Do not implement fever chronotropy or a CaO2-content chemoreflex without an explicit published quantitative basis.
+- Do not replace DO2/tissue-O2 accounting without independent justification and provenance.
