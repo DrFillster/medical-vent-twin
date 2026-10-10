@@ -497,6 +497,12 @@ function createBerlinLiveHumModSession({
           last.chemoreceptors?.phEffect ?? null,
         chemoreceptorDrivesSympsCns:
           last.chemoreceptors?.provenance?.drivesSympsCnsInBrowser ?? false,
+        sympsChemoEffect:
+          last.sympsChemoEffect ?? 1,
+        sympsChemoMode:
+          last.sympsChemoEffect == null || last.sympsChemoEffect === 1
+            ? 'pinned-native-neutral'
+            : 'explicit-extension',
         ventricularBetaReceptorActivity:
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
