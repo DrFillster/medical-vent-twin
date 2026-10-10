@@ -6,7 +6,7 @@ Applies to: `DrFillster/medical-vent-twin` and `DrFillster/hummod-vent-core`
 
 ## Purpose
 
-Replace ad hoc physiologic corrections with source-traceable controller equations while preserving HumMod as the integrated whole-body physiology plant where its existing physiology is suitable.
+Replace ad hoc physiologic corrections with source-traceable physiology. HumMod is retained as a comparator and as a source of useful whole-body subsystems where those subsystems are independently suitable; it is not the reference standard and does not receive default ownership merely because it is HumMod.
 
 The immediate problem is not to force tachycardia. The goal is to reproduce the coupled physiology that can generate tachycardia, bradycardia, vasoconstriction, vasodilation, altered cardiac output, respiratory drive, and eventual decompensation from the modeled state.
 
@@ -50,9 +50,9 @@ Three coupled layers will be developed:
 
 Vent owns high-resolution ventilator mechanics, actual delivered VT, pressure/flow/volume waveforms, recruitment/derecruitment, holds, and patient-ventilator mechanics.
 
-HumMod remains the systemic plant and retains DO2, tissue oxygen use, organ blood-flow redistribution, fluid/renal/endocrine physiology, acid-base, and other validated whole-body state unless a specific ownership cutover is justified.
+Subsystem ownership is evidence- and validation-based. HumMod may continue to provide DO2, tissue oxygen use, fluid/renal/endocrine physiology, acid-base, blood-volume, or other whole-body state where those components remain useful and validated. Cardiovascular/autonomic ownership may move to the published-model pathway when the downstream plant is source-complete and validated. HumMod remains available as a comparator throughout.
 
-Published controller modules may generate missing control signals, but they must not silently replace downstream HumMod effectors before shadow validation.
+Published-model modules may progressively own complete causal pathways after shadow validation. No partial controller output may be mapped into a clinical endpoint through an invented bridge.
 
 ## Implementation gate for every equation
 
@@ -355,3 +355,42 @@ See:
 - `docs/OXYGEN_DELIVERY_EVIDENCE_STACK.md`
 - `docs/OXYGEN_DELIVERY_EVIDENCE.json`
 - `docs/OXYGEN_DEBT_PROVENANCE_AUDIT.md`
+
+
+## Ownership revision — HumMod is a comparator, not the standard
+
+Decision date: 2026-10-10.
+
+The project will no longer optimize published-model physiology toward numerical agreement with HumMod simply because HumMod differs.
+
+For each subsystem, ownership will be assigned according to:
+1. primary-source equation fidelity;
+2. complete parameter provenance;
+3. physiologic plausibility across multiple perturbations;
+4. agreement with source-paper validation conditions and independent human data where available;
+5. numerical stability and conservation requirements;
+6. absence of ad hoc compensating gains.
+
+HumMod remains valuable as:
+- a comparative trajectory;
+- a source of selected whole-body modules;
+- a regression signal when existing behavior changes.
+
+HumMod disagreement is a finding to investigate, not automatically a failure of the published-model pathway.
+
+### Current cardiovascular target
+
+Build a complete parallel published-model cardiovascular pathway:
+
+```
+baroreceptor + peripheral chemoreceptor + lung stretch + CNS O2/CO2
+    -> f_sp / f_sv / f_sh / f_v
+    -> regional arterial resistance
+    -> regional venous unstressed volume
+    -> LV/RV elastance
+    -> heart period
+    -> parallel cardiovascular plant
+    -> SV / CO / MAP / SVR
+```
+
+Only after this path is complete should ownership be considered for transfer.
