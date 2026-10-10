@@ -51,6 +51,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   sourceBloodVolumeInitialHematocritFraction=0.44,
   systemicOutflowMode='conductance',
   explicitSystemicOutflowProvider=null,
+  sympsChemoEffectProvider=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -76,6 +77,9 @@ function createHumModArdsCardiopulmonaryRuntime({
   }
   if(explicitSystemicOutflowProvider!=null && typeof explicitSystemicOutflowProvider!=='function'){
     throw new Error('explicitSystemicOutflowProvider must be a function or null');
+  }
+  if(sympsChemoEffectProvider!=null && typeof sympsChemoEffectProvider!=='function'){
+    throw new Error('sympsChemoEffectProvider must be a function or null');
   }
 
   let timeSec=0;
@@ -279,6 +283,20 @@ function createHumModArdsCardiopulmonaryRuntime({
       ? null
       : exerciseMusclePumpEffect(sourceExerciseTotalWatts);
 
+    const suppliedSympsChemoEffect = sympsChemoEffectProvider
+      ? sympsChemoEffectProvider({
+          timeSec,
+          dtSec,
+          previousChemoreceptorState:last?.chemoreceptors ?? null,
+          priorArterialGas:priorGas,
+          previousStep:last,
+        })
+      : 1;
+    finite(suppliedSympsChemoEffect,'suppliedSympsChemoEffect');
+    if(suppliedSympsChemoEffect<0){
+      throw new Error('suppliedSympsChemoEffect must be >= 0');
+    }
+
     const sourceControl = sourceAlignedAutonomic.step({
       dtSec,
       carotidPressureMmHg: circ.pressures.systemicArterialMmHg,
@@ -295,6 +313,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         nativeAutonomicInputs?.brainFunctionEffect ??
         brainHypoxiaState.brainFunctionEffect,
       exerciseSympsTotalEffect:exerciseSympsEffect,
+      sympsChemoEffect:suppliedSympsChemoEffect,
     });
     const chemoreceptorState=chemoreceptors.step({
       dtSec,
@@ -495,6 +514,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       hgbConcentration:hgbConcentrationState,
       brainHypoxia:brainHypoxiaState,
       chemoreceptors:chemoreceptorState,
+      sympsChemoEffect:suppliedSympsChemoEffect,
       oxygenDelivery:oxygenDeliveryState,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
