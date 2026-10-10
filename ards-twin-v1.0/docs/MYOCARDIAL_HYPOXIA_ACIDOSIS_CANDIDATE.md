@@ -157,3 +157,25 @@ Before whole-heart activation:
 - Acidosis mechanism: Crampin-Smith / Shimayoshi intracellular-pH E-C coupling.
 - Hypoxia mechanism: Shimayoshi intracellular-O2 -> mitochondrial energetics -> ATP/PCr -> contraction.
 - Whole-heart Emax mapping: still blocked; requires a separately validated adapter.
+
+
+## Physician-facing display rule
+
+The cellular mechanism is an internal model layer, not a physician-facing output surface.
+
+Do **not** add routine UI cards for RyR, NCX, Complex IV, ATP, PCr, or intracellular O2 merely because the model computes them.
+
+The clinical evaluation surface remains the existing bedside variables:
+- HR
+- MAP
+- CO
+- SV
+- SVR
+- PVR
+- PaO2
+- PaCO2
+- arterial pH
+- SvO2
+- arrest/rhythm state
+
+The myocardial candidate should become visible clinically only through its source-valid effect on ventricular contractility and therefore SV, CO, MAP, and downstream oxygen delivery. Mechanistic states may remain available in developer/research diagnostics.
