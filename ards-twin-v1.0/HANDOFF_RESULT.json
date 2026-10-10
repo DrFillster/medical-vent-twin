@@ -1,88 +1,24 @@
 {
-  "schema": "hummod-v13-handoff-result/v1",
-  "sourceBranch": "v1.3",
-  "sourceCommit": "1300eb47d2e2a79a96ebecf0e58c82693ee8d175",
-  "buildCommit": "1300eb47d2e2a79a96ebecf0e58c82693ee8d175",
-  "previewDeploymentCommit": "1c17e4c62856e1d435702ea8dca3d78909e04a64",
-  "timestampUtc": "2026-10-10T13:20:35.881Z",
-  "status": "FAILED",
-  "automation": {
-    "provider": "GitHub Actions",
-    "workflow": "v1.3 Preview CI Deploy",
-    "runId": 38054900534,
-    "nativeHumModExecuted": false
-  },
-  "build": {
-    "command": "npm run build",
-    "passed": true,
-    "notes": "Build, focused tests, full suite, deploy verifier, and Chromium smoke passed."
-  },
-  "focusedTests": {
-    "passed": true,
-    "tests": [
-      "hummod_brain_hypoxia_source_aligned.test.js",
-      "hummod_ards_autonomic_source_aligned.test.js",
-      "hummod_exercise_metabolism_source_aligned.test.js",
-      "hummod_exercise_muscle_pump_source_aligned.test.js",
-      "hummod_blood_volume_source_aligned.test.js",
-      "hummod_skeletal_muscle_source_aligned.test.js",
-      "hummod_systemic_organ_flow_accounting.test.js",
-      "hummod_native_organ_flow_manifest.test.js",
-      "hummod_simple_organ_flow_source_aligned.test.js",
-      "hummod_systemic_outflow_source_aligned.test.js",
-      "hummod_native_organ_flow_validation.test.js",
-      "hummod_kidney_flow_source_aligned.test.js",
-      "hummod_skin_flow_source_aligned.test.js",
-      "hummod_respiratory_muscle_flow_source_aligned.test.js",
-      "hummod_myocardial_flow_source_aligned.test.js",
-      "hummod_explicit_organ_outflow_network.test.js",
-      "hummod_ards_core_circulation.test.js",
-      "hummod_bone_flow_source_aligned.test.js",
-      "hummod_direct_systemic_beds_source_aligned.test.js",
-      "hummod_explicit_organ_network_readiness.test.js",
-      "hummod_global_vascular_modifiers_source_aligned.test.js",
-      "hummod_tissue_metabolism_source_aligned.test.js",
-      "hummod_hormone_pools_source_aligned.test.js",
-      "hummod_organ_oxygen_delivery.test.js",
-      "hummod_hgb_concentration_source_aligned.test.js",
-      "hummod_chemoreceptors_source_aligned.test.js",
-      "hummod_oxygen_delivery_fidelity.test.js",
-      "v13_simulation_speed_control.test.js",
-      "v13_hr_hypoxia_fidelity_guard.test.js",
-      "v13_extremis_chronotropy.test.js"
-    ],
-    "failures": []
-  },
-  "fullTestSuite": {
-    "command": "npm test",
-    "passed": true,
-    "failureCount": 0,
-    "failures": []
-  },
-  "deployment": {
-    "attempted": true,
-    "deployed": true,
-    "previewUrl": "https://hummod.defying-logic.com/ards-twin-v1.3-preview/web/",
-    "originRestartRequired": null,
-    "httpStatus": {
-      "homepage": null,
-      "v121": null,
-      "v13Preview": null
-    },
-    "sourceMarkerMatches": null,
-    "assetErrors": [],
-    "browserConsoleErrors": []
-  },
-  "fidelityChecks": {
-    "effectiveHrEqualsSourceSaNodeBeforeArrest": true,
-    "empiricalHrOverlayZero": true,
-    "brainPo2FallsWithHypoxemia": true,
-    "brainFunctionBranchObserved": true,
-    "sympatheticAndVagalDiagnosticsVisible": true
-  },
-  "nativeArtifacts": [],
-  "notes": [
-    "Native HumMod remains Mac-only and is not executed by this workflow.",
-    "validate=success; deploy=success; live=failure"
+  "schema": "hummod-v15-deployment-handoff/v1",
+  "sourceBranch": "v1.5",
+  "sourceCommit": "87b054b96cbd6bebd4ac4dc174c858232a7fec83",
+  "deploymentModel": "Mac launchd origin at 127.0.0.1:8770 behind hummod.defying-logic.com",
+  "githubActionsRequired": false,
+  "status": "READY_FOR_MAC_ORIGIN_MIGRATION",
+  "requiredCommand": "cd ~/medical-vent-twin && bash .deploy/migrate-preview-to-v15.sh",
+  "expectedEffects": [
+    "Checkout and fast-forward v1.5",
+    "Run npm build",
+    "Run deploy verifier",
+    "Reinstall v1.5 launchd sync/server labels",
+    "Serve ards-twin-v1.0/web from 127.0.0.1:8770",
+    "Continue 30-second fast-forward sync on v1.5"
+  ],
+  "safeguards": [
+    "Refuse deployment from a dirty working tree",
+    "No GitHub Actions",
+    "No native HumMod execution",
+    "Shadow autonomic controller remains non-authoritative",
+    "Build and deploy verification must pass before launchd reinstall completes"
   ]
 }
