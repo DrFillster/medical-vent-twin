@@ -531,6 +531,8 @@ function createBerlinLiveHumModSession({
       autonomicShadow: Object.freeze({
         ...autonomicShadowState,
         baroreceptor: baroreceptorShadowState,
+        heartPeriod: heartPeriodShadowState,
+        downstreamEffectors: downstreamEffectorShadowState,
         tidalVolumeSource: 'Vent last-completed-breath metrics.VtInspired',
         arterialPo2Source: 'reduced-HumMod arterial gas state',
         controlAuthority: false,
