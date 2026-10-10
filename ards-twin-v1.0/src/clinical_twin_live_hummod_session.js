@@ -19,6 +19,9 @@ const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adap
 const { cmH2OToMmHg } = require('./clinical_units.js');
 const { provenanceSummary } = require('./model_provenance.js');
 const { liveProvenanceBindings } = require('./live_provenance_bindings.js');
+const {
+  createUrsinoMagossoAutonomicShadow,
+} = require('./ursino_magosso_autonomic_shadow.js');
 const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('./v11_provenance_manifest.js');
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
@@ -357,6 +360,30 @@ function createBerlinLiveHumModSession({
   const sessionEvents = [];
   let initialized = false;
   let systemicSnapshot = systemicRuntime.snapshot();
+  const autonomicShadow = createUrsinoMagossoAutonomicShadow();
+  let autonomicShadowState = autonomicShadow.snapshot();
+
+  function actualDeliveredTidalVolumeL() {
+    const value = simulation.deliveredSinceBreathStart;
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
+  function updateAutonomicShadow(dtSec) {
+    const last = systemicSnapshot && systemicSnapshot.lastStep;
+    const pao2MmHg = last && last.gas && last.gas.gases && last.gas.gases.arterial
+      ? last.gas.gases.arterial.po2MmHg
+      : null;
+    if (!Number.isFinite(pao2MmHg)) return autonomicShadowState;
+    autonomicShadowState = autonomicShadow.step({
+      dtSec,
+      pao2MmHg,
+      tidalVolumeL: actualDeliveredTidalVolumeL(),
+      // Intentionally omitted: HumMod Baroreflex.NA is not proven to be
+      // Ursino f_ab (baroreceptor afferent firing, spikes/s).
+      fAbSpikesPerSec: null,
+    });
+    return autonomicShadowState;
+  }
 
   function currentVentSettings() {
     const s = simulation.controller.settings;
@@ -378,7 +405,13 @@ function createBerlinLiveHumModSession({
         source: 'reduced-source-aligned-HumMod-ARDS-core',
         status: 'initialized-not-yet-stepped',
         gasExchange: null,
-        hemodynamics: Object.freeze({
+        autonomicShadow: Object.freeze({
+        ...autonomicShadowState,
+        tidalVolumeSource: 'Vent simulation.deliveredSinceBreathStart',
+        arterialPo2Source: 'reduced-HumMod arterial gas state',
+        controlAuthority: false,
+      }),
+      hemodynamics: Object.freeze({
           heartRatePerMin:
             effectiveCirculationBoundaries.heartRatePerMin,
           meanArterialPressureMmHg: null,
@@ -641,6 +674,7 @@ function createBerlinLiveHumModSession({
       const h = Math.min(1, remaining);
       simulation.runFor(h);
       systemicSnapshot = systemicRuntime.step({ dtSec: h });
+      updateAutonomicShadow(h);
       remaining -= h;
     }
   }
