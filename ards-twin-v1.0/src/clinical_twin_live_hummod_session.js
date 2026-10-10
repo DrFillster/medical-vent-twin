@@ -22,6 +22,9 @@ const { liveProvenanceBindings } = require('./live_provenance_bindings.js');
 const {
   createUrsinoMagossoAutonomicShadow,
 } = require('./ursino_magosso_autonomic_shadow.js');
+const {
+  createUrsinoBaroreceptorShadow,
+} = require('./ursino_baroreceptor_shadow.js');
 const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('./v11_provenance_manifest.js');
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
@@ -361,6 +364,8 @@ function createBerlinLiveHumModSession({
   let initialized = false;
   let systemicSnapshot = systemicRuntime.snapshot();
   const autonomicShadow = createUrsinoMagossoAutonomicShadow();
+  const baroreceptorShadow = createUrsinoBaroreceptorShadow();
+  let baroreceptorShadowState = baroreceptorShadow.snapshot();
   let autonomicShadowState = autonomicShadow.snapshot();
 
   function actualDeliveredTidalVolumeL() {
@@ -380,14 +385,26 @@ function createBerlinLiveHumModSession({
     const pao2MmHg = last && last.gas && last.gas.gases && last.gas.gases.arterial
       ? last.gas.gases.arterial.po2MmHg
       : null;
-    if (!Number.isFinite(pao2MmHg)) return autonomicShadowState;
+    const arterialPressureMmHg =
+      last && last.circulation && last.circulation.pressures
+        ? last.circulation.pressures.systemicArterialMmHg
+        : null;
+    if (!Number.isFinite(pao2MmHg) || !Number.isFinite(arterialPressureMmHg)) {
+      return autonomicShadowState;
+    }
+
+    // Generate Ursino f_ab from the published arterial-pressure baroreceptor
+    // model. Do not reinterpret HumMod Baroreflex.NA as spikes/s.
+    baroreceptorShadowState = baroreceptorShadow.step({
+      dtSec,
+      arterialPressureMmHg,
+    });
+
     autonomicShadowState = autonomicShadow.step({
       dtSec,
       pao2MmHg,
       tidalVolumeL: actualDeliveredTidalVolumeL(),
-      // Intentionally omitted: HumMod Baroreflex.NA is not proven to be
-      // Ursino f_ab (baroreceptor afferent firing, spikes/s).
-      fAbSpikesPerSec: null,
+      fAbSpikesPerSec: baroreceptorShadowState.fAbSpikesPerSec,
     });
     return autonomicShadowState;
   }
@@ -414,6 +431,7 @@ function createBerlinLiveHumModSession({
         gasExchange: null,
         autonomicShadow: Object.freeze({
         ...autonomicShadowState,
+        baroreceptor: baroreceptorShadowState,
         tidalVolumeSource: 'Vent last-completed-breath metrics.VtInspired',
         arterialPo2Source: 'reduced-HumMod arterial gas state',
         controlAuthority: false,
@@ -466,7 +484,8 @@ function createBerlinLiveHumModSession({
       }),
       autonomicShadow: Object.freeze({
         ...autonomicShadowState,
-        tidalVolumeSource: 'Vent simulation.deliveredSinceBreathStart',
+        baroreceptor: baroreceptorShadowState,
+        tidalVolumeSource: 'Vent last-completed-breath metrics.VtInspired',
         arterialPo2Source: 'reduced-HumMod arterial gas state',
         controlAuthority: false,
       }),
