@@ -1,0 +1,69 @@
+{
+  "schema": "vent-v1.5-oxygen-delivery-evidence/v1",
+  "date": "2026-10-10",
+  "governingRule": "No universal whole-body DO2crit or extraction threshold is introduced without population- and state-specific published quantitative provenance.",
+  "sources": [
+    {
+      "id": "cain-1977",
+      "citation": "Cain SM. Oxygen delivery and uptake in dogs during anemic and hypoxic hypoxia. J Appl Physiol Respir Environ Exerc Physiol. 1977;42(2):228-234.",
+      "pmid": "14097",
+      "role": "foundational-biphasic-DO2-VO2-physiology",
+      "numericThresholdAuthority": false,
+      "notes": "Animal foundational physiology; not a universal human DO2crit."
+    },
+    {
+      "id": "schumacker-cain-1987",
+      "citation": "Schumacker PT, Cain SM. The concept of a critical oxygen delivery. Intensive Care Med. 1987;13(4):223-229.",
+      "pmid": "3301969",
+      "role": "conceptual-critical-delivery-and-extraction-framework",
+      "numericThresholdAuthority": false
+    },
+    {
+      "id": "nelson-1987-regional",
+      "citation": "Nelson DP, King CE, Dodd SL, Schumacker PT, Cain SM. Systemic and intestinal limits of O2 extraction in the dog. J Appl Physiol. 1987;63(1):387-394.",
+      "pmid": "3114223",
+      "role": "regional-extraction-heterogeneity",
+      "numericThresholdAuthority": false
+    },
+    {
+      "id": "ronco-1993-human",
+      "citation": "Ronco JJ et al. Identification of the critical oxygen delivery for anaerobic metabolism in critically ill septic and nonseptic humans. JAMA. 1993;270(14):1724-1730.",
+      "pmid": "8411504",
+      "role": "human-critical-illness-biphasic-DO2-VO2-and-variability",
+      "numericThresholdAuthority": false
+    },
+    {
+      "id": "albanese-cheng-2016",
+      "citation": "Albanese A, Cheng L, Ursino M, Chbat NW. Integrated mathematical model of the human cardiopulmonary system: model development.",
+      "pmid": "26683899",
+      "role": "integrated-cardiopulmonary-model-development",
+      "numericThresholdAuthority": false
+    },
+    {
+      "id": "cheng-2016",
+      "citation": "Cheng L, Albanese A, Ursino M, Chbat NW. Integrated mathematical model of the human cardiopulmonary system: validation under hypercapnia and hypoxia. Am J Physiol Heart Circ Physiol. 2016;310:H922-H937.",
+      "pmid": "26747507",
+      "doi": "10.1152/ajpheart.00923.2014",
+      "role": "integrated-model-validation",
+      "numericThresholdAuthority": false
+    },
+    {
+      "id": "roy-secomb-2021",
+      "citation": "Roy TK, Secomb TW. Effects of impaired microvascular flow regulation on metabolism-perfusion matching and organ function. Microcirculation. 2021;28(3):e12673.",
+      "pmid": "33236393",
+      "doi": "10.1111/micc.12673",
+      "role": "microvascular-distribution-and-tissue-oxygenation",
+      "numericThresholdAuthority": false
+    }
+  ],
+  "implementationBoundaries": {
+    "venousPo2Floor15MmHg": {
+      "status": "provisional-engineering-boundary",
+      "universalPhysiologicThreshold": false,
+      "source": null
+    },
+    "cainCriticalDelivery": {
+      "encodedAsUniversalThreshold": false
+    }
+  }
+}
