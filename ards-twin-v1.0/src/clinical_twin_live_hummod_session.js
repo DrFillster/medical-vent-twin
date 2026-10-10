@@ -25,6 +25,9 @@ const {
 const {
   createUrsinoBaroreceptorShadow,
 } = require('./ursino_baroreceptor_shadow.js');
+const {
+  createUrsinoHeartPeriodShadow,
+} = require('./ursino_heart_period_shadow.js');
 const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('./v11_provenance_manifest.js');
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
@@ -365,8 +368,10 @@ function createBerlinLiveHumModSession({
   let systemicSnapshot = systemicRuntime.snapshot();
   const autonomicShadow = createUrsinoMagossoAutonomicShadow();
   const baroreceptorShadow = createUrsinoBaroreceptorShadow();
+  const heartPeriodShadow = createUrsinoHeartPeriodShadow();
   let baroreceptorShadowState = baroreceptorShadow.snapshot();
   let autonomicShadowState = autonomicShadow.snapshot();
+  let heartPeriodShadowState = heartPeriodShadow.snapshot();
 
   function actualDeliveredTidalVolumeL() {
     const breaths = simulation.metrics();
@@ -406,6 +411,15 @@ function createBerlinLiveHumModSession({
       tidalVolumeL: actualDeliveredTidalVolumeL(),
       fAbSpikesPerSec: baroreceptorShadowState.fAbSpikesPerSec,
     });
+
+    if (Number.isFinite(autonomicShadowState.fShSpikesPerSec) &&
+        Number.isFinite(autonomicShadowState.fVSpikesPerSec)) {
+      heartPeriodShadowState = heartPeriodShadow.step({
+        timeSec: systemicSnapshot.timeSec,
+        fShSpikesPerSec: autonomicShadowState.fShSpikesPerSec,
+        fVSpikesPerSec: autonomicShadowState.fVSpikesPerSec,
+      });
+    }
     return autonomicShadowState;
   }
 
@@ -434,7 +448,27 @@ function createBerlinLiveHumModSession({
         baroreceptor: baroreceptorShadowState,
         tidalVolumeSource: 'Vent last-completed-breath metrics.VtInspired',
         arterialPo2Source: 'reduced-HumMod arterial gas state',
+        heartPeriod: heartPeriodShadowState,
+        heartPeriod: heartPeriodShadowState,
         controlAuthority: false,
+      }),
+      physicianComparison: Object.freeze({
+        liveHumMod: Object.freeze({
+          heartRatePerMin: null,
+          meanArterialPressureMmHg: null,
+          cardiacOutputMlPerMin: null,
+          strokeVolumeMl: null,
+          systemicVascularResistanceMmHgMinPerL: null,
+        }),
+        publishedModelInterim: Object.freeze({
+          heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
+          meanArterialPressureMmHg: null,
+          cardiacOutputMlPerMin: null,
+          strokeVolumeMl: null,
+          systemicVascularResistanceMmHgMinPerL: null,
+          status: 'HR available from interim secondary transcription; vascular/hemodynamic outputs blocked pending source-complete downstream mapping',
+          controlAuthority: false,
+        }),
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin:
@@ -488,6 +522,30 @@ function createBerlinLiveHumModSession({
         tidalVolumeSource: 'Vent last-completed-breath metrics.VtInspired',
         arterialPo2Source: 'reduced-HumMod arterial gas state',
         controlAuthority: false,
+      }),
+      physicianComparison: Object.freeze({
+        liveHumMod: Object.freeze({
+          heartRatePerMin: arrested
+            ? 0
+            : (circ.activeBoundaries?.heartRatePerMin ??
+              effectiveCirculationBoundaries.heartRatePerMin),
+          meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
+          cardiacOutputMlPerMin: arrested ? 0 : circ.flowsMlPerMin.leftVentricular,
+          strokeVolumeMl: arrested ? 0 : (circ.leftVentricle?.strokeVolumeMl ?? null),
+          systemicVascularResistanceMmHgMinPerL:
+            circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
+        }),
+        publishedModelInterim: Object.freeze({
+          heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
+          meanArterialPressureMmHg: null,
+          cardiacOutputMlPerMin: null,
+          strokeVolumeMl: null,
+          systemicVascularResistanceMmHgMinPerL: null,
+          status:
+            'HR available from interim secondary transcription; MAP/CO/SV/SVR blocked pending source-complete vascular/contractility mapping',
+          controlAuthority: false,
+          provenance: heartPeriodShadowState.provenance ?? null,
+        }),
       }),
       hemodynamics: Object.freeze({
         heartRatePerMin: arrested
