@@ -2,12 +2,16 @@
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/medical-vent-twin}"
-LABEL="com.defyinglogic.hummod-preview-sync"
-PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+SYNC_LABEL="com.defyinglogic.hummod-preview-sync"
+SERVER_LABEL="com.defyinglogic.hummod-v13-server"
+PLIST="$HOME/Library/LaunchAgents/$SYNC_LABEL.plist"
+SERVER_PLIST="$HOME/Library/LaunchAgents/$SERVER_LABEL.plist"
 LOG_DIR="$HOME/Library/Logs"
 SYNC="$REPO_DIR/.deploy/preview-sync-main.sh"
+SERVER="$REPO_DIR/.deploy/server-no-cache.py"
 
 test -f "$SYNC"
+test -f "$SERVER"
 mkdir -p "$HOME/Library/LaunchAgents" "$LOG_DIR"
 chmod +x "$SYNC"
 
@@ -17,7 +21,7 @@ cat > "$PLIST" <<PLIST
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>$LABEL</string>
+  <string>$SYNC_LABEL</string>
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
@@ -42,10 +46,43 @@ cat > "$PLIST" <<PLIST
 </plist>
 PLIST
 
-launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
-launchctl kickstart -k "gui/$(id -u)/$LABEL"
+cat > "$SERVER_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$SERVER_LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>$SERVER</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>REPO_DIR</key>
+    <string>$REPO_DIR</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>$LOG_DIR/hummod-v13-server.log</string>
+  <key>StandardErrorPath</key>
+  <string>$LOG_DIR/hummod-v13-server.err.log</string>
+</dict>
+</plist>
+PLIST
 
-echo "Installed $LABEL"
+for spec in "$SYNC_LABEL:$PLIST" "$SERVER_LABEL:$SERVER_PLIST"; do
+  label="${spec%%:*}"
+  plist="${spec#*:}"
+  launchctl bootout "gui/$(id -u)" "$plist" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$plist"
+  launchctl kickstart -k "gui/$(id -u)/$label"
+done
+
+echo "Installed $SYNC_LABEL and $SERVER_LABEL"
 echo "Repo: $REPO_DIR"
-echo "Plist: $PLIST"
+echo "Origin: http://127.0.0.1:8770/"
