@@ -364,7 +364,14 @@ function createBerlinLiveHumModSession({
   let autonomicShadowState = autonomicShadow.snapshot();
 
   function actualDeliveredTidalVolumeL() {
-    const value = simulation.deliveredSinceBreathStart;
+    const breaths = simulation.metrics();
+    // analyzeAll() includes the currently open breath as the final record.
+    // Use the preceding record so lung-stretch feedback is driven by a
+    // completed, actually delivered Vent breath rather than a phase-dependent
+    // partial-breath volume or the ventilator setting.
+    if (breaths.length < 2) return 0;
+    const completed = breaths[breaths.length - 2];
+    const value = completed && completed.VtInspired;
     return Number.isFinite(value) && value > 0 ? value : 0;
   }
 
@@ -407,7 +414,7 @@ function createBerlinLiveHumModSession({
         gasExchange: null,
         autonomicShadow: Object.freeze({
         ...autonomicShadowState,
-        tidalVolumeSource: 'Vent simulation.deliveredSinceBreathStart',
+        tidalVolumeSource: 'Vent last-completed-breath metrics.VtInspired',
         arterialPo2Source: 'reduced-HumMod arterial gas state',
         controlAuthority: false,
       }),
