@@ -1,0 +1,56 @@
+{
+  "schema": "vent-v1.5-native-ursino-shadow-comparison/v1",
+  "date": "2026-10-10",
+  "sourceNativeArtifact": "artifacts/v1.3/native-autonomic-20261009-run07/run07-native-chain-trace.json",
+  "nativeScenario": "hummod-runner/native-v13-myocardial-collapse-probe.json",
+  "nativeVentTidalVolumeL": 0.1,
+  "authority": "diagnostic-shadow-only",
+  "provenance": {
+    "ursinoSource": "Ursino M, Magosso E. Am J Physiol Heart Circ Physiol. 2000;279:H149-H165. doi:10.1152/ajpheart.2000.279.1.H149",
+    "fAbMapping": "BLOCKED: no source-valid mapping from HumMod Baroreflex.NA to Ursino f_ab in spikes/s.",
+    "co2Interaction": "BLOCKED: Magosso/Ursino 2001 Eq. 1 piecewise O2-CO2 coefficient awaits primary-source visual verification."
+  },
+  "comparison": {
+    "sampleCount": 157,
+    "baselineTimeSec": 9.999996,
+    "preCnsFailureSampleCount": 134,
+    "ursinoVsNativeChemoreceptorCorrelation": 0.9604347494291693,
+    "ursinoVsNativeChemoreceptorMAESpikesPerSec": 1.3330469998737082,
+    "nativePreFailurePeakSympsCnsHz": 2.02497533604224,
+    "nativePreFailureMinVagusHz": 1.12306482414707,
+    "nativePreFailurePeakSaNodeRatePerMin": 84.7105619854011,
+    "nativePreFailurePeakHeartRatePerMin": 84.7105619854011,
+    "firstCnsFailureLikeCheckpoint": {
+      "timeSec": 137.999484,
+      "pao2MmHg": 15.4620435872259,
+      "nativeChemoreceptorFiringSpikesPerSec": 10.8735981632836,
+      "ursinoPeripheralChemoreceptorFiringSpikesPerSec": 12.797547788486899,
+      "nativeSympsCnsHz": 1.5,
+      "nativeVagusHz": 2,
+      "nativeSaNodeRatePerMin": 72.083451335365,
+      "brainFunctionEffect": 0.0979967586412662,
+      "ursinoThetaSpSpikesPerSec": 7.926861004753137,
+      "ursinoThetaShSpikesPerSec": -46.70571630035502
+    },
+    "endpoint": {
+      "timeSec": 148.99944,
+      "pao2MmHg": 12.773575608249,
+      "nativeChemoreceptorFiringSpikesPerSec": 10.5901093713031,
+      "ursinoPeripheralChemoreceptorFiringSpikesPerSec": 13.000570763970714,
+      "nativeSympsCnsHz": 1.5,
+      "nativeVagusHz": 2,
+      "nativeSaNodeRatePerMin": 72.0793994184346,
+      "nativeHeartRatePerMin": 0,
+      "brainFunctionEffect": 0.0349099369853076,
+      "ursinoThetaSpSpikesPerSec": 7.744482878966725,
+      "ursinoThetaShSpikesPerSec": -47.42581408719815
+    }
+  },
+  "interpretation": [
+    "The published Ursino peripheral O2 response and native HumMod chemoreceptor response have the same strong monotonic hypoxia response before CNS failure.",
+    "Native HumMod downstream sympathetic and SA-node activation is much smaller than the afferent chemoreceptor change in this challenge.",
+    "At brain-function failure the native SympsCNS and vagal outputs reset toward their fallback state while the published O2 afferent/CNS-hypoxia shadow states continue to reflect profound hypoxia.",
+    "This comparison does not authorize substitution of Ursino efferents because f_ab is not yet source-mapped and the 2001 O2-CO2 interaction remains blocked."
+  ],
+  "activationDecision": "NO ACTIVATION"
+}
