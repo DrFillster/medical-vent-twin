@@ -174,6 +174,26 @@
 <article><h3>Norepinephrine</h3><p><span id="clinical-ne">—</span><small> pg/mL</small></p></article>
 <article><h3>Epinephrine</h3><p><span id="clinical-epi">—</span><small> pg/mL</small></p></article>
 </div>
+
+<details class="advanced research-shadow-panel" open>
+<summary>v1.5 research physiology · shadow comparison</summary>
+<p class="hint"><strong>Evaluation only:</strong> these published-model states are diagnostic and have no control authority over HR, vascular tone, venous tone, or the SA node.</p>
+<div class="clinical-grid monitor-grid">
+<article><h3>Ursino baroreceptor f<sub>ab</sub></h3><p><span id="clinical-shadow-fab">—</span><small> spikes/s</small></p></article>
+<article><h3>Ursino chemoreceptor f<sub>ac</sub></h3><p><span id="clinical-shadow-fac">—</span><small> spikes/s</small></p></article>
+<article><h3>Lung stretch f<sub>ap</sub></h3><p><span id="clinical-shadow-fap">—</span><small> spikes/s</small></p></article>
+<article><h3>CNS hypoxia θ<sub>sp</sub></h3><p><span id="clinical-shadow-theta-sp">—</span><small> spikes/s</small></p></article>
+<article><h3>CNS hypoxia θ<sub>sh</sub></h3><p><span id="clinical-shadow-theta-sh">—</span><small> spikes/s</small></p></article>
+<article><h3>Ursino vascular sympathetic f<sub>sp</sub></h3><p><span id="clinical-shadow-fsp">—</span><small> spikes/s</small></p></article>
+<article><h3>Ursino cardiac sympathetic f<sub>sh</sub></h3><p><span id="clinical-shadow-fsh">—</span><small> spikes/s</small></p></article>
+<article><h3>Ursino cardiac vagal f<sub>v</sub></h3><p><span id="clinical-shadow-fv">—</span><small> spikes/s</small></p></article>
+<article><h3>Global convective DO₂</h3><p><span id="clinical-global-do2">—</span><small> mL O₂/min</small></p></article>
+<article><h3>Global extraction ratio</h3><p><span id="clinical-global-oer">—</span></p></article>
+<article><h3>O₂ supply deficit</h3><p><span id="clinical-o2-deficit">—</span><small> mL O₂/min</small></p></article>
+<article><h3>Oxygen debt</h3><p><span id="clinical-o2-debt">—</span><small> mL O₂</small></p></article>
+</div>
+<p class="hint">Cain/Schumacker are used as foundational DO₂–VO₂/extraction physiology, not as a universal numeric DO₂crit. Regional/microcirculatory modifiers remain fail-closed until quantitatively sourced.</p>
+</details>
 <div class="card waveforms clinical-waveforms">
 <div class="card-heading"><h2>Trends & waveforms</h2><span class="pill">Persistent session</span></div>
 <p class="hint">These traces come from the persistent Vent mechanics engine. Hold maneuvers remain part of the same longitudinal lung state.</p>
@@ -194,6 +214,10 @@
 <div class="plot"><h3>Brain function effect</h3><svg id="clinical-brain-function-trend" role="img" aria-label="HumMod Brain-Function effect trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Sympathetic firing <span>Hz</span></h3><svg id="clinical-symps-trend" role="img" aria-label="HumMod sympathetic CNS firing trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Vagal firing <span>Hz</span></h3><svg id="clinical-vagus-trend" role="img" aria-label="HumMod vagal firing trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Ursino cardiac sympathetic f<sub>sh</sub> <span>spikes/s</span></h3><svg id="clinical-shadow-fsh-trend" role="img" aria-label="Ursino cardiac sympathetic shadow trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Ursino cardiac vagal f<sub>v</sub> <span>spikes/s</span></h3><svg id="clinical-shadow-fv-trend" role="img" aria-label="Ursino cardiac vagal shadow trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Global DO₂ <span>mL O₂/min</span></h3><svg id="clinical-do2-trend" role="img" aria-label="Global convective oxygen delivery trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Oxygen debt <span>mL O₂</span></h3><svg id="clinical-o2-debt-trend" role="img" aria-label="Oxygen debt trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>pH</h3><svg id="clinical-ph-trend" role="img" aria-label="Arterial pH trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 </div>
 </div>
