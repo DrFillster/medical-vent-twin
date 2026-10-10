@@ -339,3 +339,21 @@ No physiology implementation is considered ready merely because a plausible resp
 - Ursino `f_ab` remains unmapped because HumMod `Baroreflex.NA` has not been proven equivalent to baroreceptor afferent firing in spikes/s.
 - Consequently, `f_sp`, `f_sh`, and `f_v` are implemented as source-faithful functions but are not driven from HumMod baroreflex state.
 - No new controller output has live authority over HR, SVR, venous tone, or SA-node behavior.
+
+
+## 12. v1.5 Step 6 — autonomic shadow validation
+
+- [x] Added repeatable `shadow:v1.5-autonomic` perturbation harness.
+- [x] Replayed published Ursino/Magosso O2/CNS-hypoxia shadow states against the 157-sample native HumMod run07 trajectory.
+- [x] Corrected lung-stretch coupling to use last-completed-breath measured `VtInspired`.
+- [x] Recorded native-vs-shadow comparison artifact.
+- [x] Kept all shadow outputs non-authoritative.
+
+Result: strong concordance between published Ursino peripheral O2 chemoreceptor response and native HumMod chemoreceptor response before CNS failure, but much smaller native downstream SympsCNS/SA-node activation. This is an architecture finding, not justification for an empirical HR correction.
+
+Activation remains blocked by:
+1. no source-valid HumMod-to-Ursino `f_ab` mapping;
+2. unverified printed Magosso/Ursino 2001 Eq. 1 O2-CO2 piecewise coefficient;
+3. incomplete full efferent native comparison.
+
+See `docs/V1_5_AUTONOMIC_SHADOW_VALIDATION.md` and `artifacts/v1.5/V1_5_NATIVE_URSINO_SHADOW_COMPARISON.json`.
