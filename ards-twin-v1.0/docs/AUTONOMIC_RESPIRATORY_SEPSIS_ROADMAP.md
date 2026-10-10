@@ -205,7 +205,7 @@ Supporting source:
 - Ursino M, Magosso E. Role of short-term cardiovascular regulation in heart period variability: a modeling study. Am J Physiol Heart Circ Physiol. 2003;284:H1479-H1493. DOI: 10.1152/ajpheart.00850.2002. PMID: 12595291.
 
 ### Phase 8 — Preserve DO2, tissue O2, and organ redistribution
-**Status: protected with an explicit v1.5 DO2/tissue-O2 mass-balance regression guard; no autonomic gain added.**
+**Status: expanded in v1.5 with Cain/Schumacker foundational physiology, human critical-illness evidence, modern integrated-model validation, regional oxygen-transport auditing, and fail-closed microcirculation/sepsis extraction contracts. No universal DO2crit is encoded.**
 
 Do not replace the existing whole-body oxygen-delivery accounting merely to repair HR.
 
@@ -332,3 +332,26 @@ Owns:
 - Do not use the sepsis layer to repair normal physiology.
 - Do not implement fever chronotropy or a CaO2-content chemoreflex without an explicit published quantitative basis.
 - Do not replace DO2/tissue-O2 accounting without independent justification and provenance.
+
+
+## Oxygen-delivery evidence update — 2026-10-10
+
+The project now uses a layered oxygen-transport evidence hierarchy:
+
+1. Cain 1977 and Schumacker/Cain 1987 for foundational biphasic DO2-VO2 and extraction-reserve physiology.
+2. Nelson et al. 1987 for regional/organ heterogeneity in extraction and supply limitation.
+3. Ronco et al. 1993 and related human critical-illness studies to prevent direct transfer of animal or pooled critical-delivery thresholds into individual patients.
+4. Albanese/Cheng/Ursino/Chbat 2016 as the integrated cardiopulmonary mathematical-model anchor.
+5. Modern microcirculatory literature for the distinction between global convective delivery and tissue-level oxygen availability, particularly in sepsis.
+
+Implementation consequences:
+- Cain is retained as foundational provenance, not as a universal numeric DO2crit.
+- The 15-mmHg venous PO2 extraction floor is explicitly provisional engineering behavior pending replacement.
+- Regional oxygen transport is now audited separately from global delivery.
+- Microcirculatory and sepsis extraction modifiers fail closed until a quantitative source equation is selected.
+- Oxygen debt remains the integral of modeled unmet aerobic demand, but collapse-time bridges are explicitly labeled engineering calibrations rather than universal human thresholds.
+
+See:
+- `docs/OXYGEN_DELIVERY_EVIDENCE_STACK.md`
+- `docs/OXYGEN_DELIVERY_EVIDENCE.json`
+- `docs/OXYGEN_DEBT_PROVENANCE_AUDIT.md`
