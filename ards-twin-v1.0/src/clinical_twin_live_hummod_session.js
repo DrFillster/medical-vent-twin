@@ -28,6 +28,9 @@ const {
 const {
   createUrsinoHeartPeriodShadow,
 } = require('./ursino_heart_period_shadow.js');
+const {
+  createUrsinoDownstreamEffectorShadow,
+} = require('./ursino_downstream_effectors_shadow.js');
 const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('./v11_provenance_manifest.js');
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
@@ -369,9 +372,11 @@ function createBerlinLiveHumModSession({
   const autonomicShadow = createUrsinoMagossoAutonomicShadow();
   const baroreceptorShadow = createUrsinoBaroreceptorShadow();
   const heartPeriodShadow = createUrsinoHeartPeriodShadow();
+  const downstreamEffectorShadow = createUrsinoDownstreamEffectorShadow();
   let baroreceptorShadowState = baroreceptorShadow.snapshot();
   let autonomicShadowState = autonomicShadow.snapshot();
   let heartPeriodShadowState = heartPeriodShadow.snapshot();
+  let downstreamEffectorShadowState = downstreamEffectorShadow.snapshot();
 
   function actualDeliveredTidalVolumeL() {
     const breaths = simulation.metrics();
@@ -419,6 +424,13 @@ function createBerlinLiveHumModSession({
         fShSpikesPerSec: autonomicShadowState.fShSpikesPerSec,
         fVSpikesPerSec: autonomicShadowState.fVSpikesPerSec,
       });
+      if (Number.isFinite(autonomicShadowState.fSpSpikesPerSec)) {
+        downstreamEffectorShadowState = downstreamEffectorShadow.step({
+          timeSec: systemicSnapshot.timeSec,
+          fSpSpikesPerSec: autonomicShadowState.fSpSpikesPerSec,
+          fShSpikesPerSec: autonomicShadowState.fShSpikesPerSec,
+        });
+      }
     }
     return autonomicShadowState;
   }
@@ -449,6 +461,7 @@ function createBerlinLiveHumModSession({
         tidalVolumeSource: 'Vent last-completed-breath metrics.VtInspired',
         arterialPo2Source: 'reduced-HumMod arterial gas state',
         heartPeriod: heartPeriodShadowState,
+        downstreamEffectors: downstreamEffectorShadowState,
         controlAuthority: false,
       }),
       physicianComparison: Object.freeze({
@@ -541,7 +554,7 @@ function createBerlinLiveHumModSession({
           strokeVolumeMl: null,
           systemicVascularResistanceMmHgMinPerL: null,
           status:
-            'HR available from interim secondary transcription; MAP/CO/SV/SVR blocked pending source-complete vascular/contractility mapping',
+            'HR available; regional resistance and LV/RV elastance shadow states available; MAP/CO/SV/SVR remain blocked pending venous-capacitance path and parallel source-family circulation',
           controlAuthority: false,
           provenance: heartPeriodShadowState.provenance ?? null,
         }),
