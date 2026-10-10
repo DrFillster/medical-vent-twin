@@ -313,7 +313,7 @@ The project now has a formal evidence-first controller program. The detailed imp
 
 Key decisions:
 
-- The recently tested linear PaO2-to-`SympsChemo.Effect` extension is not accepted and must remain inactive.
+- All physiologic gains, transfer functions, thresholds, mappings, time constants, saturation limits, and other physiologic parameters require explicit published medical/physiologic provenance. Source, equation or parameter basis, units, intended effect, and any HumMod/Vent transformation must be documented. The previously tested linear PaO2-to-`SympsChemo.Effect` extension remains inactive because it does not meet this requirement.
 - Ursino/Magosso is the primary source family for peripheral O2/CO2 chemoreflex, CNS hypoxia/CO2 effects, lung-stretch feedback, separate autonomic channels, and candidate heart-period control.
 - Hennigs et al. 2026 is the respiratory-center/patient-ventilator interaction track and will be integrated in shadow mode before controller activation.
 - The complete autonomic controller must run in shadow mode before it can own any live effector.
@@ -322,4 +322,4 @@ Key decisions:
 - Yamanaka sepsis physiology is a later disease-state layer. Foteinou/Scheff autonomic-inflammatory coupling follows in shadow mode.
 - Aortic CaO2-content chemoreflex and fever chronotropy remain on hold until source-backed quantitative equations are established.
 
-No physiology implementation is considered ready merely because a plausible response can be produced. Each active equation requires exact source transcription, units and parameters, variable mapping, deterministic tests, shadow comparison, and an explicit activation decision.
+No physiology implementation is considered ready merely because a plausible response can be produced. Empirical or fitted relationships are permitted only when the fitting method, source data, rationale, and independent validation are documented. No physiologic gain or mapping may be introduced solely to produce a desired simulation response.
