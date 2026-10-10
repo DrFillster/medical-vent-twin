@@ -1,15 +1,28 @@
-"""No-cache wrapper for python -m http.server, used at port 8770 to serve vent.defying-logic.com.
+"""No-cache static server for hummod.defying-logic.com v1.3.
 
-Adds:
-  - Cache-Control: no-store (so Cloudflare doesn't cache stale content for 4h)
-  - 403 Forbidden on paths that start with a dot (.git, .env, .htaccess, etc.)
-    to block accidental exposure of repository metadata.
-
-Run from the directory you want to serve. Default: ~/medical-vent-twin.
+Serves only ards-twin-v1.0/web on 127.0.0.1:8770.
 """
-import http.server, socketserver, posixpath, os
+import http.server
+import os
+import posixpath
+import socketserver
+from pathlib import Path
 
 DENY_PREFIXES = ('/.git/', '/.env', '/.deploy/', '/.wrangler/', '/node_modules/')
+PORT = int(os.environ.get('PORT', '8770'))
+REPO_DIR = Path(os.environ.get(
+    'REPO_DIR',
+    str(Path(__file__).resolve().parents[1]),
+)).expanduser().resolve()
+WEB_ROOT = Path(os.environ.get(
+    'WEB_ROOT',
+    str(REPO_DIR / 'ards-twin-v1.0' / 'web'),
+)).expanduser().resolve()
+
+if not (WEB_ROOT / 'index.html').is_file():
+    raise SystemExit(f'Refusing to serve: missing {WEB_ROOT / "index.html"}')
+
+os.chdir(WEB_ROOT)
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -26,8 +39,7 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
                 return
         return super().do_GET()
 
-PORT = 8770
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(('127.0.0.1', PORT), NoCacheHandler) as httpd:
-    print(f'Serving with no-cache + dotfile-deny on 127.0.0.1:{PORT}', flush=True)
+    print(f'Serving {WEB_ROOT} with no-cache on 127.0.0.1:{PORT}', flush=True)
     httpd.serve_forever()
