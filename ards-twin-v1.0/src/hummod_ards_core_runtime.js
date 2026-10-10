@@ -50,14 +50,26 @@ const {
 
 const HUMMOD_GAS_DELAY_K_PER_MIN = 5.0;
 
-// Lower bound for the reduced aerobic-extraction model. Peripheral oxygen
-// delivery literature describes a critical capillary PO2 on the order of
-// 15-20 mmHg below which aerobic ATP production becomes supply limited.
-// We use the lower bound (15 mmHg) as an explicit, conservative transition
-// point. This is not an SvO2 target and does not prevent pathologically low
-// venous saturation; it prevents the model from extracting more oxygen than
-// can be represented by a positive venous PO2.
+// Provisional reduced-order extraction boundary.
+//
+// IMPORTANT PROVENANCE CORRECTION (v1.5):
+// A primary source establishing 15 mmHg as a universal human venous/capillary
+// PO2 threshold for supply dependence has not been documented to the project's
+// current provenance standard. Preserve the existing numerical behavior for
+// regression continuity, but classify this value as an engineering boundary,
+// not as Cain/Schumacker or universal clinical physiology.
+//
+// Replacement requires a source-backed organ-/microcirculation-specific
+// extraction model or a separately validated boundary.
 const CRITICAL_VENOUS_PO2_MMHG = 15;
+const CRITICAL_VENOUS_PO2_PROVENANCE = Object.freeze({
+  valueMmHg: CRITICAL_VENOUS_PO2_MMHG,
+  status: 'provisional-engineering-boundary-preserved-for-regression-continuity',
+  universalPhysiologicThreshold: false,
+  sourceClaim: null,
+  replacementGate:
+    'replace only with source-backed organ/microcirculation extraction relation or independently validated calibrated boundary',
+});
 
 const HUMMOD_SOURCE_INITIAL_GAS_STATE = Object.freeze({
   arterialO2ContentMlPerMl: 0.196,
@@ -490,6 +502,7 @@ function createHumModArdsGasRuntime({
         supplyDependent: oxygenSupply.supplyDependent,
         oxygenReserveFraction: oxygenSupply.reserveFraction,
         criticalVenousPo2MmHg: CRITICAL_VENOUS_PO2_MMHG,
+        criticalVenousPo2Provenance: CRITICAL_VENOUS_PO2_PROVENANCE,
         criticalVenousO2ContentMlPerMl,
         lungO2UptakeMlPerMin: oxygen.uptakeMlPerMin,
         tissueCo2ProductionMmolPerMin:
@@ -522,6 +535,7 @@ module.exports = {
   HUMMOD_GAS_DELAY_K_PER_MIN,
   HUMMOD_SOURCE_INITIAL_GAS_STATE,
   CRITICAL_VENOUS_PO2_MMHG,
+  CRITICAL_VENOUS_PO2_PROVENANCE,
   firstOrderDelayExact,
   deriveBloodGasOutputs,
   validateBoundary,
