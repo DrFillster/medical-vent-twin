@@ -1,24 +1,32 @@
 {
-  "schema": "hummod-v15-deployment-handoff/v1",
+  "schema": "hummod-v15-formal-evaluation-handoff/v1",
   "sourceBranch": "v1.5",
-  "sourceCommit": "87b054b96cbd6bebd4ac4dc174c858232a7fec83",
+  "targetBranch": "v1.5-release",
+  "packageVersion": "1.5.0",
+  "status": "READY_FOR_FORMAL_V1_5_EVALUATION_DEPLOYMENT",
   "deploymentModel": "Mac launchd origin at 127.0.0.1:8770 behind hummod.defying-logic.com",
   "githubActionsRequired": false,
-  "status": "READY_FOR_MAC_ORIGIN_MIGRATION",
   "requiredCommand": "cd ~/medical-vent-twin && bash .deploy/migrate-preview-to-v15.sh",
-  "expectedEffects": [
-    "Checkout and fast-forward v1.5",
-    "Run npm build",
-    "Run deploy verifier",
-    "Reinstall v1.5 launchd sync/server labels",
-    "Serve ards-twin-v1.0/web from 127.0.0.1:8770",
-    "Continue 30-second fast-forward sync on v1.5"
+  "formalEvaluation": true,
+  "physiologyAuthority": {
+    "currentHumModPath": true,
+    "ursinoMagossoShadow": false,
+    "hennigsRespiratoryCenter": false,
+    "yamanakaSepsis": false,
+    "microcirculationExtraction": false
+  },
+  "evaluationDiagnostics": [
+    "native HumMod sympathetic/vagal/SA-node states",
+    "Ursino f_ab/f_ac/f_ap/theta_sp/theta_sh/f_sp/f_sh/f_v",
+    "global convective DO2",
+    "global extraction ratio",
+    "oxygen supply deficit",
+    "oxygen debt"
   ],
-  "safeguards": [
-    "Refuse deployment from a dirty working tree",
-    "No GitHub Actions",
-    "No native HumMod execution",
-    "Shadow autonomic controller remains non-authoritative",
-    "Build and deploy verification must pass before launchd reinstall completes"
+  "knownBlockers": [
+    "Magosso/Ursino 2001 peripheral O2-CO2 Eq. 1 exact transcription",
+    "Ursino heart-period complete parameter transcription",
+    "Hennigs complete equation/parameter transcription",
+    "quantitative microcirculatory/sepsis extraction model"
   ]
 }
