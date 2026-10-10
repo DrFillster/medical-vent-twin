@@ -35,6 +35,8 @@ function row(snapshot, scenarioId) {
     ursinoFSpSpikesPerSec: finiteOrNull(sh.fSpSpikesPerSec),
     ursinoFShSpikesPerSec: finiteOrNull(sh.fShSpikesPerSec),
     ursinoFVSpikesPerSec: finiteOrNull(sh.fVSpikesPerSec),
+    ursinoFAbSpikesPerSec: finiteOrNull(sh.fAbSpikesPerSec),
+    ursinoBaroreceptorFilteredPressureMmHg: finiteOrNull(sh.baroreceptor?.filteredPressureMmHg),
     baroreceptorMappingStatus: sh.baroreceptorMappingStatus || null,
   };
 }
@@ -107,6 +109,7 @@ const summaries=scenarios.map(s=>{
     humModSympsCnsHz:extrema(group,'humModSympsCnsHz'),
     humModVagusHz:extrema(group,'humModVagusHz'),
     ursinoFAcSpikesPerSec:extrema(group,'ursinoFAcSpikesPerSec'),
+    ursinoFAbSpikesPerSec:extrema(group,'ursinoFAbSpikesPerSec'),
     ursinoFApSpikesPerSec:extrema(group,'ursinoFApSpikesPerSec'),
     ursinoThetaSpSpikesPerSec:extrema(group,'ursinoThetaSpSpikesPerSec'),
     ursinoThetaShSpikesPerSec:extrema(group,'ursinoThetaShSpikesPerSec'),
@@ -123,7 +126,7 @@ const report={
   schema:'vent-v1.5-autonomic-shadow-suite/v1',
   authority:'diagnostic-shadow-only',
   provenanceConstraints:{
-    fAbMapping:'blocked-no-source-valid-HumMod-to-Ursino-f_ab-mapping',
+    fAbMapping:'published Ursino pressure-to-afferent shadow; systemic arterial pressure used as documented carotid-pressure surrogate; no HumMod Baroreflex.NA reinterpretation',
     co2PeripheralInteraction:'blocked-pending-primary-source-Eq1-visual-verification',
   },
   summaries,
