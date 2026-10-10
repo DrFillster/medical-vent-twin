@@ -305,3 +305,21 @@ All substantive work on this effort is documented in this repository:
 - tests: executable acceptance criteria
 
 If a design decision changes, update the build plan and work log in the same branch as the implementation change.
+
+
+## 10. Autonomic, respiratory-control, and sepsis physiology modernization — 2026-10-10
+
+The project now has a formal evidence-first controller program. The detailed implementation and validation specification is in `docs/AUTONOMIC_RESPIRATORY_SEPSIS_ROADMAP.md`.
+
+Key decisions:
+
+- The recently tested linear PaO2-to-`SympsChemo.Effect` extension is not accepted and must remain inactive.
+- Ursino/Magosso is the primary source family for peripheral O2/CO2 chemoreflex, CNS hypoxia/CO2 effects, lung-stretch feedback, separate autonomic channels, and candidate heart-period control.
+- Hennigs et al. 2026 is the respiratory-center/patient-ventilator interaction track and will be integrated in shadow mode before controller activation.
+- The complete autonomic controller must run in shadow mode before it can own any live effector.
+- HumMod versus Ursino SA-node/heart-period ownership remains an explicit validation question.
+- Existing DO2, tissue-O2, and organ redistribution logic is protected; it is not replaced as an HR workaround.
+- Yamanaka sepsis physiology is a later disease-state layer. Foteinou/Scheff autonomic-inflammatory coupling follows in shadow mode.
+- Aortic CaO2-content chemoreflex and fever chronotropy remain on hold until source-backed quantitative equations are established.
+
+No physiology implementation is considered ready merely because a plausible response can be produced. Each active equation requires exact source transcription, units and parameters, variable mapping, deterministic tests, shadow comparison, and an explicit activation decision.
