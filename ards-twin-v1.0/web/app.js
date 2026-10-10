@@ -805,7 +805,7 @@
     clinicalPhysiologyTrend = [];
     renderClinicalInterventions();
     renderClinicalPhysiologyTrends();
-    clinicalWorker = new Worker('./clinical-worker.js?v=1.3.0');
+    clinicalWorker = new Worker('./clinical-worker.js?v=1.5.0');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
