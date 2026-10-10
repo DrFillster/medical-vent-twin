@@ -89,3 +89,48 @@ for (const scenario of scenarios) {
     if (snap.systemic?.decompensation?.cardiacArrest) break;
   }
 }
+
+function extrema(group,key) {
+  const xs=group.map(r=>r[key]).filter(Number.isFinite);
+  return xs.length ? { min:Math.min(...xs), max:Math.max(...xs) } : null;
+}
+
+const summaries=scenarios.map(s=>{
+  const group=rows.filter(r=>r.scenarioId===s.id);
+  return {
+    scenarioId:s.id,
+    samples:group.length,
+    pao2MmHg:extrema(group,'pao2MmHg'),
+    paco2MmHg:extrema(group,'paco2MmHg'),
+    pH:extrema(group,'pH'),
+    humModHeartRatePerMin:extrema(group,'humModHeartRatePerMin'),
+    humModSympsCnsHz:extrema(group,'humModSympsCnsHz'),
+    humModVagusHz:extrema(group,'humModVagusHz'),
+    ursinoFAcSpikesPerSec:extrema(group,'ursinoFAcSpikesPerSec'),
+    ursinoFApSpikesPerSec:extrema(group,'ursinoFApSpikesPerSec'),
+    ursinoThetaSpSpikesPerSec:extrema(group,'ursinoThetaSpSpikesPerSec'),
+    ursinoThetaShSpikesPerSec:extrema(group,'ursinoThetaShSpikesPerSec'),
+    ursinoEfferentsAvailable:group.some(r =>
+      Number.isFinite(r.ursinoFSpSpikesPerSec) ||
+      Number.isFinite(r.ursinoFShSpikesPerSec) ||
+      Number.isFinite(r.ursinoFVSpikesPerSec)),
+    baroreceptorMappingStatus:
+      group.length ? group[group.length-1].baroreceptorMappingStatus : null,
+  };
+});
+
+const report={
+  schema:'vent-v1.5-autonomic-shadow-suite/v1',
+  authority:'diagnostic-shadow-only',
+  provenanceConstraints:{
+    fAbMapping:'blocked-no-source-valid-HumMod-to-Ursino-f_ab-mapping',
+    co2PeripheralInteraction:'blocked-pending-primary-source-Eq1-visual-verification',
+  },
+  summaries,
+  rows,
+};
+
+const outPath=process.argv[2] ||
+  path.resolve(__dirname,'../V1_5_AUTONOMIC_SHADOW_SUITE.json');
+fs.writeFileSync(outPath,JSON.stringify(report,null,2)+'\n');
+console.log(JSON.stringify({outPath,summaries},null,2));
