@@ -161,6 +161,7 @@ function createHumModSourceAlignedAutonomicController({
     a2PoolLog10Conc=null,
     brainFunctionEffect=1,
     exerciseSympsTotalEffect=0,
+    sympsChemoEffect=1,
   }={}){
     positive(dtSec,'dtSec');
     finite(carotidPressureMmHg,'carotidPressureMmHg');
@@ -171,6 +172,8 @@ function createHumModSourceAlignedAutonomicController({
     if(a2PoolLog10Conc!=null) finite(a2PoolLog10Conc,'a2PoolLog10Conc');
     finite(brainFunctionEffect,'brainFunctionEffect');
     finite(exerciseSympsTotalEffect,'exerciseSympsTotalEffect');
+    finite(sympsChemoEffect,'sympsChemoEffect');
+    if(sympsChemoEffect<0) throw new Error('sympsChemoEffect must be >= 0');
 
     // HumMod circulation and dynamic equations use a minute-based timebase.
     // Baroreflex.DES: RateConst = 1/(60*Tau), Tau=10 -> 600 min = 10 h.
@@ -206,7 +209,7 @@ function createHumModSourceAlignedAutonomicController({
     // Mechanoreceptors.FiringRate=0 -> MechanoEffect=1 and
     // SympsChemo.Effect=1, so the retained reflex product is exact here.
     const sympsCnsReflexNa=
-      sympsCnsBaroEffect * sympsCnsLowPressureEffect;
+      sympsCnsBaroEffect * sympsCnsLowPressureEffect * sympsChemoEffect;
 
     // Exact HumMod SympsCNS source terms. These remain neutral unless their
     // upstream native state is supplied; v1.3 does not infer Brain-Fuel or
@@ -275,6 +278,7 @@ function createHumModSourceAlignedAutonomicController({
       a2PoolLog10Conc,
       brainFunctionEffect,
       exerciseSympsTotalEffect,
+      sympsChemoEffect,
       sympsCnsNa,
       sympsCnsHz,
       gangliaHz,
@@ -318,6 +322,7 @@ function createHumModSourceAlignedAutonomicController({
         clinicalValidation:false,
         neutralizedDependencies:Object.freeze([
           'Mechanoreceptors',
+          'SympsChemo defaults to neutral 1.0 unless explicitly supplied',
           'ExerciseSymps upstream state when runtime exercise inputs are unavailable',
           'CushingResponse',
           'Brain-Fuel upstream state (hook present; native input not yet supplied)',
