@@ -449,7 +449,6 @@ function createBerlinLiveHumModSession({
         tidalVolumeSource: 'Vent last-completed-breath metrics.VtInspired',
         arterialPo2Source: 'reduced-HumMod arterial gas state',
         heartPeriod: heartPeriodShadowState,
-        heartPeriod: heartPeriodShadowState,
         controlAuthority: false,
       }),
       physicianComparison: Object.freeze({
