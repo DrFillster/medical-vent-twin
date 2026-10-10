@@ -655,6 +655,10 @@
     setShadow('clinical-shadow-fsp', shadow.fSpSpikesPerSec);
     setShadow('clinical-shadow-fsh', shadow.fShSpikesPerSec);
     setShadow('clinical-shadow-fv', shadow.fVSpikesPerSec);
+    setShadow('clinical-shadow-rsp',
+      shadow.downstreamEffectors?.regionalResistance?.splanchnic?.value, 3);
+    setShadow('clinical-shadow-emax-lv',
+      shadow.downstreamEffectors?.ventricularElastance?.left?.value, 3);
     setShadow('clinical-global-do2', gasx.convectiveOxygenDeliveryMlPerMin, 0);
     setShadow('clinical-global-oer', gasx.globalExtractionRatio, 3);
     setShadow('clinical-o2-deficit', gasx.oxygenSupplyDeficitMlPerMin, 1);
