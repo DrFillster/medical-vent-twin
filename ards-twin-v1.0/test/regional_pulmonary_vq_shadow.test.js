@@ -48,7 +48,7 @@ ok('regional audit uses actual Vent breath volumes and exposes synthetic perfusi
   const out=deriveRegionalVentilationAudit({simulation});
   assert.equal(out.status,'regional-ventilation-measured-perfusion-not-source-complete');
   assert(Math.abs(out.totalTidalVolumeL-0.4)<1e-12);
-  assert.equal(out.regions[0].tidalVolumeL,0.3);
+  assert(Math.abs(out.regions[0].tidalVolumeL-0.3)<1e-12);
   assert(Math.abs(out.regions[1].tidalVolumeL-0.1)<1e-12);
   assert.equal(out.regions[2].tidalVolumeL,0);
   assert.equal(out.regions[0].perfusionAuthority,false);
