@@ -26,7 +26,7 @@ The 0.2 ms extraction cadence had already been validated against the source
 
 | CO2 challenge | Mean challenge stress ratio | Minimum stress ratio | Force-nadir time | Minimum pHi | Minimum-pHi time |
 |---:|---:|---:|---:|---:|---:|
-| 10% | 0.9758252 | 0.9718626 | 464.0 s | 6.9964744 | 583.6 s |
+| 5% | 0.9999951 | 0.9999924 | 898.4 s | 7.1448090 | 300.0 s |\n| 10% | 0.9758252 | 0.9718626 | 464.0 s | 6.9964744 | 583.6 s |
 | 15% | 0.9502849 | 0.9417766 | 455.6 s | 6.9002803 | 585.6 s |
 | 20% | 0.9311322 | 0.9153867 | 431.6 s | 6.8329764 | 538.0 s |
 | 25% | 0.9178497 | 0.8931375 | 412.4 s | 6.7845222 | 506.8 s |
@@ -44,7 +44,7 @@ source trajectories.
 
 | Held-out level | Training bracket | Max relative Fb error |
 |---:|---:|---:|
-| 15% | 10%-20% | 0.5433% |
+| 10% | 5%-15% | 0.1323% |\n| 15% | 10%-20% | 0.5433% |
 | 20% | 15%-25% | 0.4016% |
 | 25% | 20%-30% | 0.2126% |
 
