@@ -31,6 +31,7 @@ console.log('ok - ischemia extraction enables only source ischemia protocol');
 
 const mainFixture=[
   'int modelSim(double stepint, double period);//20210513',
+  'void SFChange(double SF[]);',
   '    const double period = 3600; // <simulation period (s)>',
   '    modelSim(stepint, period);',
   'int modelSim(double stepint, double period)',
