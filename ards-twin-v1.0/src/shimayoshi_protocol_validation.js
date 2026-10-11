@@ -1,5 +1,13 @@
 'use strict';
 
+const SOURCE_TIMING=Object.freeze({
+  pacingCycleS:0.4,
+  ischemiaOnS:180,
+  reperfusionOnS:1080,
+  acidosisOnS:300,
+  acidosisRecoveryOnS:900,
+});
+
 const ALLOWED_PHASES=Object.freeze({
   control:Object.freeze(['control']),
   ischemia:Object.freeze(['control','ischemia','reperfusion']),
@@ -95,6 +103,34 @@ function validateProtocolTrajectory(rows,protocol){
     }
   }
 
+  const toleranceS=SOURCE_TIMING.pacingCycleS;
+
+  if(protocol==='ischemia'){
+    const ischemiaSegment=segments.find(x=>x.phase==='ischemia');
+    if(Math.abs(ischemiaSegment.startTimeS-SOURCE_TIMING.ischemiaOnS)>toleranceS){
+      throw new Error('ischemia phase transition does not match pinned source timing');
+    }
+    const reperfusionSegment=segments.find(x=>x.phase==='reperfusion');
+    if(reperfusionSegment&&
+       Math.abs(reperfusionSegment.startTimeS-SOURCE_TIMING.reperfusionOnS)>toleranceS){
+      throw new Error('reperfusion phase transition does not match pinned source timing');
+    }
+  }
+
+  if(protocol==='acidosis'){
+    const acidSegment=segments.find(x=>x.phase==='acidosis');
+    if(Math.abs(acidSegment.startTimeS-SOURCE_TIMING.acidosisOnS)>toleranceS){
+      throw new Error('acidosis phase transition does not match pinned source timing');
+    }
+    const recoverySegment=segments
+      .slice(segments.indexOf(acidSegment)+1)
+      .find(x=>x.phase==='control');
+    if(recoverySegment&&
+       Math.abs(recoverySegment.startTimeS-SOURCE_TIMING.acidosisRecoveryOnS)>toleranceS){
+      throw new Error('acidosis recovery transition does not match pinned source timing');
+    }
+  }
+
   return Object.freeze({
     protocol,
     status:'source-protocol-trajectory-valid',
@@ -105,6 +141,7 @@ function validateProtocolTrajectory(rows,protocol){
 }
 
 module.exports=Object.freeze({
+  SOURCE_TIMING,
   ALLOWED_PHASES,
   phaseSegments,
   validateProtocolTrajectory,
