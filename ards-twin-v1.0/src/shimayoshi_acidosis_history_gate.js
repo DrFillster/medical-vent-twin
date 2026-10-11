@@ -68,14 +68,31 @@ function createFixedStepShimayoshiAcidosisHistoryGate({
       });
     }
 
+    if(phase==='recovery'&&activeChallengePco2MmHg==null){
+      return Object.freeze({
+        status:'Shimayoshi-acidosis-recovery-history-missing',
+        sourcePrediction:null,
+        fixedStepHistorySupported:false,
+        currentMyocardialPco2MmHg:myocardialPco2MmHg,
+        reason:'Recovery source trajectory requires the preceding fixed challenge level.',
+        closedLoopAuthority:false,
+      });
+    }
+
+    const lookupPco2MmHg=phase==='recovery'
+      ? activeChallengePco2MmHg
+      : myocardialPco2MmHg;
+
     const shadow=evaluateHumModToShimayoshiAcidosisShadow({
-      myocardialPco2MmHg,
+      myocardialPco2MmHg:lookupPco2MmHg,
       sourceProtocolTimeS,
       sourceGridTable,
     });
 
     return Object.freeze({
       ...shadow,
+      currentMyocardialPco2MmHg:myocardialPco2MmHg,
+      lookupMyocardialPco2MmHg:lookupPco2MmHg,
       fixedStepHistorySupported:true,
       initialChallengePco2MmHg:activeChallengePco2MmHg,
       closedLoopAuthority:false,
