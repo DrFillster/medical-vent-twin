@@ -33,16 +33,31 @@ function row(label){
 }
 
 const rows=[row('seed')];
-for(const sec of [5,15,30,60]){
-  r.runFor(sec-(rows[rows.length-1].timeSec||0));
-  rows.push(row('pre-hemorrhage-'+sec+'s'));
+
+// Use exact interval durations. Do not subtract accumulated floating-point
+// simulation time because runFor() intentionally requires an exact fixed-step
+// multiple.
+for(const [label,deltaSec] of [
+  ['pre-hemorrhage-5s',5],
+  ['pre-hemorrhage-15s',10],
+  ['pre-hemorrhage-30s',15],
+  ['pre-hemorrhage-60s',30],
+]){
+  r.runFor(deltaSec);
+  rows.push(row(label));
 }
+
 r.withdrawBloodMl(530);
 rows.push(row('hemorrhage-10pct'));
-const t0=r.snapshot().timeSec;
-for(const delta of [5,20,40,80]){
-  r.runFor(t0+delta-r.snapshot().timeSec);
-  rows.push(row('post-hemorrhage-'+delta+'s'));
+
+for(const [label,deltaSec] of [
+  ['post-hemorrhage-5s',5],
+  ['post-hemorrhage-20s',15],
+  ['post-hemorrhage-40s',20],
+  ['post-hemorrhage-80s',40],
+]){
+  r.runFor(deltaSec);
+  rows.push(row(label));
 }
 
 const out={
