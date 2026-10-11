@@ -41,6 +41,7 @@ Each source-run manifest must contain:
 - `simulationDuration`
 - `protocolEnabled`
 - `outputCadence`
+- `cvodeTargetCadenceMs`
 - `protocolName` (`control`, `ischemia`, or `acidosis`)
 - `physiologyChanged`
 
@@ -118,3 +119,15 @@ The importer fails closed if either manifest is missing, if either source SHA
 differs from the pinned source, if the control manifest is not a control run,
 or if the observed phase sequence does not match the declared challenge
 protocol.
+
+
+## CVODE target cadence provenance
+
+`cvodeTargetCadenceMs` records the external CVODE target/output-request cadence
+used by the patched source executable. It is not described as the internal
+adaptive solver step.
+
+The pinned upstream default is 0.1 ms. A 0.2 ms candidate cadence is permitted
+only for source extraction with explicit fidelity comparison against a 0.1 ms
+reference. The cadence value must be carried in the source-run manifest and
+must never be hidden or inferred.
