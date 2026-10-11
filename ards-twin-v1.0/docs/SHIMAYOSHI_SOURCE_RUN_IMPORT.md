@@ -33,7 +33,7 @@ Imported paced-cycle peak Fb must be nonnegative. The control reference mean pea
 
 ## Required manifest schema
 
-`SHIMAYOSHI_SOURCE_RUN.json` must contain:
+Each source-run manifest must contain:
 
 - `upstreamGitSha`
 - `compilerBuildEnvironment`
@@ -53,6 +53,16 @@ The import is rejected unless:
 ```
 
 ## Normalization
+
+The importer requires **two independently authenticated source runs**:
+
+1. a control-reference CSV plus its control manifest;
+2. a challenge CSV plus its challenge manifest.
+
+Both manifests must identify the pinned upstream commit
+`6478d2ab0acbfc88d3da461d2594658bcb2798ca`. The control manifest must
+declare `protocolName: "control"`. A valid challenge manifest does not make
+an unrelated control-reference CSV trustworthy.
 
 The browser-side import computes only:
 
@@ -94,3 +104,17 @@ stress and does not include the source passive elastic component.
 
 The LV bridge must keep its own passive wall term separate from this imported
 active source quantity.
+
+## CLI contract
+
+```text
+npm run shimayoshi:import -- \
+  control.csv control-manifest.json \
+  challenge.csv challenge-manifest.json \
+  output.json
+```
+
+The importer fails closed if either manifest is missing, if either source SHA
+differs from the pinned source, if the control manifest is not a control run,
+or if the observed phase sequence does not match the declared challenge
+protocol.
