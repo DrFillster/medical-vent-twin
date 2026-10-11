@@ -19,6 +19,7 @@ const controlManifest={
   simulationDuration:'fixture',
   protocolEnabled:'control fixture',
   outputCadence:'one row per cycle',
+  cvodeTargetCadenceMs:0.1,
   protocolName:'control',
   physiologyChanged:false,
 };
