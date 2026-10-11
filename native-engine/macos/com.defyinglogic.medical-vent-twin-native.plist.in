@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.defyinglogic.medical-vent-twin-native</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NATIVE_ENGINE_BINARY__</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NATIVE_ENGINE_BIND</key>
+    <string>127.0.0.1</string>
+    <key>NATIVE_ENGINE_PORT</key>
+    <string>8771</string>
+    <key>NATIVE_ENGINE_CORS_ORIGIN</key>
+    <string>https://hummod.defying-logic.com</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+
+  <key>StandardOutPath</key>
+  <string>__NATIVE_ENGINE_STDOUT__</string>
+
+  <key>StandardErrorPath</key>
+  <string>__NATIVE_ENGINE_STDERR__</string>
+</dict>
+</plist>
