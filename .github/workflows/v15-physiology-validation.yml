@@ -1,12 +1,8 @@
 name: v1.5 Physiology Validation
 # regression revision 2: corrected Shimayoshi fixtures and HumMod myocardial SID units
-# one-shot validation after dynamic acidosis + ischemia mechanics checkpoint
+# manual-only after dynamic acidosis + ischemia mechanics checkpoint
 
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - '.github/v15-validation-trigger'
   workflow_dispatch:
 
 concurrency:
