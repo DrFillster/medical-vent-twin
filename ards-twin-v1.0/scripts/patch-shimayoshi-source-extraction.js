@@ -124,7 +124,10 @@ function patchMain(mainText){
       '    FILE* DumpFile;//20210319',
       '    FILE* CompactFile;',
       '    double peakFb = 0.0;',
-      '    double peakCai = 0.0;'
+      '    double peakCai = 0.0;',
+      '    double cycleStartHsmL = 0.0;',
+      '    double minHsmL = 0.0;',
+      '    double maxHsmL = 0.0;'
     ].join('\n'),
     'compact output declarations'
   );
@@ -139,9 +142,21 @@ function patchMain(mainText){
       '        fprintf(stderr, "failed to open output file\\n");',
       '        exit(1);',
       '    }',
-      '    fprintf(CompactFile, "time_s,protocol,peak_Fb_mN_per_mm2,end_cycle_pHi,end_cycle_ExtCell_O2o_mM,end_cycle_O2i_mM,end_cycle_ATPTotal_mM,end_cycle_PCr_mM,end_cycle_Pi_mM,peak_Cyt_Cai_mM\\n");'
+      '    fprintf(CompactFile, "time_s,protocol,peak_Fb_mN_per_mm2,end_cycle_pHi,end_cycle_ExtCell_O2o_mM,end_cycle_O2i_mM,end_cycle_ATPTotal_mM,end_cycle_PCr_mM,end_cycle_Pi_mM,peak_Cyt_Cai_mM,start_cycle_hsmL_um,min_cycle_hsmL_um,max_cycle_hsmL_um,end_cycle_hsmL_um,end_cycle_hsmX_um\\n");'
     ].join('\n'),
     'output file open'
+  );
+
+  mainText=replaceOnce(
+    mainText,
+    '    fclose(Initial1);',
+    [
+      '    fclose(Initial1);',
+      '    cycleStartHsmL = y[IDX_hsmL];',
+      '    minHsmL = y[IDX_hsmL];',
+      '    maxHsmL = y[IDX_hsmL];'
+    ].join('\n'),
+    'sarcomere cycle initialization'
   );
 
   mainText=replaceOnce(
@@ -153,7 +168,9 @@ function patchMain(mainText){
       '            dydt(tb + tr, dyCompact, y, v);',
       '        }',
       '        if (v[IDX_Fb] > peakFb) peakFb = v[IDX_Fb];',
-      '        if (v[IDX_Cyt_Cai] > peakCai) peakCai = v[IDX_Cyt_Cai];'
+      '        if (v[IDX_Cyt_Cai] > peakCai) peakCai = v[IDX_Cyt_Cai];',
+      '        if (y[IDX_hsmL] < minHsmL) minHsmL = y[IDX_hsmL];',
+      '        if (y[IDX_hsmL] > maxHsmL) maxHsmL = y[IDX_hsmL];'
     ].join('\n'),
     'cycle peak tracking without binary dump I/O'
   );
@@ -163,13 +180,17 @@ function patchMain(mainText){
     '        if (fabs(tr - STIM_INTERVAL) <= DBL_EPSILON * STIM_INTERVAL) {',
     [
       '        if (fabs(tr - STIM_INTERVAL) <= DBL_EPSILON * STIM_INTERVAL) {',
-      '            fprintf(CompactFile, "%.9g,%s,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g\\n",',
+      '            fprintf(CompactFile, "%.9g,%s,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g\\n",',
       '                (tb + tr) / 1000.0, source_phase_label(protocolLabel), peakFb,',
       '                v[IDX_Cyt_pHi], v[IDX_ExtCell_O2o], y[IDX_O2i],',
-      '                y[IDX_ATPTotal], y[IDX_PhosphoCreatine], v[IDX_PITotal], peakCai);',
+      '                y[IDX_ATPTotal], y[IDX_PhosphoCreatine], v[IDX_PITotal], peakCai,',
+      '                cycleStartHsmL, minHsmL, maxHsmL, y[IDX_hsmL], y[IDX_hsmX]);',
       '            fflush(CompactFile);',
       '            peakFb = 0.0;',
-      '            peakCai = 0.0;'
+      '            peakCai = 0.0;',
+      '            cycleStartHsmL = y[IDX_hsmL];',
+      '            minHsmL = y[IDX_hsmL];',
+      '            maxHsmL = y[IDX_hsmL];'
     ].join('\n'),
     'cycle row output'
   );
