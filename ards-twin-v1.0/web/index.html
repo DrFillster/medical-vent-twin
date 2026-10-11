@@ -148,27 +148,35 @@
 <article><h3>Plateau pressure</h3><p><span id="clinical-pplat">—</span><small> cmH₂O</small></p></article>
 <article><h3>Driving pressure</h3><p><span id="clinical-dp">—</span><small> cmH₂O</small></p></article>
 </div>
-<div class="clinical-grid monitor-grid">
-<article><h3>Vent mode</h3><p><span id="clinical-current-mode">—</span></p></article>
-
-<article><h3>FiO₂</h3><p><span id="clinical-current-fio2">—</span></p></article>
-<article><h3>Respiratory rate</h3><p><span id="clinical-current-rr">—</span><small> /min</small></p></article>
-<article><h3>Tidal volume</h3><p><span id="clinical-current-vt">—</span><small> mL</small></p></article>
-<article><h3>PaO₂</h3><p><span id="clinical-pao2">—</span><small> mmHg</small></p></article>
-<article><h3>PaCO₂</h3><p><span id="clinical-paco2">—</span><small> mmHg</small></p></article>
-<article><h3>pH</h3><p><span id="clinical-ph">—</span></p></article>
-<article><h3>Mixed venous O₂ saturation</h3><p><span id="clinical-svo2">—</span><small> %</small></p></article>
-<article><h3>Mixed venous PO₂</h3><p><span id="clinical-pvo2">—</span><small> mmHg</small></p></article>
-<article><h3>Heart rate</h3><p><span id="clinical-hr">—</span></p></article>
-<article><h3>HumMod SA-node rate</h3><p><span id="clinical-source-hr">—</span><small> /min</small></p></article>
-<article><h3>Empirical HR overlay</h3><p><span id="clinical-hr-overlay">—</span><small> /min</small></p></article>
-<article><h3>Brain tissue PO₂</h3><p><span id="clinical-brain-po2">—</span><small> mmHg</small></p></article>
-<article><h3>Brain function effect</h3><p><span id="clinical-brain-function">—</span></p></article>
+<div class="clinical-grid monitor-grid physician-monitor-grid">
+<article><h3>Heart rate</h3><p><span id="clinical-hr">—</span><small> /min</small></p></article>
 <article><h3>Mean arterial pressure</h3><p><span id="clinical-map">—</span><small> mmHg</small></p></article>
 <article><h3>Cardiac output</h3><p><span id="clinical-co">—</span><small> L/min</small></p></article>
 <article><h3>Stroke volume</h3><p><span id="clinical-sv">—</span><small> mL</small></p></article>
 <article><h3>SVR</h3><p><span id="clinical-svr">—</span><small> mmHg·min/L</small></p></article>
 <article><h3>PVR</h3><p><span id="clinical-pvr">—</span><small> mmHg·min/L</small></p></article>
+<article><h3>CVP / RAP</h3><p><span id="clinical-rap">—</span><small> mmHg</small></p></article>
+<article><h3>Pulmonary artery pressure</h3><p><span id="clinical-pap">—</span><small> mmHg</small></p></article>
+<article><h3>Arterial O₂ saturation</h3><p><span id="clinical-sao2">—</span><small> %</small></p></article>
+<article><h3>PaO₂</h3><p><span id="clinical-pao2">—</span><small> mmHg</small></p></article>
+<article><h3>PaCO₂</h3><p><span id="clinical-paco2">—</span><small> mmHg</small></p></article>
+<article><h3>pH</h3><p><span id="clinical-ph">—</span></p></article>
+<article><h3>Mixed venous O₂ saturation</h3><p><span id="clinical-svo2">—</span><small> %</small></p></article>
+<article><h3>Mixed venous PO₂</h3><p><span id="clinical-pvo2">—</span><small> mmHg</small></p></article>
+<article><h3>Vent mode</h3><p><span id="clinical-current-mode">—</span></p></article>
+<article><h3>FiO₂</h3><p><span id="clinical-current-fio2">—</span></p></article>
+<article><h3>Respiratory rate</h3><p><span id="clinical-current-rr">—</span><small> /min</small></p></article>
+<article><h3>Tidal volume</h3><p><span id="clinical-current-vt">—</span><small> mL</small></p></article>
+</div>
+
+<details class="advanced physician-diagnostics">
+<summary>Research diagnostics</summary>
+<p class="hint">These values are model-development diagnostics, not primary bedside variables.</p>
+<div class="clinical-grid monitor-grid">
+<article><h3>Source SA-node rate</h3><p><span id="clinical-source-hr">—</span><small> /min</small></p></article>
+<article><h3>Empirical HR overlay</h3><p><span id="clinical-hr-overlay">—</span><small> /min</small></p></article>
+<article><h3>Brain tissue PO₂</h3><p><span id="clinical-brain-po2">—</span><small> mmHg</small></p></article>
+<article><h3>Brain function effect</h3><p><span id="clinical-brain-function">—</span></p></article>
 <article><h3>Systemic circulation</h3><p><span id="clinical-circulation-mode">—</span></p></article>
 <article><h3>Sympathetic firing</h3><p><span id="clinical-sympathetic-hz">—</span><small> Hz</small></p></article>
 <article><h3>Vagal firing</h3><p><span id="clinical-vagal-hz">—</span><small> Hz</small></p></article>
@@ -176,27 +184,28 @@
 <article><h3>Norepinephrine</h3><p><span id="clinical-ne">—</span><small> pg/mL</small></p></article>
 <article><h3>Epinephrine</h3><p><span id="clinical-epi">—</span><small> pg/mL</small></p></article>
 </div>
+</details>
 
 <section class="card physician-comparison-card">
-<div class="card-heading"><h2>HumMod vs published-model interim</h2><span class="pill">Physician comparison</span></div>
+<div class="card-heading"><h2>Current model vs published-model shadow</h2><span class="pill">Physician comparison</span></div>
 <p class="hint"><strong>Publication gate:</strong> an interim physician-evaluation build must expose clinically interpretable side-by-side outputs. HR is now available from the published-model heart-period pathway; MAP, CO, SV, and SVR remain explicitly unavailable until downstream vascular/contractility mappings are source-complete.</p>
 <div class="clinical-grid monitor-grid">
-<article><h3>HumMod HR</h3><p><span id="clinical-compare-live-hr">—</span><small> /min</small></p></article>
+<article><h3>Current-model HR</h3><p><span id="clinical-compare-live-hr">—</span><small> /min</small></p></article>
 <article><h3>Published-model HR</h3><p><span id="clinical-compare-shadow-hr">—</span><small> /min</small></p></article>
-<article><h3>HumMod MAP</h3><p><span id="clinical-compare-live-map">—</span><small> mmHg</small></p></article>
+<article><h3>Current-model MAP</h3><p><span id="clinical-compare-live-map">—</span><small> mmHg</small></p></article>
 <article><h3>Published-model MAP</h3><p><span id="clinical-compare-shadow-map">Not source-complete</span></p></article>
-<article><h3>HumMod cardiac output</h3><p><span id="clinical-compare-live-co">—</span><small> L/min</small></p></article>
+<article><h3>Current-model cardiac output</h3><p><span id="clinical-compare-live-co">—</span><small> L/min</small></p></article>
 <article><h3>Published-model cardiac output</h3><p><span id="clinical-compare-shadow-co">Not source-complete</span></p></article>
-<article><h3>HumMod stroke volume</h3><p><span id="clinical-compare-live-sv">—</span><small> mL</small></p></article>
+<article><h3>Current-model stroke volume</h3><p><span id="clinical-compare-live-sv">—</span><small> mL</small></p></article>
 <article><h3>Published-model stroke volume</h3><p><span id="clinical-compare-shadow-sv">Not source-complete</span></p></article>
-<article><h3>HumMod SVR</h3><p><span id="clinical-compare-live-svr">—</span><small> mmHg·min/L</small></p></article>
+<article><h3>Current-model SVR</h3><p><span id="clinical-compare-live-svr">—</span><small> mmHg·min/L</small></p></article>
 <article><h3>Published-model SVR</h3><p><span id="clinical-compare-shadow-svr">Not source-complete</span></p></article>
 <article><h3>Myocardial contractility model</h3><p><span id="clinical-compare-myocardial-status">Not source-complete</span></p></article>\n<article><h3>Native physiology engine</h3><p><span id="clinical-native-engine-status">Not configured</span></p></article>
 </div>
 <p class="hint" id="clinical-compare-status">Published-model HR is an interim secondary transcription and still requires primary-paper verification before control authority.</p>
 </section>
 
-<details class="advanced research-shadow-panel" open>
+<details class="advanced research-shadow-panel">
 <summary>v1.5 research physiology · shadow comparison</summary>
 <p class="hint"><strong>Evaluation only:</strong> these published-model states are diagnostic and have no control authority over HR, vascular tone, venous tone, or the SA node.</p>
 <div class="clinical-grid monitor-grid">
