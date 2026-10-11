@@ -1,10 +1,6 @@
 name: v1.5 Shimayoshi Mild CO2 Grid Extension
 
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - '.github/workflows/v15-shimayoshi-mild-co2-grid.yml'
   workflow_dispatch:
 
 concurrency:
