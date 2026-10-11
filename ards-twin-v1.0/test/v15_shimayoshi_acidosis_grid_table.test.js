@@ -23,7 +23,9 @@ function run(co2,ratio){
 const t=buildTable([run(20,0.9),run(10,0.95)]);
 assert.equal(t.schema,'shimayoshi-acidosis-grid-table/v3');
 assert.deepEqual(t.levels.map(x=>x.sourceChallengeCo2Percent),[10,20]);
-assert.deepEqual(t.levels[0].keyframes,[[300,1],[400,0.95]]);\nassert.equal(t.levels[0].sourceCycleCount,2);\nassert.equal(t.timeCompression.maxAbsoluteStressRatioErrorPerSourceLevel,0.0002);
+assert.deepEqual(t.levels[0].keyframes,[[300,1],[400,0.95]]);
+assert.equal(t.levels[0].sourceCycleCount,2);
+assert.equal(t.timeCompression.maxAbsoluteStressRatioErrorPerSourceLevel,0.0002);
 assert.equal(t.closedLoopAuthority,false);
 console.log('ok - compact acidosis grid table retains source force trajectory and provenance only');
 
