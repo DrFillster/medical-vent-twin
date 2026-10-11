@@ -95,7 +95,9 @@ const payloads={
     stateless:true,
   },
 };
-const fakeFetch=async url=>{
+const observedFetches=[];
+const fakeFetch=async (url,options)=>{
+  observedFetches.push({url,options});
   const path=new URL(url).pathname;
   return {
     ok:true,
@@ -125,7 +127,10 @@ const fakeFetch=async url=>{
   assert.equal(diag.controlAuthority,false);
   assert.equal(c.connectionStatus().status,'connected');
   assert.equal(c.lastState().status,'boundary-only');
-  console.log('ok - browser native-engine client validates read-only non-authoritative boundary');
+  assert(observedFetches.length>=3);
+  assert(observedFetches.every(x=>x.options?.credentials==='include'));
+  assert(observedFetches.every(x=>x.options?.method==='GET'));
+  console.log('ok - browser native-engine client uses authenticated read-only Cloudflare-compatible fetches');
 })().catch(error=>{
   console.error(error.stack||error.message);
   process.exitCode=1;
