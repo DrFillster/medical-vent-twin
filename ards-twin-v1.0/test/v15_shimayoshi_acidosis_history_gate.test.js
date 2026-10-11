@@ -42,14 +42,40 @@ const stillBlocked=gate.evaluate({
 });
 assert.equal(stillBlocked.fixedStepHistorySupported,false);
 
-const reset=gate.evaluate({
+const recovery=gate.evaluate({
+  myocardialPco2MmHg:40,
+  sourceProtocolTimeS:920,
+  phase:'recovery',
+});
+assert.equal(recovery.fixedStepHistorySupported,false);
+
+gate.reset();
+const fixedRecoveryGate=createFixedStepShimayoshiAcidosisHistoryGate({sourceGridTable});
+const challengeForRecovery=fixedRecoveryGate.evaluate({
+  myocardialPco2MmHg:158,
+  sourceProtocolTimeS:400,
+  phase:'challenge',
+});
+assert.equal(challengeForRecovery.fixedStepHistorySupported,true);
+const fixedRecovery=fixedRecoveryGate.evaluate({
+  myocardialPco2MmHg:40,
+  sourceProtocolTimeS:920,
+  phase:'recovery',
+});
+assert.equal(fixedRecovery.fixedStepHistorySupported,true);
+assert.equal(fixedRecovery.lookupMyocardialPco2MmHg,158);
+assert.equal(fixedRecovery.currentMyocardialPco2MmHg,40);
+assert(fixedRecovery.sourcePrediction);
+console.log('ok - recovery uses preceding challenge identity rather than recovered current PCO2');
+
+const reset=fixedRecoveryGate.evaluate({
   myocardialPco2MmHg:40,
   sourceProtocolTimeS:0,
   phase:'control',
 });
 assert.equal(reset.fixedStepHistorySupported,true);
 
-const newChallenge=gate.evaluate({
+const newChallenge=fixedRecoveryGate.evaluate({
   myocardialPco2MmHg:158,
   sourceProtocolTimeS:400,
   phase:'challenge',
