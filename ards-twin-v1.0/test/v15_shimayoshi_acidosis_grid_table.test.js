@@ -29,3 +29,23 @@ assert.equal(t.timeGrid.timeStepS,100);
 assert.equal(t.timeGrid.count,2);
 assert.equal(t.closedLoopAuthority,false);
 console.log('ok - compact acidosis grid table retains source force trajectory and provenance only');
+
+const boundaryRun=run(30,0.9);
+boundaryRun.trajectory=[
+  {time_s:299.6,protocol:'control',peak_Fb_mN_per_mm2:6,stress_ratio:1},
+  {time_s:300.0,protocol:'acidosis',peak_Fb_mN_per_mm2:6,stress_ratio:1},
+  {time_s:300.4,protocol:'acidosis',peak_Fb_mN_per_mm2:5.99,stress_ratio:0.998},
+  {time_s:899.6,protocol:'acidosis',peak_Fb_mN_per_mm2:5.7,stress_ratio:0.95},
+  {time_s:900.0,protocol:'control',peak_Fb_mN_per_mm2:5.7,stress_ratio:0.95},
+];
+const boundaryRun2=JSON.parse(JSON.stringify(boundaryRun));
+boundaryRun2.provenance.sourceChallengeCo2Percent=20;
+const bt=buildTable([boundaryRun2,boundaryRun]);
+for(const level of bt.levels){
+  const times=level.keyframes.map(x=>x[0]);
+  assert(times.includes(299.6));
+  assert(times.includes(300));
+  assert(times.includes(899.6));
+  assert(times.includes(900));
+}
+console.log('ok - adaptive table preserves source phase-boundary cycles explicitly');
