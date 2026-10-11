@@ -94,3 +94,18 @@ CircAdapt/TriSeg remains an independent comparison/shadow architecture. It is
 not the primary adapter for the source-derived Shimayoshi myocardial force.
 
 No whole-heart parameter is fit to HR, MAP, CO, SV, or SVR.
+
+
+## Current extraction cadence
+
+The original source target/output cadence remains the reference at **0.1 ms**.
+
+A control-state benchmark on 2026-10-11 found the 0.2 ms candidate produced a
+mean peak-Fb relative difference of 5.09e-8 versus 0.1 ms over two paced control
+cycles, with the largest tracked relative difference in peak cytosolic Ca at
+2.97e-6.
+
+The first long respiratory-acidosis extraction therefore uses 0.2 ms only as a
+candidate accelerated cadence and includes a separate 0.1 ms source run through
+the acidosis onset for cycle-by-cycle validation. This does not alter model
+equations or parameters.
