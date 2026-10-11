@@ -1,12 +1,26 @@
-# v1.0 deployable Clinical Twin
+# v1.5 deployable Clinical Twin
 
 ## Deployment target
 
-Publish the contents of:
+Use a hybrid Cloudflare deployment:
 
-`ards-twin-v1.0/web/`
+```
+https://hummod.defying-logic.com
+    -> Cloudflare Pages/static web UI
 
-as a static HTTPS site. Cloudflare Pages/static hosting is sufficient. No server-side API, native HumMod executable, or GitHub Actions deployment is required.
+https://engine.hummod.defying-logic.com
+    -> Cloudflare Access
+    -> Cloudflare Tunnel
+    -> Mac 127.0.0.1:8771
+    -> native-engine/
+```
+
+No router/NAT port-forward is required. The Mac initiates the outbound
+`cloudflared` connection.
+
+During migration, the browser v1.5 runtime remains physiologically
+authoritative. The native engine is read-only/shadow until explicit
+browser-vs-native parity gates transfer authority.
 
 Required runtime files:
 
@@ -63,12 +77,59 @@ Do not describe the reduced browser core as the full HumMod executable or as a p
 
 Do not bundle `HumMod.EXE` or the upstream HumMod model tree into the static web root.
 
-## Cloudflare handoff
+## Cloudflare Pages + Tunnel handoff
 
-Cloudflare should serve `ards-twin-v1.0/web/` as the site root after the generated assets have been refreshed with `npm run build`.
+Cloudflare Pages continues to serve `ards-twin-v1.0/web/` as the web UI.
 
-No GitHub Actions workflow is required for deployment. The product branch is:
+The Mac runs the native engine locally:
 
-`main` / `ards-twin-v1.0/`
+```sh
+./scripts/build-native-mac.sh
+./scripts/install-native-engine-launchd.sh
+```
 
-The research workbench remains separate so native HumMod calibration work can continue without destabilizing the deployable product.
+The native service remains bound to:
+
+```
+127.0.0.1:8771
+```
+
+Cloudflare Tunnel publishes that loopback service at:
+
+```
+https://engine.hummod.defying-logic.com
+```
+
+Current Cloudflare guidance recommends a remotely managed Tunnel for most
+deployments. Create/manage the Tunnel in the Cloudflare dashboard and install
+the connector on the Mac using the token command provided by Cloudflare.
+Protect the hostname with a self-hosted Cloudflare Access application before
+broader remote use.
+
+The repository's locally managed `config.yml` template remains available as
+a development/fallback path.
+
+Set the deployed browser endpoint in:
+
+```
+ards-twin-v1.0/web/native-engine-config.js
+```
+
+to:
+
+```js
+window.MEDICAL_TWIN_NATIVE_ENGINE_URL =
+  'https://engine.hummod.defying-logic.com';
+```
+
+The engine CORS allow-origin must remain:
+
+```
+https://hummod.defying-logic.com
+```
+
+The browser client uses credentialed read-only requests so a Cloudflare Access
+session can be presented to the engine hostname.
+
+GitHub Actions remains validation-only. It is not the production runtime or
+deployment mechanism.
