@@ -51,14 +51,16 @@ assert.throws(
 console.log('ok - acidosis source-grid surrogate interpolates only inside validated source domain');
 
 const table={
-  schema:'shimayoshi-acidosis-grid-table/v1',
+  schema:'shimayoshi-acidosis-grid-table/v2',
   upstreamGitSha:'6478d2ab0acbfc88d3da461d2594658bcb2798ca',
   referencePeakFbMnPerMm2:6,
   closedLoopAuthority:false,
+  timeGrid:{startTimeS:300,timeStepS:100,endTimeS:500,count:3},
+  protocolTimingS:{acidosisOn:300,recoveryOn:900},
   levels:[10,20,30].map(c=>({
     sourceChallengeCo2Percent:c,
     cvodeTargetCadenceMs:0.2,
-    rows:run(c,1-(c-10)*0.006).trajectory,
+    stressRatios:run(c,1-(c-10)*0.006).trajectory.map(x=>x.stress_ratio),
   })),
 };
 const fromTable=createAcidosisGridSurrogateFromTable(table);
