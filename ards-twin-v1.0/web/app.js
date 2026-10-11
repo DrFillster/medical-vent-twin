@@ -1108,6 +1108,9 @@
           ventilation: clinicalVentilationPayload(),
           dt: clinicalNumber('clinical-dt'),
         };
+        if (provider === 'live-reduced-hummod') {
+          payload.coupledEquilibrationSec = 600;
+        }
         if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {
           if (!clinicalRecruitmentHistory) {
@@ -1127,7 +1130,7 @@
           payload,
         });
         $('clinical-session-status').textContent = provider === 'live-reduced-hummod'
-          ? 'Initializing Vent + live reduced HumMod cardiopulmonary session…'
+          ? 'Equilibrating Vent + systemic physiology before patient time zero…'
           : 'Initializing Vent + HumMod replay session…';
       } catch (error) {
         showClinicalError(error.message);

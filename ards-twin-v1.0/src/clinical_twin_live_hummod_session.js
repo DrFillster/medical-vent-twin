@@ -158,7 +158,7 @@ function createBerlinLiveHumModSession({
   initializationHistory,
   dt = 0.002,
   mechanicalWarmupSec = 30,
-  systemicEquilibrationSec = 600,
+  coupledEquilibrationSec = 0,
   nativeCalibrationTarget = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
@@ -289,7 +289,7 @@ function createBerlinLiveHumModSession({
   }
   positive(dt, 'dt');
   nonNegative(mechanicalWarmupSec, 'mechanicalWarmupSec');
-  nonNegative(systemicEquilibrationSec, 'systemicEquilibrationSec');
+  nonNegative(coupledEquilibrationSec, 'coupledEquilibrationSec');
 
   const controller = buildLiveController(ventilation);
   const params = makePatientParams(clinicalCase.phenotype.mechanicsParams);
@@ -429,7 +429,7 @@ function createBerlinLiveHumModSession({
       });
       if (Number.isFinite(autonomicShadowState.fSpSpikesPerSec)) {
         downstreamEffectorShadowState = downstreamEffectorShadow.step({
-          timeSec: systemicSnapshot.timeSec,
+          timeSec: patientTimeSec(),
           fSpSpikesPerSec: autonomicShadowState.fSpSpikesPerSec,
           fShSpikesPerSec: autonomicShadowState.fShSpikesPerSec,
         });
@@ -442,20 +442,14 @@ function createBerlinLiveHumModSession({
     return Math.max(0, systemicSnapshot.timeSec - patientTimeOriginSec);
   }
 
-  function equilibrateSystemicBaseline(seconds) {
+  function equilibrateCoupledBaseline(seconds) {
     nonNegative(seconds, 'seconds');
-    let remaining = seconds;
-    while (remaining > 1e-9) {
-      // Numerical initialization only: hold the already-warmed Vent state fixed
-      // and allow the systemic/gas/autonomic states to settle under the exact
-      // starting ventilator boundary. This does not add a physiologic gain.
-      const h = Math.min(10, remaining);
-      systemicSnapshot = systemicRuntime.step({ dtSec: h });
-      updateAutonomicShadow(h);
-      remaining -= h;
-      if (systemicSnapshot.lastStep?.decompensation?.cardiacArrest) {
-        throw new Error('reference patient arrested during numerical baseline equilibration');
-      }
+    // Initialization pre-history: Vent mechanics/recruitment, circulation,
+    // gas exchange, and control systems all advance together under unchanged
+    // starting settings. No new physiologic relationship is introduced.
+    stepCoupled(Math.max(1, seconds));
+    if (systemicSnapshot.lastStep?.decompensation?.cardiacArrest) {
+      throw new Error('reference patient arrested during coupled baseline equilibration');
     }
   }
 
@@ -756,9 +750,9 @@ function createBerlinLiveHumModSession({
         clinicalValidation: false,
         referenceMeanAirwayPressureCmH2O,
         mechanicalWarmupSec,
-        systemicEquilibrationSec,
-        systemicEquilibrationMethod:
-          'fixed-starting-boundary numerical burn-in; systemic state only; no added physiologic gain',
+        coupledEquilibrationSec,
+        coupledEquilibrationMethod:
+          'pre-session coupled Vent + systemic burn-in under unchanged starting settings; no added physiologic gain',
         nativeCalibrationApplied: Boolean(nativeCalibrationTarget),
         nativeGasStateApplied: Boolean(nativeState),
         nativeCirculationStateApplied: Boolean(nativeCirculationVolumes),
@@ -840,17 +834,14 @@ function createBerlinLiveHumModSession({
 
     initialize() {
       if (initialized) return snapshot();
-      equilibrateSystemicBaseline(systemicEquilibrationSec);
-      // One final coupled second synchronizes the fixed systemic burn-in with
-      // the actual Vent clock before exposing the patient to the user.
-      stepCoupled(1);
+      equilibrateCoupledBaseline(coupledEquilibrationSec);
       patientTimeOriginSec = systemicSnapshot.timeSec;
       initialized = true;
       sessionEvents.push(Object.freeze({
         t: 0,
         kind: 'SESSION_INITIALIZED',
         systemicMode: 'live-reduced-hummod-ards-core',
-        numericalEquilibrationSec: systemicEquilibrationSec,
+        numericalEquilibrationSec: coupledEquilibrationSec,
       }));
       return snapshot();
     },

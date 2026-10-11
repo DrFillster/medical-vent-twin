@@ -18,7 +18,7 @@ function makeSession(fio2=0.60){
     initialRecruitmentState:{normal:1,recruitable:0.35,consolidated:0},
     dt:0.002,
     mechanicalWarmupSec:30,
-    systemicEquilibrationSec:600,
+    coupledEquilibrationSec:600,
   });
 }
 
@@ -65,7 +65,7 @@ for(const fio2 of [0.60,0.80,1.00]){
 const out={
   schema:'physician-baseline-audit/v2',
   source:'v1.5 experimental aspiration reference patient',
-  note:'Descriptive audit. The hidden 600-second step is numerical initialization under fixed starting ventilator boundaries, not simulated patient time.',
+  note:'Descriptive audit. The hidden 600-second pre-history advances Vent and systemic physiology together under unchanged starting settings; exposed patient time begins afterward.',
   cases,
 };
 const dir=path.resolve(__dirname,'../physician-audit-results');
