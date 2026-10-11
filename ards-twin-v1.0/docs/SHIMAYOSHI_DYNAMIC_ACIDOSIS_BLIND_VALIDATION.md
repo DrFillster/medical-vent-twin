@@ -69,7 +69,7 @@ Maximum relative error by segment:
 - 20% CO2: 0.465%
 - recovery: 1.108%
 
-The largest error occurred at 909.2 s during recovery.
+The largest relative error occurred at 908.8 s during recovery.
 
 ## Interpretation
 
@@ -86,3 +86,7 @@ Remaining limitations:
 2. The blind protocol used stepwise changes, not continuously varying CO2.
 3. Whole-heart LV-pressure coupling remains non-authoritative.
 4. This result is source-model validation, not clinical validation.
+
+
+Durable validation artifact:
+`artifacts/v1.5/SHIMAYOSHI_DYNAMIC_CO2_BLIND_VALIDATION_V2.json`
