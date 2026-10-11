@@ -1,7 +1,11 @@
 name: Native Engine Boundary Smoke
-# revision: native myocardial pressure shadow parity v1
+# revision: native myocardial diagnostic endpoint v1
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/native-engine-boundary-smoke.yml'
   workflow_dispatch:
 
 permissions:
@@ -35,11 +39,13 @@ jobs:
           set -eu
           curl --fail --silent --dump-header native-health.headers http://127.0.0.1:8771/health --output native-health.json
           curl --fail --silent http://127.0.0.1:8771/state --output native-state.json
+          curl --fail --silent "http://127.0.0.1:8771/diagnostics/myocardium/acidosis?myocardial_pco2_mmhg=158&lv_volume_ml=120&dt_s=0.4&steps=300" --output native-acidosis.json
           cat native-health.headers
           cat native-health.json
           cat native-state.json
+          cat native-acidosis.json
           grep -i '^Access-Control-Allow-Origin: https://hummod.defying-logic.com' native-health.headers
-          node -e "const fs=require('fs'); const h=JSON.parse(fs.readFileSync('native-health.json','utf8')); const s=JSON.parse(fs.readFileSync('native-state.json','utf8')); if(h.status!=='ok') throw new Error('health status'); if(h.physiologyAuthority!==false||h.controlAuthority!==false) throw new Error('health authority'); if(s.status!=='boundary-only') throw new Error('state status'); if(s.physiologyAuthority!==false||s.controlAuthority!==false) throw new Error('state authority'); if(s.patientState!==null) throw new Error('patient state must remain null');"
+          node -e "const fs=require('fs'); const h=JSON.parse(fs.readFileSync('native-health.json','utf8')); const s=JSON.parse(fs.readFileSync('native-state.json','utf8')); const d=JSON.parse(fs.readFileSync('native-acidosis.json','utf8')); if(h.status!=='ok') throw new Error('health status'); if(h.physiologyAuthority!==false||h.controlAuthority!==false) throw new Error('health authority'); if(s.status!=='boundary-only') throw new Error('state status'); if(s.physiologyAuthority!==false||s.controlAuthority!==false) throw new Error('state authority'); if(s.patientState!==null) throw new Error('patient state must remain null'); if(d.schema!=='native-acidosis-diagnostic/v1') throw new Error('diagnostic schema'); if(d.physiologyAuthority!==false||d.controlAuthority!==false||d.stateless!==true) throw new Error('diagnostic authority'); if(!(d.stressRatio<1)) throw new Error('diagnostic stress response'); if(!Number.isFinite(d.lvPressureMmHg)) throw new Error('diagnostic pressure');"
 
       - name: Verify browser native boundary
         working-directory: ards-twin-v1.0
