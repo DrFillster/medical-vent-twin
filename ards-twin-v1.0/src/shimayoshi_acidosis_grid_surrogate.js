@@ -63,7 +63,7 @@ function interpolateRowsAtTime(rows,timeS){
 
 function tableToRuns(table){
   if(!table||
-     table.schema!=='shimayoshi-acidosis-grid-table/v1'||
+     !['shimayoshi-acidosis-grid-table/v1','shimayoshi-acidosis-grid-table/v2'].includes(table.schema)||
      !Array.isArray(table.levels)||
      table.levels.length<2){
     throw new Error('validated Shimayoshi acidosis grid table is required');
@@ -71,17 +71,66 @@ function tableToRuns(table){
   if(table.closedLoopAuthority!==false){
     throw new Error('source grid table must not claim closed-loop authority');
   }
-  return table.levels.map(level=>Object.freeze({
-    status:'shimayoshi-source-stress-trajectory-validated',
-    provenance:Object.freeze({
-      protocolName:'acidosis',
-      sourceChallengeCo2Percent:level.sourceChallengeCo2Percent,
-      upstreamGitSha:table.upstreamGitSha,
-      cvodeTargetCadenceMs:level.cvodeTargetCadenceMs,
-    }),
-    referencePeakStressMnPerMm2:table.referencePeakFbMnPerMm2,
-    trajectory:Object.freeze(level.rows.map(row=>Object.freeze({...row}))),
-  }));
+
+  if(table.schema==='shimayoshi-acidosis-grid-table/v1'){
+    return table.levels.map(level=>Object.freeze({
+      status:'shimayoshi-source-stress-trajectory-validated',
+      provenance:Object.freeze({
+        protocolName:'acidosis',
+        sourceChallengeCo2Percent:level.sourceChallengeCo2Percent,
+        upstreamGitSha:table.upstreamGitSha,
+        cvodeTargetCadenceMs:level.cvodeTargetCadenceMs,
+      }),
+      referencePeakStressMnPerMm2:table.referencePeakFbMnPerMm2,
+      trajectory:Object.freeze(level.rows.map(row=>Object.freeze({...row}))),
+    }));
+  }
+
+  const g=table.timeGrid;
+  if(!g||
+     typeof g.startTimeS!=='number'||
+     typeof g.timeStepS!=='number'||
+     typeof g.count!=='number'||
+     !(g.timeStepS>0)||
+     !(g.count>=2)){
+    throw new Error('v2 source grid table requires a valid timeGrid');
+  }
+  const timing=table.protocolTimingS||{};
+  if(typeof timing.acidosisOn!=='number'||typeof timing.recoveryOn!=='number'){
+    throw new Error('v2 source grid table requires protocol timing');
+  }
+
+  return table.levels.map(level=>{
+    if(!Array.isArray(level.stressRatios)||level.stressRatios.length!==g.count){
+      throw new Error('v2 source grid stressRatios must match timeGrid count');
+    }
+    const trajectory=level.stressRatios.map((stressRatio,i)=>{
+      if(typeof stressRatio!=='number'||!Number.isFinite(stressRatio)||stressRatio<0){
+        throw new Error('v2 source grid stress ratio must be finite and >= 0');
+      }
+      const time_s=g.startTimeS+i*g.timeStepS;
+      const protocol=time_s>=timing.acidosisOn&&time_s<timing.recoveryOn
+        ? 'acidosis'
+        : 'control';
+      return Object.freeze({
+        time_s,
+        protocol,
+        stress_ratio:stressRatio,
+        peak_Fb_mN_per_mm2:stressRatio*table.referencePeakFbMnPerMm2,
+      });
+    });
+    return Object.freeze({
+      status:'shimayoshi-source-stress-trajectory-validated',
+      provenance:Object.freeze({
+        protocolName:'acidosis',
+        sourceChallengeCo2Percent:level.sourceChallengeCo2Percent,
+        upstreamGitSha:table.upstreamGitSha,
+        cvodeTargetCadenceMs:level.cvodeTargetCadenceMs,
+      }),
+      referencePeakStressMnPerMm2:table.referencePeakFbMnPerMm2,
+      trajectory:Object.freeze(trajectory),
+    });
+  });
 }
 
 function createAcidosisGridSurrogateFromTable(table){
