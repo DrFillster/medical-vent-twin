@@ -43,7 +43,7 @@ const co2=calculateMyocardialCo2Derivatives({
   arterialHco3:input.arterialHco3,
   dxMin:input.dxMin,
 });
-const ph=phCells({pCO2:co2.pCO2,SID:sid.sid});
+const ph=phCells({pCO2:co2.pCO2,SID:sid.sidMeqPerL});
 
 assert.equal(composed.myocardialSid,sid.sid);
 assert.equal(composed.myocardialPco2,co2.pCO2);
