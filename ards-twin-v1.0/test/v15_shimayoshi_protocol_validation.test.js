@@ -50,3 +50,19 @@ const seg=phaseSegments([
 assert.equal(seg[0].rowCount,2);
 assert.equal(seg[1].phase,'acidosis');
 console.log('ok - phase segmentation preserves source-state boundaries');
+
+assert.throws(
+  ()=>validateProtocolTrajectory([
+    row(0.4,'control'),
+    row(200.0,'ischemia'),
+  ],'ischemia'),
+  /does not match pinned source timing/
+);
+assert.throws(
+  ()=>validateProtocolTrajectory([
+    row(0.4,'control'),
+    row(310.0,'acidosis'),
+  ],'acidosis'),
+  /does not match pinned source timing/
+);
+console.log('ok - source challenge transition timing is pinned to upstream protocol');
