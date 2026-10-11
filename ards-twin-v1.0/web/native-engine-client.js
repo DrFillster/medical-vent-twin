@@ -10,6 +10,7 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(){
   const HEALTH_SCHEMA='native-engine-health/v1';
   const STATE_SCHEMA='native-engine-state/v1';
+  const ACIDOSIS_DIAGNOSTIC_SCHEMA='native-acidosis-diagnostic/v1';
 
   function normalizeBaseUrl(baseUrl){
     if(typeof baseUrl!=='string'||!baseUrl.trim()){
@@ -36,6 +37,22 @@
     }
     if(value.status==='boundary-only'&&value.patientState!==null){
       throw new Error('boundary-only native state must not contain patient state');
+    }
+    return Object.freeze({...value});
+  }
+
+  function validateAcidosisDiagnostic(value){
+    if(!value||typeof value!=='object'){
+      throw new Error('native acidosis diagnostic payload must be an object');
+    }
+    if(value.schema!==ACIDOSIS_DIAGNOSTIC_SCHEMA){
+      throw new Error('unexpected native acidosis diagnostic schema');
+    }
+    if(value.physiologyAuthority!==false||value.controlAuthority!==false){
+      throw new Error('native diagnostic must not claim authority');
+    }
+    if(value.stateless!==true){
+      throw new Error('native acidosis diagnostic must be stateless');
     }
     return Object.freeze({...value});
   }
@@ -96,6 +113,38 @@
       }
     }
 
+    async function acidosisDiagnostic({
+      myocardialPco2MmHg,
+      lvVolumeMl,
+      dtSec,
+      steps,
+    }={}){
+      const values=[
+        ['myocardialPco2MmHg',myocardialPco2MmHg],
+        ['lvVolumeMl',lvVolumeMl],
+        ['dtSec',dtSec],
+      ];
+      for(const [label,value] of values){
+        if(typeof value!=='number'||!Number.isFinite(value)){
+          throw new Error(label+' must be finite');
+        }
+      }
+      if(!Number.isInteger(steps)||steps<1){
+        throw new Error('steps must be a positive integer');
+      }
+
+      const query=[
+        'myocardial_pco2_mmhg='+encodeURIComponent(String(myocardialPco2MmHg)),
+        'lv_volume_ml='+encodeURIComponent(String(lvVolumeMl)),
+        'dt_s='+encodeURIComponent(String(dtSec)),
+        'steps='+encodeURIComponent(String(steps)),
+      ].join('&');
+
+      return validateAcidosisDiagnostic(
+        await getJson('/diagnostics/myocardium/acidosis?'+query)
+      );
+    }
+
     function connectionStatus(nowMs=Date.now()){
       if(lastError){
         return Object.freeze({
@@ -128,11 +177,13 @@
       baseUrl:base,
       health,
       state,
+      acidosisDiagnostic,
       connectionStatus,
       lastState:()=>lastState,
       schemas:Object.freeze({
         health:HEALTH_SCHEMA,
         state:STATE_SCHEMA,
+        acidosisDiagnostic:ACIDOSIS_DIAGNOSTIC_SCHEMA,
       }),
       physiologyAuthority:false,
       controlAuthority:false,
@@ -142,8 +193,10 @@
   return Object.freeze({
     HEALTH_SCHEMA,
     STATE_SCHEMA,
+    ACIDOSIS_DIAGNOSTIC_SCHEMA,
     validateHealth,
     validateState,
+    validateAcidosisDiagnostic,
     createNativeEngineClient,
   });
 });
