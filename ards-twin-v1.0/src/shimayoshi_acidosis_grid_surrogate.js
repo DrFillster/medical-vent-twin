@@ -61,6 +61,33 @@ function interpolateRowsAtTime(rows,timeS){
   });
 }
 
+function tableToRuns(table){
+  if(!table||
+     table.schema!=='shimayoshi-acidosis-grid-table/v1'||
+     !Array.isArray(table.levels)||
+     table.levels.length<2){
+    throw new Error('validated Shimayoshi acidosis grid table is required');
+  }
+  if(table.closedLoopAuthority!==false){
+    throw new Error('source grid table must not claim closed-loop authority');
+  }
+  return table.levels.map(level=>Object.freeze({
+    status:'shimayoshi-source-stress-trajectory-validated',
+    provenance:Object.freeze({
+      protocolName:'acidosis',
+      sourceChallengeCo2Percent:level.sourceChallengeCo2Percent,
+      upstreamGitSha:table.upstreamGitSha,
+      cvodeTargetCadenceMs:level.cvodeTargetCadenceMs,
+    }),
+    referencePeakStressMnPerMm2:table.referencePeakFbMnPerMm2,
+    trajectory:Object.freeze(level.rows.map(row=>Object.freeze({...row}))),
+  }));
+}
+
+function createAcidosisGridSurrogateFromTable(table){
+  return createAcidosisGridSurrogate(tableToRuns(table));
+}
+
 function createAcidosisGridSurrogate(runs){
   if(!Array.isArray(runs)||runs.length<2){
     throw new Error('at least two validated source challenge runs are required');
@@ -118,4 +145,6 @@ module.exports=Object.freeze({
   bracket,
   interpolateRowsAtTime,
   createAcidosisGridSurrogate,
+  tableToRuns,
+  createAcidosisGridSurrogateFromTable,
 });
