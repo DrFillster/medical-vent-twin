@@ -44,7 +44,10 @@ jobs:
       - name: Physician baseline audit
         run: node scripts/physician-baseline-audit.js
 
-      - name: Upload baseline audit
+      - name: Canonical HR candidate challenge
+        run: node scripts/canonical-hr-candidate-challenge.js
+
+      - name: Upload baseline and candidate audits
         uses: actions/upload-artifact@v4
         with:
           name: v15-physician-baseline-audit
