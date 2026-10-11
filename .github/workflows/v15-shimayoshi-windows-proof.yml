@@ -1,0 +1,98 @@
+name: v1.5 Shimayoshi Windows Proof
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-shimayoshi-windows-proof.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: v15-shimayoshi-windows-proof
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  source-build-proof:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Vent v1.5
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Shimayoshi source
+        uses: actions/checkout@v4
+        with:
+          repository: atakeuti/TS-AT-SM-2026-IRmodel
+          ref: 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          path: shimayoshi-upstream
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Patch source for compact control extraction
+        run: node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream control
+
+      - name: Capture exact source diff
+        shell: pwsh
+        run: |
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 shimayoshi-source-diff.patch
+          git -C shimayoshi-upstream rev-parse HEAD | Out-File -Encoding ascii shimayoshi-upstream-sha.txt
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build pinned upstream simulator
+        shell: pwsh
+        run: msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run short source-model control proof
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 4.0 shimayoshi_control_cycles.csv control
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Content shimayoshi_control_cycles.csv -TotalCount 12
+
+      - name: Build provenance manifest
+        shell: pwsh
+        run: |
+          $diff = Get-Content shimayoshi-source-diff.patch -Raw
+          $manifest = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            exactCodeDiff = $diff
+            simulationDuration = '4.0 s source-model execution proof'
+            protocolEnabled = 'control; ischemia disabled; respiratory acidosis disabled'
+            outputCadence = 'one row per 400 ms paced cycle'
+            physiologyChanged = $false
+          }
+          $manifest | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 SHIMAYOSHI_SOURCE_RUN.json
+
+      - name: Validate generated CSV through v1.5 importer
+        shell: pwsh
+        working-directory: ards-twin-v1.0
+        run: |
+          npm ci
+          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv ../shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv ../SHIMAYOSHI_SOURCE_RUN.json ../shimayoshi_source_proof_import.json
+          node -e "const x=require('../shimayoshi_source_proof_import.json'); if(x.status!=='shimayoshi-source-stress-trajectory-validated'||!x.trajectory.length) process.exit(1); console.log({status:x.status,cycles:x.trajectory.length,referencePeakStressMnPerMm2:x.referencePeakStressMnPerMm2});"
+
+      - name: Upload proof artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-source-build-proof
+          path: |
+            shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv
+            SHIMAYOSHI_SOURCE_RUN.json
+            shimayoshi-source-diff.patch
+            shimayoshi-upstream-sha.txt
+            shimayoshi_source_proof_import.json
+          if-no-files-found: warn
+          retention-days: 14
