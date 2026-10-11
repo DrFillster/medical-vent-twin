@@ -151,14 +151,24 @@ function patchMain(mainText){
 
   mainText=replaceOnce(
     mainText,
-    '    fclose(Initial1);',
     [
+      '    for (i = 0; i < NOPRungeKutta_; i++) {',
+      '        rc = fscanf(Initial1, "%s%lf", x[i], &y[i]);',
+      '    }',
+      '',
+      '    fclose(Initial1);'
+    ].join('\n'),
+    [
+      '    for (i = 0; i < NOPRungeKutta_; i++) {',
+      '        rc = fscanf(Initial1, "%s%lf", x[i], &y[i]);',
+      '    }',
+      '',
       '    fclose(Initial1);',
       '    cycleStartHsmL = y[IDX_hsmL];',
       '    minHsmL = y[IDX_hsmL];',
       '    maxHsmL = y[IDX_hsmL];'
     ].join('\n'),
-    'sarcomere cycle initialization'
+    'sarcomere cycle initialization after source initial-state load'
   );
 
   mainText=replaceOnce(
