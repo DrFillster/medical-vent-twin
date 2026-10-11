@@ -56,3 +56,22 @@ assert.throws(
   /validated Shimayoshi source run is required/
 );
 console.log('ok - arbitrary unvalidated stress object is rejected');
+
+const zeroChallenge=[
+  header,
+  '0.4,terminal-ischemia,0,6.5,0.001,0.0001,2.0,1.0,8.0,0.0002',
+].join('\n');
+const zeroRun=buildSourceStressTrajectory({
+  controlCsvText:control,
+  challengeCsvText:zeroChallenge,
+  manifest,
+});
+const zeroOut=myocardialPressureFromValidatedSourceCycle({
+  lvVolumeMl:120,
+  validatedSourceRun:zeroRun,
+  cycleIndex:0,
+});
+assert.equal(zeroOut.sourceCellularActiveStressMnPerMm2,0);
+assert.equal(zeroOut.sourceStressProvenance.stressRatio,0);
+assert.ok(Number.isFinite(zeroOut.lvPressureMmHg));
+console.log('ok - terminal zero active stress propagates through passive LV pressure only');
