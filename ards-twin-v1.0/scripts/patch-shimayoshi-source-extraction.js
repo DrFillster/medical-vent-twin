@@ -16,6 +16,10 @@ function replaceOnce(text,from,to,label){
   return text.slice(0,i)+to+text.slice(i+from.length);
 }
 
+function normalizeSourceText(text){
+  return text.replace(/\r\n/g,'\n');
+}
+
 function patchProtocol(modelText,protocol){
   const ischemiaOn=protocol==='ischemia';
   const acidosisOn=protocol==='acidosis';
@@ -175,8 +179,8 @@ function main(argv=process.argv.slice(2)){
 
   const mainPath=path.join(root,'simulator','main.cpp');
   const modelPath=path.join(root,'simulator','model.cpp');
-  const mainOriginal=fs.readFileSync(mainPath,'utf8').replace(/\r\n/g,'\n');
-  const modelOriginal=fs.readFileSync(modelPath,'utf8').replace(/\r\n/g,'\n');
+  const mainOriginal=normalizeSourceText(fs.readFileSync(mainPath,'utf8'));
+  const modelOriginal=normalizeSourceText(fs.readFileSync(modelPath,'utf8'));
 
   fs.writeFileSync(mainPath,patchMain(mainOriginal));
   fs.writeFileSync(modelPath,patchProtocol(modelOriginal,protocol));
@@ -195,4 +199,4 @@ if(require.main===module){
   catch(error){ console.error(error.stack||error.message); process.exitCode=1; }
 }
 
-module.exports=Object.freeze({PINNED_SHA,patchProtocol,patchMain,main});
+module.exports=Object.freeze({PINNED_SHA,normalizeSourceText,patchProtocol,patchMain,main});
