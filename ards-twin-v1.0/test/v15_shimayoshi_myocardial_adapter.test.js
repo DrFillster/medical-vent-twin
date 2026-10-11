@@ -45,6 +45,8 @@ assert.equal(out.status,'source-stress-to-LV-pressure-shadow-complete');
 assert.equal(out.sourceCellularActiveStressMnPerMm2,8);
 assert.equal(out.sourceStressProvenance.stressRatio,0.8);
 assert.equal(out.sourceStressProvenance.physiologyChanged,false);
+assert.equal(out.sourceStressProvenance.sourceProtocolName,'control');
+assert.equal(out.sourceStressProvenance.protocolValidationStatus,'source-protocol-trajectory-valid');
 assert.ok(Number.isFinite(out.lvPressureMmHg));
 console.log('ok - only validated source cycle enters myocardial LV pressure shadow');
 
