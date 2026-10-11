@@ -66,16 +66,16 @@ test('v1.21 generated browser bundle runs live HumMod beyond the 2-second regres
 
   const session = makeLiveSession(VENT);
   const initialized = session.initialize();
-  assert(initialized.timeSec >= 1,
-    'live session did not complete its initialization step');
+  assert(Math.abs(initialized.timeSec) < 1e-9,
+    'live session must expose patient-relative time zero after initialization');
 
   const baseline = session.runFor(20);
-  assert(baseline.timeSec >= 21,
+  assert(baseline.timeSec >= 20,
     'live session failed to advance well beyond the prior 2-second stop');
 
   session.setPEEP(14);
   const after = session.runFor(10);
-  assert(after.timeSec >= 31,
+  assert(after.timeSec >= 30,
     'live session failed during continued coupled execution');
   assert(after.ventilator.peepCmH2O === 14,
     'PEEP intervention did not persist');
