@@ -1,0 +1,41 @@
+name: v1.5 Shimayoshi Artifact Analysis
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-shimayoshi-artifact-analysis.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  summarize-acidosis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout v1.5
+        uses: actions/checkout@v4
+
+      - name: Download validated acidosis artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v15-shimayoshi-acidosis-source-extraction
+          path: source-artifact
+          repository: DrFillster/medical-vent-twin
+          run-id: 38151204764
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summarize validated source trajectory
+        run: |
+          node ards-twin-v1.0/scripts/summarize-shimayoshi-source-run.js source-artifact/shimayoshi_acidosis_import.json SHIMAYOSHI_ACIDOSIS_SUMMARY.json
+          cat SHIMAYOSHI_ACIDOSIS_SUMMARY.json
+
+      - name: Upload summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-acidosis-summary
+          path: SHIMAYOSHI_ACIDOSIS_SUMMARY.json
+          retention-days: 14
