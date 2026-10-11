@@ -26,13 +26,21 @@ function finitePositiveOrNull(v,label){
   return v;
 }
 
+function finiteNonnegativeOrNull(v,label){
+  if(v==null) return null;
+  if(typeof v!=='number'||!Number.isFinite(v)||v<0){
+    throw new Error(label+' must be finite and >= 0 when provided');
+  }
+  return v;
+}
+
 function myocardialLvPressureShadow({
   lvVolumeMl=null,
   sourceCellularActiveStressMnPerMm2=null,
   sourceStressProvenance=null,
 }={}){
   const V=finitePositiveOrNull(lvVolumeMl,'lvVolumeMl');
-  const stress=finitePositiveOrNull(
+  const stress=finiteNonnegativeOrNull(
     sourceCellularActiveStressMnPerMm2,
     'sourceCellularActiveStressMnPerMm2'
   );
