@@ -60,7 +60,7 @@ function myocardialAcidBaseState({
 
   const phState=phCells({
     pCO2:co2State.pCO2,
-    SID:sidState.sid,
+    SID:sidState.sidMeqPerL,
   });
 
   return Object.freeze({
