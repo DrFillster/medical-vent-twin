@@ -1,5 +1,5 @@
 name: v1.5 Shimayoshi Windows Proof
-# proof revision 4: actual CRLF normalization
+# proof revision 5: generated helper newline fix
 
 on:
   push:
