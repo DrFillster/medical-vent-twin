@@ -103,7 +103,7 @@ function validateProtocolTrajectory(rows,protocol){
     }
   }
 
-  const toleranceS=SOURCE_TIMING.pacingCycleS;
+  const toleranceS=SOURCE_TIMING.pacingCycleS+1e-9; // numeric comparison slack only
 
   if(protocol==='ischemia'){
     const ischemiaSegment=segments.find(x=>x.phase==='ischemia');
