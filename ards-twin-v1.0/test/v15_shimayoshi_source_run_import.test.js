@@ -20,8 +20,8 @@ const challenge=[
   '0.8,control,5,6.9,0.04,0.02,4.0,6.0,2.0,0.0013',
 ].join('\n');
 
-const manifest={
-  upstreamGitSha:'abcdef1234567',
+const controlManifest={
+  upstreamGitSha:'6478d2ab0acbfc88d3da461d2594658bcb2798ca',
   compilerBuildEnvironment:'test fixture only',
   exactCodeDiff:'output-only instrumentation fixture',
   simulationDuration:'fixture',
@@ -36,17 +36,19 @@ assert.equal(parsed.length,2);
 assert.equal(parsed[0].protocol,'control');
 console.log('ok - Shimayoshi source CSV schema parses exact compact output');
 
-assert.equal(validateManifest(manifest).physiologyChanged,false);
+assert.equal(validateManifest(controlManifest).physiologyChanged,false);
 assert.throws(
-  ()=>validateManifest({...manifest,physiologyChanged:true}),
+  ()=>validateManifest({...controlManifest,physiologyChanged:true}),
   /physiologyChanged must be false/
 );
 console.log('ok - source manifest fails closed when physiology was changed');
 
+const challengeManifest={...controlManifest};
 const imported=buildSourceStressTrajectory({
   controlCsvText:control,
   challengeCsvText:challenge,
-  manifest,
+  controlManifest,
+  challengeManifest,
 });
 assert.equal(imported.status,'shimayoshi-source-stress-trajectory-validated');
 assert.equal(imported.referencePeakStressMnPerMm2,10);
@@ -65,7 +67,8 @@ assert.throws(
   ()=>buildSourceStressTrajectory({
     controlCsvText:control,
     challengeCsvText:nonMonotonic,
-    manifest,
+    controlManifest,
+    challengeManifest,
   }),
   /time_s must increase strictly/
 );
@@ -80,8 +83,29 @@ assert.throws(
   ()=>buildSourceStressTrajectory({
     controlCsvText:contaminatedControl,
     challengeCsvText:challenge,
-    manifest,
+    controlManifest,
+    challengeManifest,
   }),
   /unexpected source phase acidosis for control trajectory/
 );
 console.log('ok - contaminated reference control run is rejected');
+
+assert.throws(
+  ()=>validateManifest({
+    ...controlManifest,
+    upstreamGitSha:'abcdef1234567',
+  }),
+  /must equal pinned Shimayoshi source/
+);
+console.log('ok - non-pinned upstream source is rejected');
+
+assert.throws(
+  ()=>buildSourceStressTrajectory({
+    controlCsvText:control,
+    challengeCsvText:challenge,
+    controlManifest:{...controlManifest,protocolName:'acidosis'},
+    challengeManifest,
+  }),
+  /controlManifest protocolName must be control/
+);
+console.log('ok - control reference requires independently authenticated control manifest');
