@@ -33,6 +33,13 @@ const RECOVERY=Object.freeze({
   30:Object.freeze({A:0.06468490762936219,B:0.11137739017493538,tauFastS:81.39479626501995,tauSlowS:81.40537535906844}),
 });
 
+const STATUS=Object.freeze({
+  preferred:false,
+  deprecatedBy:'shimayoshi_acidosis_grid_surrogate.js',
+  reason:'compressed source-grid interpolation retains validated source trajectories directly with bounded compression error',
+  closedLoopAuthority:false,
+});
+
 const VALIDATION=Object.freeze({
   sourceWorkflowRunId:38164241750,
   sourceUpstreamGitSha:'6478d2ab0acbfc88d3da461d2594658bcb2798ca',
@@ -139,6 +146,7 @@ function shimayoshiAcidosisStepSurrogate({
 }
 
 module.exports=Object.freeze({
+  STATUS,
   SOURCE_CONTROL_PEAK_FB_MN_PER_MM2,
   LEVELS,
   CHALLENGE,
