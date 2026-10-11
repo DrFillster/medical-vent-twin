@@ -1,0 +1,55 @@
+name: v1.5 Dynamic Acidosis Artifact Validation
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-dynamic-acidosis-artifact-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout current v1.5
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download fixed-step CO2 grid artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v15-shimayoshi-co2-source-grid
+          path: fixed-grid
+          repository: DrFillster/medical-vent-twin
+          run-id: 38164241750
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download dynamic CO2 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: v15-shimayoshi-dynamic-co2-validation
+          path: dynamic-source
+          repository: DrFillster/medical-vent-twin
+          run-id: 38166194835
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Recompute held-out validation
+        run: |
+          node ards-twin-v1.0/scripts/validate-shimayoshi-dynamic-surrogate-artifacts.js fixed-grid/shimayoshi_acidosis_co2_15_import.json fixed-grid/shimayoshi_acidosis_co2_25_import.json dynamic-source/SHIMAYOSHI_DYNAMIC_CO2_VALIDATED.json SHIMAYOSHI_DYNAMIC_SURROGATE_VALIDATION.json
+          cat SHIMAYOSHI_DYNAMIC_SURROGATE_VALIDATION.json
+
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-dynamic-surrogate-validation
+          path: SHIMAYOSHI_DYNAMIC_SURROGATE_VALIDATION.json
+          retention-days: 14
