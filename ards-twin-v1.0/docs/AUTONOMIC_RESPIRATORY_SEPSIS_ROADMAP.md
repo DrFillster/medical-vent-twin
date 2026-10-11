@@ -409,3 +409,23 @@ Direct arterial PaO2 -> contractility or arterial pH -> Emax multipliers are not
 The current oxygen-debt/asphyxial contractility multiplier remains a legacy engineering bridge only and should be retired after the mechanistic myocardial pathway is integrated and validated.
 
 See `docs/MYOCARDIAL_HYPOXIA_ACIDOSIS_CANDIDATE.md`.
+
+
+## Myocardial-to-chamber bridge revision — 2026-10-10
+
+Primary LV bridge:
+- Kato/Himeno/Amano 2024 + Utaki/Shim lineage.
+- Cellular active stress `Fb` -> published scale `K_S` -> passive+active wall stress -> measured-geometry relation -> Laplace LV pressure.
+- Source-complete equations are implemented in `src/kato_utaki_lv_bridge.js`.
+
+Independent validation architecture:
+- CircAdapt/TriSeg wall mechanics remains valuable for cross-model verification of stress-to-chamber behavior.
+- It is no longer the default myocardial-to-LV adapter.
+
+Remaining input blocker:
+- numerical Shimayoshi source-model active-stress trajectories for respiratory acidosis and ischemia/hypoxia.
+- These must come from original-source runs or author-supplied numerical results, not from bedside-output fitting.
+
+Legacy decompensation rule:
+- the current oxygen-debt/asphyxial contractility multiplier is retained only for regression continuity.
+- once the source-stress -> Kato LV -> closed-loop pathway is activated, the legacy multiplier must not simultaneously modify contractility.
