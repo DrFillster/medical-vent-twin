@@ -1,0 +1,54 @@
+name: Native Engine Boundary Smoke
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/native-engine-boundary-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -S native-engine -B native-engine/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build native-engine/build --parallel
+
+      - name: Run boundary service
+        run: |
+          NATIVE_ENGINE_BIND=127.0.0.1 NATIVE_ENGINE_PORT=8771 native-engine/build/medical-vent-twin-native > native-engine.log 2>&1 &
+          echo $! > native-engine.pid
+          sleep 1
+
+      - name: Verify health and state contracts
+        run: |
+          set -eu
+          health="$(curl --fail --silent http://127.0.0.1:8771/health)"
+          state="$(curl --fail --silent http://127.0.0.1:8771/state)"
+          printf '%s\n' "$health"
+          printf '%s\n' "$state"
+          node -e "const h=JSON.parse(process.argv[1]); const s=JSON.parse(process.argv[2]); if(h.status!=='ok') throw new Error('health status'); if(h.physiologyAuthority!==false||h.controlAuthority!==false) throw new Error('health authority'); if(s.status!=='boundary-only') throw new Error('state status'); if(s.physiologyAuthority!==false||s.controlAuthority!==false) throw new Error('state authority'); if(s.patientState!==null) throw new Error('patient state must remain null');" "$health" "$state"
+
+      - name: Stop boundary service
+        if: always()
+        run: |
+          if [ -f native-engine.pid ]; then
+            kill "$(cat native-engine.pid)" || true
+          fi
+
+      - name: Upload log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-engine-boundary-smoke-log
+          path: native-engine.log
+          if-no-files-found: ignore
