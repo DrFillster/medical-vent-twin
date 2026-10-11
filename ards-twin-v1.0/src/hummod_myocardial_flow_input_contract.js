@@ -29,7 +29,7 @@ const CURRENT_AVAILABILITY=Object.freeze({
   alphaReceptorActivity:
     'available from source-aligned autonomic/cardiac alpha pathway only if explicitly exported',
   adhPoolLog10Conc:
-    'missing live HumMod ADH pool',
+    'ADH storage/secretion/clearance primitives transcribed; live osmolality/CNS/ECFV/regional-flow state not coupled',
   o2NeedMlPerMin:
     'myocardial metabolism primitive transcribed; live myocardial mass/metabolic inputs incomplete',
   viscosityConductanceEffect:
@@ -49,7 +49,7 @@ const CURRENT_AVAILABILITY=Object.freeze({
   hgbScaleForSat:
     'not currently exported from reduced gas snapshot',
   plasmaVolumeFraction:
-    'requires live plasma/RBC volume state; not source-complete in reduced core',
+    'plasma-volume primitive transcribed; live RBC-water/blood-volume state not source-complete in reduced core',
 });
 
 function auditMyocardialFlowInputs(inputs){
