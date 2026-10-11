@@ -1,0 +1,121 @@
+'use strict';
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+
+function sourceChallengeCo2Percent(run){
+  if(!run||
+     run.status!=='shimayoshi-source-stress-trajectory-validated'||
+     run.provenance?.protocolName!=='acidosis'||
+     !Array.isArray(run.trajectory)||
+     !run.trajectory.length){
+    throw new Error('validated Shimayoshi acidosis source run is required');
+  }
+  const c=run.provenance.sourceChallengeCo2Percent;
+  finite(c,'sourceChallengeCo2Percent');
+  if(!(c>0)) throw new Error('sourceChallengeCo2Percent must be > 0');
+  return c;
+}
+
+function bracket(sorted,value,label){
+  if(value<sorted[0]||value>sorted[sorted.length-1]){
+    throw new Error(label+' is outside validated source grid');
+  }
+  for(let i=0;i<sorted.length;i++){
+    if(value===sorted[i]) return Object.freeze({lo:sorted[i],hi:sorted[i],fraction:0});
+    if(value<sorted[i]){
+      const lo=sorted[i-1],hi=sorted[i];
+      return Object.freeze({lo,hi,fraction:(value-lo)/(hi-lo)});
+    }
+  }
+  return Object.freeze({lo:sorted[sorted.length-1],hi:sorted[sorted.length-1],fraction:0});
+}
+
+function interpolateRowsAtTime(rows,timeS){
+  finite(timeS,'sourceTimeS');
+  if(timeS<rows[0].time_s||timeS>rows[rows.length-1].time_s){
+    throw new Error('sourceTimeS is outside validated source trajectory');
+  }
+  let lo=rows[0],hi=rows[rows.length-1];
+  for(let i=0;i<rows.length;i++){
+    if(rows[i].time_s===timeS){
+      return Object.freeze({...rows[i],interpolated:false});
+    }
+    if(rows[i].time_s>timeS){
+      lo=rows[i-1];
+      hi=rows[i];
+      break;
+    }
+  }
+  const f=(timeS-lo.time_s)/(hi.time_s-lo.time_s);
+  const lerp=(a,b)=>a+(b-a)*f;
+  return Object.freeze({
+    time_s:timeS,
+    protocol:lo.protocol===hi.protocol?lo.protocol:'transition',
+    peak_Fb_mN_per_mm2:lerp(lo.peak_Fb_mN_per_mm2,hi.peak_Fb_mN_per_mm2),
+    stress_ratio:lerp(lo.stress_ratio,hi.stress_ratio),
+    end_cycle_pHi:lerp(lo.end_cycle_pHi,hi.end_cycle_pHi),
+    interpolated:true,
+  });
+}
+
+function createAcidosisGridSurrogate(runs){
+  if(!Array.isArray(runs)||runs.length<2){
+    throw new Error('at least two validated source challenge runs are required');
+  }
+  const map=new Map();
+  for(const run of runs){
+    const c=sourceChallengeCo2Percent(run);
+    if(map.has(c)) throw new Error('duplicate sourceChallengeCo2Percent');
+    map.set(c,run);
+  }
+  const levels=Object.freeze([...map.keys()].sort((a,b)=>a-b));
+
+  function evaluate({sourceChallengeCo2Percent:co2,sourceTimeS}={}){
+    finite(co2,'sourceChallengeCo2Percent');
+    finite(sourceTimeS,'sourceTimeS');
+    const cb=bracket(levels,co2,'sourceChallengeCo2Percent');
+    const a=interpolateRowsAtTime(map.get(cb.lo).trajectory,sourceTimeS);
+    if(cb.lo===cb.hi){
+      return Object.freeze({
+        sourceChallengeCo2Percent:co2,
+        sourceTimeS,
+        peakFbMnPerMm2:a.peak_Fb_mN_per_mm2,
+        stressRatio:a.stress_ratio,
+        sourcePhase:a.protocol,
+        interpolatedChallenge:false,
+        interpolatedTime:a.interpolated,
+        closedLoopAuthority:false,
+      });
+    }
+    const b=interpolateRowsAtTime(map.get(cb.hi).trajectory,sourceTimeS);
+    const lerp=(x,y)=>x+(y-x)*cb.fraction;
+    return Object.freeze({
+      sourceChallengeCo2Percent:co2,
+      sourceTimeS,
+      peakFbMnPerMm2:lerp(a.peak_Fb_mN_per_mm2,b.peak_Fb_mN_per_mm2),
+      stressRatio:lerp(a.stress_ratio,b.stress_ratio),
+      sourcePhase:a.protocol===b.protocol?a.protocol:'transition',
+      interpolatedChallenge:true,
+      interpolatedTime:a.interpolated||b.interpolated,
+      sourceBracket:Object.freeze({lo:cb.lo,hi:cb.hi,fraction:cb.fraction}),
+      closedLoopAuthority:false,
+    });
+  }
+
+  return Object.freeze({
+    status:'shimayoshi-acidosis-grid-surrogate-shadow',
+    sourceChallengeLevels:Object.freeze([...levels]),
+    closedLoopAuthority:false,
+    evaluate,
+  });
+}
+
+module.exports=Object.freeze({
+  sourceChallengeCo2Percent,
+  bracket,
+  interpolateRowsAtTime,
+  createAcidosisGridSurrogate,
+});
