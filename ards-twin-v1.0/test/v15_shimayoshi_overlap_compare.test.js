@@ -14,3 +14,22 @@ assert.equal(x.commonCycles,2);
 assert.equal(x.phaseMismatches,0);
 assert(Math.abs(x.metrics.peak_Fb_mN_per_mm2.maxRelativeError-0.01)<1e-12);
 console.log('ok - source challenge overlap comparison aligns paced cycles and phases');
+
+const mechanics=(time_s,protocol,fb,scale)=>({
+  ...row(time_s,protocol,fb),
+  start_cycle_hsmL_um:1.04,
+  min_cycle_hsmL_um:1.00*scale,
+  max_cycle_hsmL_um:1.05,
+  end_cycle_hsmL_um:1.03,
+  end_cycle_hsmX_um:1.025,
+  cycle_hsmL_excursion_um:1.05-(1.00*scale),
+  cycle_peak_shortening_um:Math.max(0,1.04-(1.00*scale)),
+  cycle_net_hsmL_change_um:-0.01,
+});
+const mr=[mechanics(0.4,'control',6,1),mechanics(0.8,'ischemia',5,1)];
+const mc=[mechanics(0.4,'control',6,1),mechanics(0.8,'ischemia',5,0.999)];
+const mx=compareOverlap(mr,mc);
+assert.equal(mx.mechanicsCompared,true);
+assert(mx.metrics.min_cycle_hsmL_um.maxRelativeError>0);
+assert(mx.metrics.cycle_hsmL_excursion_um.maxRelativeError>0);
+console.log('ok - source overlap comparison includes sarcomere mechanics when present');
