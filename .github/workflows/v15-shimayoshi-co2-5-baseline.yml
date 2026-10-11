@@ -1,0 +1,106 @@
+name: v1.5 Shimayoshi 5 Percent CO2 Baseline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  co2-baseline:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout Vent v1.5
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Shimayoshi source
+        uses: actions/checkout@v4
+        with:
+          repository: atakeuti/TS-AT-SM-2026-IRmodel
+          ref: 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          path: shimayoshi-upstream
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build source control reference
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-grid.js shimayoshi-upstream control
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 SHIMAYOSHI_5PCT_CONTROL_DIFF.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run 0.8 second control reference
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 0.8 shimayoshi_control_reference.csv control 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Restore and build 5 percent acidosis protocol
+        shell: pwsh
+        run: |
+          git -C shimayoshi-upstream checkout -- simulator/main.cpp simulator/model.cpp
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-grid.js shimayoshi-upstream acidosis
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 SHIMAYOSHI_5PCT_ACIDOSIS_DIFF.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run 5 percent source trajectory
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 960.0 shimayoshi_acidosis_co2_5.csv acidosis 0.2 5
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build manifests and validate
+        shell: pwsh
+        run: |
+          $control = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            exactCodeDiff = Get-Content SHIMAYOSHI_5PCT_CONTROL_DIFF.patch -Raw
+            simulationDuration = '0.8 s source-model control reference'
+            protocolEnabled = 'control; ischemia disabled; respiratory acidosis disabled'
+            outputCadence = 'one row per 400 ms paced cycle'
+            cvodeTargetCadenceMs = 0.1
+            protocolName = 'control'
+            physiologyChanged = $false
+          }
+          $control | ConvertTo-Json -Depth 5 | Out-File -Encoding utf8 SHIMAYOSHI_5PCT_CONTROL_SOURCE_RUN.json
+
+          $acid = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            exactCodeDiff = Get-Content SHIMAYOSHI_5PCT_ACIDOSIS_DIFF.patch -Raw
+            simulationDuration = '960 s source protocol with CO2o_p2 held at 5%'
+            protocolEnabled = 'respiratory-acidosis timing active; challenge CO2o_p2=5%'
+            outputCadence = 'one row per 400 ms paced cycle'
+            cvodeTargetCadenceMs = 0.2
+            protocolName = 'acidosis'
+            sourceChallengeCo2Percent = 5
+            physiologyChanged = $false
+          }
+          $acid | ConvertTo-Json -Depth 5 | Out-File -Encoding utf8 SHIMAYOSHI_ACIDOSIS_CO2_5_SOURCE_RUN.json
+
+          node ards-twin-v1.0/scripts/import-shimayoshi-source-run.js shimayoshi-upstream/simulator/shimayoshi_control_reference.csv SHIMAYOSHI_5PCT_CONTROL_SOURCE_RUN.json shimayoshi-upstream/simulator/shimayoshi_acidosis_co2_5.csv SHIMAYOSHI_ACIDOSIS_CO2_5_SOURCE_RUN.json shimayoshi_acidosis_co2_5_import.json
+
+      - name: Upload 5 percent source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-co2-5-source
+          path: |
+            shimayoshi-upstream/simulator/shimayoshi_acidosis_co2_5.csv
+            SHIMAYOSHI_ACIDOSIS_CO2_5_SOURCE_RUN.json
+            shimayoshi_acidosis_co2_5_import.json
+            SHIMAYOSHI_5PCT_CONTROL_DIFF.patch
+            SHIMAYOSHI_5PCT_ACIDOSIS_DIFF.patch
+          retention-days: 14
