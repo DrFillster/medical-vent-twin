@@ -72,7 +72,8 @@ const zeroChallenge=[
 const zeroRun=buildSourceStressTrajectory({
   controlCsvText:control,
   challengeCsvText:zeroChallenge,
-  manifest,
+  controlManifest,
+  challengeManifest,
 });
 const zeroOut=myocardialPressureFromValidatedSourceCycle({
   lvVolumeMl:120,
