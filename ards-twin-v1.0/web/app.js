@@ -12,6 +12,57 @@
   let clinicalPhysiologyTrend = [];
   let clinicalLastAppliedVentilation = null;
   const CLINICAL_TREND_MAX_POINTS = 1800;
+
+  let nativeEngineClient = null;
+  let nativeEnginePollTimer = null;
+
+  function setNativeEngineStatus(text) {
+    const el = $('clinical-native-engine-status');
+    if (el) el.textContent = text;
+  }
+
+  async function pollNativeEngineBoundary() {
+    if (!nativeEngineClient) return;
+    try {
+      await nativeEngineClient.health();
+      const state = await nativeEngineClient.state();
+      const status = nativeEngineClient.connectionStatus();
+      if (state.status !== 'boundary-only') {
+        setNativeEngineStatus('Connected · read-only shadow');
+      } else {
+        setNativeEngineStatus(
+          status.stale ? 'Stale · read-only boundary' : 'Connected · boundary only'
+        );
+      }
+    } catch (error) {
+      setNativeEngineStatus('Unavailable');
+    }
+  }
+
+  function initializeNativeEngineBoundary() {
+    const baseUrl =
+      typeof window !== 'undefined'
+        ? String(window.MEDICAL_TWIN_NATIVE_ENGINE_URL || '').trim()
+        : '';
+    if (!baseUrl) {
+      setNativeEngineStatus('Not configured');
+      return;
+    }
+    if (!window.NativeEngineClient ||
+        typeof window.NativeEngineClient.createNativeEngineClient !== 'function') {
+      setNativeEngineStatus('Client unavailable');
+      return;
+    }
+
+    nativeEngineClient = window.NativeEngineClient.createNativeEngineClient({
+      baseUrl,
+      staleAfterMs: 5000,
+    });
+    setNativeEngineStatus('Connecting...');
+    pollNativeEngineBoundary();
+    nativeEnginePollTimer = setInterval(pollNativeEngineBoundary, 3000);
+  }
+
   const SYNTHETIC_DEMO_HUMMOD = Object.freeze({
     schema: 'vent-hummod-trajectory/v1',
     trajectoryId: 'synthetic-demo-fixture-not-real-hummod',
@@ -1345,5 +1396,6 @@
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (latest) chartNames.forEach(name => drawChart(name, latest.waveform)); }, 150); });
   initializeClinicalPreview();
   initializeClinicalSessionUi();
+  initializeNativeEngineBoundary();
   syncControls();
 })();
