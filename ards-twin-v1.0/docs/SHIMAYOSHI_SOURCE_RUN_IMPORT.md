@@ -29,7 +29,7 @@ time_s,protocol,peak_Fb_mN_per_mm2,end_cycle_pHi,end_cycle_ExtCell_O2o_mM,end_cy
 ```
 
 All numeric fields must be finite. Time must increase strictly within each file.
-Imported paced-cycle peak Fb must be positive.
+Imported paced-cycle peak Fb must be nonnegative. The control reference mean peak Fb must remain positive.
 
 ## Required manifest schema
 
@@ -41,7 +41,10 @@ Imported paced-cycle peak Fb must be positive.
 - `simulationDuration`
 - `protocolEnabled`
 - `outputCadence`
+- `protocolName` (`control`, `ischemia`, or `acidosis`)
 - `physiologyChanged`
+
+The importer validates the observed native phase sequence and transition timing against `protocolName`.
 
 The import is rejected unless:
 
