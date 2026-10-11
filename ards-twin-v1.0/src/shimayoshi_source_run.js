@@ -2,6 +2,8 @@
 
 const {validateProtocolTrajectory}=require('./shimayoshi_protocol_validation.js');
 
+const PINNED_UPSTREAM_SHA='6478d2ab0acbfc88d3da461d2594658bcb2798ca';
+
 const REQUIRED_COLUMNS=Object.freeze([
   'time_s',
   'protocol',
@@ -94,9 +96,10 @@ function validateManifest(manifest){
       throw new Error('source-run manifest missing '+key);
     }
   }
-  if(typeof manifest.upstreamGitSha!=='string'||
-     !/^[0-9a-f]{7,40}$/i.test(manifest.upstreamGitSha)){
-    throw new Error('upstreamGitSha must be a git SHA');
+  if(manifest.upstreamGitSha!==PINNED_UPSTREAM_SHA){
+    throw new Error(
+      'upstreamGitSha must equal pinned Shimayoshi source '+PINNED_UPSTREAM_SHA
+    );
   }
   for(const key of [
     'compilerBuildEnvironment',
@@ -152,9 +155,19 @@ function normalizeStressRows(rows,referencePeakStress){
 function buildSourceStressTrajectory({
   controlCsvText,
   challengeCsvText,
-  manifest,
+  controlManifest,
+  challengeManifest,
 }={}){
-  const provenance=validateManifest(manifest);
+  const controlProvenance=validateManifest(controlManifest);
+  const provenance=validateManifest(challengeManifest);
+
+  if(controlProvenance.protocolName!=='control'){
+    throw new Error('controlManifest protocolName must be control');
+  }
+  if(controlProvenance.upstreamGitSha!==provenance.upstreamGitSha){
+    throw new Error('control and challenge manifests must use the same upstream SHA');
+  }
+
   const controlRows=parseSimpleCsv(controlCsvText);
   const challengeRows=parseSimpleCsv(challengeCsvText);
   assertMonotonicTime(controlRows,'control');
@@ -175,11 +188,13 @@ function buildSourceStressTrajectory({
     trajectory,
     controlProtocolValidation,
     protocolValidation,
+    controlProvenance,
     provenance,
   });
 }
 
 module.exports=Object.freeze({
+  PINNED_UPSTREAM_SHA,
   REQUIRED_COLUMNS,
   parseSimpleCsv,
   validateManifest,
