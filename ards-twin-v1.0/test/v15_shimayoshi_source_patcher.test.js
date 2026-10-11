@@ -85,3 +85,23 @@ assert.equal(
   1
 );
 console.log('ok - only live legacy dump converter is disabled when disabled copy also exists');
+
+const duplicateLegacy=[
+  '#if 0',
+  '    main_dump2csv_EB(period);',
+  '    char ContChar[32] = "Cont";',
+  '    FNchange(ContChar, 0);',
+  '#endif',
+  '    main_dump2csv_EB(period);',
+  '    char ContChar[32] = "Cont";',
+  '    FNchange(ContChar, 0);'
+].join('\n');
+const liveBlock='    main_dump2csv_EB(period);\n    char ContChar[32] = "Cont";\n    FNchange(ContChar, 0);';
+const idx=duplicateLegacy.lastIndexOf(liveBlock);
+assert(idx>duplicateLegacy.indexOf('#endif'));
+const removed=duplicateLegacy.slice(0,idx)+
+  '    // compact source extraction: legacy dump-to-CSV post-processing disabled'+
+  duplicateLegacy.slice(idx+liveBlock.length);
+assert.equal((removed.match(/main_dump2csv_EB\(period\);/g)||[]).length,1);
+assert.match(removed,/#if 0[\s\S]*main_dump2csv_EB\(period\);[\s\S]*#endif/);
+console.log('ok - live converter only is removed while disabled source history remains');
