@@ -22,5 +22,6 @@ assert.doesNotMatch(
   /clinical-native-engine-status[\s\S]{0,500}(heartRatePerMin|meanArterialPressureMmHg|cardiacOutputLPerMin)/
 );
 assert.match(config,/MEDICAL_TWIN_NATIVE_ENGINE_URL/);
+assert.match(config,/https:\/\/engine\.hummod\.defying-logic\.com/);
 
 console.log('ok - remote native engine wiring remains connection-status-only and non-authoritative');
