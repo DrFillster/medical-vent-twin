@@ -67,3 +67,27 @@ the Kato/Utaki pressure bridge when a source cycle is selected.
 
 This code does not create source physiology. It remains blocked until the actual
 Shimayoshi source-model CSV and manifest artifacts are generated and imported.
+
+
+## Source meaning of Fb
+
+At pinned upstream commit `6478d2ab0acbfc88d3da461d2594658bcb2798ca`,
+`model.cpp` defines the contractile force term as:
+
+```cpp
+Fb = A_Fb * (TrnCa_cb + Trn_cb) * SF_CNTR2 * (hsmL - hsmX);
+```
+
+The same source separately includes passive elastic force `Fp` in the
+half-sarcomere mechanics:
+
+```cpp
+dY[IDX_hsmL] = (ExternalLoad - (Fb + Fp)) / c_hsm;
+```
+
+Therefore the imported `peak_Fb_mN_per_mm2` is treated as the source
+**active cross-bridge contractile force**. It is not total myocardial wall
+stress and does not include the source passive elastic component.
+
+The LV bridge must keep its own passive wall term separate from this imported
+active source quantity.
