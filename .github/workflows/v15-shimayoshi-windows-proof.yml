@@ -1,5 +1,5 @@
 name: v1.5 Shimayoshi Windows Proof
-# proof revision 8: live-only legacy converter removal
+# proof revision 9: verified live-converter newline anchor
 
 on:
   push:
