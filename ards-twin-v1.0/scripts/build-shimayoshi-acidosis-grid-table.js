@@ -22,7 +22,19 @@ function adaptiveKeyframeIndices(rows,tolerance=DEFAULT_COMPRESSION_TOLERANCE){
     throw new Error('compression tolerance must be finite and > 0');
   }
   const keep=new Set([0,rows.length-1]);
-  const stack=[[0,rows.length-1]];
+  for(let i=1;i<rows.length;i++){
+    if(rows[i].protocol!==rows[i-1].protocol){
+      keep.add(i-1);
+      keep.add(i);
+    }
+  }
+  const mandatory=[...keep].sort((a,b)=>a-b);
+  const stack=[];
+  for(let i=1;i<mandatory.length;i++){
+    if(mandatory[i]-mandatory[i-1]>1){
+      stack.push([mandatory[i-1],mandatory[i]]);
+    }
+  }
 
   while(stack.length){
     const [a,b]=stack.pop();
