@@ -172,8 +172,8 @@ function main(argv=process.argv.slice(2)){
 
   const mainPath=path.join(root,'simulator','main.cpp');
   const modelPath=path.join(root,'simulator','model.cpp');
-  const mainOriginal=fs.readFileSync(mainPath,'utf8').replace(/\\r\\n/g,'\\n');
-  const modelOriginal=fs.readFileSync(modelPath,'utf8').replace(/\\r\\n/g,'\\n');
+  const mainOriginal=fs.readFileSync(mainPath,'utf8').replace(/\r\n/g,'\n');
+  const modelOriginal=fs.readFileSync(modelPath,'utf8').replace(/\r\n/g,'\n');
 
   fs.writeFileSync(mainPath,patchMain(mainOriginal));
   fs.writeFileSync(modelPath,patchProtocol(modelOriginal,protocol));
