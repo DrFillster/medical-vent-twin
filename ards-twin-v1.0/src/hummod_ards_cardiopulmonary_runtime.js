@@ -13,6 +13,7 @@ const { exerciseSympsTotalEffect } = require('./hummod_exercise_sympathetic_sour
 const { createHumModExerciseMetabolism } = require('./hummod_exercise_metabolism_source_aligned.js');
 const { createHumModBloodVolume } = require('./hummod_blood_volume_source_aligned.js');
 const { hgbConcentrationFromHematocrit } = require('./hummod_hgb_concentration_source_aligned.js');
+const { myocardialAcidBaseState } = require('./hummod_myocardial_acid_base_state.js');
 const { exerciseMusclePumpEffect } = require('./hummod_exercise_muscle_pump_source_aligned.js');
 const {
   createHumModArdsDecompensationController,
@@ -52,6 +53,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   systemicOutflowMode='conductance',
   explicitSystemicOutflowProvider=null,
   sympsChemoEffectProvider=null,
+  myocardialAcidBaseInputsProvider=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -80,6 +82,10 @@ function createHumModArdsCardiopulmonaryRuntime({
   }
   if(sympsChemoEffectProvider!=null && typeof sympsChemoEffectProvider!=='function'){
     throw new Error('sympsChemoEffectProvider must be a function or null');
+  }
+  if(myocardialAcidBaseInputsProvider!=null &&
+     typeof myocardialAcidBaseInputsProvider!=='function'){
+    throw new Error('myocardialAcidBaseInputsProvider must be a function or null');
   }
 
   let timeSec=0;
@@ -282,6 +288,24 @@ function createHumModArdsCardiopulmonaryRuntime({
     const exerciseMusclePumpState = sourceExerciseTotalWatts == null
       ? null
       : exerciseMusclePumpEffect(sourceExerciseTotalWatts);
+
+    let myocardialAcidBaseStateSnapshot=null;
+    if(myocardialAcidBaseInputsProvider){
+      const myocardialInputs=myocardialAcidBaseInputsProvider({
+        timeSec,
+        dtSec,
+        circulation:circ,
+        priorGas:gasBefore,
+        nativeAutonomicInputs,
+        previousStep:last,
+      });
+      if(myocardialInputs!=null){
+        if(typeof myocardialInputs!=='object'||Array.isArray(myocardialInputs)){
+          throw new Error('myocardialAcidBaseInputsProvider must return an object or null');
+        }
+        myocardialAcidBaseStateSnapshot=myocardialAcidBaseState(myocardialInputs);
+      }
+    }
 
     const suppliedSympsChemoEffect = sympsChemoEffectProvider
       ? sympsChemoEffectProvider({
@@ -516,6 +540,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       chemoreceptors:chemoreceptorState,
       sympsChemoEffect:suppliedSympsChemoEffect,
       oxygenDelivery:oxygenDeliveryState,
+      myocardialAcidBase:myocardialAcidBaseStateSnapshot,
       nativeMetabolicAutonomicActive,
       empiricalChronotropicBoostPerMin,
       chronotropicExposureSec,
@@ -561,6 +586,9 @@ function createHumModArdsCardiopulmonaryRuntime({
         bloodVolumeAuthority: sourceBloodVolume
           ? 'HumMod source-aligned RBC/plasma hemorrhage balance coupled to circulation total-volume residual'
           : 'disabled; reduced circulation conserves its initialized modeled vascular volume',
+        myocardialAcidBaseAuthority: myocardialAcidBaseInputsProvider
+          ? 'HumMod source-aligned myocardial SID + CO2 mass balance + PhCells; diagnostic shadow only'
+          : 'disabled',
         exerciseVenousReturnAuthority:
           'HumMod Exercise-MusclePump effect multiplies systemic venous conductance when source exercise TotalWatts is available',
         clinicalValidation:false,
