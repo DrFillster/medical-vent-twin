@@ -1,10 +1,6 @@
 name: v1.5 Shimayoshi Native Trajectories
 
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - '.github/workflows/v15-shimayoshi-native-trajectories.yml'
   workflow_dispatch:
 
 concurrency:
