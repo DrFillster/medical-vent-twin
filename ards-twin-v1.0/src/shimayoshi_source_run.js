@@ -160,6 +160,7 @@ function buildSourceStressTrajectory({
   assertMonotonicTime(controlRows,'control');
   assertMonotonicTime(challengeRows,'challenge');
 
+  const controlProtocolValidation=validateProtocolTrajectory(controlRows,'control');
   const referencePeakStress=meanPeakStress(controlRows);
   const protocolValidation=validateProtocolTrajectory(
     challengeRows,
@@ -172,6 +173,7 @@ function buildSourceStressTrajectory({
     controlAuthority:false,
     referencePeakStressMnPerMm2:referencePeakStress,
     trajectory,
+    controlProtocolValidation,
     protocolValidation,
     provenance,
   });
