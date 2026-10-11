@@ -27,7 +27,7 @@ Permitted source-run changes:
 1. simulation duration;
 2. protocol switch (control / respiratory acidosis / ischemia);
 3. output directory;
-4. output interval;
+4. output interval only after a fidelity comparison against the native 0.1 ms output-request cadence;
 5. variables written to the compact result file.
 
 ## Required variables
@@ -54,10 +54,10 @@ The source index confirms:
 
 ## Surrogate target
 
-Fit **cycle peak active stress**, normalized to the pre-perturbation control value:
+Fit the **source cellular active cross-bridge force `Fb`**. Preserve its absolute source units for the Kato/Utaki bridge. A normalized ratio may be retained as a diagnostic derivative:
 
 ```
-stress_ratio(t) = peak_Fb(t) / mean_prechallenge_peak_Fb
+stress_ratio(t) = peak_Fb(t) / reference_control_peak_Fb
 ```
 
 The surrogate may depend on source-model physiologic states/inputs but **must not be fit against HR, MAP, CO, SV or SVR**.
@@ -78,16 +78,19 @@ No numeric error threshold is imposed until the first source grid is available; 
 
 ## Whole-heart mapping
 
-After surrogate validation:
+Primary path:
 
 ```
-source-derived stress ratio
-    -> Shimayoshi active stress
-    -> mN/mm2 to MPa dimensional conversion
-    -> CircAdapt/TriSeg wall mechanics
-    -> ventricular pressure
+source Shimayoshi peak Fb
+    -> published Kato/Utaki K_S cell-to-wall scaling
+    -> active wall stress + published passive wall stress
+    -> Kato/Utaki LV geometry
+    -> LV pressure
     -> closed-loop circulation
     -> physician-facing SV / CO / MAP
 ```
 
-TriSeg specifically relates myofiber mechanics to LV/RV pressure-volume behavior and ventricular interaction. citeturn372808search2turn372808search86
+CircAdapt/TriSeg remains an independent comparison/shadow architecture. It is
+not the primary adapter for the source-derived Shimayoshi myocardial force.
+
+No whole-heart parameter is fit to HR, MAP, CO, SV, or SVR.
