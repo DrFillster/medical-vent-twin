@@ -126,11 +126,14 @@ function patchMain(mainText){
     mainText,
     '        dump_results(DumpFile, tb + tr, y, v);',
     [
-      '        dump_results(DumpFile, tb + tr, y, v);',
+      '        {',
+      '            double dyCompact[NOPRungeKutta_];',
+      '            dydt(tb + tr, dyCompact, y, v);',
+      '        }',
       '        if (v[IDX_Fb] > peakFb) peakFb = v[IDX_Fb];',
       '        if (v[IDX_Cyt_Cai] > peakCai) peakCai = v[IDX_Cyt_Cai];'
     ].join('\n'),
-    'cycle peak tracking'
+    'cycle peak tracking without binary dump I/O'
   );
 
   mainText=replaceOnce(
