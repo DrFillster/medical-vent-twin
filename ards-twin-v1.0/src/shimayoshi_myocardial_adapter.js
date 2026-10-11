@@ -11,6 +11,8 @@ function myocardialPressureFromValidatedSourceCycle({
 }={}){
   if(!validatedSourceRun||
      validatedSourceRun.status!=='shimayoshi-source-stress-trajectory-validated'||
+     !validatedSourceRun.protocolValidation||
+     validatedSourceRun.protocolValidation.status!=='source-protocol-trajectory-valid'||
      !Array.isArray(validatedSourceRun.trajectory)){
     throw new Error('validated Shimayoshi source run is required');
   }
@@ -35,6 +37,8 @@ function myocardialPressureFromValidatedSourceCycle({
     referencePeakStressMnPerMm2:
       validatedSourceRun.referencePeakStressMnPerMm2,
     physiologyChanged:validatedSourceRun.provenance.physiologyChanged,
+    sourceProtocolName:validatedSourceRun.provenance.protocolName,
+    protocolValidationStatus:validatedSourceRun.protocolValidation.status,
   });
 
   return myocardialLvPressureShadow({
