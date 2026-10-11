@@ -13,10 +13,19 @@ assert.equal(
 );
 assert.deepEqual(
   table.levels.map(x=>x.sourceChallengeCo2Percent),
-  [5,10,15,20,25,30]
+  [5,6,7.5,9,10,15,20,25,30]
 );
 assert.equal(table.closedLoopAuthority,false);
 assert.equal(table.controlAuthority,false);
+assert(table.sourceGridArtifacts.some(x=>
+  x.workflowRunId===38166505507&&
+  x.artifactId===11712866232&&
+  x.levels.includes(7.5)
+));
+assert(
+  table.challengeInterpolationValidation.heldOut['7.5'].maxRelativeFbError<
+  0.0005
+);
 assert.equal(
   table.timeCompression.maxAbsoluteStressRatioErrorPerSourceLevel,
   0.0002
