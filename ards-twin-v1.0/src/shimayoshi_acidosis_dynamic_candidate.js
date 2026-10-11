@@ -19,9 +19,21 @@
 
 const SOURCE_CONTROL_PEAK_FB_MN_PER_MM2=6.041059088461671;
 const BASELINE_CO2_PERCENT=5;
-const CHALLENGE_LEVELS=Object.freeze([10,15,20,25,30]);
+const CHALLENGE_LEVELS=Object.freeze([6,9,10,15,20,25,30]);
 
 const CHALLENGE_PARAMETERS=Object.freeze({
+  6:Object.freeze({
+    A:0.005873447874822396,
+    B:0.003706066101716961,
+    tauFastS:44.333142654623295,
+    tauSlowS:489.53008235633115,
+  }),
+  9:Object.freeze({
+    A:0.02781224054595994,
+    B:0.014906060820871933,
+    tauFastS:53.152398053451165,
+    tauSlowS:467.1404949404445,
+  }),
   10:Object.freeze({
     A:0.036017011678127875,
     B:0.01857325725533654,
@@ -66,6 +78,8 @@ const TRAINING_VALIDATION=Object.freeze({
   blindDynamicWorkflowRunId:38166194835,
   blindDynamicResultUsedForFit:false,
   maxRelativeErrorByStepLevel:Object.freeze({
+    6:0.00037095274449579706,
+    9:0.0015036611935173626,
     10:0.005298289992763019,
     15:0.007395452890505554,
     20:0.00826272588057367,
@@ -74,6 +88,17 @@ const TRAINING_VALIDATION=Object.freeze({
   }),
   globalRecoveryRmseStressRatio:0.003427759822468444,
   globalRecoveryMaxAbsoluteStressRatioError:0.007570367615742146,
+  mildHeldOutValidation:Object.freeze({
+    sourceWorkflowRunId:38166505507,
+    artifactId:11712866232,
+    artifactDigest:'sha256:56e817c46cee63b524c53d61a2fb8de0f4899f27b88d7584fbed2e54b785e773',
+    heldOutCo2Percent:7.5,
+    fittedLevels:Object.freeze([6,9]),
+    rmseStressRatio:0.0005479261253166799,
+    maxAbsoluteStressRatioError:0.0011099635176368139,
+    maxRelativeStressRatioError:0.001112576196192447,
+    fittedToHeldOutTrajectory:false,
+  }),
   closedLoopAuthority:false,
 });
 
@@ -120,7 +145,7 @@ function parametersForCo2(sourceCo2Percent){
   if(sourceCo2Percent<CHALLENGE_LEVELS[0]||
      sourceCo2Percent>CHALLENGE_LEVELS[CHALLENGE_LEVELS.length-1]){
     throw new Error(
-      'sourceCo2Percent must be baseline 5 or within validated challenge grid [10,30]'
+      'sourceCo2Percent must be baseline 5 or within validated challenge grid [6,30]'
     );
   }
   if(Object.prototype.hasOwnProperty.call(
