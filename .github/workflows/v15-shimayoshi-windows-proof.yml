@@ -1,5 +1,5 @@
 name: v1.5 Shimayoshi Windows Proof
-# proof revision 6: low-I/O 0.8 s control proof with dual provenance
+# proof revision 7: low-I/O proof without legacy dump converter
 
 on:
   push:
