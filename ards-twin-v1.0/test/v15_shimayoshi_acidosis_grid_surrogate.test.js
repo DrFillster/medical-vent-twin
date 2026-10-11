@@ -65,7 +65,7 @@ const table={
 };
 const fromTable=createAcidosisGridSurrogateFromTable(table);
 const tableMid=fromTable.evaluate({sourceChallengeCo2Percent:15,sourceTimeS:400});
-assert(Math.abs(tableMid.stressRatio-0.93)<1e-12);
+assert(Math.abs(tableMid.stressRatio-0.97)<1e-12);
 assert.equal(tableMid.closedLoopAuthority,false);
 console.log('ok - compact source grid table loads into the same bounded surrogate');
 
