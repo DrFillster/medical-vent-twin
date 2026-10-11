@@ -1,0 +1,40 @@
+{
+  "schema": "hummod-wine-command-manifest/v1",
+  "upstream": {
+    "repository": "riliescu/hummod-standalone",
+    "revision": "8dab57e05631f779bf5020fe0dd51874d8ae98c1",
+    "executableSha256": "4243E8721F77A5FABF3128FAC5AC139588B20A8285D35D2021C6852D596803CB",
+    "executableBytes": 2043904
+  },
+  "evidence": {
+    "windowsMenuArtifactRunId": 35507127440,
+    "windowsPersistentSessionRunId": 36080097037,
+    "macWineProbeRepository": "DrFillster/hummod-vent-core",
+    "macWineProbeRevision": "9ff52fa949aacab482d91ec53ebfe6983cd79324"
+  },
+  "commands": {
+    "loadSolution": 3,
+    "saveSolution": 4,
+    "exit": 5,
+    "go1Sec": 12,
+    "go5Sec": 13,
+    "go10Sec": 14,
+    "go1Min": 15,
+    "go5Min": 16
+  },
+  "dialog": {
+    "filenameEditIds": [
+      1148,
+      1001
+    ],
+    "actionButtonId": 1,
+    "loadTitlePattern": "Load|Open",
+    "saveTitle": "Save As"
+  },
+  "authority": {
+    "menuIdsPinnedToExecutableHash": true,
+    "safeAcrossOtherHumModBuilds": false,
+    "physiologyAuthority": false,
+    "controlAuthority": false
+  }
+}
