@@ -68,3 +68,32 @@ const tableMid=fromTable.evaluate({sourceChallengeCo2Percent:15,sourceTimeS:400}
 assert(Math.abs(tableMid.stressRatio-0.93)<1e-12);
 assert.equal(tableMid.closedLoopAuthority,false);
 console.log('ok - compact source grid table loads into the same bounded surrogate');
+
+const v3table={
+  schema:'shimayoshi-acidosis-grid-table/v3',
+  upstreamGitSha:'6478d2ab0acbfc88d3da461d2594658bcb2798ca',
+  referencePeakFbMnPerMm2:6,
+  closedLoopAuthority:false,
+  protocolTimingS:{acidosisOn:300,recoveryOn:900},
+  levels:[
+    {
+      sourceChallengeCo2Percent:10,
+      cvodeTargetCadenceMs:0.2,
+      keyframes:[[300,1],[400,0.95],[500,0.96]],
+    },
+    {
+      sourceChallengeCo2Percent:20,
+      cvodeTargetCadenceMs:0.2,
+      keyframes:[[300,1],[400,0.85],[500,0.87]],
+    },
+  ],
+};
+const v3=createAcidosisGridSurrogateFromTable(v3table);
+const v3mid=v3.evaluate({sourceChallengeCo2Percent:15,sourceTimeS:450});
+assert(Math.abs(v3mid.stressRatio-0.9075)<1e-12);
+assert.equal(v3mid.closedLoopAuthority,false);
+assert.throws(
+  ()=>v3.evaluate({sourceChallengeCo2Percent:15,sourceTimeS:250}),
+  /outside validated source trajectory/
+);
+console.log('ok - adaptive v3 source table loads with bounded time/challenge interpolation');
