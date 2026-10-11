@@ -2,6 +2,10 @@ name: Native Engine Boundary Smoke
 # revision: remote browser boundary v2
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/native-engine-boundary-smoke.yml'
   workflow_dispatch:
 
 permissions:
@@ -19,6 +23,10 @@ jobs:
         run: |
           cmake -S native-engine -B native-engine/build -DCMAKE_BUILD_TYPE=Release
           cmake --build native-engine/build --parallel
+
+      - name: Run native physiology self-tests
+        run: |
+          ctest --test-dir native-engine/build --output-on-failure
 
       - name: Run boundary service
         run: |
