@@ -1,10 +1,6 @@
 name: v1.5 Dynamic Acidosis Artifact Validation
 
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - '.github/workflows/v15-dynamic-acidosis-artifact-validation.yml'
   workflow_dispatch:
 
 permissions:
