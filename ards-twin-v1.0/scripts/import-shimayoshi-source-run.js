@@ -10,24 +10,37 @@ const {
 function usage(){
   console.error(
     'Usage: node scripts/import-shimayoshi-source-run.js '+
-    '<control.csv> <challenge.csv> <SHIMAYOSHI_SOURCE_RUN.json> [output.json]'
+    '<control.csv> <control-manifest.json> <challenge.csv> '+
+    '<challenge-manifest.json> [output.json]'
   );
 }
 
 function main(argv=process.argv.slice(2)){
-  if(argv.length<3||argv.length>4){
+  if(argv.length<4||argv.length>5){
     usage();
     return 2;
   }
-  const [controlPath,challengePath,manifestPath,outputPath]=argv;
+  const [
+    controlPath,
+    controlManifestPath,
+    challengePath,
+    challengeManifestPath,
+    outputPath,
+  ]=argv;
   const controlCsvText=fs.readFileSync(path.resolve(controlPath),'utf8');
   const challengeCsvText=fs.readFileSync(path.resolve(challengePath),'utf8');
-  const manifest=JSON.parse(fs.readFileSync(path.resolve(manifestPath),'utf8'));
+  const controlManifest=JSON.parse(
+    fs.readFileSync(path.resolve(controlManifestPath),'utf8')
+  );
+  const challengeManifest=JSON.parse(
+    fs.readFileSync(path.resolve(challengeManifestPath),'utf8')
+  );
 
   const result=buildSourceStressTrajectory({
     controlCsvText,
     challengeCsvText,
-    manifest,
+    controlManifest,
+    challengeManifest,
   });
 
   const serialized=JSON.stringify(result,null,2)+'\n';
