@@ -90,6 +90,13 @@ function patchMain(mainText){
     'modelSim call'
   );
 
+  mainText=replaceOnce(
+    mainText,
+    '    main_dump2csv_EB(period);\n    char ContChar[32] = "Cont";\n    FNchange(ContChar, 0);',
+    '    // compact source extraction: legacy dump-to-CSV post-processing disabled',
+    'legacy binary dump post-processing'
+  );
+
   const modelSimDefinition=/int\s+modelSim\s*\(\s*double\s+stepint\s*,\s*double\s+period\s*\)\s*\{/;
   if(!modelSimDefinition.test(mainText)){
     throw new Error('patch anchor not found: modelSim definition');
