@@ -66,3 +66,22 @@ const patchedCrlf=patchMain(normalized);
 assert.match(patchedCrlf,/source_phase_label/);
 assert.doesNotMatch(patchedCrlf,/SFChange\(double SF\[\]\);\\nextern/);
 console.log('ok - Windows CRLF source and generated C++ newlines are regression-covered');
+
+const duplicateLegacyFixture=mainFixture.replace(
+  '    main_dump2csv_EB(period);',
+  [
+    '#if 0',
+    '    main_dump2csv_EB(period);',
+    '    char ContChar[32] = "Cont";',
+    '    FNchange(ContChar, 0);',
+    '#endif',
+    '    main_dump2csv_EB(period);',
+  ].join('\n')
+);
+const duplicatePatched=patchMain(duplicateLegacyFixture);
+assert.match(duplicatePatched,/#if 0[\s\S]*main_dump2csv_EB\(period\);/);
+assert.equal(
+  (duplicatePatched.match(/main_dump2csv_EB\(period\);/g)||[]).length,
+  1
+);
+console.log('ok - only live legacy dump converter is disabled when disabled copy also exists');
