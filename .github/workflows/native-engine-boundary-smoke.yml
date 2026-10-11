@@ -41,6 +41,7 @@ jobs:
           cat native-state.json
           cat native-acidosis.json
           grep -i '^Access-Control-Allow-Origin: https://hummod.defying-logic.com' native-health.headers
+          grep -i '^Access-Control-Allow-Credentials: true' native-health.headers
           node -e "const fs=require('fs'); const h=JSON.parse(fs.readFileSync('native-health.json','utf8')); const s=JSON.parse(fs.readFileSync('native-state.json','utf8')); const d=JSON.parse(fs.readFileSync('native-acidosis.json','utf8')); if(h.status!=='ok') throw new Error('health status'); if(h.physiologyAuthority!==false||h.controlAuthority!==false) throw new Error('health authority'); if(s.status!=='boundary-only') throw new Error('state status'); if(s.physiologyAuthority!==false||s.controlAuthority!==false) throw new Error('state authority'); if(s.patientState!==null) throw new Error('patient state must remain null'); if(d.schema!=='native-acidosis-diagnostic/v1') throw new Error('diagnostic schema'); if(d.physiologyAuthority!==false||d.controlAuthority!==false||d.stateless!==true) throw new Error('diagnostic authority'); if(!(d.stressRatio<1)) throw new Error('diagnostic stress response'); if(!Number.isFinite(d.lvPressureMmHg)) throw new Error('diagnostic pressure');"
 
       - name: Verify browser native boundary
