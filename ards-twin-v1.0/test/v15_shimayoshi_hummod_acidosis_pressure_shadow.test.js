@@ -34,12 +34,12 @@ assert.equal(outside.lvPressureMmHg,null);
 assert.equal(outside.closedLoopPressureAuthority,false);
 console.log('ok - LV pressure shadow fails closed outside validated Shimayoshi CO2 grid');
 
-assert.throws(
-  ()=>humModMyocardialCo2ToShimayoshiLvPressureShadow({
-    myocardialPco2MmHg:118.5,
-    sourceProtocolTimeS:400,
-    lvVolumeMl:120,
-  }),
-  /sourceGridTable is required/
-);
-console.log('ok - acidosis pressure composition requires explicit validated source table');
+
+const defaultTable=humModMyocardialCo2ToShimayoshiLvPressureShadow({
+  myocardialPco2MmHg:118.5,
+  sourceProtocolTimeS:400,
+  lvVolumeMl:120,
+});
+assert.equal(defaultTable.closedLoopPressureAuthority,false);
+assert(Math.abs(defaultTable.stressRatio-x.stressRatio)<1e-15);
+console.log('ok - browser-native validated source grid is the default pressure-shadow table');
