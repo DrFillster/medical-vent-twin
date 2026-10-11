@@ -18,7 +18,9 @@ const SOURCE=Object.freeze({
     pmid:'42625359',
     codeRepository:'atakeuti/TS-AT-SM-2026-IRmodel',
   }),
-  status:'mechanistic-candidate-shadow-only',
+  status:'mechanistic-component-shadow-only',
+  acidosisForceAuthority:false,
+  acidosisForceSurrogate:'shimayoshi_acidosis_grid_surrogate.js',
   controlAuthority:false,
 });
 
@@ -80,8 +82,9 @@ function candidateSnapshot({
     }),
     wholeHeartContractilityMultiplier:null,
     wholeHeartEmax:null,
+    acidosisForceAuthority:false,
     status:
-      'candidate source-level myocardial states available; whole-heart force-to-Emax adapter not yet source-validated',
+      'source-level component factors only; acidosis force candidate is the validated Shimayoshi source-grid surrogate; no whole-heart authority',
     controlAuthority:false,
     provenance:SOURCE,
   });
