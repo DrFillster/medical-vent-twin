@@ -124,8 +124,8 @@ const mechanicsCsv=[
   '0.4,control,6,7.1,0.24,0.23,6.9,10.8,1.8,0.0008,1.04,1.00,1.05,1.03,1.025',
 ].join('\n');
 const mechanicalRow=parseSimpleCsv(mechanicsCsv)[0];
-assert.equal(mechanicalRow.cycle_hsmL_excursion_um,0.05);
-assert.equal(mechanicalRow.cycle_peak_shortening_um,0.04);
+assert.ok(Math.abs(mechanicalRow.cycle_hsmL_excursion_um-0.05)<1e-12);
+assert.ok(Math.abs(mechanicalRow.cycle_peak_shortening_um-0.04)<1e-12);
 assert.ok(Math.abs(mechanicalRow.cycle_net_hsmL_change_um+0.01)<1e-12);
 console.log('ok - optional sarcomere mechanics columns import without changing base schema');
 
