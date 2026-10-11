@@ -1,5 +1,10 @@
 'use strict';
 
+if (process.env.SKIP_MAC_WINE_QUALIFICATION === '1') {
+  console.log('ok - Mac Wine HumMod qualification intentionally skipped outside the Mac qualification environment');
+  process.exit(0);
+}
+
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 
