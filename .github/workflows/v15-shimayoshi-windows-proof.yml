@@ -1,5 +1,5 @@
 name: v1.5 Shimayoshi Windows Proof
-# proof revision 10: source cadence fidelity benchmark
+# proof revision 11: source respiratory-acidosis extraction with cadence validation
 
 on:
   push:
@@ -18,7 +18,7 @@ permissions:
 jobs:
   source-build-proof:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout Vent v1.5
         uses: actions/checkout@v4
@@ -36,77 +36,117 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Patch source for compact control extraction
-        run: node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream control
-
-      - name: Capture exact source diff
-        shell: pwsh
-        run: |
-          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 shimayoshi-source-diff.patch
-          git -C shimayoshi-upstream rev-parse HEAD | Out-File -Encoding ascii shimayoshi-upstream-sha.txt
-
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Build pinned upstream simulator
+      - name: Patch and build source control
         shell: pwsh
-        run: msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream control
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 shimayoshi-control-source-diff.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
 
-      - name: Run source cadence fidelity benchmark
+      - name: Run source control baseline
         shell: pwsh
         working-directory: shimayoshi-upstream/simulator
         run: |
           $exe = Resolve-Path ../x64/Debug/simulator.exe
           & $exe 0.8 shimayoshi_control_0p1ms.csv control 0.1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $exe 0.8 shimayoshi_control_0p2ms.csv control 0.2
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $exe 0.8 shimayoshi_control_0p4ms.csv control 0.4
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $exe 0.8 shimayoshi_control_1p0ms.csv control 1.0
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-Content shimayoshi_control_0p1ms.csv -TotalCount 12
-          node ../../ards-twin-v1.0/scripts/compare-shimayoshi-cadence.js shimayoshi_control_0p1ms.csv shimayoshi_control_0p2ms.csv shimayoshi_control_0p4ms.csv shimayoshi_control_1p0ms.csv | Out-File -Encoding utf8 ../../SHIMAYOSHI_CADENCE_COMPARISON.json
-          Get-Content ../../SHIMAYOSHI_CADENCE_COMPARISON.json
 
-      - name: Build provenance manifest
+      - name: Build source control manifest
         shell: pwsh
         run: |
-          $diff = Get-Content shimayoshi-source-diff.patch -Raw
-          $controlManifest = [ordered]@{
+          $diff = Get-Content shimayoshi-control-source-diff.patch -Raw
+          $manifest = [ordered]@{
             upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
             compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
             exactCodeDiff = $diff
-            simulationDuration = '0.8 s source-model execution proof at native 0.1 ms output/request cadence'
+            simulationDuration = '0.8 s source-model control baseline'
             protocolEnabled = 'control; ischemia disabled; respiratory acidosis disabled'
             outputCadence = 'one row per 400 ms paced cycle'
+            cvodeTargetCadenceMs = 0.1
             protocolName = 'control'
             physiologyChanged = $false
           }
-          $controlManifest | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 SHIMAYOSHI_CONTROL_SOURCE_RUN.json
+          $manifest | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 SHIMAYOSHI_CONTROL_SOURCE_RUN.json
 
-      - name: Validate generated CSV through v1.5 importer
+      - name: Restore pinned source before acidosis build
+        shell: pwsh
+        run: |
+          git -C shimayoshi-upstream checkout -- simulator/main.cpp simulator/model.cpp
+          git -C shimayoshi-upstream diff --exit-code -- simulator/main.cpp simulator/model.cpp
+
+      - name: Patch and build source respiratory acidosis
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream acidosis
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 shimayoshi-acidosis-source-diff.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run full respiratory-acidosis source trajectory
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 960.0 shimayoshi_acidosis_0p2ms.csv acidosis 0.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run native-cadence acidosis-onset reference
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 320.0 shimayoshi_acidosis_0p1ms_onset.csv acidosis 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compare 0.2 ms trajectory against native cadence through acidosis onset
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          node ../../ards-twin-v1.0/scripts/compare-shimayoshi-overlap.js shimayoshi_acidosis_0p1ms_onset.csv shimayoshi_acidosis_0p2ms.csv | Out-File -Encoding utf8 ../../SHIMAYOSHI_ACIDOSIS_CADENCE_OVERLAP.json
+          Get-Content ../../SHIMAYOSHI_ACIDOSIS_CADENCE_OVERLAP.json
+
+      - name: Build respiratory-acidosis source manifest
+        shell: pwsh
+        run: |
+          $diff = Get-Content shimayoshi-acidosis-source-diff.patch -Raw
+          $manifest = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            exactCodeDiff = $diff
+            simulationDuration = '960.0 s source-model respiratory-acidosis trajectory'
+            protocolEnabled = 'source respiratory acidosis enabled; source ischemia disabled'
+            outputCadence = 'one row per 400 ms paced cycle'
+            cvodeTargetCadenceMs = 0.2
+            protocolName = 'acidosis'
+            physiologyChanged = $false
+          }
+          $manifest | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 SHIMAYOSHI_ACIDOSIS_SOURCE_RUN.json
+
+      - name: Validate full respiratory-acidosis trajectory through v1.5 importer
         shell: pwsh
         working-directory: ards-twin-v1.0
         run: |
           npm ci
-          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi_source_proof_import.json
-          node -e "const x=require('../shimayoshi_source_proof_import.json'); if(x.status!=='shimayoshi-source-stress-trajectory-validated'||!x.trajectory.length) process.exit(1); console.log({status:x.status,cycles:x.trajectory.length,referencePeakStressMnPerMm2:x.referencePeakStressMnPerMm2});"
+          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi-upstream/simulator/shimayoshi_acidosis_0p2ms.csv ../SHIMAYOSHI_ACIDOSIS_SOURCE_RUN.json ../shimayoshi_acidosis_import.json
+          node -e "const x=require('../shimayoshi_acidosis_import.json'); const p=x.protocolValidation.observedPhases; if(x.status!=='shimayoshi-source-stress-trajectory-validated'||!p.includes('acidosis')||p[0]!=='control'||p[p.length-1]!=='control') process.exit(1); console.log({status:x.status,cycles:x.trajectory.length,referencePeakStressMnPerMm2:x.referencePeakStressMnPerMm2,phases:p,first:x.trajectory[0],last:x.trajectory[x.trajectory.length-1]});"
 
-      - name: Upload proof artifacts
+      - name: Upload source extraction artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v15-shimayoshi-source-build-proof
+          name: v15-shimayoshi-acidosis-source-extraction
           path: |
             shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv
-            shimayoshi-upstream/simulator/shimayoshi_control_0p2ms.csv
-            shimayoshi-upstream/simulator/shimayoshi_control_0p4ms.csv
-            shimayoshi-upstream/simulator/shimayoshi_control_1p0ms.csv
-            SHIMAYOSHI_CADENCE_COMPARISON.json
+            shimayoshi-upstream/simulator/shimayoshi_acidosis_0p2ms.csv
+            shimayoshi-upstream/simulator/shimayoshi_acidosis_0p1ms_onset.csv
             SHIMAYOSHI_CONTROL_SOURCE_RUN.json
-            shimayoshi-source-diff.patch
-            shimayoshi-upstream-sha.txt
-            shimayoshi_source_proof_import.json
+            SHIMAYOSHI_ACIDOSIS_SOURCE_RUN.json
+            SHIMAYOSHI_ACIDOSIS_CADENCE_OVERLAP.json
+            shimayoshi-control-source-diff.patch
+            shimayoshi-acidosis-source-diff.patch
+            shimayoshi_acidosis_import.json
           if-no-files-found: warn
           retention-days: 14
