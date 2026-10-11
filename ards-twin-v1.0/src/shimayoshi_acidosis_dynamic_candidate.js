@@ -77,6 +77,34 @@ const TRAINING_VALIDATION=Object.freeze({
   closedLoopAuthority:false,
 });
 
+const BLIND_VALIDATION=Object.freeze({
+  workflowRunId:38166194835,
+  artifactId:11712456381,
+  artifactDigest:'sha256:c0248ab642d59a1aaa79e335f2fd45c98c911400c7811721a50b4d576a6d583a',
+  fittedToBlindTrajectory:false,
+  sourceRows:2400,
+  rmseStressRatio:0.0036251323524225227,
+  meanAbsoluteStressRatioError:0.002472793445979363,
+  maxAbsoluteStressRatioError:0.010573563064905867,
+  maxRelativeStressRatioError:0.011078193435438704,
+  maxAbsoluteErrorAt:Object.freeze({
+    timeS:909.2,
+    sourceCo2Percent:5,
+    sourceStressRatio:0.9545961215516514,
+    predictedStressRatio:0.9651696846165573,
+  }),
+  segmentMaxRelativeError:Object.freeze({
+    baseline:0.0000014825757738227317,
+    co2_15:0.0049628909856317405,
+    co2_25:0.005796981099404076,
+    co2_10:0.009767785289339238,
+    co2_30:0.008612102314822942,
+    co2_20:0.004647504212808762,
+    recovery:0.011078193435438704,
+  }),
+  closedLoopAuthority:false,
+});
+
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)){
     throw new Error(label+' must be finite');
@@ -177,6 +205,7 @@ module.exports=Object.freeze({
   CHALLENGE_PARAMETERS,
   BASELINE_RECOVERY,
   TRAINING_VALIDATION,
+  BLIND_VALIDATION,
   parametersForCo2,
   initialState,
   advanceDynamicCandidate,
