@@ -44,10 +44,10 @@ function assessShimayoshiCycleAuthority({
       pressureShadowEligible:true,
       closedLoopPressureAuthority:false,
       status:mechanicsPresent
-        ? 'ischemia-mechanics-observed-authority-blocked-pending-contracture-discrimination'
+        ? 'ischemia-mechanics-observed-authority-blocked-contracture-dominant-source-phenotype'
         : 'ischemia-authority-blocked-pending-sarcomere-mechanics',
       reason:mechanicsPresent
-        ? 'Peak Fb can be high during severe energy failure; useful cyclic shortening versus contracture is not yet validated.'
+        ? 'Validated source mechanics show late ischemia/reperfusion high Fb with severe energy failure, marked persistent hsmL shortening, and near-absent cyclic shortening. Peak Fb alone is not pumping authority.'
         : 'Ischemia source force cannot be mapped to pumping authority without cycle sarcomere mechanics.',
     });
   }
