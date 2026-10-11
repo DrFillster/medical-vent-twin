@@ -1,0 +1,157 @@
+name: v1.5 Shimayoshi Native Trajectories
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-shimayoshi-native-trajectories.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: v15-shimayoshi-native-trajectories
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  native-trajectories:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Vent v1.5
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Shimayoshi source
+        uses: actions/checkout@v4
+        with:
+          repository: atakeuti/TS-AT-SM-2026-IRmodel
+          ref: 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          path: shimayoshi-upstream
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build native control extractor
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream control
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 SHIMAYOSHI_CONTROL_DIFF.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run native control reference
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 10.0 shimayoshi_control_native.csv control 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Reset and build native ischemia extractor
+        shell: pwsh
+        run: |
+          git -C shimayoshi-upstream reset --hard 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          git -C shimayoshi-upstream clean -fd
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream ischemia
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 SHIMAYOSHI_ISCHEMIA_DIFF.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run full native ischemia trajectory
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 1140.0 shimayoshi_ischemia_native.csv ischemia 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Reset and build native acidosis extractor
+        shell: pwsh
+        run: |
+          git -C shimayoshi-upstream reset --hard 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          git -C shimayoshi-upstream clean -fd
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream acidosis
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 SHIMAYOSHI_ACIDOSIS_DIFF.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run full native acidosis trajectory
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 960.0 shimayoshi_acidosis_native.csv acidosis 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build provenance manifests
+        shell: pwsh
+        run: |
+          $base = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            outputCadence = 'native 0.1 ms CVODE request/output cadence; one compact row per 400 ms paced cycle'
+            physiologyChanged = $false
+          }
+
+          $control = [ordered]@{} + $base
+          $control.exactCodeDiff = Get-Content SHIMAYOSHI_CONTROL_DIFF.patch -Raw
+          $control.simulationDuration = '10 s control reference'
+          $control.protocolEnabled = 'control; ischemia disabled; respiratory acidosis disabled'
+          $control.protocolName = 'control'
+          $control | ConvertTo-Json -Depth 5 | Out-File -Encoding utf8 SHIMAYOSHI_CONTROL_SOURCE_RUN.json
+
+          $ischemia = [ordered]@{} + $base
+          $ischemia.exactCodeDiff = Get-Content SHIMAYOSHI_ISCHEMIA_DIFF.patch -Raw
+          $ischemia.simulationDuration = '1140 s: 180 s control + 900 s ischemia + 60 s reperfusion'
+          $ischemia.protocolEnabled = 'native ischemia protocol only'
+          $ischemia.protocolName = 'ischemia'
+          $ischemia | ConvertTo-Json -Depth 5 | Out-File -Encoding utf8 SHIMAYOSHI_ISCHEMIA_SOURCE_RUN.json
+
+          $acidosis = [ordered]@{} + $base
+          $acidosis.exactCodeDiff = Get-Content SHIMAYOSHI_ACIDOSIS_DIFF.patch -Raw
+          $acidosis.simulationDuration = '960 s: 300 s control + 600 s respiratory acidosis + 60 s recovery'
+          $acidosis.protocolEnabled = 'native respiratory-acidosis protocol only'
+          $acidosis.protocolName = 'acidosis'
+          $acidosis | ConvertTo-Json -Depth 5 | Out-File -Encoding utf8 SHIMAYOSHI_ACIDOSIS_SOURCE_RUN.json
+
+      - name: Validate ischemia source trajectory
+        shell: pwsh
+        working-directory: ards-twin-v1.0
+        run: |
+          npm ci
+          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_native.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi-upstream/simulator/shimayoshi_ischemia_native.csv ../SHIMAYOSHI_ISCHEMIA_SOURCE_RUN.json ../shimayoshi_ischemia_import.json
+
+      - name: Validate acidosis source trajectory
+        shell: pwsh
+        working-directory: ards-twin-v1.0
+        run: |
+          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_native.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi-upstream/simulator/shimayoshi_acidosis_native.csv ../SHIMAYOSHI_ACIDOSIS_SOURCE_RUN.json ../shimayoshi_acidosis_import.json
+
+      - name: Summarize source myocardial response
+        shell: pwsh
+        run: |
+          node -e "for (const f of ['shimayoshi_ischemia_import.json','shimayoshi_acidosis_import.json']) { const x=require('./'+f); const t=x.trajectory; const min=t.reduce((a,b)=>b.peak_Fb_mN_per_mm2<a.peak_Fb_mN_per_mm2?b:a); const first=t[0]; const last=t[t.length-1]; console.log(f,{reference:x.referencePeakStressMnPerMm2,minFb:min.peak_Fb_mN_per_mm2,minTimeS:min.time_s,minPhase:min.protocol,minRatio:min.stress_ratio,lastFb:last.peak_Fb_mN_per_mm2,lastRatio:last.stress_ratio,lastPhase:last.protocol,cycles:t.length}); }"
+
+      - name: Upload native source artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-native-trajectories
+          path: |
+            shimayoshi-upstream/simulator/shimayoshi_control_native.csv
+            shimayoshi-upstream/simulator/shimayoshi_ischemia_native.csv
+            shimayoshi-upstream/simulator/shimayoshi_acidosis_native.csv
+            SHIMAYOSHI_CONTROL_SOURCE_RUN.json
+            SHIMAYOSHI_ISCHEMIA_SOURCE_RUN.json
+            SHIMAYOSHI_ACIDOSIS_SOURCE_RUN.json
+            SHIMAYOSHI_CONTROL_DIFF.patch
+            SHIMAYOSHI_ISCHEMIA_DIFF.patch
+            SHIMAYOSHI_ACIDOSIS_DIFF.patch
+            shimayoshi_ischemia_import.json
+            shimayoshi_acidosis_import.json
+          if-no-files-found: warn
+          retention-days: 14
