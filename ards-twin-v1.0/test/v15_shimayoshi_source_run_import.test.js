@@ -150,8 +150,8 @@ const mechanicsChallengeCsv=[
 const mechanicalRun=buildSourceStressTrajectory({
   controlCsvText:mechanicsControlCsv,
   challengeCsvText:mechanicsChallengeCsv,
-  controlManifest:manifest,
-  challengeManifest:manifest,
+  controlManifest,
+  challengeManifest,
 });
 assert.ok(Math.abs(mechanicalRun.referencePeakShorteningUm-0.04)<1e-12);
 assert.ok(Math.abs(mechanicalRun.trajectory[0].shortening_ratio-0.5)<1e-12);
