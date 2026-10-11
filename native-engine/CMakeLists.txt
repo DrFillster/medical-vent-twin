@@ -7,6 +7,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(native-physiology STATIC
   src/shimayoshi_dynamic_acidosis.cpp
+  src/shimayoshi_hummod_co2_bridge.cpp
+  src/kato_utaki_lv_bridge.cpp
 )
 target_include_directories(native-physiology PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -27,9 +29,15 @@ add_executable(native-acidosis-selftest
 )
 target_link_libraries(native-acidosis-selftest PRIVATE native-physiology)
 
+add_executable(native-myocardial-bridge-selftest
+  tests/myocardial_bridge_test.cpp
+)
+target_link_libraries(native-myocardial-bridge-selftest PRIVATE native-physiology)
+
 if(APPLE)
   target_compile_definitions(medical-vent-twin-native PRIVATE PLATFORM_MACOS=1)
   target_compile_definitions(native-acidosis-selftest PRIVATE PLATFORM_MACOS=1)
+  target_compile_definitions(native-myocardial-bridge-selftest PRIVATE PLATFORM_MACOS=1)
 endif()
 
 target_compile_options(medical-vent-twin-native PRIVATE
@@ -42,6 +50,12 @@ target_compile_options(native-acidosis-selftest PRIVATE
   -Wextra
   -Wpedantic
 )
+target_compile_options(native-myocardial-bridge-selftest PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+)
 
 enable_testing()
 add_test(NAME native-acidosis-selftest COMMAND native-acidosis-selftest)
+add_test(NAME native-myocardial-bridge-selftest COMMAND native-myocardial-bridge-selftest)
