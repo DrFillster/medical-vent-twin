@@ -63,8 +63,8 @@ function parseSimpleCsv(text){
     );
 
     if(!(row.time_s>=0)) throw new Error('time_s must be >= 0');
-    if(!(row.peak_Fb_mN_per_mm2>0)){
-      throw new Error('peak_Fb_mN_per_mm2 must be > 0 for imported paced cycles');
+    if(!(row.peak_Fb_mN_per_mm2>=0)){
+      throw new Error('peak_Fb_mN_per_mm2 must be >= 0 for imported paced cycles');
     }
     if(!row.protocol){
       throw new Error('protocol is required for every row');
