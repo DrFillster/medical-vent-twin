@@ -1,11 +1,12 @@
 {
-  "schema": "shimayoshi-source-grid/v1",
+  "schema": "shimayoshi-source-grid/v2",
   "source": {
     "repository": "atakeuti/TS-AT-SM-2026-IRmodel",
-    "branch": "main",
+    "branch": "pinned-commit",
     "paper": "Shimayoshi T, Takeuchi A, Matsuoka S. Integrative simulation analysis of myocardial ischaemia-reperfusion injury. J Physiol. 2026.",
     "doi": "10.1113/JP290440",
-    "pmid": "42625359"
+    "pmid": "42625359",
+    "commit": "6478d2ab0acbfc88d3da461d2594658bcb2798ca"
   },
   "principle": "Run original equations unchanged; modify only protocol controls, simulation duration, output path, and selected output variables.",
   "outputs": [
@@ -23,20 +24,20 @@
     {
       "id": "control",
       "type": "control",
-      "description": "Normoxic, baseline extracellular CO2 control trajectory."
+      "description": "Both source challenge protocols disabled; source equations and initial conditions otherwise unchanged."
     },
     {
-      "id": "respiratory_acidosis",
+      "id": "acidosis",
       "type": "co2",
-      "description": "Use the source model respiratory-acidosis protocol; preserve the source CO2 perturbation and equations."
+      "description": "Enable only the source respiratory-acidosis protocol: 300 s control, 600 s acidosis, then recovery."
     },
     {
-      "id": "ischemia_hypoxia",
+      "id": "ischemia",
       "type": "ischemia",
-      "description": "Use the source ischemia protocol in which extracellular O2 availability falls according to the source implementation."
+      "description": "Enable only the native source ischemia protocol: 180 s control, 900 s ischemia, then reperfusion."
     }
   ],
-  "fitTarget": "cycle peak active cross-bridge stress Fb, normalized to each run's pre-perturbation control",
+  "fitTarget": "source cellular active cross-bridge force Fb (absolute source units retained); normalized ratios are diagnostic derivatives only",
   "forbiddenTargets": [
     "heart rate",
     "MAP",
@@ -49,5 +50,7 @@
     "requiresMonotonicityAudit": true,
     "requiresNoBedsideVariableFitting": true,
     "wholeHeartControlAuthority": false
-  }
+  },
+  "primaryWholeHeartBridge": "Kato/Utaki/Shim lineage: Fb -> published K_S cell-to-wall scaling -> passive+active wall stress -> LV pressure",
+  "comparisonBridge": "CircAdapt/TriSeg shadow validation only"
 }
