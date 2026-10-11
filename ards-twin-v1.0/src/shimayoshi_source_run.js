@@ -1,5 +1,7 @@
 'use strict';
 
+const {validateProtocolTrajectory}=require('./shimayoshi_protocol_validation.js');
+
 const REQUIRED_COLUMNS=Object.freeze([
   'time_s',
   'protocol',
@@ -84,6 +86,7 @@ function validateManifest(manifest){
     'simulationDuration',
     'protocolEnabled',
     'outputCadence',
+    'protocolName',
     'physiologyChanged',
   ];
   for(const key of required){
@@ -105,6 +108,9 @@ function validateManifest(manifest){
     if(typeof manifest[key]!=='string'||!manifest[key].trim()){
       throw new Error(key+' must be a non-empty string');
     }
+  }
+  if(!['control','ischemia','acidosis'].includes(manifest.protocolName)){
+    throw new Error('protocolName must be control, ischemia, or acidosis');
   }
   if(manifest.physiologyChanged!==false){
     throw new Error('source run rejected: physiologyChanged must be false');
@@ -155,6 +161,10 @@ function buildSourceStressTrajectory({
   assertMonotonicTime(challengeRows,'challenge');
 
   const referencePeakStress=meanPeakStress(controlRows);
+  const protocolValidation=validateProtocolTrajectory(
+    challengeRows,
+    provenance.protocolName
+  );
   const trajectory=normalizeStressRows(challengeRows,referencePeakStress);
 
   return Object.freeze({
@@ -162,6 +172,7 @@ function buildSourceStressTrajectory({
     controlAuthority:false,
     referencePeakStressMnPerMm2:referencePeakStress,
     trajectory,
+    protocolValidation,
     provenance,
   });
 }
