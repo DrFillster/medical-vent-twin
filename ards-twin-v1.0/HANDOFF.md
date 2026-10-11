@@ -2,95 +2,133 @@
 
 Date: 2026-10-11
 Active product branch: `v1.5`
-Active HumMod core branch: `DrFillster/hummod-vent-core:main`
+Active physiology/reference branch: `DrFillster/hummod-vent-core:main`
 Physiology/control authority added by this handoff: **none**
 
-## Current repository heads
+## Governing architecture
 
-At handoff review:
-- `medical-vent-twin:v1.5`: `496d00c28c69a433c1629970be23caf208c6feea`
-- `hummod-vent-core:main`: `9ff52fa949aacab482d91ec53ebfe6983cd79324`
+The project is a **modular, persistent cardiopulmonary digital patient**.
 
-Always re-read branch HEAD before changing code.
+HumMod is:
+- an integrated source model;
+- a native reference implementation;
+- a comparator;
+- a subsystem donor where its equations remain the best validated choice.
 
-## Architecture decision
+HumMod is **not** automatic physiologic ground truth and is **not** the intended universal whole-body authority.
 
-Do not continue rebuilding complete HumMod physiology in browser JavaScript or the native C++ service.
+The strongest validated model should own each subsystem. Competing models may run in shadow mode until source reproduction and independent validation support an ownership decision.
 
-Target stack:
+Canonical research source:
+- `hummod-vent-core/docs/REFERENCE_MODEL_LEDGER.md`
+
+## Target structure
 
 ```
-remote browser
-    |
-    | HTTPS / Cloudflare Access + Tunnel
-    v
-Mac native-engine :8771
-    |
-    +-- non-authoritative native myocardial diagnostics
-    |
-    +-- HumMod persistent-session adapter
-            |
-            v
-         plain Wine
-            |
-            v
- unmodified pinned HumMod.EXE + model tree
+remote browser / physician interface
+              |
+              v
+ persistent canonical patient state
+              |
+   +----------+----------+----------------+
+   |                     |                |
+   v                     v                v
+Vent mechanics     cardiovascular    control systems
+                   / chamber plant   autonomic/resp
+   |                     |                |
+   +----------+----------+----------------+
+              |
+      gas / acid-base / O2
+              |
+      organ + metabolism
+              |
+      myocardial energetics
+              |
+      disease layers
+
+HumMod native session runs alongside as reference/comparator
+and may retain ownership only for individually selected subsystems.
 ```
 
-Vent remains authoritative for ventilator mechanics, PEEP, recruitment/derecruitment,
-compliance/resistance, plateau/total PEEP/driving-pressure measurements, waveforms,
-and breath maneuvers.
+## What Vent owns
 
-HumMod is the intended whole-body physiology engine after the native session path
-passes qualification and parity gates.
+Vent remains authoritative for:
+- ventilator controller and mode;
+- airway pressure/flow/volume waveforms;
+- PEEP;
+- high-resolution breath mechanics;
+- resistance/compliance;
+- recruitment/derecruitment;
+- plateau/total PEEP/driving-pressure measurements;
+- respiratory holds and bedside mechanics.
 
-## Pinned native HumMod
+## Current candidate subsystem families
 
-Repository: `riliescu/hummod-standalone`
-Revision: `8dab57e05631f779bf5020fe0dd51874d8ae98c1`
-HumMod.EXE SHA-256:
-`4243E8721F77A5FABF3128FAC5AC139588B20A8285D35D2021C6852D596803CB`
-Size: 2,043,904 bytes.
+### Cardiovascular/autonomic
+- Ursino 1998;
+- Ursino & Magosso 2000;
+- Magosso & Ursino 2001;
+- Ursino & Magosso 2003.
 
-Do not apply pinned menu/control IDs to another executable hash.
+### Integrated cardiopulmonary reference
+- Albanese / Cheng / Ursino / Chbat 2016.
 
-## Mac/Wine state
+### Respiratory neural control
+- Hennigs et al. 2026.
 
-Implemented in `medical-vent-twin`:
-- plain-Wine qualification harness;
-- executable hash/size gate;
-- process-scoped HumMod file-dialog control;
-- save -> advance -> save -> restore -> re-save qualification;
-- native SOLN conversion;
-- Cloudflare native-engine boundary;
-- browser credentialed read-only client;
-- launchd service support;
-- manual-only Mac/Wine qualification CI smoke.
+The earlier conversational “Jennings” ventilation reference is unresolved. Do not substitute a similar-sounding citation.
 
-Mac qualification command:
+### Myocardial energetics/acidosis
+- Crampin & Smith 2006;
+- Shimayoshi / Takeuchi / Matsuoka 2026.
 
-```sh
-HUMMOD_ROOT=/path/to/hummod-standalone \
-sh scripts/qualify-hummod-mac-wine.sh
-```
+No direct arterial PaO2 -> contractility or arterial pH -> Emax scalar.
 
-A PASS proves persistent same-process advance/checkpoint/restore transport for the
-pinned executable. It does not grant physiologic or control authority.
+### Cellular stress -> chamber mechanics
+Competing candidates:
+- Kato / Himeno / Amano 2024 + Utaki/Shim lineage;
+- CircAdapt/TriSeg as represented in MONARCH.
 
-## Existing persistent-session implementation to reuse
+Neither has final authority yet.
 
-`hummod-vent-core` already defines the narrow session contract and must remain
-the source of truth for the HumMod worker protocol.
+### Oxygen delivery / extraction / microcirculation
+Reference stack includes:
+- Cain 1977;
+- Schumacker & Cain 1987;
+- Nelson et al. 1987;
+- Ronco et al. 1993;
+- Manthous et al. 1994;
+- Roy & Secomb 2021;
+- Munoz et al. 2020.
 
-Relevant files:
-- `contracts/session-api.schema.json`
-- `src/session_manager.js`
-- `src/native_worker_stdio.js`
-- `src/native_runtime_adapter.js`
-- `scripts/native-session-host.ps1`
-- `docs/PERSISTENT_WORKER.md`
+No universal DO2crit/SvO2/venous-PO2 threshold is authorized.
 
-Contract:
+### Sepsis / inflammatory-autonomic disease layers
+- Yamanaka et al. 2019;
+- Foteinou et al. 2010;
+- Scheff et al. 2011.
+
+Disease layers must not be used to repair errors in normal physiology.
+
+## Native HumMod reference path
+
+Pinned comparison source:
+- repository: `riliescu/hummod-standalone`
+- revision: `8dab57e05631f779bf5020fe0dd51874d8ae98c1`
+- HumMod.EXE SHA-256: `4243E8721F77A5FABF3128FAC5AC139588B20A8285D35D2021C6852D596803CB`
+- size: 2,043,904 bytes.
+
+The Mac/Wine persistent session work remains useful, but its purpose is now explicitly:
+- source reproduction;
+- counterfactual comparison;
+- validation of translated HumMod equations;
+- selected subsystem experiments.
+
+It is not the architectural destination.
+
+## Existing persistent-session contract
+
+Reuse the existing HumMod reference-session contract from `hummod-vent-core`:
 
 ```
 initialize
@@ -102,78 +140,71 @@ restore
 terminate
 ```
 
-The Windows host has already demonstrated persistent native operation. It includes
-a source-whitelisted live-set path and explicitly disables legacy saved-solution
-mutation as a live-control transport.
+Relevant files:
+- `contracts/session-api.schema.json`
+- `src/session_manager.js`
+- `src/native_worker_stdio.js`
+- `src/native_runtime_adapter.js`
+- `scripts/native-session-host.ps1`
+- `docs/PERSISTENT_WORKER.md`
 
-**Do not create a second incompatible session protocol in medical-vent-twin.**
+Do not create an incompatible second HumMod protocol.
 
-## Immediate implementation target
+## Current work order
 
-Port/adapt the existing `hummod-vent-core` persistent-session transport to the
-plain-Wine Mac path and place it behind the existing native-engine boundary.
+**Do not start new physiologic implementation yet.**
 
-Order:
+First:
+1. preserve and verify the complete model/reference ledger;
+2. complete primary-source equation/parameter transcriptions;
+3. define the canonical patient-state schema;
+4. create the subsystem ownership map;
+5. compare candidate cardiovascular/chamber models;
+6. define source-reproduction experiments for every candidate;
+7. identify independent validation datasets;
+8. only then implement additional physiology in shadow mode.
 
-1. Run the current Mac/Wine qualification on the hardwired Mac.
-2. Reuse the core session command/response schema.
-3. Implement Mac transport for initialize/read/advance/checkpoint/restore/terminate.
-4. Keep `set` fail-closed until the live-control path is verified under plain Wine.
-5. Add one-session deterministic integration tests.
-6. Expose session status through native-engine only after local qualification.
-7. Keep public Cloudflare endpoints read-only until browser-vs-native parity passes.
-8. Only then evaluate controlled remote session commands.
+Native Mac/Wine qualification can continue as infrastructure work, but it must not drive physiologic architecture decisions.
 
-Never expose Wine or HumMod.EXE directly through Cloudflare.
+## Current hard blockers
 
-## Current physiology program
+- Magosso/Ursino 2001 Eq. 1 visual verification.
+- Complete Ursino heart-period parameter transcription.
+- Complete Hennigs equation/parameter transcription.
+- Complete Crampin/Smith primary equation ledger.
+- Final Shimayoshi source revision/reproducibility pin.
+- Kato/Utaki vs CircAdapt/TriSeg chamber-mechanics decision.
+- RV/septal/circulation integration for myocardial stress.
+- Quantitative microcirculatory/sepsis extraction model.
+- Source-driven ARDS phenotype distributions.
+- Exact identity of the earlier “Jennings” ventilation reference.
+- Aortic CaO2-content chemoreflex: HOLD.
+- Fever/temperature chronotropy: HOLD.
 
-### Autonomic controller
-Ursino/Magosso baroreflex, O2 chemoreflex, CNS-hypoxia, lung-stretch and separate
-`f_sp/f_sh/f_v` channels exist in shadow mode. They have no control authority.
+## Physician-facing requirement
 
-Principal remaining source blocker:
-- exact Magosso/Ursino 2001 peripheral O2-CO2 interaction Eq. 1 transcription.
+The ultimate interface must expose clinically meaningful variables such as:
+- HR;
+- BP/MAP;
+- SV;
+- CO;
+- SVR;
+- PVR;
+- CVP/RAP;
+- PAP;
+- SpO2/PaO2;
+- PaCO2;
+- pH;
+- ventilator pressures;
+- VT;
+- compliance;
+- oxygen-delivery/organ-perfusion context where validated.
 
-### Heart-period / HR
-An interim Ursino/Magosso counterfactual HR exists, but full primary-source
-parameter verification remains required before authority.
-
-### Myocardial hypoxia/acidosis
-Selected mechanistic direction:
-- intracellular-pH excitation-contraction effects from Crampin/Smith;
-- O2 -> mitochondrial energetics -> ATP/PCr -> Ca/cross-bridge function from
-  Shimayoshi/Takeuchi/Matsuoka 2026.
-
-Do not use a direct arterial PaO2-to-contractility or arterial-pH-to-Emax scalar.
-Cell-force -> whole-heart elastance remains a separate validation gate.
-
-### Native HumMod terminal behavior
-Prior native runs showed that SA-node rate can remain present while actual HR and
-cardiac output reach zero because myocardial function fails and asystole is latched.
-Do not attempt to repair terminal collapse by adding sympathetic/chronotropic gain.
-
-## Physician publication gate
-
-The interim physician model is not publishable until live HumMod and the
-published-model counterfactual expose, at the same patient time:
-
-- HR
-- MAP
-- CO
-- SV
-- SVR
-
-Current published-model availability:
-- HR: available, counterfactual only.
-- MAP/CO/SV/SVR: still blocked by source-complete downstream circulation/venous/
-  contractility mappings.
-
-No ad hoc scaling is permitted to clear this gate.
+The numbers must emerge from the selected subsystem models. No direct scaling is permitted merely to populate the monitor.
 
 ## Deployment
 
-Current public design:
+The current remote-access infrastructure remains valid:
 
 ```
 https://hummod.defying-logic.com
@@ -188,23 +219,21 @@ https://engine.hummod.defying-logic.com
 Keep:
 `NATIVE_ENGINE_BIND=127.0.0.1`
 
-Do not use router port forwarding as the production path.
+Never expose Wine or HumMod.EXE directly through Cloudflare.
 
 ## GitHub Actions policy
 
 Use Actions sparingly.
+- Native HumMod should not run in ordinary hosted workflows.
+- Mac/Wine qualification remains manual-only.
+- Prefer local deterministic tests.
+- Do not change physiology to make CI green.
 
-- Native HumMod must not run in ordinary GitHub-hosted workflows.
-- Mac/Wine qualification smoke is manual-only.
-- Prefer local deterministic tests and Cloudflare/Mac deployment verification.
-- Do not modify physiology to make CI green.
-
-## Safety / fidelity rules
+## Fidelity rules
 
 - No guessed physiologic gains, thresholds, transfer functions, or mappings.
-- Every care-relevant modeled relationship requires explicit provenance.
-- Shadow output must remain non-authoritative until validation and an explicit
-  ownership decision.
-- Preserve exact failure evidence.
-- Never silently fall back to reduced/mock physiology when native HumMod is expected.
-- Stable prior releases must remain recoverable through version control.
+- Every physiologic relationship requires explicit provenance.
+- No subsystem gets authority before source reproduction and independent validation.
+- Preserve competing model outputs in shadow mode during evaluation.
+- Stable prior releases remain recoverable.
+- Agreement with HumMod is not the final validation criterion.
