@@ -51,4 +51,6 @@ assert.match(patched,/IDX_Fb/);
 assert.match(patched,/IDX_Cyt_pHi/);
 assert.match(patched,/IDX_ATPTotal/);
 assert.match(patched,/fopen\("NUL"/);
+assert.match(patched,/double dyCompact\[NOPRungeKutta_\]/);
+assert.doesNotMatch(patched,/dump_results\(DumpFile, tb \+ tr, y, v\);/);
 console.log('ok - extraction patch adds compact source-state cycle output only');
