@@ -1,3 +1,5 @@
+#include "native_diagnostics.hpp"
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -8,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -102,12 +105,80 @@ std::string state_json() {
   "}";
 }
 
-std::string request_path(const std::string& request) {
+std::string request_target(const std::string& request) {
   const std::size_t first_space = request.find(' ');
   if (first_space == std::string::npos) return "/";
   const std::size_t second_space = request.find(' ', first_space + 1);
   if (second_space == std::string::npos) return "/";
   return request.substr(first_space + 1, second_space - first_space - 1);
+}
+
+std::string target_path(const std::string& target) {
+  const std::size_t query = target.find('?');
+  return query == std::string::npos ? target : target.substr(0, query);
+}
+
+std::optional<std::string> query_value(
+    const std::string& target,
+    const std::string& key) {
+  const std::size_t query = target.find('?');
+  if (query == std::string::npos || query + 1 >= target.size()) {
+    return std::nullopt;
+  }
+
+  std::size_t cursor = query + 1;
+  while (cursor < target.size()) {
+    const std::size_t amp = target.find('&', cursor);
+    const std::size_t end =
+        amp == std::string::npos ? target.size() : amp;
+    const std::size_t eq = target.find('=', cursor);
+
+    if (eq != std::string::npos && eq < end) {
+      const std::string found_key = target.substr(cursor, eq - cursor);
+      if (found_key == key) {
+        return target.substr(eq + 1, end - eq - 1);
+      }
+    }
+
+    if (amp == std::string::npos) break;
+    cursor = amp + 1;
+  }
+  return std::nullopt;
+}
+
+double required_query_double(
+    const std::string& target,
+    const std::string& key) {
+  const auto raw = query_value(target, key);
+  if (!raw.has_value() || raw->empty()) {
+    throw std::invalid_argument("missing numeric query parameter");
+  }
+
+  std::size_t consumed = 0;
+  const double value = std::stod(*raw, &consumed);
+  if (consumed != raw->size()) {
+    throw std::invalid_argument("invalid numeric query parameter");
+  }
+  return value;
+}
+
+int required_query_int(
+    const std::string& target,
+    const std::string& key) {
+  const auto raw = query_value(target, key);
+  if (!raw.has_value() || raw->empty()) {
+    throw std::invalid_argument("missing integer query parameter");
+  }
+
+  std::size_t consumed = 0;
+  const long value = std::stol(*raw, &consumed);
+  if (consumed != raw->size()) {
+    throw std::invalid_argument("invalid integer query parameter");
+  }
+  if (value < -2147483647L || value > 2147483647L) {
+    throw std::invalid_argument("integer query parameter out of range");
+  }
+  return static_cast<int>(value);
 }
 
 }  // namespace
@@ -171,7 +242,8 @@ int main() {
     if (n > 0) {
       buffer[n] = '\0';
       const std::string request(buffer);
-      const std::string path = request_path(request);
+      const std::string target = request_target(request);
+      const std::string path = target_path(target);
 
       if (request.rfind("GET ", 0) != 0) {
         send_all(client_fd, http_response(
@@ -189,6 +261,28 @@ int main() {
           200, "OK", "application/json", state_json(),
           cors_origin
         ));
+      } else if (path == "/diagnostics/myocardium/acidosis") {
+        try {
+          const auto diagnostic =
+              medical_twin::diagnostics::run_acidosis_diagnostic(
+                  required_query_double(target, "myocardial_pco2_mmhg"),
+                  required_query_double(target, "lv_volume_ml"),
+                  required_query_double(target, "dt_s"),
+                  required_query_int(target, "steps"));
+          send_all(client_fd, http_response(
+            200, "OK", "application/json",
+            medical_twin::diagnostics::acidosis_diagnostic_json(diagnostic),
+            cors_origin
+          ));
+        } catch (const std::exception& error) {
+          std::cerr << "invalid acidosis diagnostic request: "
+                    << error.what() << "\n";
+          send_all(client_fd, http_response(
+            400, "Bad Request", "application/json",
+            "{\"error\":\"invalid acidosis diagnostic request\"}",
+            cors_origin
+          ));
+        }
       } else {
         send_all(client_fd, http_response(
           404, "Not Found", "application/json",
