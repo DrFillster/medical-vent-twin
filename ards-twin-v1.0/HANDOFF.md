@@ -76,8 +76,6 @@ Vent remains authoritative for:
 ### Respiratory neural control
 - Hennigs et al. 2026.
 
-The earlier conversational “Jennings” ventilation reference is unresolved. Do not substitute a similar-sounding citation.
-
 ### Myocardial energetics/acidosis
 - Crampin & Smith 2006;
 - Shimayoshi / Takeuchi / Matsuoka 2026.
@@ -177,7 +175,6 @@ Native Mac/Wine qualification can continue as infrastructure work, but it must n
 - RV/septal/circulation integration for myocardial stress.
 - Quantitative microcirculatory/sepsis extraction model.
 - Source-driven ARDS phenotype distributions.
-- Exact identity of the earlier “Jennings” ventilation reference.
 - Aortic CaO2-content chemoreflex: HOLD.
 - Fever/temperature chronotropy: HOLD.
 
