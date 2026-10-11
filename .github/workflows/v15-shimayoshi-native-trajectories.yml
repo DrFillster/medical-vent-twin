@@ -50,7 +50,7 @@ jobs:
         working-directory: shimayoshi-upstream/simulator
         run: |
           $exe = Resolve-Path ../x64/Debug/simulator.exe
-          & $exe 10.0 shimayoshi_control_native.csv control 0.1
+          & $exe 10.0 shimayoshi_control_native.csv control 0.4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Reset and build native ischemia extractor
@@ -67,7 +67,7 @@ jobs:
         working-directory: shimayoshi-upstream/simulator
         run: |
           $exe = Resolve-Path ../x64/Debug/simulator.exe
-          & $exe 1140.0 shimayoshi_ischemia_native.csv ischemia 0.1
+          & $exe 1140.0 shimayoshi_ischemia_native.csv ischemia 0.4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Reset and build native acidosis extractor
@@ -84,7 +84,7 @@ jobs:
         working-directory: shimayoshi-upstream/simulator
         run: |
           $exe = Resolve-Path ../x64/Debug/simulator.exe
-          & $exe 960.0 shimayoshi_acidosis_native.csv acidosis 0.1
+          & $exe 960.0 shimayoshi_acidosis_native.csv acidosis 0.4
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build provenance manifests
@@ -93,7 +93,7 @@ jobs:
           $base = [ordered]@{
             upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
             compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
-            outputCadence = 'native 0.1 ms CVODE request/output cadence; one compact row per 400 ms paced cycle'
+            outputCadence = '0.4 ms CVODE request/output cadence; selected after source benchmark against native 0.1 ms reference; one compact row per 400 ms paced cycle'
             physiologyChanged = $false
           }
 
