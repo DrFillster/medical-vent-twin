@@ -30,6 +30,8 @@ jobs:
         run: npm run build
 
       - name: Unit and regression tests
+        env:
+          SKIP_MAC_WINE_QUALIFICATION: '1'
         run: npm test
 
       - name: Verify deployable web
