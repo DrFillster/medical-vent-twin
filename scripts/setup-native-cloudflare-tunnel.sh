@@ -30,7 +30,7 @@ Preferred Cloudflare setup: remotely managed Tunnel
 6. Confirm the native engine itself remains loopback-only:
      curl http://127.0.0.1:8771/health
 7. Confirm remote routing:
-     ./scripts/verify-native-cloudflare.sh https://$HOSTNAME
+     sh scripts/verify-native-cloudflare.sh https://$HOSTNAME
 
 Cloudflare currently recommends remotely managed Tunnels for most deployments.
 
