@@ -110,3 +110,30 @@ assert.throws(
   /controlManifest protocolName must be control/
 );
 console.log('ok - control reference requires independently authenticated control manifest');
+
+const mechanicsHeader=[
+  ...REQUIRED_COLUMNS,
+  'start_cycle_hsmL_um',
+  'min_cycle_hsmL_um',
+  'max_cycle_hsmL_um',
+  'end_cycle_hsmL_um',
+  'end_cycle_hsmX_um',
+].join(',');
+const mechanicsCsv=[
+  mechanicsHeader,
+  '0.4,control,6,7.1,0.24,0.23,6.9,10.8,1.8,0.0008,1.04,1.00,1.05,1.03,1.025',
+].join('\n');
+const mechanicalRow=parseSimpleCsv(mechanicsCsv)[0];
+assert.equal(mechanicalRow.cycle_hsmL_excursion_um,0.05);
+assert.equal(mechanicalRow.cycle_peak_shortening_um,0.04);
+assert.ok(Math.abs(mechanicalRow.cycle_net_hsmL_change_um+0.01)<1e-12);
+console.log('ok - optional sarcomere mechanics columns import without changing base schema');
+
+assert.throws(
+  ()=>parseSimpleCsv([
+    mechanicsHeader,
+    '0.4,control,6,7.1,0.24,0.23,6.9,10.8,1.8,0.0008,1.04,1.06,1.05,1.03,1.025',
+  ].join('\n')),
+  /min_cycle_hsmL_um must be <= max_cycle_hsmL_um/
+);
+console.log('ok - invalid sarcomere excursion fails closed');
