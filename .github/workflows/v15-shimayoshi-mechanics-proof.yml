@@ -1,0 +1,86 @@
+name: v1.5 Shimayoshi Mechanics Proof
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-shimayoshi-mechanics-proof.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: v15-shimayoshi-mechanics-proof
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mechanics-proof:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout Vent v1.5
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Shimayoshi source
+        uses: actions/checkout@v4
+        with:
+          repository: atakeuti/TS-AT-SM-2026-IRmodel
+          ref: 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          path: shimayoshi-upstream
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Patch source and prove non-empty diff
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream control
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $diff = git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not $diff) { throw "Shimayoshi mechanics patch produced an empty source diff" }
+          $diff | Out-File -Encoding utf8 SHIMAYOSHI_MECHANICS_PROOF.patch
+          if (-not (Select-String -Path SHIMAYOSHI_MECHANICS_PROOF.patch -Pattern 'cycleStartHsmL')) {
+            throw "Shimayoshi source diff does not contain sarcomere mechanics instrumentation"
+          }
+          if (-not (Select-String -Path SHIMAYOSHI_MECHANICS_PROOF.patch -Pattern 'argc > 1')) {
+            throw "Shimayoshi source diff does not contain runtime duration instrumentation"
+          }
+
+      - name: Build patched simulator
+        shell: pwsh
+        run: |
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run 0.8-second mechanics proof
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 0.8 shimayoshi_mechanics_proof.csv control 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Content shimayoshi_mechanics_proof.csv
+
+      - name: Validate mechanics CSV
+        shell: pwsh
+        run: |
+          node -e "const fs=require('fs'); const p='shimayoshi-upstream/simulator/shimayoshi_mechanics_proof.csv'; const ls=fs.readFileSync(p,'utf8').trim().split(/\r?\n/); if(ls.length!==3) throw new Error('expected header plus exactly 2 paced cycles'); const h=ls[0].split(','); for(const k of ['start_cycle_hsmL_um','min_cycle_hsmL_um','max_cycle_hsmL_um','end_cycle_hsmL_um','end_cycle_hsmX_um']) if(!h.includes(k)) throw new Error('missing '+k); for(const line of ls.slice(1)){ const a=line.split(','); const r=Object.fromEntries(h.map((k,i)=>[k,a[i]])); for(const k of ['peak_Fb_mN_per_mm2','start_cycle_hsmL_um','min_cycle_hsmL_um','max_cycle_hsmL_um','end_cycle_hsmL_um','end_cycle_hsmX_um']) if(!Number.isFinite(Number(r[k]))) throw new Error('nonfinite '+k); if(Number(r.min_cycle_hsmL_um)>Number(r.max_cycle_hsmL_um)) throw new Error('invalid hsmL extrema'); } console.log({cycles:ls.length-1,status:'Shimayoshi mechanics proof passed'});"
+
+      - name: Upload mechanics proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-mechanics-proof
+          path: |
+            SHIMAYOSHI_MECHANICS_PROOF.patch
+            shimayoshi-upstream/simulator/shimayoshi_mechanics_proof.csv
+          if-no-files-found: warn
+          retention-days: 14
