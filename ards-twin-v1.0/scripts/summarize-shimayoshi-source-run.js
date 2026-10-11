@@ -78,7 +78,13 @@ function summarizeRun(run){
   const phaseSummaries={};
   for(const p of phases) phaseSummaries[p]=summarizePhase(rows,p);
   const checkpoints={};
-  for(const t of [299.6,300,300.4,899.6,900,900.4,930,960]){
+  const protocolName=run.provenance?.protocolName;
+  const requestedTimes=protocolName==='ischemia'
+    ? [179.6,180,180.4,1079.6,1080,1080.4,1140,1200]
+    : protocolName==='acidosis'
+      ? [299.6,300,300.4,899.6,900,900.4,930,960]
+      : [rows[0].time_s,rows[rows.length-1].time_s];
+  for(const t of requestedTimes){
     const x=nearest(rows,t);
     checkpoints[String(t)]=Object.freeze({
       time_s:x.time_s,
