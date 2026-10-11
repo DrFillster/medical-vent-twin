@@ -47,6 +47,29 @@ function patchMain(mainText){
 
   mainText=replaceOnce(
     mainText,
+    'void SFChange(double SF[]);',
+    [
+      'void SFChange(double SF[]);',
+      'extern int flagIschemia;',
+      'extern int flagAsidosis;',
+      'const char* source_phase_label(const char* protocolLabel)',
+      '{',
+      '    if (strcmp(protocolLabel, "ischemia") == 0) {',
+      '        if (flagIschemia == 1) return "ischemia";',
+      '        if (flagIschemia == 2) return "reperfusion";',
+      '        return "control";',
+      '    }',
+      '    if (strcmp(protocolLabel, "acidosis") == 0) {',
+      '        return flagAsidosis == 1 ? "acidosis" : "control";',
+      '    }',
+      '    return "control";',
+      '}'
+    ].join('\\n'),
+    'source phase label helper'
+  );
+
+  mainText=replaceOnce(
+    mainText,
     '    const double period = 3600; // <simulation period (s)>',
     [
       '    const double period = (argc > 1) ? atof(argv[1]) : 3600.0; // runtime-only duration',
@@ -114,7 +137,7 @@ function patchMain(mainText){
     [
       '        if (fabs(tr - STIM_INTERVAL) <= DBL_EPSILON * STIM_INTERVAL) {',
       '            fprintf(CompactFile, "%.9g,%s,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g\\n",',
-      '                (tb + tr) / 1000.0, protocolLabel, peakFb,',
+      '                (tb + tr) / 1000.0, source_phase_label(protocolLabel), peakFb,',
       '                v[IDX_Cyt_pHi], v[IDX_ExtCell_O2o], y[IDX_O2i],',
       '                y[IDX_ATPTotal], y[IDX_PhosphoCreatine], v[IDX_PITotal], peakCai);',
       '            fflush(CompactFile);',
