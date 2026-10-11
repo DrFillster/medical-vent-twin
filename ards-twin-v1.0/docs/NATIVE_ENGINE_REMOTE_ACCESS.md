@@ -72,3 +72,37 @@ remote ventilator or scenario-control commands.
 The native service is boundary-only and has no physiology or control
 authority. Remote exposure should remain read-only until the native engine has
 passed browser-vs-native parity tests.
+
+
+## Remote engine environment
+
+Recommended native-engine process settings when the public UI is hosted at
+`https://hummod.defying-logic.com`:
+
+```sh
+NATIVE_ENGINE_BIND=127.0.0.1 \
+NATIVE_ENGINE_PORT=8771 \
+NATIVE_ENGINE_CORS_ORIGIN=https://hummod.defying-logic.com \
+./scripts/run-native-engine.sh
+```
+
+The browser endpoint is configured separately in:
+
+```
+ards-twin-v1.0/web/native-engine-config.js
+```
+
+For a dedicated tunnel hostname:
+
+```js
+window.MEDICAL_TWIN_NATIVE_ENGINE_URL =
+  'https://engine.hummod.defying-logic.com';
+```
+
+The native server does not emit wildcard CORS. If
+`NATIVE_ENGINE_CORS_ORIGIN` is blank, no cross-origin access header is
+returned.
+
+The current browser integration uses native `/health` and `/state` only to
+show connection status. It does not use native bedside values and does not
+send control commands.
