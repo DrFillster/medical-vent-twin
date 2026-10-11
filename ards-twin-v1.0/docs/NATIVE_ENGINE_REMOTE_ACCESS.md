@@ -133,28 +133,61 @@ Remove it with:
 
 ## Cloudflare Tunnel setup
 
-A current locally-managed tunnel template is included at:
+### Preferred: remotely managed Tunnel
 
-```
-native-engine/cloudflare/config.example.yml
-```
-
-The intended route is:
+Cloudflare currently recommends remotely managed Tunnels for most deployments.
+Create the Tunnel in the Cloudflare dashboard, configure the published
+application:
 
 ```
 engine.hummod.defying-logic.com -> http://127.0.0.1:8771
 ```
 
-Cloudflare's current tunnel configuration requires the named tunnel UUID,
-credentials file, an ingress rule for the public hostname, and a final
-catch-all rule. The tunnel can run as a macOS login service after interactive
-validation.
+and run the macOS connector installation command/token shown by Cloudflare.
 
-Use:
+The connector should run as a service so the Mac can recover after restart
+without exposing an inbound router port.
 
-```sh
-./scripts/setup-native-cloudflare-tunnel.sh
+Protect the hostname with Cloudflare Access before broader remote use.
+
+### Fallback: locally managed Tunnel
+
+The repository retains:
+
+```
+native-engine/cloudflare/config.example.yml
+scripts/setup-native-cloudflare-tunnel.sh
 ```
 
-for the exact one-time command sequence. The helper does not create or store
-Cloudflare credentials itself.
+for local development, testing, or an existing locally managed deployment.
+
+The helper does not create or store Cloudflare credentials.
+
+## Cloudflare Access and browser credentials
+
+The browser uses credentialed `GET` requests to the engine origin.
+
+The native engine responds only with the configured origin:
+
+```
+Access-Control-Allow-Origin: https://hummod.defying-logic.com
+Access-Control-Allow-Credentials: true
+```
+
+It does not use wildcard CORS.
+
+Cloudflare Access should authenticate the user at
+`engine.hummod.defying-logic.com`. No service-token secret is embedded in the
+browser.
+
+## Production rule
+
+Keep:
+
+```
+NATIVE_ENGINE_BIND=127.0.0.1
+```
+
+The Tunnel connector is local to the same Mac and can reach the loopback
+service directly. Do not change the engine to `0.0.0.0` merely for remote
+access.
