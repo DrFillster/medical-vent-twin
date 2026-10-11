@@ -74,6 +74,13 @@ function patchMain(mainText){
 
   mainText=replaceOnce(
     mainText,
+    '    const double stepint = 0.1;  // <output interval (ms)> ',
+    '    const double stepint = (argc > 4) ? atof(argv[4]) : 0.1; // runtime output/request cadence (ms)',
+    'runtime output cadence'
+  );
+
+  mainText=replaceOnce(
+    mainText,
     '    const double period = 3600; // <simulation period (s)>',
     [
       '    const double period = (argc > 1) ? atof(argv[1]) : 3600.0; // runtime-only duration',
