@@ -14,18 +14,18 @@
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
-<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v1.5</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">v1.5 research preview · Vent mechanics + live reduced HumMod cardiopulmonary physiology + non-authoritative published autonomic shadow validation</p></header>
+<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v1.5</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">v1.5 research preview · numerically equilibrated persistent patient · Vent mechanics + reduced systemic physiology · research shadows separated from bedside outputs</p></header>
 <main>
 <section class="clinical-preview card" aria-labelledby="clinical-title">
 <div class="section-heading"><span class="step">01</span><h2 id="clinical-title">Patient</h2></div>
-<p class="clinical-lead">Start with the reference aspiration ARDS teaching phenotype. The patient persists as you change PEEP, FiO₂, tidal volume, respiratory rate, and perform respiratory mechanics maneuvers.</p>
-<div class="product-launch"><button id="clinical-quick-start" type="button">Start reference patient <span aria-hidden="true">→</span></button><p>Preloads the reference case and starts the live browser cardiopulmonary model. You can change every exposed ventilator setting afterward.</p></div>
+<p class="clinical-lead">Start with the experimental aspiration lung-injury reference patient. The patient persists as you change PEEP, FiO₂, tidal volume, respiratory rate, and perform respiratory mechanics maneuvers.</p>
+<div class="product-launch"><button id="clinical-quick-start" type="button">Start experimental reference patient <span aria-hidden="true">→</span></button><p>Starts an equilibrated persistent research patient. The current live gas/circulation model is not yet calibrated to reproduce the authored Berlin severity label.</p></div>
 <label for="clinical-case">Synthetic ARDS case</label>
 <select id="clinical-case" aria-describedby="clinical-case-note"></select>
-<p id="clinical-case-note" class="hint">Cases are synthetic teaching constructs calibrated to published cohort envelopes; they are not deidentified patient records.</p>
+<p id="clinical-case-note" class="hint">Cases are synthetic authored targets. The live reduced cardiopulmonary core is still undergoing calibration and must not be assumed to reproduce the displayed Berlin severity label.</p>
 <div id="clinical-summary" class="clinical-summary" aria-live="polite"></div>
 <div class="clinical-grid">
-<article><h3>Berlin severity</h3><p id="clinical-severity">—</p></article>
+<article><h3>Authored Berlin target</h3><p id="clinical-severity">—</p></article>
 <article><h3>Recruitability</h3><p id="clinical-recruitability">—</p></article>
 <article><h3>Executable now?</h3><p id="clinical-executable">—</p></article>
 </div>
@@ -43,7 +43,7 @@
 </div>
 <p id="clinical-calibration-note" class="hint"></p>
 </div>
-<details class="advanced product-provenance" open><summary>Model provenance and safeguards</summary>
+<details class="advanced product-provenance"><summary>Model provenance and safeguards</summary>
 <p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. Vent owns detailed pulmonary mechanics. The default live session uses a reduced, source-aligned HumMod cardiopulmonary core in the browser; it is not the full HumMod executable and is not clinically validated. Research mode can instead replay an externally produced HumMod trajectory.</p>
 <p class="hint"><strong>Scientific transparency:</strong> every physiologically meaningful variable, equation, threshold, condition, transition, and scenario value is being assigned machine-readable provenance. The current model is a hybrid of HumMod-exact/adapted physiology, published literature anchors, and explicitly labeled engineering or scenario assumptions.</p>
 <ul>
@@ -186,8 +186,8 @@
 </div>
 </details>
 
-<section class="card physician-comparison-card">
-<div class="card-heading"><h2>Current model vs published-model shadow</h2><span class="pill">Physician comparison</span></div>
+<details class="card physician-comparison-card advanced">
+<summary>Research model comparison</summary><div class="card-heading"><h2>Current model vs published-model shadow</h2><span class="pill">No control authority</span></div>
 <p class="hint"><strong>Publication gate:</strong> an interim physician-evaluation build must expose clinically interpretable side-by-side outputs. HR is now available from the published-model heart-period pathway; MAP, CO, SV, and SVR remain explicitly unavailable until downstream vascular/contractility mappings are source-complete.</p>
 <div class="clinical-grid monitor-grid">
 <article><h3>Current-model HR</h3><p><span id="clinical-compare-live-hr">—</span><small> /min</small></p></article>
@@ -203,7 +203,7 @@
 <article><h3>Myocardial contractility model</h3><p><span id="clinical-compare-myocardial-status">Not source-complete</span></p></article>\n<article><h3>Native physiology engine</h3><p><span id="clinical-native-engine-status">Not configured</span></p></article>
 </div>
 <p class="hint" id="clinical-compare-status">Published-model HR is an interim secondary transcription and still requires primary-paper verification before control authority.</p>
-</section>
+</details>
 
 <details class="advanced research-shadow-panel">
 <summary>v1.5 research physiology · shadow comparison</summary>
