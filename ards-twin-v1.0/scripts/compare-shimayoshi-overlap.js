@@ -16,6 +16,17 @@ const FIELDS=Object.freeze([
   'peak_Cyt_Cai_mM',
 ]);
 
+const OPTIONAL_MECHANICS_FIELDS=Object.freeze([
+  'start_cycle_hsmL_um',
+  'min_cycle_hsmL_um',
+  'max_cycle_hsmL_um',
+  'end_cycle_hsmL_um',
+  'end_cycle_hsmX_um',
+  'cycle_hsmL_excursion_um',
+  'cycle_peak_shortening_um',
+  'cycle_net_hsmL_change_um',
+]);
+
 function rel(value,reference){
   if(reference===0) return value===0?0:null;
   return Math.abs(value-reference)/Math.abs(reference);
@@ -30,7 +41,13 @@ function compareOverlap(referenceRows,candidateRows){
   }
   if(!common.length) throw new Error('no overlapping source-cycle times');
   const metrics={};
-  for(const field of FIELDS){
+  const mechanicsPresent=OPTIONAL_MECHANICS_FIELDS.every(
+    field=>common.every(([r,c])=>Number.isFinite(r[field])&&Number.isFinite(c[field]))
+  );
+  const fields=mechanicsPresent
+    ? [...FIELDS,...OPTIONAL_MECHANICS_FIELDS]
+    : FIELDS;
+  for(const field of fields){
     const vals=common.map(([r,c])=>rel(c[field],r[field])).filter(v=>v!=null);
     metrics[field]=Object.freeze({
       maxRelativeError:Math.max(...vals),
@@ -43,6 +60,7 @@ function compareOverlap(referenceRows,candidateRows){
     startTimeS:common[0][0].time_s,
     endTimeS:common[common.length-1][0].time_s,
     phaseMismatches,
+    mechanicsCompared:mechanicsPresent,
     metrics:Object.freeze(metrics),
   });
 }
@@ -63,4 +81,4 @@ if(require.main===module){
   catch(error){console.error(error.stack||error.message);process.exitCode=1;}
 }
 
-module.exports=Object.freeze({FIELDS,compareOverlap});
+module.exports=Object.freeze({FIELDS,OPTIONAL_MECHANICS_FIELDS,compareOverlap});
