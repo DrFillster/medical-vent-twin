@@ -65,3 +65,7 @@ export { forwardElasticVolume, dPressureDVolume,
          effectiveVolumeCapacity } from './compartments.js';
 
 export { HUMMOD_NATIVE_SOLN_EXPORTER_VERSION, parseHumModNativeSolution } from './hummod_native_solution.js';
+
+export { MARQUIS_VQ_REFERENCE, MARQUIS_PHPV_MMHG,
+         marquisTerminalHpvStimulus,
+         deriveRegionalVentilationAudit } from './regional_pulmonary_vq_shadow.js';
