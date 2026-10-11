@@ -1,6 +1,10 @@
 name: Native Engine Boundary Smoke
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/native-engine-boundary-smoke.yml'
   workflow_dispatch:
 
 permissions:
@@ -21,18 +25,27 @@ jobs:
 
       - name: Run boundary service
         run: |
-          NATIVE_ENGINE_BIND=127.0.0.1 NATIVE_ENGINE_PORT=8771 native-engine/build/medical-vent-twin-native > native-engine.log 2>&1 &
+          NATIVE_ENGINE_BIND=127.0.0.1 NATIVE_ENGINE_PORT=8771 NATIVE_ENGINE_CORS_ORIGIN=https://hummod.defying-logic.com native-engine/build/medical-vent-twin-native > native-engine.log 2>&1 &
           echo $! > native-engine.pid
           sleep 1
 
       - name: Verify health and state contracts
         run: |
           set -eu
-          health="$(curl --fail --silent http://127.0.0.1:8771/health)"
-          state="$(curl --fail --silent http://127.0.0.1:8771/state)"
-          printf '%s\n' "$health"
-          printf '%s\n' "$state"
-          node -e "const h=JSON.parse(process.argv[1]); const s=JSON.parse(process.argv[2]); if(h.status!=='ok') throw new Error('health status'); if(h.physiologyAuthority!==false||h.controlAuthority!==false) throw new Error('health authority'); if(s.status!=='boundary-only') throw new Error('state status'); if(s.physiologyAuthority!==false||s.controlAuthority!==false) throw new Error('state authority'); if(s.patientState!==null) throw new Error('patient state must remain null');" "$health" "$state"
+          curl --fail --silent --dump-header native-health.headers http://127.0.0.1:8771/health --output native-health.json
+          curl --fail --silent http://127.0.0.1:8771/state --output native-state.json
+          cat native-health.headers
+          cat native-health.json
+          cat native-state.json
+          grep -i '^Access-Control-Allow-Origin: https://hummod.defying-logic.com' native-health.headers
+          node -e "const fs=require('fs'); const h=JSON.parse(fs.readFileSync('native-health.json','utf8')); const s=JSON.parse(fs.readFileSync('native-state.json','utf8')); if(h.status!=='ok') throw new Error('health status'); if(h.physiologyAuthority!==false||h.controlAuthority!==false) throw new Error('health authority'); if(s.status!=='boundary-only') throw new Error('state status'); if(s.physiologyAuthority!==false||s.controlAuthority!==false) throw new Error('state authority'); if(s.patientState!==null) throw new Error('patient state must remain null');"
+
+      - name: Verify browser native boundary
+        working-directory: ards-twin-v1.0
+        run: |
+          node test/v15_native_engine_client.test.js
+          node test/v15_native_engine_ui_boundary.test.js
+          node scripts/verify-browser-js.js
 
       - name: Stop boundary service
         if: always()
