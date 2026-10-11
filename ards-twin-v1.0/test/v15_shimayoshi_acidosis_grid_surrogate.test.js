@@ -97,3 +97,8 @@ assert.throws(
   /outside validated source trajectory/
 );
 console.log('ok - adaptive v3 source table loads with bounded time/challenge interpolation');
+
+const v3between=v3.evaluate({sourceChallengeCo2Percent:10,sourceTimeS:450});
+assert.equal(v3between.sourcePhase,'acidosis');
+assert.equal(v3between.interpolatedTime,true);
+console.log('ok - force-only v3 interpolation does not depend on omitted pHi state');
