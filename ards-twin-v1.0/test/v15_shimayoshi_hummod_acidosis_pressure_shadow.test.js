@@ -1,6 +1,7 @@
 'use strict';
 
 const assert=require('node:assert/strict');
+const sourceGridTable=require('../artifacts/v1.5/SHIMAYOSHI_ACIDOSIS_GRID_TABLE_V3.json');
 const {
   humModMyocardialCo2ToShimayoshiLvPressureShadow,
 }=require('../src/shimayoshi_hummod_acidosis_pressure_shadow.js');
@@ -9,6 +10,7 @@ const x=humModMyocardialCo2ToShimayoshiLvPressureShadow({
   myocardialPco2MmHg:118.5,
   sourceProtocolTimeS:400,
   lvVolumeMl:120,
+  sourceGridTable,
 });
 assert.equal(x.pressureShadowEligible,true);
 assert.equal(x.closedLoopPressureAuthority,false);
@@ -24,9 +26,20 @@ const outside=humModMyocardialCo2ToShimayoshiLvPressureShadow({
   myocardialPco2MmHg:20,
   sourceProtocolTimeS:400,
   lvVolumeMl:120,
+  sourceGridTable,
 });
 assert.equal(outside.pressureShadowEligible,false);
 assert.equal(outside.pressureShadow,null);
 assert.equal(outside.lvPressureMmHg,null);
 assert.equal(outside.closedLoopPressureAuthority,false);
 console.log('ok - LV pressure shadow fails closed outside validated Shimayoshi CO2 grid');
+
+assert.throws(
+  ()=>humModMyocardialCo2ToShimayoshiLvPressureShadow({
+    myocardialPco2MmHg:118.5,
+    sourceProtocolTimeS:400,
+    lvVolumeMl:120,
+  }),
+  /sourceGridTable is required/
+);
+console.log('ok - acidosis pressure composition requires explicit validated source table');
