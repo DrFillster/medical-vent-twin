@@ -3,6 +3,9 @@
 const {
   myocardialLvPressureShadow,
 }=require('./myocardial_lv_pressure_shadow.js');
+const {
+  assessShimayoshiCycleAuthority,
+}=require('./shimayoshi_source_authority.js');
 
 function myocardialPressureFromValidatedSourceCycle({
   lvVolumeMl,
@@ -28,6 +31,11 @@ function myocardialPressureFromValidatedSourceCycle({
     throw new Error('selected source cycle has invalid peak Fb');
   }
 
+  const sourceAuthority=assessShimayoshiCycleAuthority({
+    validatedSourceRun,
+    cycleIndex,
+  });
+
   const sourceStressProvenance=Object.freeze({
     upstreamGitSha:validatedSourceRun.provenance.upstreamGitSha,
     protocol:cycle.protocol,
@@ -39,12 +47,20 @@ function myocardialPressureFromValidatedSourceCycle({
     physiologyChanged:validatedSourceRun.provenance.physiologyChanged,
     sourceProtocolName:validatedSourceRun.provenance.protocolName,
     protocolValidationStatus:validatedSourceRun.protocolValidation.status,
+    sourceAuthorityStatus:sourceAuthority.status,
+    closedLoopPressureAuthority:sourceAuthority.closedLoopPressureAuthority,
   });
 
-  return myocardialLvPressureShadow({
+  const pressureShadow=myocardialLvPressureShadow({
     lvVolumeMl,
     sourceCellularActiveStressMnPerMm2:cycle.peak_Fb_mN_per_mm2,
     sourceStressProvenance,
+  });
+
+  return Object.freeze({
+    ...pressureShadow,
+    sourceAuthority,
+    closedLoopPressureAuthority:false,
   });
 }
 
