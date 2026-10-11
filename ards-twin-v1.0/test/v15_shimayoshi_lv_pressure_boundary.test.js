@@ -26,7 +26,8 @@ const challengeManifest={...controlManifest};
 const run=buildSourceStressTrajectory({
   controlCsvText:control,
   challengeCsvText:control,
-  manifest,
+  controlManifest,
+  challengeManifest,
 });
 
 const boundary=leftVentricularSourcePressureBoundary({
