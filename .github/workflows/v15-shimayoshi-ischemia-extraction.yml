@@ -1,0 +1,146 @@
+name: v1.5 Shimayoshi Ischemia Extraction
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-shimayoshi-ischemia-extraction.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ischemia-source:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Vent v1.5
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Shimayoshi source
+        uses: actions/checkout@v4
+        with:
+          repository: atakeuti/TS-AT-SM-2026-IRmodel
+          ref: 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          path: shimayoshi-upstream
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Patch and build source control
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream control
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 shimayoshi-control-source-diff.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run source control baseline
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 0.8 shimayoshi_control_0p1ms.csv control 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build source control manifest
+        shell: pwsh
+        run: |
+          $diff = Get-Content shimayoshi-control-source-diff.patch -Raw
+          $manifest = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            exactCodeDiff = $diff
+            simulationDuration = '0.8 s source-model control baseline'
+            protocolEnabled = 'control; ischemia disabled; respiratory acidosis disabled'
+            outputCadence = 'one row per 400 ms paced cycle'
+            cvodeTargetCadenceMs = 0.1
+            protocolName = 'control'
+            physiologyChanged = $false
+          }
+          $manifest | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 SHIMAYOSHI_CONTROL_SOURCE_RUN.json
+
+      - name: Restore pinned source before ischemia build
+        shell: pwsh
+        run: |
+          git -C shimayoshi-upstream checkout -- simulator/main.cpp simulator/model.cpp
+          git -C shimayoshi-upstream diff --exit-code -- simulator/main.cpp simulator/model.cpp
+
+      - name: Patch and build source ischemia
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-extraction.js shimayoshi-upstream ischemia
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 shimayoshi-ischemia-source-diff.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run full ischemia-reperfusion source trajectory
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 1200.0 shimayoshi_ischemia_0p2ms.csv ischemia 0.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run native-cadence ischemia-onset reference
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 220.0 shimayoshi_ischemia_0p1ms_onset.csv ischemia 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Compare 0.2 ms trajectory against native cadence through ischemia onset
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          node ../../ards-twin-v1.0/scripts/compare-shimayoshi-overlap.js shimayoshi_ischemia_0p1ms_onset.csv shimayoshi_ischemia_0p2ms.csv | Out-File -Encoding utf8 ../../SHIMAYOSHI_ISCHEMIA_CADENCE_OVERLAP.json
+          Get-Content ../../SHIMAYOSHI_ISCHEMIA_CADENCE_OVERLAP.json
+
+      - name: Build ischemia source manifest
+        shell: pwsh
+        run: |
+          $diff = Get-Content shimayoshi-ischemia-source-diff.patch -Raw
+          $manifest = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            exactCodeDiff = $diff
+            simulationDuration = '1200.0 s source-model ischemia-reperfusion trajectory'
+            protocolEnabled = 'source ischemia enabled; source respiratory acidosis disabled'
+            outputCadence = 'one row per 400 ms paced cycle'
+            cvodeTargetCadenceMs = 0.2
+            protocolName = 'ischemia'
+            physiologyChanged = $false
+          }
+          $manifest | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 SHIMAYOSHI_ISCHEMIA_SOURCE_RUN.json
+
+      - name: Validate full ischemia trajectory through v1.5 importer
+        shell: pwsh
+        working-directory: ards-twin-v1.0
+        run: |
+          npm ci
+          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi-upstream/simulator/shimayoshi_ischemia_0p2ms.csv ../SHIMAYOSHI_ISCHEMIA_SOURCE_RUN.json ../shimayoshi_ischemia_import.json
+          node -e "const x=require('../shimayoshi_ischemia_import.json'); const p=x.protocolValidation.observedPhases; if(x.status!=='shimayoshi-source-stress-trajectory-validated'||!p.includes('ischemia')||!p.includes('reperfusion')||p[0]!=='control') process.exit(1); console.log({status:x.status,cycles:x.trajectory.length,referencePeakStressMnPerMm2:x.referencePeakStressMnPerMm2,phases:p,first:x.trajectory[0],last:x.trajectory[x.trajectory.length-1]});"
+
+      - name: Upload source extraction artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-ischemia-source-extraction
+          path: |
+            shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv
+            shimayoshi-upstream/simulator/shimayoshi_ischemia_0p2ms.csv
+            shimayoshi-upstream/simulator/shimayoshi_ischemia_0p1ms_onset.csv
+            SHIMAYOSHI_CONTROL_SOURCE_RUN.json
+            SHIMAYOSHI_ISCHEMIA_SOURCE_RUN.json
+            SHIMAYOSHI_ISCHEMIA_CADENCE_OVERLAP.json
+            shimayoshi-control-source-diff.patch
+            shimayoshi-ischemia-source-diff.patch
+            shimayoshi_ischemia_import.json
+          if-no-files-found: warn
+          retention-days: 14
