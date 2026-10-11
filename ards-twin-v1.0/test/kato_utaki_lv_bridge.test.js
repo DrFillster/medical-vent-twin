@@ -32,7 +32,7 @@ const x=activeLvPressureContributionMmHg({
   cellularActiveStressMnPerMm2:1,
 });
 assert(Number.isFinite(x.activePressureMmHg));
-assert.equal(x.totalPressureMmHg,null);
+assert(Number.isFinite(x.totalPressureMmHg));
 assert.equal(x.controlAuthority,false);
 
 const ratio=normalizedActivePressureRatio({
