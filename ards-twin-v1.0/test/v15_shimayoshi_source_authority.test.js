@@ -57,5 +57,5 @@ const ischemiaWithMechanics=assessShimayoshiCycleAuthority({
 });
 assert.equal(ischemiaWithMechanics.mechanicsPresent,true);
 assert.equal(ischemiaWithMechanics.closedLoopPressureAuthority,false);
-assert.match(ischemiaWithMechanics.status,/contracture-discrimination/);
-console.log('ok - mechanics observation alone does not invent an authority threshold');
+assert.match(ischemiaWithMechanics.status,/contracture-dominant-source-phenotype/);
+console.log('ok - validated contracture-dominant mechanics remain shadow-only without invented threshold');
