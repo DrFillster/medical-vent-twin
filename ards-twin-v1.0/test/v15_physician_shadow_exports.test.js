@@ -40,4 +40,12 @@ assert(Number.isFinite(
   x.systemic.physicianComparison?.publishedModelInterim?.heartRatePerMin
 ),'published-model interim HR must be numeric after initialization');
 
-console.log('ok - physician shadow exports HR, splanchnic resistance, and LV Emax');
+const myocardialStatus=
+  x.systemic.physicianComparison?.publishedModelInterim?.myocardialContractilityStatus;
+assert(typeof myocardialStatus==='string' &&
+  myocardialStatus.includes('Not source-complete'),
+  'physician comparison must expose myocardial model as not source-complete');
+assert(!/Fb|hsmL|ATP|PCr|sarcomere/i.test(myocardialStatus),
+  'physician-facing myocardial status must not expose cellular implementation variables');
+
+console.log('ok - physician shadow exports HR, resistance/elastance shadows, and safe myocardial completeness status');
