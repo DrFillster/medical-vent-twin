@@ -19,8 +19,8 @@ const challenge=[
   header,
   '0.4,control,8,7.0,0.08,0.04,4.8,7.5,1.2,0.0012',
 ].join('\n');
-const manifest={
-  upstreamGitSha:'abcdef1234567',
+const controlManifest={
+  upstreamGitSha:'6478d2ab0acbfc88d3da461d2594658bcb2798ca',
   compilerBuildEnvironment:'test fixture only',
   exactCodeDiff:'output-only instrumentation fixture',
   simulationDuration:'fixture',
@@ -29,6 +29,7 @@ const manifest={
   protocolName:'control',
   physiologyChanged:false,
 };
+const challengeManifest={...controlManifest};
 
 const sourceRun=buildSourceStressTrajectory({
   controlCsvText:control,
