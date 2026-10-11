@@ -3,6 +3,10 @@ name: v1.5 Physiology Validation
 # manual-only after green current-head validation
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/v15-validation-trigger'
   workflow_dispatch:
 
 concurrency:
