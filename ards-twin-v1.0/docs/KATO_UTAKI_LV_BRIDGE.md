@@ -119,3 +119,45 @@ Thus a source-derived Shimayoshi stress trajectory can propagate into LV systoli
 - Kato S, Himeno Y, Amano A. PLoS Comput Biol. 2024;20:e1011974. DOI 10.1371/journal.pcbi.1011974.
 - Shim EB, Amano A, Takahata T, Shimayoshi T, Noma A. J Physiol Sci. 2007;57:275-285. DOI 10.2170/physiolsci.RP006007.
 - Shimayoshi T, Takeuchi A, Matsuoka S. J Physiol. 2026;604:7640-7662. DOI 10.1113/JP290440.
+
+
+## Required circulation integration
+
+The Kato 2024 model does not represent myocardial force as a scalar inotropy
+multiplier applied to an algebraic pump. Its simplified hemodynamic model
+carries LV volume `V_lv` and aortic volume `V_a` dynamically and includes:
+
+- pulmonary venous pressure `P_E1`;
+- LV pressure `P_lv`;
+- aortic pressure `P_a`;
+- peripheral pressure `P_E2`;
+- LV inflow `q_0`;
+- LV-to-aorta flow `q_in`;
+- peripheral outflow `q_out`;
+- aortic compliance `C_a`;
+- pulmonary venous, aortic, and peripheral resistances.
+
+Therefore the source-derived myocardial pathway must **not** be connected as:
+
+```
+stress_ratio -> leftContractilityMultiplier
+```
+
+The intended integration boundary is:
+
+```
+Shimayoshi cellular state / Fb
+    -> Kato/Utaki wall mechanics
+    -> instantaneous P_lv(V_lv, Fb)
+    -> pressure-driven LV inlet/outlet flows
+    -> dynamic V_lv and arterial volume/pressure
+    -> systemic circulation
+```
+
+The existing reduced HumMod `ventricularPump()` may remain as a baseline or
+comparison path. The Shimayoshi/Kato path remains without circulation control
+authority until the Kato circulation equations and required parameters are
+transcribed and regression-tested from the primary source.
+
+Primary source: Kato S, Himeno Y, Amano A. PLoS Comput Biol. 2024;20:e1011974.
+DOI: 10.1371/journal.pcbi.1011974.
