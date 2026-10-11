@@ -25,6 +25,10 @@ const PARAMETERS=Object.freeze({
   K_S:7.24,
   K_u_mmHg_per_mN_per_mm2:7.50064,
   h_lv_cm:1.35,
+  K_PE_mN_per_mm2:0.2692,
+  K_PL_mN_per_mm2:7.561,
+  passiveD:28.08,
+  L0_um:1.043,
 });
 
 const SOURCE=Object.freeze({
@@ -62,6 +66,49 @@ function scaledActiveWallStressMnPerMm2(cellularActiveStressMnPerMm2){
   return PARAMETERS.K_S*cellularActiveStressMnPerMm2;
 }
 
+function passiveWallStressMnPerMm2(halfSarcomereLengthUm){
+  positive(halfSarcomereLengthUm,'halfSarcomereLengthUm');
+  const L=halfSarcomereLengthUm;
+  const L0=PARAMETERS.L0_um;
+  if(L<L0){
+    return -PARAMETERS.K_PL_mN_per_mm2*(1-L/L0);
+  }
+  return PARAMETERS.K_PE_mN_per_mm2*
+    (Math.exp(PARAMETERS.passiveD*(L/L0-1))-1);
+}
+
+function lvPressureFromCellularStress({
+  lvVolumeMl,
+  cellularActiveStressMnPerMm2,
+}={}){
+  const radiusCm=lvRadiusCmFromVolumeMl(lvVolumeMl);
+  const halfSarcomereLengthUm=halfSarcomereLengthUmFromRadiusCm(radiusCm);
+  const activeWallStressMnPerMm2=
+    scaledActiveWallStressMnPerMm2(cellularActiveStressMnPerMm2);
+  const passiveWallStressMnPerMm2=
+    passiveWallStressMnPerMm2(halfSarcomereLengthUm);
+  const totalWallStressMnPerMm2=
+    activeWallStressMnPerMm2+passiveWallStressMnPerMm2;
+  const totalPressureMmHg=
+    2*PARAMETERS.K_u_mmHg_per_mN_per_mm2*
+    totalWallStressMnPerMm2*
+    PARAMETERS.h_lv_cm/radiusCm;
+
+  return Object.freeze({
+    lvVolumeMl,
+    radiusCm,
+    halfSarcomereLengthUm,
+    cellularActiveStressMnPerMm2,
+    activeWallStressMnPerMm2,
+    passiveWallStressMnPerMm2,
+    totalWallStressMnPerMm2,
+    totalPressureMmHg,
+    status:'source-complete Kato/Utaki LV geometry and pressure bridge',
+    controlAuthority:false,
+    provenance:SOURCE,
+  });
+}
+
 function activeLvPressureContributionMmHg({
   lvVolumeMl,
   cellularActiveStressMnPerMm2,
@@ -82,8 +129,11 @@ function activeLvPressureContributionMmHg({
     cellularActiveStressMnPerMm2,
     activeWallStressMnPerMm2,
     activePressureMmHg,
-    totalPressureMmHg:null,
-    status:'active-component-source-complete; total pressure blocked pending passive-force Eq.23 transcription',
+    totalPressureMmHg:lvPressureFromCellularStress({
+      lvVolumeMl,
+      cellularActiveStressMnPerMm2,
+    }).totalPressureMmHg,
+    status:'active component plus source-complete total-pressure bridge available',
     controlAuthority:false,
     provenance:SOURCE,
   });
@@ -111,6 +161,8 @@ module.exports=Object.freeze({
   lvRadiusCmFromVolumeMl,
   halfSarcomereLengthUmFromRadiusCm,
   scaledActiveWallStressMnPerMm2,
+  passiveWallStressMnPerMm2,
+  lvPressureFromCellularStress,
   activeLvPressureContributionMmHg,
   normalizedActivePressureRatio,
 });
