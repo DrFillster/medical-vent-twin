@@ -1,7 +1,7 @@
 'use strict';
 
 const assert=require('node:assert/strict');
-const {patchProtocol,patchMain}=require('../scripts/patch-shimayoshi-source-extraction.js');
+const {normalizeSourceText,patchProtocol,patchMain}=require('../scripts/patch-shimayoshi-source-extraction.js');
 
 const model=[
   '#define USE_ISCHEMIA_PROTOCOL',
@@ -54,3 +54,11 @@ assert.match(patched,/fopen\("NUL"/);
 assert.match(patched,/double dyCompact\[NOPRungeKutta_\]/);
 assert.doesNotMatch(patched,/dump_results\(DumpFile, tb \+ tr, y, v\);/);
 console.log('ok - extraction patch adds compact source-state cycle output only');
+
+const crlfFixture=mainFixture.replace(/\n/g,'\r\n');
+const normalized=normalizeSourceText(crlfFixture);
+assert.doesNotMatch(normalized,/\r/);
+const patchedCrlf=patchMain(normalized);
+assert.match(patchedCrlf,/source_phase_label/);
+assert.doesNotMatch(patchedCrlf,/SFChange\(double SF\[\]\);\\nextern/);
+console.log('ok - Windows CRLF source and generated C++ newlines are regression-covered');
