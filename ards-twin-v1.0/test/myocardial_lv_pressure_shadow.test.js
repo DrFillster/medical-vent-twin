@@ -19,12 +19,13 @@ assert(x.lvPressureMmHg>0);
 assert.equal(x.sourceStressProvenance,'test-source-only');
 assert.equal(x.controlAuthority,false);
 
-assert.throws(
-  ()=>myocardialLvPressureShadow({
-    lvVolumeMl:120,
-    sourceCellularActiveStressMnPerMm2:0,
-  }),
-  /must be finite and > 0/
-);
+const zero=myocardialLvPressureShadow({
+  lvVolumeMl:120,
+  sourceCellularActiveStressMnPerMm2:0,
+  sourceStressProvenance:'terminal-contraction-loss',
+});
+assert.equal(zero.sourceCellularActiveStressMnPerMm2,0);
+assert(Number.isFinite(zero.lvPressureMmHg));
+assert(zero.lvPressureMmHg>=0);
 
 console.log('ok - myocardial LV pressure shadow cannot synthesize stress from bedside gases');
