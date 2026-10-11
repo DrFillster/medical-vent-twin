@@ -1,0 +1,113 @@
+name: v1.5 Shimayoshi Dynamic CO2 Validation
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-shimayoshi-dynamic-co2-validation.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: v15-shimayoshi-dynamic-co2-validation
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dynamic-co2:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Vent v1.5
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Shimayoshi source
+        uses: actions/checkout@v4
+        with:
+          repository: atakeuti/TS-AT-SM-2026-IRmodel
+          ref: 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          path: shimayoshi-upstream
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate dynamic patcher and validator fixtures
+        working-directory: ards-twin-v1.0
+        run: |
+          node test/v15_shimayoshi_dynamic_co2_patcher.test.js
+          node test/v15_shimayoshi_dynamic_co2_validation.test.js
+
+      - name: Patch pinned source
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-dynamic-co2-validation.js shimayoshi-upstream
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 SHIMAYOSHI_DYNAMIC_CO2_DIFF.patch
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build dynamic validation source
+        shell: pwsh
+        run: msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run dynamic CO2 source protocol
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 960.0 shimayoshi_dynamic_co2.csv acidosis 0.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build provenance manifest
+        shell: pwsh
+        run: |
+          $diff = Get-Content SHIMAYOSHI_DYNAMIC_CO2_DIFF.patch -Raw
+          $manifest = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            exactCodeDiff = $diff
+            simulationDuration = '960 s dynamic respiratory-acidosis validation experiment'
+            outputCadence = 'one row per 400 ms paced cycle; CVODE target cadence 0.2 ms'
+            cvodeTargetCadenceMs = 0.2
+            protocolName = 'dynamic-respiratory-acidosis-validation'
+            physiologyChanged = $false
+            stimulusScheduleChanged = $true
+            schedule = @(
+              [ordered]@{startS=0;endS=300;co2Percent=5;phase='control'},
+              [ordered]@{startS=300;endS=420;co2Percent=15;phase='acidosis'},
+              [ordered]@{startS=420;endS=540;co2Percent=25;phase='acidosis'},
+              [ordered]@{startS=540;endS=660;co2Percent=10;phase='acidosis'},
+              [ordered]@{startS=660;endS=780;co2Percent=30;phase='acidosis'},
+              [ordered]@{startS=780;endS=900;co2Percent=20;phase='acidosis'},
+              [ordered]@{startS=900;endS=$null;co2Percent=5;phase='control'}
+            )
+          }
+          $manifest | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 SHIMAYOSHI_DYNAMIC_CO2_SOURCE_RUN.json
+
+      - name: Validate dynamic source trajectory
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/validate-shimayoshi-dynamic-co2.js shimayoshi-upstream/simulator/shimayoshi_dynamic_co2.csv SHIMAYOSHI_DYNAMIC_CO2_SOURCE_RUN.json SHIMAYOSHI_DYNAMIC_CO2_VALIDATED.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Summarize dynamic response
+        shell: pwsh
+        run: |
+          node -e "const x=require('./SHIMAYOSHI_DYNAMIC_CO2_VALIDATED.json'); console.log({referencePeakFbMnPerMm2:x.referencePeakFbMnPerMm2,segments:x.segments});"
+
+      - name: Upload dynamic validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-dynamic-co2-validation
+          path: |
+            shimayoshi-upstream/simulator/shimayoshi_dynamic_co2.csv
+            SHIMAYOSHI_DYNAMIC_CO2_SOURCE_RUN.json
+            SHIMAYOSHI_DYNAMIC_CO2_VALIDATED.json
+            SHIMAYOSHI_DYNAMIC_CO2_DIFF.patch
+          if-no-files-found: warn
+          retention-days: 14
