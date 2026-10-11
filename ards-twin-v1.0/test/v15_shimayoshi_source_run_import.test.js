@@ -27,6 +27,7 @@ const controlManifest={
   simulationDuration:'fixture',
   protocolEnabled:'fixture',
   outputCadence:'one row per cycle',
+  cvodeTargetCadenceMs:0.1,
   protocolName:'control',
   physiologyChanged:false,
 };
