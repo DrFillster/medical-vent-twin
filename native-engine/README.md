@@ -7,13 +7,16 @@ a native bedside simulation engine.
 
 **None.**
 
-The native executable currently exposes only the service boundary:
+The native executable currently exposes a read-only boundary:
 
 - `GET /health`
 - `GET /state`
+- `GET /diagnostics/myocardium/acidosis`
 
-The returned patient variables are intentionally null. The existing v1.5
-browser/HumMod runtime remains authoritative.
+`/state` patient variables remain intentionally null. The myocardial endpoint
+is a stateless, non-authoritative diagnostic composed from the native dynamic
+Shimayoshi acidosis surrogate and Kato/Utaki LV-pressure shadow. The existing
+v1.5 browser/HumMod runtime remains authoritative.
 
 This prevents interface work from silently changing physiology.
 
@@ -44,6 +47,23 @@ curl http://127.0.0.1:8771/health
 curl http://127.0.0.1:8771/state
 ```
 
+## Remote browser access
+
+Prototype transport:
+
+```
+https://hummod.defying-logic.com
+    -> browser UI
+
+https://engine.hummod.defying-logic.com
+    -> Cloudflare Access
+    -> Cloudflare Tunnel
+    -> Mac 127.0.0.1:8771
+```
+
+The engine permits credentialed browser reads from the configured UI origin.
+See `ards-twin-v1.0/docs/NATIVE_ENGINE_REMOTE_ACCESS.md`.
+
 ## Binding
 
 The service defaults to loopback.
@@ -54,8 +74,8 @@ To listen on the LAN:
 NATIVE_ENGINE_BIND=0.0.0.0 ./scripts/run-native-engine.sh
 ```
 
-Direct Internet port-forwarding is **not** the preferred deployment. Put an
-authenticated reverse proxy/tunnel in front of the loopback service instead.
+Direct Internet port-forwarding is **not** the deployment path. Keep the
+engine on loopback and use the Cloudflare Tunnel connector on the same Mac.
 
 ## Planned migration order
 
