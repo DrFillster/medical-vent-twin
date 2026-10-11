@@ -1,11 +1,7 @@
 name: Native Engine Boundary Smoke
-# revision: Cloudflare authenticated remote boundary v2
+# manual-only after green Cloudflare authenticated remote-boundary smoke
 
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - '.github/workflows/native-engine-boundary-smoke.yml'
   workflow_dispatch:
 
 permissions:
