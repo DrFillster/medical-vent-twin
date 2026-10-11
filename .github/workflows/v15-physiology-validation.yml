@@ -3,10 +3,6 @@ name: v1.5 Physiology Validation
 # checkpoint: browser-safe compressed-grid acidosis LV-pressure shadow
 
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - '.github/workflows/v15-physiology-validation.yml'
   workflow_dispatch:
 
 concurrency:
