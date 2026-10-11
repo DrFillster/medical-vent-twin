@@ -676,6 +676,10 @@
     setShadow('clinical-compare-live-sv', liveComparison.strokeVolumeMl, 0);
     setShadow('clinical-compare-live-svr',
       liveComparison.systemicVascularResistanceMmHgMinPerL, 0);
+    const myocardialStatus = $('clinical-compare-myocardial-status');
+    if (myocardialStatus && shadowComparison.myocardialContractilityStatus) {
+      myocardialStatus.textContent = shadowComparison.myocardialContractilityStatus;
+    }
     const comparisonStatus = $('clinical-compare-status');
     if (comparisonStatus && shadowComparison.status) {
       comparisonStatus.textContent = shadowComparison.status;
