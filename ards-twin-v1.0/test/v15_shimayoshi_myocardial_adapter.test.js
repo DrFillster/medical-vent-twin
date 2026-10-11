@@ -17,7 +17,7 @@ const control=[
 ].join('\n');
 const challenge=[
   header,
-  '0.4,source-protocol,8,7.0,0.08,0.04,4.8,7.5,1.2,0.0012',
+  '0.4,control,8,7.0,0.08,0.04,4.8,7.5,1.2,0.0012',
 ].join('\n');
 const manifest={
   upstreamGitSha:'abcdef1234567',
@@ -26,6 +26,7 @@ const manifest={
   simulationDuration:'fixture',
   protocolEnabled:'fixture',
   outputCadence:'one row per cycle',
+  protocolName:'control',
   physiologyChanged:false,
 };
 
@@ -59,7 +60,7 @@ console.log('ok - arbitrary unvalidated stress object is rejected');
 
 const zeroChallenge=[
   header,
-  '0.4,terminal-ischemia,0,6.5,0.001,0.0001,2.0,1.0,8.0,0.0002',
+  '0.4,control,0,6.5,0.001,0.0001,2.0,1.0,8.0,0.0002',
 ].join('\n');
 const zeroRun=buildSourceStressTrajectory({
   controlCsvText:control,
