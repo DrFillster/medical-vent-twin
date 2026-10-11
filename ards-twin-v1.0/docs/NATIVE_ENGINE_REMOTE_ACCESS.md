@@ -191,3 +191,36 @@ NATIVE_ENGINE_BIND=127.0.0.1
 The Tunnel connector is local to the same Mac and can reach the loopback
 service directly. Do not change the engine to `0.0.0.0` merely for remote
 access.
+
+
+## Recommended Access application layout
+
+For the split-hostname prototype, put both concrete hostnames in the same
+Cloudflare Access self-hosted application:
+
+```
+hummod.defying-logic.com
+engine.hummod.defying-logic.com
+```
+
+Use the same Allow policy for both during development.
+
+Cloudflare Access supports multi-domain applications. With eager redirect
+cookies enabled, authentication to the application can pre-issue the
+authorization cookie for each concrete hostname. This is preferable to
+requiring the simulator UI to store an Access service-token secret.
+
+The browser client intentionally uses:
+
+```js
+credentials: 'include'
+```
+
+for native-engine reads.
+
+If Access is configured as separate applications instead, the user may need to
+visit the engine hostname interactively before cross-origin browser requests
+succeed.
+
+Do not embed a Cloudflare Access client secret in
+`native-engine-config.js` or any other browser asset.
