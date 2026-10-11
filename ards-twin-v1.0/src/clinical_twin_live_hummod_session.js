@@ -478,6 +478,8 @@ function createBerlinLiveHumModSession({
           cardiacOutputMlPerMin: null,
           strokeVolumeMl: null,
           systemicVascularResistanceMmHgMinPerL: null,
+          myocardialContractilityStatus:
+            'Not source-complete: dynamic acidosis source surrogate is validated, but live HumMod myocardial PCO2 and phase-consistent LV mechanics are not yet source-complete',
           status: 'HR available from interim secondary transcription; vascular/hemodynamic outputs blocked pending source-complete downstream mapping',
           controlAuthority: false,
         }),
@@ -555,6 +557,8 @@ function createBerlinLiveHumModSession({
           cardiacOutputMlPerMin: null,
           strokeVolumeMl: null,
           systemicVascularResistanceMmHgMinPerL: null,
+          myocardialContractilityStatus:
+            'Not source-complete: acidosis dynamics are source-validated; ischemia force/shortening mechanics are source-validated; live myocardial PCO2 and whole-heart mechanics coupling remain blocked',
           status:
             'HR available; regional resistance and LV/RV elastance shadow states available; MAP/CO/SV/SVR remain blocked pending venous-capacitance path and parallel source-family circulation',
           controlAuthority: false,
