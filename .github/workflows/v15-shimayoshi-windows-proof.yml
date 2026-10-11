@@ -1,5 +1,5 @@
 name: v1.5 Shimayoshi Windows Proof
-# proof revision 5: generated helper newline fix
+# proof revision 6: low-I/O 0.8 s control proof with dual provenance
 
 on:
   push:
@@ -57,7 +57,7 @@ jobs:
         working-directory: shimayoshi-upstream/simulator
         run: |
           $exe = Resolve-Path ../x64/Debug/simulator.exe
-          & $exe 4.0 shimayoshi_control_cycles.csv control
+          & $exe 0.8 shimayoshi_control_cycles.csv control
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Get-Content shimayoshi_control_cycles.csv -TotalCount 12
 
@@ -65,23 +65,24 @@ jobs:
         shell: pwsh
         run: |
           $diff = Get-Content shimayoshi-source-diff.patch -Raw
-          $manifest = [ordered]@{
+          $controlManifest = [ordered]@{
             upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
             compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
             exactCodeDiff = $diff
-            simulationDuration = '4.0 s source-model execution proof'
+            simulationDuration = '0.8 s source-model execution proof'
             protocolEnabled = 'control; ischemia disabled; respiratory acidosis disabled'
             outputCadence = 'one row per 400 ms paced cycle'
+            protocolName = 'control'
             physiologyChanged = $false
           }
-          $manifest | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 SHIMAYOSHI_SOURCE_RUN.json
+          $controlManifest | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 SHIMAYOSHI_CONTROL_SOURCE_RUN.json
 
       - name: Validate generated CSV through v1.5 importer
         shell: pwsh
         working-directory: ards-twin-v1.0
         run: |
           npm ci
-          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv ../shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv ../SHIMAYOSHI_SOURCE_RUN.json ../shimayoshi_source_proof_import.json
+          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi_source_proof_import.json
           node -e "const x=require('../shimayoshi_source_proof_import.json'); if(x.status!=='shimayoshi-source-stress-trajectory-validated'||!x.trajectory.length) process.exit(1); console.log({status:x.status,cycles:x.trajectory.length,referencePeakStressMnPerMm2:x.referencePeakStressMnPerMm2});"
 
       - name: Upload proof artifacts
@@ -91,7 +92,7 @@ jobs:
           name: v15-shimayoshi-source-build-proof
           path: |
             shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv
-            SHIMAYOSHI_SOURCE_RUN.json
+            SHIMAYOSHI_CONTROL_SOURCE_RUN.json
             shimayoshi-source-diff.patch
             shimayoshi-upstream-sha.txt
             shimayoshi_source_proof_import.json
