@@ -15,6 +15,18 @@ const REQUIRED_FIELDS=Object.freeze([
   'lactatePoolConcentration',
 ]);
 
+const CURRENT_AVAILABILITY=Object.freeze({
+  intracellularPotassium:'source primitive transcribed; live KCell/KPool state not coupled',
+  liquidVolumeMl:'source LeftHeart-Size and water algebra transcribed; live global tissue-water state not coupled',
+  bloodFlowMlPerMin:'source myocardial flow primitive transcribed; live left-heart flow provider not coupled',
+  o2UseMlPerMin:'source myocardial flow/metabolism primitives transcribed; live left-heart O2-use provider not coupled',
+  bloodSid:'available from hummod-ards-core-gas-runtime boundary.blood.sidMolPerL',
+  arterialHco3:'available from hummod-ards-core-gas-runtime state.arterialHco3MolPerL',
+  anaerobicGlucoseUsedMgPerMin:'source myocardial fuel primitive transcribed; live fuel provider not coupled',
+  lactateUsedMgPerMin:'source myocardial fuel primitive transcribed; live fuel provider not coupled',
+  lactatePoolConcentration:'LacPool primitive transcribed; whole-body tissue outflows/ECFV live state incomplete',
+});
+
 const UPSTREAM_DEPENDENCIES=Object.freeze({
   intracellularPotassium:
     'KCell.[K+] from global KCell mass / CellH2O.Vol',
@@ -57,6 +69,7 @@ function auditMyocardialAcidBaseInputs(inputs){
     invalid:Object.freeze(invalid),
     requiredFields:REQUIRED_FIELDS,
     upstreamDependencies:UPSTREAM_DEPENDENCIES,
+    currentAvailability:CURRENT_AVAILABILITY,
     status:complete
       ? 'HumMod-myocardial-acid-base-inputs-complete'
       : 'blocked-missing-HumMod-myocardial-upstream-state',
@@ -81,6 +94,7 @@ function requireMyocardialAcidBaseInputs(inputs){
 
 module.exports=Object.freeze({
   REQUIRED_FIELDS,
+  CURRENT_AVAILABILITY,
   UPSTREAM_DEPENDENCIES,
   auditMyocardialAcidBaseInputs,
   requireMyocardialAcidBaseInputs,
