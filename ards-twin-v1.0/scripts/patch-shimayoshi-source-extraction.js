@@ -64,7 +64,7 @@ function patchMain(mainText){
       '    }',
       '    return "control";',
       '}'
-    ].join('\\n'),
+    ].join('\n'),
     'source phase label helper'
   );
 
