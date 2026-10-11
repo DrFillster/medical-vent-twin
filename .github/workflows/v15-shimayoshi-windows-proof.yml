@@ -1,5 +1,5 @@
 name: v1.5 Shimayoshi Windows Proof
-# proof revision 7: low-I/O proof without legacy dump converter
+# proof revision 8: live-only legacy converter removal
 
 on:
   push:
