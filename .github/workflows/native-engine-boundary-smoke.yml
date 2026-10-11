@@ -1,7 +1,11 @@
 name: Native Engine Boundary Smoke
-# revision: native myocardial diagnostic endpoint v1
+# revision: Cloudflare authenticated remote boundary v2
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/native-engine-boundary-smoke.yml'
   workflow_dispatch:
 
 permissions:
