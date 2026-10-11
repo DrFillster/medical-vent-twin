@@ -176,7 +176,7 @@
 <article><h3>Source SA-node rate</h3><p><span id="clinical-source-hr">—</span><small> /min</small></p></article>
 <article><h3>Empirical HR overlay</h3><p><span id="clinical-hr-overlay">—</span><small> /min</small></p></article>
 <article><h3>Brain tissue PO₂</h3><p><span id="clinical-brain-po2">—</span><small> mmHg</small></p></article>
-<article><h3>Brain function effect</h3><p><span id="clinical-brain-function">—</span></p></article>
+<article><h3>HumMod BrainInsult-PO₂ effect</h3><p><span id="clinical-brain-function">—</span></p></article>
 <article><h3>Systemic circulation</h3><p><span id="clinical-circulation-mode">—</span></p></article>
 <article><h3>Sympathetic firing</h3><p><span id="clinical-sympathetic-hz">—</span><small> Hz</small></p></article>
 <article><h3>Vagal firing</h3><p><span id="clinical-vagal-hz">—</span><small> Hz</small></p></article>
@@ -234,25 +234,38 @@
 <div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>L</span></h3><svg id="clinical-volume-chart" role="img" aria-label="Clinical session modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="clinical-physiology-trends">
 <div class="card-heading"><h2>Physiologic trends</h2><span class="pill">Patient time</span></div>
-<p class="hint">Vertical markers identify ventilator interventions. All physiologic panels use the same patient-time window. v1.5 diagnostics preserve the source HumMod SA-node path and add a non-authoritative Ursino/Magosso autonomic shadow model with explicit provenance gates.</p>
+<p class="hint">Primary bedside variables only. Vertical markers identify ventilator interventions; all panels use the same patient-time window.</p>
 <div class="clinical-trend-grid">
+<div class="plot"><h3>Arterial O₂ saturation <span>%</span></h3><svg id="clinical-sao2-trend" role="img" aria-label="Arterial oxygen saturation trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>PaO₂ <span>mmHg</span></h3><svg id="clinical-pao2-trend" role="img" aria-label="PaO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>PaCO₂ <span>mmHg</span></h3><svg id="clinical-paco2-trend" role="img" aria-label="PaCO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>pH</h3><svg id="clinical-ph-trend" role="img" aria-label="Arterial pH trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>MAP <span>mmHg</span></h3><svg id="clinical-map-trend" role="img" aria-label="Mean arterial pressure trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Heart rate <span>/min</span></h3><svg id="clinical-hr-trend" role="img" aria-label="Heart rate trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Cardiac output <span>L/min</span></h3><svg id="clinical-co-trend" role="img" aria-label="Cardiac output trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Stroke volume <span>mL</span></h3><svg id="clinical-sv-trend" role="img" aria-label="Stroke volume trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>SVR <span>mmHg·min/L</span></h3><svg id="clinical-svr-trend" role="img" aria-label="Systemic vascular resistance trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>PVR <span>mmHg·min/L</span></h3><svg id="clinical-pvr-trend" role="img" aria-label="Pulmonary vascular resistance trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>CVP / RAP <span>mmHg</span></h3><svg id="clinical-rap-trend" role="img" aria-label="Right atrial pressure trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Pulmonary artery pressure <span>mmHg</span></h3><svg id="clinical-pap-trend" role="img" aria-label="Pulmonary artery pressure trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+</div>
+<details class="advanced research-trends">
+<summary>Research/model diagnostics</summary>
+<p class="hint">Development signals below are not peer bedside outputs and may disagree while candidate models are being validated.</p>
+<div class="clinical-trend-grid">
 <div class="plot"><h3>HumMod SA-node rate <span>/min</span></h3><svg id="clinical-source-hr-trend" role="img" aria-label="Source HumMod SA-node rate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Published-model interim HR <span>/min</span></h3><svg id="clinical-shadow-hr-trend" role="img" aria-label="Published-model interim heart rate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Empirical HR overlay <span>/min</span></h3><svg id="clinical-hr-overlay-trend" role="img" aria-label="Empirical heart-rate overlay contribution trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Brain tissue PO₂ <span>mmHg</span></h3><svg id="clinical-brain-po2-trend" role="img" aria-label="Source-aligned brain tissue PO2 trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
-<div class="plot"><h3>Brain function effect</h3><svg id="clinical-brain-function-trend" role="img" aria-label="HumMod Brain-Function effect trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>HumMod BrainInsult-PO₂ effect</h3><svg id="clinical-brain-function-trend" role="img" aria-label="HumMod BrainInsult PO2 effect trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Sympathetic firing <span>Hz</span></h3><svg id="clinical-symps-trend" role="img" aria-label="HumMod sympathetic CNS firing trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Vagal firing <span>Hz</span></h3><svg id="clinical-vagus-trend" role="img" aria-label="HumMod vagal firing trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Ursino cardiac sympathetic f<sub>sh</sub> <span>spikes/s</span></h3><svg id="clinical-shadow-fsh-trend" role="img" aria-label="Ursino cardiac sympathetic shadow trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Ursino cardiac vagal f<sub>v</sub> <span>spikes/s</span></h3><svg id="clinical-shadow-fv-trend" role="img" aria-label="Ursino cardiac vagal shadow trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Global DO₂ <span>mL O₂/min</span></h3><svg id="clinical-do2-trend" role="img" aria-label="Global convective oxygen delivery trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
-<div class="plot"><h3>Oxygen debt <span>mL O₂</span></h3><svg id="clinical-o2-debt-trend" role="img" aria-label="Oxygen debt trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
-<div class="plot"><h3>pH</h3><svg id="clinical-ph-trend" role="img" aria-label="Arterial pH trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Global oxygen-debt surrogate <span>mL O₂</span></h3><svg id="clinical-o2-debt-trend" role="img" aria-label="Global oxygen debt surrogate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 </div>
+</details>
 </div>
 </div>
 <div class="clinical-intervention-timeline card" aria-labelledby="clinical-intervention-title">

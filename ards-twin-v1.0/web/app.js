@@ -437,6 +437,13 @@
       paco2: Number(snapshot?.systemic?.gasExchange?.paco2MmHg),
       map: Number(snapshot?.systemic?.hemodynamics?.meanArterialPressureMmHg),
       heartRate: Number(snapshot?.systemic?.hemodynamics?.heartRatePerMin),
+      cardiacOutputLMin: Number(snapshot?.systemic?.hemodynamics?.cardiacOutputMlPerMin) / 1000,
+      strokeVolume: Number(snapshot?.systemic?.hemodynamics?.strokeVolumeMl),
+      svr: Number(snapshot?.systemic?.hemodynamics?.systemicVascularResistanceMmHgMinPerL),
+      pvr: Number(snapshot?.systemic?.hemodynamics?.pulmonaryVascularResistanceMmHgMinPerL),
+      rap: Number(snapshot?.systemic?.hemodynamics?.rightAtrialPressureMmHg),
+      pap: Number(snapshot?.systemic?.hemodynamics?.pulmonaryArteryPressureMmHg),
+      sao2Percent: Number(snapshot?.systemic?.gasExchange?.sao2Fraction) * 100,
       sourceHeartRate: Number(snapshot?.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin),
       shadowHeartRate: Number(snapshot?.systemic?.physicianComparison?.publishedModelInterim?.heartRatePerMin),
       empiricalHrOverlay: Number(snapshot?.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin),
@@ -517,6 +524,13 @@
     drawClinicalTrend('clinical-paco2-trend', 'paco2', 0);
     drawClinicalTrend('clinical-map-trend', 'map', 0);
     drawClinicalTrend('clinical-hr-trend', 'heartRate', 0);
+    drawClinicalTrend('clinical-co-trend', 'cardiacOutputLMin', 2);
+    drawClinicalTrend('clinical-sv-trend', 'strokeVolume', 0);
+    drawClinicalTrend('clinical-svr-trend', 'svr', 0);
+    drawClinicalTrend('clinical-pvr-trend', 'pvr', 2);
+    drawClinicalTrend('clinical-rap-trend', 'rap', 1);
+    drawClinicalTrend('clinical-pap-trend', 'pap', 1);
+    drawClinicalTrend('clinical-sao2-trend', 'sao2Percent', 0);
     drawClinicalTrend('clinical-source-hr-trend', 'sourceHeartRate', 0);
     drawClinicalTrend('clinical-shadow-hr-trend', 'shadowHeartRate', 0);
     drawClinicalTrend('clinical-hr-overlay-trend', 'empiricalHrOverlay', 0);
