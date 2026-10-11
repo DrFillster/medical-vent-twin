@@ -56,6 +56,7 @@ function patchMain(mainText){
       'void SFChange(double SF[]);',
       'extern int flagIschemia;',
       'extern int flagAsidosis;',
+      'extern double CO2o_p2;',
       'const char* source_phase_label(const char* protocolLabel)',
       '{',
       '    if (strcmp(protocolLabel, "ischemia") == 0) {',
@@ -85,7 +86,8 @@ function patchMain(mainText){
     [
       '    const double period = (argc > 1) ? atof(argv[1]) : 3600.0; // runtime-only duration',
       '    const char* compactPath = (argc > 2) ? argv[2] : "shimayoshi_cycles.csv";',
-      '    const char* protocolLabel = (argc > 3) ? argv[3] : "source-protocol";'
+      '    const char* protocolLabel = (argc > 3) ? argv[3] : "source-protocol";',
+      '    if (argc > 5) CO2o_p2 = atof(argv[5]); // source respiratory-acidosis challenge input (%)'
     ].join('\n'),
     'runtime output arguments'
   );
