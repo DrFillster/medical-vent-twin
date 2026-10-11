@@ -144,6 +144,34 @@ This is a contracture-dominant source phenotype.
 
 No empirical threshold is introduced from these data.
 
+## Independent replication
+
+A second source extraction was run independently after the mechanics-patcher
+fail-open defect was fixed:
+
+- replication workflow run: `38168207011`
+- simulation endpoint: 1140 s
+- shared interval with the canonical 1200-s run: 0.4-1140 s
+- shared paced cycles: 2850
+
+Every shared cycle matched exactly for:
+
+- stress ratio;
+- shortening ratio;
+- cycle peak shortening;
+- start/min/max/end `hsmL`;
+- ATP total;
+- PCr;
+- Pi;
+- pHi;
+- peak cytosolic Ca.
+
+Maximum absolute and relative differences across the shared cycles were zero
+for all compared fields.
+
+This independently reproduces the late high-force / near-zero-shortening
+mechanical phenotype.
+
 ## Modeling consequence
 
 1. Peak `Fb` alone must never drive whole-heart pumping authority in severe
