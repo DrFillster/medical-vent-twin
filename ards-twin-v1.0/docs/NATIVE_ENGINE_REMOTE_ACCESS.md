@@ -106,3 +106,55 @@ returned.
 The current browser integration uses native `/health` and `/state` only to
 show connection status. It does not use native bedside values and does not
 send control commands.
+
+
+## macOS persistent service
+
+The repository includes a user-level launch agent installer:
+
+```sh
+./scripts/install-native-engine-launchd.sh
+```
+
+This builds the native engine if necessary and installs:
+
+```
+~/Library/LaunchAgents/com.defyinglogic.medical-vent-twin-native.plist
+```
+
+The process remains bound to `127.0.0.1:8771`, starts at login, and restarts
+if it exits.
+
+Remove it with:
+
+```sh
+./scripts/uninstall-native-engine-launchd.sh
+```
+
+## Cloudflare Tunnel setup
+
+A current locally-managed tunnel template is included at:
+
+```
+native-engine/cloudflare/config.example.yml
+```
+
+The intended route is:
+
+```
+engine.hummod.defying-logic.com -> http://127.0.0.1:8771
+```
+
+Cloudflare's current tunnel configuration requires the named tunnel UUID,
+credentials file, an ingress rule for the public hostname, and a final
+catch-all rule. The tunnel can run as a macOS login service after interactive
+validation.
+
+Use:
+
+```sh
+./scripts/setup-native-cloudflare-tunnel.sh
+```
+
+for the exact one-time command sequence. The helper does not create or store
+Cloudflare credentials itself.
