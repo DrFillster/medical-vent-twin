@@ -137,3 +137,22 @@ assert.throws(
   /min_cycle_hsmL_um must be <= max_cycle_hsmL_um/
 );
 console.log('ok - invalid sarcomere excursion fails closed');
+
+const mechanicsControlCsv=[
+  mechanicsHeader,
+  '0.4,control,6,7.1,0.24,0.23,6.9,10.8,1.8,0.0008,1.04,1.00,1.05,1.03,1.025',
+  '0.8,control,6,7.1,0.24,0.23,6.9,10.8,1.8,0.0008,1.04,1.00,1.05,1.03,1.025',
+].join('\n');
+const mechanicsChallengeCsv=[
+  mechanicsHeader,
+  '0.4,control,6,7.1,0.24,0.23,6.9,10.8,1.8,0.0008,1.04,1.02,1.05,1.03,1.025',
+].join('\n');
+const mechanicalRun=buildSourceStressTrajectory({
+  controlCsvText:mechanicsControlCsv,
+  challengeCsvText:mechanicsChallengeCsv,
+  controlManifest:manifest,
+  challengeManifest:manifest,
+});
+assert.ok(Math.abs(mechanicalRun.referencePeakShorteningUm-0.04)<1e-12);
+assert.ok(Math.abs(mechanicalRun.trajectory[0].shortening_ratio-0.5)<1e-12);
+console.log('ok - mechanical shortening normalizes only to independent source control shortening');
