@@ -88,6 +88,7 @@ function validateManifest(manifest){
     'simulationDuration',
     'protocolEnabled',
     'outputCadence',
+    'cvodeTargetCadenceMs',
     'protocolName',
     'physiologyChanged',
   ];
@@ -111,6 +112,11 @@ function validateManifest(manifest){
     if(typeof manifest[key]!=='string'||!manifest[key].trim()){
       throw new Error(key+' must be a non-empty string');
     }
+  }
+  if(typeof manifest.cvodeTargetCadenceMs!=='number'||
+     !Number.isFinite(manifest.cvodeTargetCadenceMs)||
+     !(manifest.cvodeTargetCadenceMs>0)){
+    throw new Error('cvodeTargetCadenceMs must be finite and > 0');
   }
   if(!['control','ischemia','acidosis'].includes(manifest.protocolName)){
     throw new Error('protocolName must be control, ischemia, or acidosis');
