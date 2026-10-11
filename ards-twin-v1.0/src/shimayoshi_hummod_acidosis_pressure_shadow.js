@@ -1,8 +1,5 @@
 'use strict';
 
-const SOURCE_GRID_TABLE=
-  require('../artifacts/v1.5/SHIMAYOSHI_ACIDOSIS_GRID_TABLE_V3.json');
-
 const {
   evaluateHumModToShimayoshiAcidosisShadow,
 }=require('./shimayoshi_hummod_acidosis_shadow.js');
@@ -14,8 +11,11 @@ function humModMyocardialCo2ToShimayoshiLvPressureShadow({
   myocardialPco2MmHg,
   sourceProtocolTimeS,
   lvVolumeMl,
-  sourceGridTable=SOURCE_GRID_TABLE,
+  sourceGridTable,
 }={}){
+  if(!sourceGridTable){
+    throw new Error('validated Shimayoshi acidosis sourceGridTable is required');
+  }
   const sourceShadow=evaluateHumModToShimayoshiAcidosisShadow({
     myocardialPco2MmHg,
     sourceProtocolTimeS,
@@ -65,6 +65,5 @@ function humModMyocardialCo2ToShimayoshiLvPressureShadow({
 }
 
 module.exports=Object.freeze({
-  SOURCE_GRID_TABLE,
   humModMyocardialCo2ToShimayoshiLvPressureShadow,
 });
