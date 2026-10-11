@@ -721,7 +721,7 @@ function createBerlinLiveHumModSession({
     );
     return Object.freeze({
       sessionSchema: 'berlin-clinical-twin-live-hummod-session/v1',
-      timeSec: systemicSnapshot.timeSec,
+      timeSec: patientTimeSec(),
       case: Object.freeze({
         id: clinicalCase.id,
         name: clinicalCase.name,

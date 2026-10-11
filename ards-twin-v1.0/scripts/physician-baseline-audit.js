@@ -22,7 +22,7 @@ function makeSession(fio2=0.60){
   });
 }
 
-function row(s,label){
+function row(s,label,session){
   const g=s.systemic?.gasExchange||{};
   const h=s.systemic?.hemodynamics||{};
   const d=s.systemic?.decompensation||{};
@@ -46,6 +46,11 @@ function row(s,label){
     brainTissuePo2MmHg:h.brainTissuePo2MmHg,
     globalDo2MlPerMin:g.convectiveOxygenDeliveryMlPerMin,
     globalOxygenDebtSurrogateMl:d.oxygenDebtMl,
+    recruitableFraction:s.pulmonary?.initialization?.initialRecruitmentState?.recruitable ?? null,
+    currentRecruitableFraction:
+      session?.simulation?.state?.compartments?.find(c=>c.id==='recruitable')?.recruitment ?? null,
+    ventilatedPerfusionFraction:s.systemic?.coupling?.ventilatedPerfusionFraction ?? null,
+    totalShuntMlPerMin:s.systemic?.coupling?.totalShuntMlPerMin ?? null,
     stage:d.stage,
   };
 }
@@ -54,11 +59,11 @@ const cases=[];
 for(const fio2 of [0.60,0.80,1.00]){
   const session=makeSession(fio2);
   let s=session.initialize();
-  const rows=[row(s,'exposed-time-zero')];
+  const rows=[row(s,'exposed-time-zero',session)];
   for(const target of [30,60,300]){
     const delta=target-s.timeSec;
     if(delta>0) s=session.runFor(delta);
-    rows.push(row(s,'no-intervention-'+target+'s'));
+    rows.push(row(s,'no-intervention-'+target+'s',session));
   }
   cases.push({fio2,rows});
 }
