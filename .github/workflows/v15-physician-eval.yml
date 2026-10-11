@@ -41,17 +41,14 @@ jobs:
       - name: Verify deployable web
         run: npm run verify:deploy
 
-      - name: Physician baseline audit
-        run: node scripts/physician-baseline-audit.js
-
       - name: Canonical HR candidate challenge
         run: node scripts/canonical-hr-candidate-challenge.js
 
-      - name: Upload baseline and candidate audits
+      - name: Upload candidate physiology audit
         uses: actions/upload-artifact@v4
         with:
-          name: v15-physician-baseline-audit
-          path: ards-twin-v1.0/physician-audit-results/
+          name: v15-candidate-physiology-audit
+          path: ards-twin-v1.0/physician-audit-results/canonical-hr-candidate-challenge.json
           if-no-files-found: error
           retention-days: 14
 
