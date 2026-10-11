@@ -91,7 +91,7 @@ function patchMain(mainText){
   );
 
   const legacyPostprocess=
-    '    main_dump2csv_EB(period);\\n    char ContChar[32] = "Cont";\\n    FNchange(ContChar, 0);';
+    '    main_dump2csv_EB(period);\n    char ContChar[32] = "Cont";\n    FNchange(ContChar, 0);';
   const legacyLast=mainText.lastIndexOf(legacyPostprocess);
   if(legacyLast<0){
     throw new Error('patch anchor not found: live legacy binary dump post-processing');
