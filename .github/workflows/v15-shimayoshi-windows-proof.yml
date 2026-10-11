@@ -1,5 +1,5 @@
 name: v1.5 Shimayoshi Windows Proof
-# proof revision 9: verified live-converter newline anchor
+# proof revision 10: source cadence fidelity benchmark
 
 on:
   push:
@@ -52,14 +52,22 @@ jobs:
         shell: pwsh
         run: msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
 
-      - name: Run short source-model control proof
+      - name: Run source cadence fidelity benchmark
         shell: pwsh
         working-directory: shimayoshi-upstream/simulator
         run: |
           $exe = Resolve-Path ../x64/Debug/simulator.exe
-          & $exe 0.8 shimayoshi_control_cycles.csv control
+          & $exe 0.8 shimayoshi_control_0p1ms.csv control 0.1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Get-Content shimayoshi_control_cycles.csv -TotalCount 12
+          & $exe 0.8 shimayoshi_control_0p2ms.csv control 0.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $exe 0.8 shimayoshi_control_0p4ms.csv control 0.4
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $exe 0.8 shimayoshi_control_1p0ms.csv control 1.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Content shimayoshi_control_0p1ms.csv -TotalCount 12
+          node ../../ards-twin-v1.0/scripts/compare-shimayoshi-cadence.js shimayoshi_control_0p1ms.csv shimayoshi_control_0p2ms.csv shimayoshi_control_0p4ms.csv shimayoshi_control_1p0ms.csv | Out-File -Encoding utf8 ../../SHIMAYOSHI_CADENCE_COMPARISON.json
+          Get-Content ../../SHIMAYOSHI_CADENCE_COMPARISON.json
 
       - name: Build provenance manifest
         shell: pwsh
@@ -69,7 +77,7 @@ jobs:
             upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
             compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
             exactCodeDiff = $diff
-            simulationDuration = '0.8 s source-model execution proof'
+            simulationDuration = '0.8 s source-model execution proof at native 0.1 ms output/request cadence'
             protocolEnabled = 'control; ischemia disabled; respiratory acidosis disabled'
             outputCadence = 'one row per 400 ms paced cycle'
             protocolName = 'control'
@@ -82,7 +90,7 @@ jobs:
         working-directory: ards-twin-v1.0
         run: |
           npm ci
-          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi_source_proof_import.json
+          node scripts/import-shimayoshi-source-run.js ../shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv ../SHIMAYOSHI_CONTROL_SOURCE_RUN.json ../shimayoshi_source_proof_import.json
           node -e "const x=require('../shimayoshi_source_proof_import.json'); if(x.status!=='shimayoshi-source-stress-trajectory-validated'||!x.trajectory.length) process.exit(1); console.log({status:x.status,cycles:x.trajectory.length,referencePeakStressMnPerMm2:x.referencePeakStressMnPerMm2});"
 
       - name: Upload proof artifacts
@@ -91,7 +99,11 @@ jobs:
         with:
           name: v15-shimayoshi-source-build-proof
           path: |
-            shimayoshi-upstream/simulator/shimayoshi_control_cycles.csv
+            shimayoshi-upstream/simulator/shimayoshi_control_0p1ms.csv
+            shimayoshi-upstream/simulator/shimayoshi_control_0p2ms.csv
+            shimayoshi-upstream/simulator/shimayoshi_control_0p4ms.csv
+            shimayoshi-upstream/simulator/shimayoshi_control_1p0ms.csv
+            SHIMAYOSHI_CADENCE_COMPARISON.json
             SHIMAYOSHI_CONTROL_SOURCE_RUN.json
             shimayoshi-source-diff.patch
             shimayoshi-upstream-sha.txt
