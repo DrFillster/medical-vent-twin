@@ -1,7 +1,11 @@
 name: Native Engine Boundary Smoke
-# revision: remote browser boundary v2
+# revision: native myocardial bridge parity v1
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/native-engine-boundary-smoke.yml'
   workflow_dispatch:
 
 permissions:
