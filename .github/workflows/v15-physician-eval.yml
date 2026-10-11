@@ -41,14 +41,14 @@ jobs:
       - name: Verify deployable web
         run: npm run verify:deploy
 
-      - name: Canonical HR candidate challenge
-        run: node scripts/canonical-hr-candidate-challenge.js
+      - name: Primary-source closed-loop cardiovascular challenge
+        run: node scripts/ursino-1998-closed-loop-challenge.js
 
       - name: Upload candidate physiology audit
         uses: actions/upload-artifact@v4
         with:
           name: v15-candidate-physiology-audit
-          path: ards-twin-v1.0/physician-audit-results/canonical-hr-candidate-challenge.json
+          path: ards-twin-v1.0/physician-audit-results/ursino-1998-closed-loop-challenge.json
           if-no-files-found: error
           retention-days: 14
 
