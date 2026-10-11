@@ -1,0 +1,69 @@
+# Shimayoshi source-run import contract
+
+Date: 2026-10-10
+Status: implemented fail-closed intake boundary
+
+## Purpose
+
+This boundary imports source-model cellular output without converting arterial pH,
+PaO2, MAP, HR, CO, SV, or SVR into myocardial contractility.
+
+The accepted pathway is:
+
+```
+Shimayoshi source run
+  -> compact cycle CSV
+  -> authenticated run manifest
+  -> control peak-Fb reference
+  -> source stress_ratio
+  -> myocardial_lv_pressure_shadow.js
+  -> kato_utaki_lv_bridge.js
+```
+
+## Required CSV schema
+
+The header must exactly match:
+
+```
+time_s,protocol,peak_Fb_mN_per_mm2,end_cycle_pHi,end_cycle_ExtCell_O2o_mM,end_cycle_O2i_mM,end_cycle_ATPTotal_mM,end_cycle_PCr_mM,end_cycle_Pi_mM,peak_Cyt_Cai_mM
+```
+
+All numeric fields must be finite. Time must increase strictly within each file.
+Imported paced-cycle peak Fb must be positive.
+
+## Required manifest schema
+
+`SHIMAYOSHI_SOURCE_RUN.json` must contain:
+
+- `upstreamGitSha`
+- `compilerBuildEnvironment`
+- `exactCodeDiff`
+- `simulationDuration`
+- `protocolEnabled`
+- `outputCadence`
+- `physiologyChanged`
+
+The import is rejected unless:
+
+```json
+"physiologyChanged": false
+```
+
+## Normalization
+
+The browser-side import computes only:
+
+```
+reference_peak_Fb = mean(control cycle peak_Fb)
+stress_ratio = challenge cycle peak_Fb / reference_peak_Fb
+```
+
+No bedside hemodynamic variable participates in this normalization.
+
+The absolute `peak_Fb_mN_per_mm2` remains available and is the quantity passed to
+the Kato/Utaki pressure bridge when a source cycle is selected.
+
+## Current limitation
+
+This code does not create source physiology. It remains blocked until the actual
+Shimayoshi source-model CSV and manifest artifacts are generated and imported.
