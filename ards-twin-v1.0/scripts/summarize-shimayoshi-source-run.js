@@ -18,7 +18,8 @@ function summarizePhase(rows,phase){
   const r=rows.filter(x=>x.protocol===phase);
   if(!r.length) return null;
   let minFb=r[0],maxFb=r[0],minPH=r[0],maxPH=r[0];
-  let sumFb=0,sumRatio=0;
+  let minExcursion=null,maxExcursion=null,minEndHsmL=null,maxEndHsmL=null;
+  let sumFb=0,sumRatio=0,sumExcursion=0,mechanicsCount=0;
   for(const x of r){
     if(x.peak_Fb_mN_per_mm2<minFb.peak_Fb_mN_per_mm2) minFb=x;
     if(x.peak_Fb_mN_per_mm2>maxFb.peak_Fb_mN_per_mm2) maxFb=x;
@@ -26,6 +27,14 @@ function summarizePhase(rows,phase){
     if(x.end_cycle_pHi>maxPH.end_cycle_pHi) maxPH=x;
     sumFb+=x.peak_Fb_mN_per_mm2;
     sumRatio+=x.stress_ratio;
+    if(Number.isFinite(x.cycle_hsmL_excursion_um)){
+      mechanicsCount+=1;
+      sumExcursion+=x.cycle_hsmL_excursion_um;
+      if(!minExcursion||x.cycle_hsmL_excursion_um<minExcursion.cycle_hsmL_excursion_um) minExcursion=x;
+      if(!maxExcursion||x.cycle_hsmL_excursion_um>maxExcursion.cycle_hsmL_excursion_um) maxExcursion=x;
+      if(!minEndHsmL||x.end_cycle_hsmL_um<minEndHsmL.end_cycle_hsmL_um) minEndHsmL=x;
+      if(!maxEndHsmL||x.end_cycle_hsmL_um>maxEndHsmL.end_cycle_hsmL_um) maxEndHsmL=x;
+    }
   }
   return Object.freeze({
     phase,
@@ -34,6 +43,37 @@ function summarizePhase(rows,phase){
     endTimeS:r[r.length-1].time_s,
     meanPeakFbMnPerMm2:sumFb/r.length,
     meanStressRatio:sumRatio/r.length,
+    mechanics:mechanicsCount?Object.freeze({
+      meanCycleHsmLExcursionUm:sumExcursion/mechanicsCount,
+      minCycleExcursion:Object.freeze({
+        time_s:minExcursion.time_s,
+        excursion_um:minExcursion.cycle_hsmL_excursion_um,
+        peak_shortening_um:minExcursion.cycle_peak_shortening_um,
+        end_hsmL_um:minExcursion.end_cycle_hsmL_um,
+        peak_Fb_mN_per_mm2:minExcursion.peak_Fb_mN_per_mm2,
+        stress_ratio:minExcursion.stress_ratio,
+      }),
+      maxCycleExcursion:Object.freeze({
+        time_s:maxExcursion.time_s,
+        excursion_um:maxExcursion.cycle_hsmL_excursion_um,
+        peak_shortening_um:maxExcursion.cycle_peak_shortening_um,
+        end_hsmL_um:maxExcursion.end_cycle_hsmL_um,
+        peak_Fb_mN_per_mm2:maxExcursion.peak_Fb_mN_per_mm2,
+        stress_ratio:maxExcursion.stress_ratio,
+      }),
+      shortestEndCycleHsmL:Object.freeze({
+        time_s:minEndHsmL.time_s,
+        end_hsmL_um:minEndHsmL.end_cycle_hsmL_um,
+        excursion_um:minEndHsmL.cycle_hsmL_excursion_um,
+        peak_Fb_mN_per_mm2:minEndHsmL.peak_Fb_mN_per_mm2,
+      }),
+      longestEndCycleHsmL:Object.freeze({
+        time_s:maxEndHsmL.time_s,
+        end_hsmL_um:maxEndHsmL.end_cycle_hsmL_um,
+        excursion_um:maxEndHsmL.cycle_hsmL_excursion_um,
+        peak_Fb_mN_per_mm2:maxEndHsmL.peak_Fb_mN_per_mm2,
+      }),
+    }):null,
     minPeakFb:Object.freeze({
       time_s:minFb.time_s,
       peak_Fb_mN_per_mm2:minFb.peak_Fb_mN_per_mm2,
@@ -43,6 +83,16 @@ function summarizePhase(rows,phase){
       ATPTotal_mM:minFb.end_cycle_ATPTotal_mM,
       PCr_mM:minFb.end_cycle_PCr_mM,
       Pi_mM:minFb.end_cycle_Pi_mM,
+      mechanics:Number.isFinite(minFb.cycle_hsmL_excursion_um)?Object.freeze({
+        start_hsmL_um:minFb.start_cycle_hsmL_um,
+        min_hsmL_um:minFb.min_cycle_hsmL_um,
+        max_hsmL_um:minFb.max_cycle_hsmL_um,
+        end_hsmL_um:minFb.end_cycle_hsmL_um,
+        end_hsmX_um:minFb.end_cycle_hsmX_um,
+        excursion_um:minFb.cycle_hsmL_excursion_um,
+        peak_shortening_um:minFb.cycle_peak_shortening_um,
+        net_hsmL_change_um:minFb.cycle_net_hsmL_change_um,
+      }):null,
     }),
     maxPeakFb:Object.freeze({
       time_s:maxFb.time_s,
@@ -96,6 +146,16 @@ function summarizeRun(run){
       ATPTotal_mM:x.end_cycle_ATPTotal_mM,
       PCr_mM:x.end_cycle_PCr_mM,
       Pi_mM:x.end_cycle_Pi_mM,
+      mechanics:Number.isFinite(x.cycle_hsmL_excursion_um)?Object.freeze({
+        start_hsmL_um:x.start_cycle_hsmL_um,
+        min_hsmL_um:x.min_cycle_hsmL_um,
+        max_hsmL_um:x.max_cycle_hsmL_um,
+        end_hsmL_um:x.end_cycle_hsmL_um,
+        end_hsmX_um:x.end_cycle_hsmX_um,
+        excursion_um:x.cycle_hsmL_excursion_um,
+        peak_shortening_um:x.cycle_peak_shortening_um,
+        net_hsmL_change_um:x.cycle_net_hsmL_change_um,
+      }):null,
     });
   }
   return Object.freeze({
