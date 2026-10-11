@@ -63,7 +63,7 @@ function interpolateRowsAtTime(rows,timeS){
 
 function tableToRuns(table){
   if(!table||
-     !['shimayoshi-acidosis-grid-table/v1','shimayoshi-acidosis-grid-table/v2'].includes(table.schema)||
+     !['shimayoshi-acidosis-grid-table/v1','shimayoshi-acidosis-grid-table/v2','shimayoshi-acidosis-grid-table/v3'].includes(table.schema)||
      !Array.isArray(table.levels)||
      table.levels.length<2){
     throw new Error('validated Shimayoshi acidosis grid table is required');
@@ -84,6 +84,55 @@ function tableToRuns(table){
       referencePeakStressMnPerMm2:table.referencePeakFbMnPerMm2,
       trajectory:Object.freeze(level.rows.map(row=>Object.freeze({...row}))),
     }));
+  }
+
+  if(table.schema==='shimayoshi-acidosis-grid-table/v3'){
+    const timing=table.protocolTimingS||{};
+    if(typeof timing.acidosisOn!=='number'||typeof timing.recoveryOn!=='number'){
+      throw new Error('v3 source grid table requires protocol timing');
+    }
+    return table.levels.map(level=>{
+      if(!Array.isArray(level.keyframes)||level.keyframes.length<2){
+        throw new Error('v3 source grid level requires at least two keyframes');
+      }
+      const trajectory=level.keyframes.map(pair=>{
+        if(!Array.isArray(pair)||pair.length!==2){
+          throw new Error('v3 source grid keyframe must be [time_s, stress_ratio]');
+        }
+        const [time_s,stress_ratio]=pair;
+        if(typeof time_s!=='number'||!Number.isFinite(time_s)||time_s<0){
+          throw new Error('v3 keyframe time must be finite and >= 0');
+        }
+        if(typeof stress_ratio!=='number'||!Number.isFinite(stress_ratio)||stress_ratio<0){
+          throw new Error('v3 keyframe stress ratio must be finite and >= 0');
+        }
+        const protocol=time_s>=timing.acidosisOn&&time_s<timing.recoveryOn
+          ? 'acidosis'
+          : 'control';
+        return Object.freeze({
+          time_s,
+          protocol,
+          stress_ratio,
+          peak_Fb_mN_per_mm2:stress_ratio*table.referencePeakFbMnPerMm2,
+        });
+      });
+      for(let i=1;i<trajectory.length;i++){
+        if(!(trajectory[i].time_s>trajectory[i-1].time_s)){
+          throw new Error('v3 source grid keyframe times must increase strictly');
+        }
+      }
+      return Object.freeze({
+        status:'shimayoshi-source-stress-trajectory-validated',
+        provenance:Object.freeze({
+          protocolName:'acidosis',
+          sourceChallengeCo2Percent:level.sourceChallengeCo2Percent,
+          upstreamGitSha:table.upstreamGitSha,
+          cvodeTargetCadenceMs:level.cvodeTargetCadenceMs,
+        }),
+        referencePeakStressMnPerMm2:table.referencePeakFbMnPerMm2,
+        trajectory:Object.freeze(trajectory),
+      });
+    });
   }
 
   const g=table.timeGrid;
