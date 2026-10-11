@@ -34,7 +34,8 @@ const challengeManifest={...controlManifest};
 const sourceRun=buildSourceStressTrajectory({
   controlCsvText:control,
   challengeCsvText:challenge,
-  manifest,
+  controlManifest,
+  challengeManifest,
 });
 const out=myocardialPressureFromValidatedSourceCycle({
   lvVolumeMl:120,
