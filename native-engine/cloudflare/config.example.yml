@@ -1,0 +1,13 @@
+# Example locally-managed Cloudflare Tunnel configuration.
+# Copy to ~/.cloudflared/config.yml and replace both placeholders.
+#
+# Keep the native engine bound to 127.0.0.1. cloudflared makes the outbound
+# tunnel connection; no router port-forward is required.
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /Users/<MAC_USERNAME>/.cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: engine.hummod.defying-logic.com
+    service: http://127.0.0.1:8771
+  - service: http_status:404
