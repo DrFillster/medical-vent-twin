@@ -8,6 +8,10 @@ on:
       - '.github/workflows/v15-physician-eval.yml'
   workflow_dispatch:
 
+concurrency:
+  group: v15-physician-eval
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -36,3 +40,84 @@ jobs:
 
       - name: Verify deployable web
         run: npm run verify:deploy
+
+      - name: Upload validated physician preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-physician-static-web
+          path: ards-twin-v1.0/web/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-preview:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      deploy_sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - name: Checkout main deployment tree
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Prepare isolated v1.5 physician preview
+        run: |
+          rm -rf ards-twin-v1.5-preview/web
+          mkdir -p ards-twin-v1.5-preview/web
+
+      - name: Download validated physician preview
+        uses: actions/download-artifact@v4
+        with:
+          name: v15-physician-static-web
+          path: ards-twin-v1.5-preview/web
+
+      - name: Stamp source commit
+        run: printf '%s\n' "${GITHUB_SHA}" > ards-twin-v1.5-preview/web/DEPLOY_SOURCE_SHA.txt
+
+      - name: Commit isolated preview
+        id: commit
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ards-twin-v1.5-preview/web
+          if git diff --cached --quiet; then
+            echo "No physician preview content change."
+          else
+            git commit -m "deploy(v1.5): physician preview ${SOURCE_SHA}"
+            git push origin HEAD:main
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  live-smoke:
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify live physician preview
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          URL: https://hummod.defying-logic.com/ards-twin-v1.5-preview/web/
+        run: |
+          set -eu
+          ok=0
+          for attempt in $(seq 1 20); do
+            page_code=$(curl -L -sS -o /tmp/v15.html -w '%{http_code}' --max-time 20 "$URL" || true)
+            sha_code=$(curl -L -sS -o /tmp/v15-sha.txt -w '%{http_code}' --max-time 20 "${URL}DEPLOY_SOURCE_SHA.txt" || true)
+            live_sha=$(tr -d '\r\n' < /tmp/v15-sha.txt 2>/dev/null || true)
+            if [ "$page_code" = "200" ] && [ "$sha_code" = "200" ] && [ "$live_sha" = "$SOURCE_SHA" ]; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+          test "$ok" = "1"
+          for asset in app.js engine.js worker.js clinical-worker.js styles.css clinical-cases.json; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 20 "${URL}${asset}" || true)
+            test "$code" = "200"
+          done
