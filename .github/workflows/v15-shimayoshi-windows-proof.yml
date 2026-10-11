@@ -1,5 +1,5 @@
 name: v1.5 Shimayoshi Windows Proof
-# proof revision 2: CRLF-safe upstream patcher
+# proof revision 3: robust modelSim anchor
 
 on:
   push:
