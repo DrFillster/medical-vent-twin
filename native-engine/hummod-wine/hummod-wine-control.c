@@ -5,6 +5,7 @@
 #include <string.h>
 
 static HWND main_window;
+static DWORD main_pid;
 static HWND dialog_window;
 static HWND filename_edit;
 static HWND action_button;
@@ -22,9 +23,25 @@ static BOOL CALLBACK find_main(HWND h, LPARAM unused) {
   if (!strcmp(cls, "HumMod") ||
       strstr(title, "HumMod : Integrative Biomedicine")) {
     main_window = h;
+    main_pid = pid;
     printf("MAIN pid=%lu handle=%p class=%s title=%s\n",
            (unsigned long)pid, h, cls, title);
   }
+
+  return TRUE;
+}
+
+static BOOL CALLBACK find_dialog(HWND h, LPARAM unused) {
+  char title[512];
+  char cls[256];
+  DWORD pid;
+  (void)unused;
+
+  GetWindowThreadProcessId(h, &pid);
+  if (pid != main_pid) return TRUE;
+
+  GetWindowTextA(h, title, sizeof title);
+  GetClassNameA(h, cls, sizeof cls);
 
   if (!strcmp(cls, "#32770") &&
       (!strcmp(title, "Save As") ||
@@ -34,7 +51,6 @@ static BOOL CALLBACK find_main(HWND h, LPARAM unused) {
     printf("DIALOG pid=%lu handle=%p class=%s title=%s\n",
            (unsigned long)pid, h, cls, title);
   }
-
   return TRUE;
 }
 
@@ -68,6 +84,8 @@ int main(int argc, char **argv) {
     fprintf(stderr, "HumMod main window not found\n");
     return 2;
   }
+
+  EnumWindows(find_dialog, 0);
 
   if (argc == 1 || !strcmp(argv[1], "main")) {
     return 0;
