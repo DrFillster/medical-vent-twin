@@ -51,12 +51,17 @@ function interpolateRowsAtTime(rows,timeS){
   }
   const f=(timeS-lo.time_s)/(hi.time_s-lo.time_s);
   const lerp=(a,b)=>a+(b-a)*f;
+  const pHiAvailable=
+    typeof lo.end_cycle_pHi==='number'&&Number.isFinite(lo.end_cycle_pHi)&&
+    typeof hi.end_cycle_pHi==='number'&&Number.isFinite(hi.end_cycle_pHi);
   return Object.freeze({
     time_s:timeS,
     protocol:lo.protocol===hi.protocol?lo.protocol:'transition',
     peak_Fb_mN_per_mm2:lerp(lo.peak_Fb_mN_per_mm2,hi.peak_Fb_mN_per_mm2),
     stress_ratio:lerp(lo.stress_ratio,hi.stress_ratio),
-    end_cycle_pHi:lerp(lo.end_cycle_pHi,hi.end_cycle_pHi),
+    end_cycle_pHi:pHiAvailable
+      ? lerp(lo.end_cycle_pHi,hi.end_cycle_pHi)
+      : null,
     interpolated:true,
   });
 }
