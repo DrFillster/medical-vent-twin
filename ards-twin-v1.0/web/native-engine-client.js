@@ -79,7 +79,7 @@
       const response=await doFetch(base+path,{
         method:'GET',
         cache:'no-store',
-        credentials:'omit',
+        credentials:'include',
         headers:{Accept:'application/json'},
       });
       if(!response||response.ok!==true){
