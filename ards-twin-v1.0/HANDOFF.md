@@ -3,234 +3,496 @@
 Date: 2026-10-11
 Active product branch: `v1.5`
 Active physiology/reference branch: `DrFillster/hummod-vent-core:main`
-Physiology/control authority added by this handoff: **none**
 
-## Governing architecture
+## Governing product definition
 
-The project is a **modular, persistent cardiopulmonary digital patient**.
+The product is a **digital twin of one persistent patient**.
 
-HumMod is:
-- an integrated source model;
-- a native reference implementation;
-- a comparator;
-- a subsystem donor where its equations remain the best validated choice.
+The physician-facing application is not a scoreboard showing whether HumMod,
+Ursino, Albanese, CircAdapt, Shimayoshi, or another model is "right." Those models
+are development inputs.
 
-HumMod is **not** automatic physiologic ground truth and is **not** the intended universal whole-body authority.
+The physician should see **one evolving canonical patient state**.
 
-The strongest validated model should own each subsystem. Competing models may run in shadow mode until source reproduction and independent validation support an ownership decision.
+### Ownership rule
 
-Canonical research source:
+Every canonical physiologic variable has one active owner.
+
+Examples:
+- Vent owns high-resolution ventilator/lung mechanics.
+- A selected pulmonary vascular model may own PAP/PVR/RV afterload.
+- A selected cardiovascular plant may own SV/CO/MAP and chamber state.
+- A selected autonomic/chronotropic controller may own HR.
+- A selected myocardial energetic model may own intracellular energetic/contractile state.
+
+Competing models may run in research/shadow mode during model selection, but:
+- they are not co-equal bedside outputs;
+- they are not averaged together;
+- they are not tuned to agree with HumMod.
+
+**Agreement with HumMod is not required.**
+**Agreement between competing models is not required.**
+
+The decisive criterion is whether the integrated patient reproduces defensible
+human/experimental physiology.
+
+Canonical architecture documents:
+- `ards-twin-v1.0/docs/DIGITAL_TWIN_GOVERNING_PRINCIPLES.md`
+- `ards-twin-v1.0/docs/PHYSICIAN_PHYSIOLOGY_ACCEPTANCE_GATE.md`
 - `hummod-vent-core/docs/REFERENCE_MODEL_LEDGER.md`
 
-## Target structure
+## Equation/provenance rule
 
-```
-remote browser / physician interface
-              |
-              v
- persistent canonical patient state
-              |
-   +----------+----------+----------------+
-   |                     |                |
-   v                     v                v
-Vent mechanics     cardiovascular    control systems
-                   / chamber plant   autonomic/resp
-   |                     |                |
-   +----------+----------+----------------+
-              |
-      gas / acid-base / O2
-              |
-      organ + metabolism
-              |
-      myocardial energetics
-              |
-      disease layers
+For every physiologically meaningful active relationship preserve:
+- primary source;
+- exact equation/table/page or source-code location;
+- units;
+- parameter values and provenance;
+- intended effect;
+- model operating range;
+- canonical-state inputs and outputs;
+- cross-model coordinate transforms;
+- validation evidence;
+- authority state.
 
-HumMod native session runs alongside as reference/comparator
-and may retain ownership only for individually selected subsystems.
-```
+If an equation, parameter, or adapter is not source-complete:
+- fail closed;
+- keep research-only;
+- do not fill the gap with a guessed gain.
+
+No parameter may be introduced solely to make the patient response look clinically familiar.
+
+## Current physician objective
+
+The next physician-review candidate should present **one patient**, with primary
+bedside variables:
+
+- HR
+- MAP
+- CO
+- SV
+- SVR
+- PVR
+- CVP/RAP
+- PAP
+- SpO2/SaO2
+- PaO2
+- PaCO2
+- pH
+- SvO2/PvO2 where source-valid
+- ventilator settings
+- PEEP
+- peak pressure
+- plateau pressure
+- total PEEP
+- driving pressure
+- VT
+- RR
+- compliance
+
+Research/model-internal variables remain diagnostic-only.
+
+The central validation question is:
+
+> If the patient becomes progressively hypoxic, hypercapnic and acidotic, does the
+> entire cardiopulmonary trajectory look like a critically ill human, and can the
+> important responses be traced to published mechanisms?
 
 ## What Vent owns
 
 Vent remains authoritative for:
 - ventilator controller and mode;
 - airway pressure/flow/volume waveforms;
-- PEEP;
 - high-resolution breath mechanics;
+- PEEP;
 - resistance/compliance;
 - recruitment/derecruitment;
-- plateau/total PEEP/driving-pressure measurements;
-- respiratory holds and bedside mechanics.
+- plateau/total PEEP/driving pressure;
+- breath holds;
+- bedside respiratory mechanics.
 
-## Current candidate subsystem families
+Do not replace Vent mechanics with a lower-resolution whole-body respiratory model.
 
-### Cardiovascular/autonomic
-- Ursino 1998;
-- Ursino & Magosso 2000;
-- Magosso & Ursino 2001;
-- Ursino & Magosso 2003.
+## Major work completed this session
 
-### Integrated cardiopulmonary reference
-- Albanese / Cheng / Ursino / Chbat 2016.
+### 1. Reference architecture restored
 
-### Respiratory neural control
-- Hennigs et al. 2026.
+`hummod-vent-core`:
+- `docs/REFERENCE_MODEL_LEDGER.md`
+- `docs/ARCHITECTURE.md`
+- `docs/ROADMAP.md`
 
-### Myocardial energetics/acidosis
-- Crampin & Smith 2006;
-- Shimayoshi / Takeuchi / Matsuoka 2026.
+The architecture now explicitly defines HumMod as a reference/source/comparator/
+subsystem donor, not automatic whole-body authority.
 
-No direct arterial PaO2 -> contractility or arterial pH -> Emax scalar.
+Relevant commits included:
+- `63f89cfe1d476c2c07fbb0c77e9838555c85abed` — reference-model ledger
+- `7a2faa88501dc5aaa566dc6bdc297224fd959065` — modular architecture
+- `4a88ea33d877e221b8279a0682e8437add55ce90` — evidence-driven roadmap
+- `b39a0268a1b43e46a97b9ff9178d60219c4975a0` — reference ledger updated with pulmonary/HR candidates
 
-### Cellular stress -> chamber mechanics
-Competing candidates:
-- Kato / Himeno / Amano 2024 + Utaki/Shim lineage;
-- CircAdapt/TriSeg as represented in MONARCH.
+The previous “Jennings” reference was a typo and is no longer a blocker.
 
-Neither has final authority yet.
+### 2. Physician UI cleanup
 
-### Oxygen delivery / extraction / microcirculation
-Reference stack includes:
-- Cain 1977;
-- Schumacker & Cain 1987;
-- Nelson et al. 1987;
-- Ronco et al. 1993;
-- Manthous et al. 1994;
-- Roy & Secomb 2021;
-- Munoz et al. 2020.
+The v1.5 physician monitor was changed to emphasize bedside variables:
+- HR
+- MAP
+- CO
+- SV
+- SVR
+- PVR
+- CVP/RAP
+- PAP
+- SaO2
+- PaO2
+- PaCO2
+- pH
+- SvO2/PvO2
+- ventilator variables
 
-No universal DO2crit/SvO2/venous-PO2 threshold is authorized.
+Research signals were moved out of the default physician view.
 
-### Sepsis / inflammatory-autonomic disease layers
-- Yamanaka et al. 2019;
-- Foteinou et al. 2010;
-- Scheff et al. 2011.
+Important physician feedback:
+- the previous screen had many physiologically incoherent trajectories;
+- initialization drift is **not a development priority**;
+- integrated physiology is the priority.
 
-Disease layers must not be used to repair errors in normal physiology.
+### 3. Pulmonary vascular candidate added
 
-## Native HumMod reference path
+Primary source:
+Karamolegkos N, Albanese A, Chbat NW.
+**Heart-Lung Interactions During Mechanical Ventilation: Analysis via a
+Cardiopulmonary Simulation Model.**
+IEEE Open J Eng Med Biol. 2021;2:324-341.
+DOI: 10.1109/OJEMB.2021.3128629. PMCID: PMC8975239.
 
-Pinned comparison source:
+Files:
+- `docs/PULMONARY_VASCULAR_CANDIDATE_EQUATION_LEDGER.md`
+- `src/karamolegkos_pulmonary_circulation_candidate.js`
+- `test/v15_karamolegkos_pulmonary_circulation_candidate.test.js`
+
+Source equations preserved include pulmonary artery, arteriole, capillary, venous
+continuity/momentum equations and lung-volume-dependent pulmonary peripheral
+resistance:
+
+```
+R_pal(V_A, sh)
+  = R_pp,tot / [2 * (1 - sh)] * (V_A / FRC_nom)^2
+```
+
+Source human reference parameters are preserved.
+
+Status:
+- candidate only;
+- not canonical PAP/PVR owner yet.
+
+Hard integration boundary:
+Vent's current elastic volume is **not yet source-proven to be the same absolute
+alveolar-volume coordinate `V_A`** used by Karamolegkos.
+
+Explicit audit:
+- `docs/VENT_TO_PULMONARY_VASCULAR_COORDINATE_AUDIT.md`
+
+Do not use the convenience mapping:
+`V_A = FRC + Vent.totalVolume`
+without a sourced coordinate transform.
+
+### 4. Regional V/Q / HPV audit
+
+Marquis AD, Jezek F, Pinsky DJ, Beard DA.
+**Hypoxic pulmonary vasoconstriction as a regulator of alveolar-capillary oxygen
+flux: A computational model of ventilation-perfusion matching.**
+PLoS Comput Biol. 2021;17:e1008861.
+DOI: 10.1371/journal.pcbi.1008861.
+
+Public code reviewed:
+- `beards-lab/VQmodel`
+- reviewed tree revision: `59416ed8f777a82df29c4b5707150cd58d9b4b32`
+
+Source HPV relationship includes:
+```
+S_i = exp(-P_alv,O2,i / P_HPV)
+```
+
+with first-order vascular regulation and resistance/compliance modulation.
+
+Status:
+- useful mechanistic reference;
+- **not authorized as human HPV physiology** because it is a rat-lung model and
+  contains fitted/engineering parameters.
+
+### 5. Source-complete heart-period candidate added
+
+Primary source:
+Iwamoto M, Hirabayashi S, Atsumi N.
+**In-silico simultaneous respiratory and circulatory measurement during voluntary
+breathing, exercise, and mental stress: A computational approach.**
+PLoS Comput Biol. 2024;20:e1012645.
+DOI: 10.1371/journal.pcbi.1012645.
+PMID: 39689064.
+
+Files:
+- `docs/CHRONOTROPY_CANDIDATE_EQUATION_LEDGER.md`
+- `src/ursino_iwamoto_heart_period_candidate.js`
+- `test/v15_chronotropy_candidate.test.js`
+
+Source heart-period equations preserve:
+- sympathetic threshold;
+- sympathetic/vagal gains;
+- delays;
+- time constants;
+- baseline period;
+- reciprocal HR relation.
+
+### 6. Magosso/Ursino O2-CO2 autonomic candidate added
+
+Primary source:
+Magosso E, Ursino M.
+**A mathematical model of CO2 effect on cardiovascular regulation.**
+Am J Physiol Heart Circ Physiol. 2001;281:H2036-H2052.
+DOI: 10.1152/ajpheart.2001.281.5.H2036.
+
+Files:
+- `docs/MAGOSSO_URSINO_2001_CO2_CANDIDATE_LEDGER.md`
+- `src/magosso_ursino_2001_gas_autonomic_candidate.js`
+- `test/v15_magosso_ursino_2001_gas_autonomic_candidate.test.js`
+
+The primary Eq. 1 O2-CO2 chemoreceptor transcription was recovered and preserved
+including its unusual piecewise branch behavior near PaO2=40 mmHg. It is not
+smoothed or “corrected.”
+
+Candidate outputs include:
+- f_ac
+- theta_sp
+- theta_sv
+- theta_sh
+- f_sp
+- f_sv
+- f_sh
+
+### 7. Composite single-HR candidate built
+
+Files:
+- `docs/CANONICAL_HR_CANDIDATE_LEDGER.md`
+- `src/canonical_hr_candidate.js`
+- `test/v15_canonical_hr_candidate.test.js`
+- `scripts/canonical-hr-candidate-challenge.js`
+
+Source chain:
+```
+arterial pressure
+ -> Ursino baroreceptor f_ab
+
+PaO2 + PaCO2
+ -> Magosso/Ursino peripheral chemoreceptor f_ac
+ -> CNS O2/CO2 offsets
+
+actual Vent VT
+ -> pulmonary stretch f_ap
+
+f_ab + f_ac + f_ap + CNS offsets
+ -> f_sh / f_sp / f_sv
+
+f_ab + f_ac + f_ap
+ -> cardiac vagal f_v
+
+f_sh + f_v
+ -> Iwamoto/Ursino heart period
+ -> candidate HR
+```
+
+This controller does not require HumMod inputs.
+
+### 8. External human validation ledger added
+
+`hummod-vent-core/docs/CANONICAL_HR_EXTERNAL_VALIDATION_LEDGER.md`
+
+Important human validation datasets preserved:
+
+Halliwill et al. 2003:
+- isocapnic hypoxia;
+- SaO2 ~85%;
+- HR 61.9 -> 74.7/min;
+- MAP 97.4 -> 103.9 mmHg;
+- sympathetic activity increased.
+
+Houssiere et al. 2005:
+- SaO2 ~97% -> 84%;
+- HR 64 -> 83/min;
+- MAP 83 -> 86 mmHg;
+- MSNA increased substantially.
+
+Simmons et al. 2007:
+- mild hyperoxic hypercapnia, +5 mmHg ETCO2;
+- HR 59.3 -> 62.4/min;
+- MAP essentially unchanged;
+- no major MSNA increase.
+
+These are validation targets, **not calibration constants**.
+
+## Important model-selection result
+
+The stitched canonical HR candidate is **not ready for authority**.
+
+Its challenge run showed:
+- baseline HR approximately mid-50s;
+- PaO2 50 mmHg produced only a small HR increase, approximately high-50s;
+- this is too weak relative to preserved healthy-human isocapnic-hypoxia data;
+- in severe combined respiratory failure, sympathetic outputs approached ceiling
+  while HR later fell as vagal drive rose.
+
+Interpretation:
+- this is a model-selection result;
+- do **not** tune an empirical HR gain;
+- do **not** tune toward HumMod;
+- keep the candidate as limited/rejected unless a source-level reason for the
+  mismatch is identified.
+
+## New direction: integrated cardiopulmonary candidate
+
+A more promising next candidate has been located:
+
+Repository:
+`DavidRConnell/An-integrated-mathematical-model-of-the-human-cardiopulmonary-system`
+
+Source code:
+- `integratedModel.m`
+- source revision currently reviewed: `7a7e54dd0acab14d57d7a5d4a6940871546137a7`
+
+This implements the Albanese/Cheng/Ursino/Chbat integrated cardiopulmonary model
+and includes:
+- systemic vasculature;
+- pulmonary circulation;
+- LV/RV mechanics;
+- baroreflex;
+- sympathetic and parasympathetic control;
+- LV/RV Emax effectors;
+- systemic resistance effectors;
+- venous unstressed-volume effectors;
+- heart-period effectors;
+- lung mechanics;
+- gas exchange;
+- respiratory control.
+
+Important source-code parameters already identified:
+- carotid baroreceptor Pn=92 mmHg;
+- fmin=2.52 spikes/s;
+- fmax=47.78 spikes/s;
+- sympathetic threshold=2.66 spikes/s;
+- LV Emax gain=0.475;
+- RV Emax gain=0.282;
+- splanchnic/extrasplanchnic resistance gains;
+- venous unstressed-volume gains;
+- sympathetic heart-period gain=-0.13;
+- vagal heart-period gain=0.09;
+- delays/time constants;
+- baseline heart period `hr.Tbasal=0.833 s`;
+- pulmonary/systemic vascular parameters;
+- ventricular parameters.
+
+The source code also directly implements the Ursino cardiovascular equations
+and effectors as one coupled plant.
+
+### Why this is now the preferred next cardiovascular/control candidate
+
+The previous HR candidate stitched several valid source modules together but did
+not reproduce the desired external human chronotropic response strongly enough.
+
+The integrated Albanese/Cheng/Ursino/Chbat model lets us evaluate:
+- HR
+- MAP
+- SV
+- CO
+- vascular resistance
+- venous capacitance
+- ventricular elastance
+
+as one coupled source-family candidate rather than manually composing isolated
+effectors.
+
+This is closer to the digital-twin design.
+
+## Immediate next work
+
+1. Pin the integrated model repository/revision in the reference ledger.
+2. Transcribe the **cardiovascular plant + controller equations** from
+   `integratedModel.m` and the primary Albanese/Ursino papers.
+3. Preserve all parameters with units and source locations.
+4. Port the cardiovascular/control subset equation-for-equation into a candidate
+   JS module.
+5. Reproduce source baseline and perturbation behavior.
+6. Run external validation against human hypoxia/hypercapnia data.
+7. If credible, connect Vent mechanics/gases into this candidate through explicit
+   canonical interfaces.
+8. Only after validation, consider making this integrated candidate the owner of
+   HR/MAP/CO/SV/SVR-related state.
+
+Do not spend time trying to make the earlier stitched HR candidate agree with
+HumMod.
+
+## Myocardial energetics direction remains unchanged
+
+Preferred cellular path:
+- Crampin & Smith 2006 intracellular-acidosis excitation-contraction coupling;
+- Shimayoshi / Takeuchi / Matsuoka 2026 intracellular O2, mitochondrial energetics,
+  ATP/PCr, intracellular pH, Ca handling, cross-bridge stress.
+
+Required chain:
+```
+coronary flow + CaO2
+ -> myocardial O2 availability
+ -> intracellular energetic state
+ -> Ca/cross-bridge force
+ -> source-valid chamber mechanics
+ -> SV / CO / MAP
+```
+
+Do not use:
+- direct arterial PaO2 -> contractility scalar;
+- direct arterial pH -> Emax scalar;
+- arbitrary oxygen-debt -> Emax scalar as final physiology.
+
+## Native HumMod role
+
+Pinned HumMod comparison source:
 - repository: `riliescu/hummod-standalone`
 - revision: `8dab57e05631f779bf5020fe0dd51874d8ae98c1`
-- HumMod.EXE SHA-256: `4243E8721F77A5FABF3128FAC5AC139588B20A8285D35D2021C6852D596803CB`
-- size: 2,043,904 bytes.
+- HumMod.EXE SHA-256:
+  `4243E8721F77A5FABF3128FAC5AC139588B20A8285D35D2021C6852D596803CB`
 
-The Mac/Wine persistent session work remains useful, but its purpose is now explicitly:
+HumMod remains useful for:
 - source reproduction;
-- counterfactual comparison;
-- validation of translated HumMod equations;
-- selected subsystem experiments.
+- reference trajectories;
+- selected subsystem experiments;
+- comparison context.
 
-It is not the architectural destination.
-
-## Existing persistent-session contract
-
-Reuse the existing HumMod reference-session contract from `hummod-vent-core`:
-
-```
-initialize
-set
-advance
-read
-checkpoint
-restore
-terminate
-```
-
-Relevant files:
-- `contracts/session-api.schema.json`
-- `src/session_manager.js`
-- `src/native_worker_stdio.js`
-- `src/native_runtime_adapter.js`
-- `scripts/native-session-host.ps1`
-- `docs/PERSISTENT_WORKER.md`
-
-Do not create an incompatible second HumMod protocol.
-
-## Current work order
-
-**Do not start new physiologic implementation yet.**
-
-First:
-1. preserve and verify the complete model/reference ledger;
-2. complete primary-source equation/parameter transcriptions;
-3. define the canonical patient-state schema;
-4. create the subsystem ownership map;
-5. compare candidate cardiovascular/chamber models;
-6. define source-reproduction experiments for every candidate;
-7. identify independent validation datasets;
-8. only then implement additional physiology in shadow mode.
-
-Native Mac/Wine qualification can continue as infrastructure work, but it must not drive physiologic architecture decisions.
-
-## Current hard blockers
-
-- Magosso/Ursino 2001 Eq. 1 visual verification.
-- Complete Ursino heart-period parameter transcription.
-- Complete Hennigs equation/parameter transcription.
-- Complete Crampin/Smith primary equation ledger.
-- Final Shimayoshi source revision/reproducibility pin.
-- Kato/Utaki vs CircAdapt/TriSeg chamber-mechanics decision.
-- RV/septal/circulation integration for myocardial stress.
-- Quantitative microcirculatory/sepsis extraction model.
-- Source-driven ARDS phenotype distributions.
-- Aortic CaO2-content chemoreflex: HOLD.
-- Fever/temperature chronotropy: HOLD.
-
-## Physician-facing requirement
-
-The ultimate interface must expose clinically meaningful variables such as:
-- HR;
-- BP/MAP;
-- SV;
-- CO;
-- SVR;
-- PVR;
-- CVP/RAP;
-- PAP;
-- SpO2/PaO2;
-- PaCO2;
-- pH;
-- ventilator pressures;
-- VT;
-- compliance;
-- oxygen-delivery/organ-perfusion context where validated.
-
-The numbers must emerge from the selected subsystem models. No direct scaling is permitted merely to populate the monitor.
-
-## Deployment
-
-The current remote-access infrastructure remains valid:
-
-```
-https://hummod.defying-logic.com
-    -> browser UI
-
-https://engine.hummod.defying-logic.com
-    -> Cloudflare Access
-    -> Cloudflare Tunnel
-    -> Mac 127.0.0.1:8771
-```
-
-Keep:
-`NATIVE_ENGINE_BIND=127.0.0.1`
-
-Never expose Wine or HumMod.EXE directly through Cloudflare.
+It is not the architectural destination or validation standard.
 
 ## GitHub Actions policy
 
 Use Actions sparingly.
-- Native HumMod should not run in ordinary hosted workflows.
-- Mac/Wine qualification remains manual-only.
-- Prefer local deterministic tests.
-- Do not change physiology to make CI green.
 
-## Fidelity rules
+A lightweight v1.5 physician-evaluation gate exists and:
+- skips Mac/Wine qualification on hosted Linux;
+- runs build;
+- runs unit/regression tests;
+- verifies deployable web;
+- records candidate physiology audits.
 
-- No guessed physiologic gains, thresholds, transfer functions, or mappings.
-- Every physiologic relationship requires explicit provenance.
-- No subsystem gets authority before source reproduction and independent validation.
-- Preserve competing model outputs in shadow mode during evaluation.
-- Stable prior releases remain recoverable.
-- Agreement with HumMod is not the final validation criterion.
+Latest successful gate observed during this session:
+- workflow run `38185567787`
+- source SHA `b39dd86532e43e12362855f876a7824def03ac4b`
+- conclusion: **success**
+
+Do not repeatedly trigger Actions for documentation-only work.
+
+## Fidelity constraints
+
+- No guessed physiologic gains.
+- No direct tuning to desired bedside numbers.
+- No averaging competing models.
+- No requirement to agree with HumMod.
+- No subsystem authority without primary equations/parameters and external validation.
+- Stable prior versions remain recoverable.
+- The physician sees one digital patient, not multiple model outputs.
