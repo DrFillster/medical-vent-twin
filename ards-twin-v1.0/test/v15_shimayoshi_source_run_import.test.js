@@ -53,6 +53,7 @@ assert.equal(imported.referencePeakStressMnPerMm2,10);
 assert.equal(imported.trajectory[0].stress_ratio,0.8);
 assert.equal(imported.trajectory[1].stress_ratio,0.5);
 assert.equal(imported.controlAuthority,false);
+assert.equal(imported.controlProtocolValidation.status,'source-protocol-trajectory-valid');
 console.log('ok - source stress normalizes only to source control force');
 
 const nonMonotonic=[
@@ -69,3 +70,18 @@ assert.throws(
   /time_s must increase strictly/
 );
 console.log('ok - malformed source time series is rejected');
+
+const contaminatedControl=[
+  header,
+  '0.4,control,10,7.2,0.1,0.05,5,8,1,0.001',
+  '0.8,acidosis,9,7.1,0.1,0.05,5,8,1,0.001',
+].join('\n');
+assert.throws(
+  ()=>buildSourceStressTrajectory({
+    controlCsvText:contaminatedControl,
+    challengeCsvText:challenge,
+    manifest,
+  }),
+  /unexpected source phase acidosis for control trajectory/
+);
+console.log('ok - contaminated reference control run is rejected');
