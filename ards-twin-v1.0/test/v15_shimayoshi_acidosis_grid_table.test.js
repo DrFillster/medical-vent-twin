@@ -21,9 +21,11 @@ function run(co2,ratio){
 }
 
 const t=buildTable([run(20,0.9),run(10,0.95)]);
-assert.equal(t.schema,'shimayoshi-acidosis-grid-table/v1');
+assert.equal(t.schema,'shimayoshi-acidosis-grid-table/v2');
 assert.deepEqual(t.levels.map(x=>x.sourceChallengeCo2Percent),[10,20]);
-assert.equal(t.levels[0].rows[1].stress_ratio,0.95);
-assert.equal(t.levels[0].rows[1].end_cycle_pHi,undefined);
+assert.equal(t.levels[0].stressRatios[1],0.95);
+assert.equal(t.timeGrid.startTimeS,300);
+assert.equal(t.timeGrid.timeStepS,100);
+assert.equal(t.timeGrid.count,2);
 assert.equal(t.closedLoopAuthority,false);
 console.log('ok - compact acidosis grid table retains source force trajectory and provenance only');
