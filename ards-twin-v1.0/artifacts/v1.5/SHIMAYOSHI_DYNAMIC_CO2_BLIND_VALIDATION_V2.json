@@ -1,0 +1,65 @@
+{
+  "schema": "shimayoshi-dynamic-co2-blind-validation/v2",
+  "date": "2026-10-11",
+  "source": {
+    "upstreamGitSha": "6478d2ab0acbfc88d3da461d2594658bcb2798ca",
+    "workflowRunId": 38166194835,
+    "artifactId": 11712456381,
+    "artifactDigest": "sha256:c0248ab642d59a1aaa79e335f2fd45c98c911400c7811721a50b4d576a6d583a",
+    "sourceRows": 2400,
+    "referencePeakFbMnPerMm2": 6.041051170942506,
+    "physiologyChanged": false,
+    "stimulusScheduleChanged": true
+  },
+  "candidate": {
+    "preRegisteredBeforeBlindOutput": true,
+    "fittedToBlindTrajectory": false,
+    "trainingSourceGridWorkflowRunId": 38164241750,
+    "closedLoopAuthority": false
+  },
+  "globalMetrics": {
+    "rmseStressRatio": 0.00362513235242301,
+    "meanAbsoluteStressRatioError": 0.0024727934459796764,
+    "maxAbsoluteStressRatioError": 0.010573563064906422,
+    "maxRelativeStressRatioError": 0.011078193435439402,
+    "maxRelativeErrorAt": {
+      "timeS": 908.8,
+      "sourceCo2Percent": 5,
+      "sourceStressRatio": 0.9540028747104101,
+      "predictedStressRatio": 0.9645715030944173
+    }
+  },
+  "segmentMetrics": [
+    {"startS":0,"endS":300,"co2Percent":5,"phase":"control","n":749,"rmseStressRatio":7.040716679880414e-7,"meanAbsoluteStressRatioError":6.025090603689653e-7,"maxAbsoluteStressRatioError":1.4825735757950653e-6,"maxRelativeStressRatioError":1.4825757738227317e-6,"maxRelativeErrorTimeS":294.4,"sourceEndStressRatio":0.9999986543523647,"predictedEndStressRatio":1},
+    {"startS":300,"endS":420,"co2Percent":15,"phase":"acidosis","n":300,"rmseStressRatio":0.002314155462684928,"meanAbsoluteStressRatioError":0.0018529511387950434,"maxAbsoluteStressRatioError":0.004915018426470352,"maxRelativeStressRatioError":0.004962890985631629,"maxRelativeErrorTimeS":312.4,"sourceEndStressRatio":0.9425072284494785,"predictedEndStressRatio":0.9426722920153294},
+    {"startS":420,"endS":540,"co2Percent":25,"phase":"acidosis","n":300,"rmseStressRatio":0.0027552433685886215,"meanAbsoluteStressRatioError":0.0024338639617239523,"maxAbsoluteStressRatioError":0.00541581966107485,"maxRelativeStressRatioError":0.0057969810994036005,"maxRelativeErrorTimeS":430.4,"sourceEndStressRatio":0.898043956339144,"predictedEndStressRatio":0.8946975500646631},
+    {"startS":540,"endS":660,"co2Percent":10,"phase":"acidosis","n":300,"rmseStressRatio":0.006216869358920618,"meanAbsoluteStressRatioError":0.005797892464464854,"maxAbsoluteStressRatioError":0.009556300398799844,"maxRelativeStressRatioError":0.009767785289340372,"maxRelativeErrorTimeS":659.6,"sourceEndStressRatio":0.9783487367631511,"predictedEndStressRatio":0.987905037161951},
+    {"startS":660,"endS":780,"co2Percent":30,"phase":"acidosis","n":300,"rmseStressRatio":0.004749277307982001,"meanAbsoluteStressRatioError":0.0040943782002582805,"maxAbsoluteStressRatioError":0.008426150152143541,"maxRelativeStressRatioError":0.008612102314824076,"maxRelativeErrorTimeS":660,"sourceEndStressRatio":0.8929106034466057,"predictedEndStressRatio":0.8934167429327984},
+    {"startS":780,"endS":900,"co2Percent":20,"phase":"acidosis","n":300,"rmseStressRatio":0.002765834542084418,"meanAbsoluteStressRatioError":0.002516422168390379,"maxAbsoluteStressRatioError":0.004391919881649442,"maxRelativeStressRatioError":0.0046475042128094664,"maxRelativeErrorTimeS":899.6,"sourceEndStressRatio":0.9450061109238842,"predictedEndStressRatio":0.9493980308055336},
+    {"startS":900,"endS":null,"co2Percent":5,"phase":"control","n":151,"rmseStressRatio":0.006808310104709808,"meanAbsoluteStressRatioError":0.006129805370697045,"maxAbsoluteStressRatioError":0.010573563064906422,"maxRelativeStressRatioError":0.011078193435439402,"maxRelativeErrorTimeS":908.8,"sourceEndStressRatio":1.0100827138464377,"predictedEndStressRatio":1.0115952255202223}
+  ],
+  "checkpoints": [
+    {"timeS":299.6,"sourceCo2Percent":5,"phase":"control","sourceStressRatio":0.9999986543523647,"predictedStressRatio":1,"error":1.3456476353201907e-6,"relativeError":1.3456494460901858e-6,"pHi":7.144809030279942},
+    {"timeS":300,"sourceCo2Percent":15,"phase":"acidosis","sourceStressRatio":0.999998876824698,"predictedStressRatio":0.9994810522591586,"error":-0.0005178245655393932,"relativeError":0.0005178251471478092,"pHi":7.144809030391408},
+    {"timeS":330,"sourceCo2Percent":15,"phase":"acidosis","sourceStressRatio":0.9728055850945625,"predictedStressRatio":0.9702888811978458,"error":-0.0025167038967166544,"relativeError":0.002587057409289047,"pHi":7.051985488798763},
+    {"timeS":360,"sourceCo2Percent":15,"phase":"acidosis","sourceStressRatio":0.9528367158050609,"predictedStressRatio":0.9545247120851252,"error":0.00168799628006433,"relativeError":0.001771548316794369,"pHi":6.973891181456806},
+    {"timeS":419.6,"sourceCo2Percent":15,"phase":"acidosis","sourceStressRatio":0.9425072284494785,"predictedStressRatio":0.9426722920153294,"error":0.000165063565850887,"relativeError":0.0001751324137030053,"pHi":6.919826742604016},
+    {"timeS":420,"sourceCo2Percent":25,"phase":"acidosis","sourceStressRatio":0.9424882312996097,"predictedStressRatio":0.9420916841563127,"error":-0.00039654714329695473,"relativeError":0.00042074492829491416,"pHi":6.919652908536442},
+    {"timeS":480,"sourceCo2Percent":25,"phase":"acidosis","sourceStressRatio":0.8995090530833055,"predictedStressRatio":0.898479606647452,"error":-0.0010294464358535649,"relativeError":0.0011444536687261397,"pHi":6.817535078488487},
+    {"timeS":539.6,"sourceCo2Percent":25,"phase":"acidosis","sourceStressRatio":0.898043956339144,"predictedStressRatio":0.8946975500646631,"error":-0.0033464062744809064,"relativeError":0.003726327927334934,"pHi":6.79026021382979},
+    {"timeS":540,"sourceCo2Percent":10,"phase":"acidosis","sourceStressRatio":0.8980755295623001,"predictedStressRatio":0.895489199778073,"error":-0.002586329784227126,"relativeError":0.0028798577615043574,"pHi":6.790185373649397},
+    {"timeS":600,"sourceCo2Percent":10,"phase":"acidosis","sourceStressRatio":0.9608353607502644,"predictedStressRatio":0.9661266966977399,"error":0.0052913359474754396,"relativeError":0.0055070162523407976,"pHi":6.899697370805543},
+    {"timeS":659.6,"sourceCo2Percent":10,"phase":"acidosis","sourceStressRatio":0.9783487367631511,"predictedStressRatio":0.987905037161951,"error":0.009556300398799844,"relativeError":0.009767785289340372,"pHi":6.962306092767223},
+    {"timeS":660,"sourceCo2Percent":30,"phase":"acidosis","sourceStressRatio":0.9784080406986742,"predictedStressRatio":0.9868341908508177,"error":0.008426150152143541,"relativeError":0.008612102314824076,"pHi":6.9625825823468634},
+    {"timeS":720,"sourceCo2Percent":30,"phase":"acidosis","sourceStressRatio":0.8979143109344053,"predictedStressRatio":0.9050211298156553,"error":0.007106818881249977,"relativeError":0.007914807454014558,"pHi":6.801569595991985},
+    {"timeS":779.6,"sourceCo2Percent":30,"phase":"acidosis","sourceStressRatio":0.8929106034466057,"predictedStressRatio":0.8934167429327984,"error":0.0005061394861927138,"relativeError":0.0005668422843664662,"pHi":6.760500605618794},
+    {"timeS":780,"sourceCo2Percent":20,"phase":"acidosis","sourceStressRatio":0.8929516233121094,"predictedStressRatio":0.893893344143093,"error":0.000941720830983539,"relativeError":0.0010546157332583554,"pHi":6.760386715625775},
+    {"timeS":840,"sourceCo2Percent":20,"phase":"acidosis","sourceStressRatio":0.9347058912314241,"predictedStressRatio":0.9361422946598899,"error":0.0014364034284657379,"relativeError":0.0015367437414707578,"pHi":6.813673568841722},
+    {"timeS":899.6,"sourceCo2Percent":20,"phase":"acidosis","sourceStressRatio":0.9450061109238842,"predictedStressRatio":0.9493980308055336,"error":0.004391919881649442,"relativeError":0.0046475042128094664,"pHi":6.839046145509337},
+    {"timeS":900,"sourceCo2Percent":5,"phase":"control","sourceStressRatio":0.9450416530519692,"predictedStressRatio":0.9501173609537662,"error":0.005075707901797011,"relativeError":0.005370882738771611,"pHi":6.839150616066042},
+    {"timeS":909.2,"sourceCo2Percent":5,"phase":"control","sourceStressRatio":0.9545961215516514,"predictedStressRatio":0.9651696846165578,"error":0.010573563064906422,"relativeError":0.011076478131630776,"pHi":6.856468595483818},
+    {"timeS":930,"sourceCo2Percent":5,"phase":"control","sourceStressRatio":0.9842136903303372,"predictedStressRatio":0.9903758188244774,"error":0.006162128494140218,"relativeError":0.0062609660429250764,"pHi":6.915793210998682},
+    {"timeS":960,"sourceCo2Percent":5,"phase":"control","sourceStressRatio":1.0100827138464377,"predictedStressRatio":1.0115952255202223,"error":0.0015125116737846334,"relativeError":0.0014974136801380602,"pHi":6.9910648698273965}
+  ],
+  "integrityNote": "Metrics and checkpoints independently recomputed from validated source rows using the pre-registered two-state candidate; prior local draft checkpoint values were discarded after inconsistency detection."
+}
