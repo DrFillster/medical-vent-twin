@@ -17,6 +17,14 @@ const REQUIRED_COLUMNS=Object.freeze([
   'peak_Cyt_Cai_mM',
 ]);
 
+const OPTIONAL_MECHANICS_COLUMNS=Object.freeze([
+  'start_cycle_hsmL_um',
+  'min_cycle_hsmL_um',
+  'max_cycle_hsmL_um',
+  'end_cycle_hsmL_um',
+  'end_cycle_hsmX_um',
+]);
+
 function finiteNumber(value,label){
   const n=Number(value);
   if(!Number.isFinite(n)){
@@ -34,10 +42,19 @@ function parseSimpleCsv(text){
     throw new Error('CSV must contain a header and at least one data row');
   }
   const header=lines[0].split(',').map(s=>s.trim());
-  if(header.length!==REQUIRED_COLUMNS.length||
-     header.some((name,i)=>name!==REQUIRED_COLUMNS[i])){
+  const baseMatches=
+    header.length>=REQUIRED_COLUMNS.length &&
+    REQUIRED_COLUMNS.every((name,i)=>header[i]===name);
+  const optional=header.slice(REQUIRED_COLUMNS.length);
+  const optionalMatches=
+    optional.length===0 ||
+    (
+      optional.length===OPTIONAL_MECHANICS_COLUMNS.length &&
+      OPTIONAL_MECHANICS_COLUMNS.every((name,i)=>optional[i]===name)
+    );
+  if(!baseMatches||!optionalMatches){
     throw new Error(
-      'Shimayoshi CSV header must exactly match required source-run schema'
+      'Shimayoshi CSV header must match base schema with optional mechanics extension'
     );
   }
 
@@ -65,6 +82,21 @@ function parseSimpleCsv(text){
     row.peak_Cyt_Cai_mM=finiteNumber(
       row.peak_Cyt_Cai_mM,'peak_Cyt_Cai_mM'
     );
+
+    if(optional.length){
+      for(const name of OPTIONAL_MECHANICS_COLUMNS){
+        row[name]=finiteNumber(row[name],name);
+      }
+      if(row.min_cycle_hsmL_um>row.max_cycle_hsmL_um){
+        throw new Error('min_cycle_hsmL_um must be <= max_cycle_hsmL_um');
+      }
+      row.cycle_hsmL_excursion_um=
+        row.max_cycle_hsmL_um-row.min_cycle_hsmL_um;
+      row.cycle_peak_shortening_um=
+        Math.max(0,row.start_cycle_hsmL_um-row.min_cycle_hsmL_um);
+      row.cycle_net_hsmL_change_um=
+        row.end_cycle_hsmL_um-row.start_cycle_hsmL_um;
+    }
 
     if(!(row.time_s>=0)) throw new Error('time_s must be >= 0');
     if(!(row.peak_Fb_mN_per_mm2>=0)){
@@ -202,6 +234,7 @@ function buildSourceStressTrajectory({
 module.exports=Object.freeze({
   PINNED_UPSTREAM_SHA,
   REQUIRED_COLUMNS,
+  OPTIONAL_MECHANICS_COLUMNS,
   parseSimpleCsv,
   validateManifest,
   meanPeakStress,
