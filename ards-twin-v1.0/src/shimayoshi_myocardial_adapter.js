@@ -22,7 +22,7 @@ function myocardialPressureFromValidatedSourceCycle({
   const cycle=validatedSourceRun.trajectory[cycleIndex];
   if(typeof cycle.peak_Fb_mN_per_mm2!=='number'||
      !Number.isFinite(cycle.peak_Fb_mN_per_mm2)||
-     !(cycle.peak_Fb_mN_per_mm2>0)){
+     cycle.peak_Fb_mN_per_mm2<0){
     throw new Error('selected source cycle has invalid peak Fb');
   }
 
