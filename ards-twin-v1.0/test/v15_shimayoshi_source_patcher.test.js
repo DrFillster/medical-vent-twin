@@ -115,3 +115,27 @@ const removed=duplicateLegacy.slice(0,idx)+
 assert.equal((removed.match(/main_dump2csv_EB\(period\);/g)||[]).length,1);
 assert.match(removed,/#if 0[\s\S]*main_dump2csv_EB\(period\);[\s\S]*#endif/);
 console.log('ok - live converter only is removed while disabled source history remains');
+
+const duplicateCloseFixture=mainFixture.replace(
+  '    fclose(DumpFile);',
+  [
+    '    Initial1 = fopen("Initial1end.txt", "w");',
+    '    fclose(Initial1);',
+    '    fclose(DumpFile);'
+  ].join('\n')
+);
+const duplicateClosePatched=patchMain(duplicateCloseFixture);
+assert.equal(
+  (duplicateClosePatched.match(/cycleStartHsmL = y\[IDX_hsmL\];/g)||[]).length,
+  2,
+  'initial setup plus end-of-cycle reset are expected'
+);
+const sourceLoadClose=duplicateClosePatched.indexOf(
+  '    fclose(Initial1);\n    cycleStartHsmL = y[IDX_hsmL];'
+);
+const endFileClose=duplicateClosePatched.lastIndexOf(
+  '    fclose(Initial1);\n    fclose(DumpFile);'
+);
+assert(sourceLoadClose>=0);
+assert(endFileClose>sourceLoadClose);
+console.log('ok - duplicate Initial1 close sites patch only the source-load close');
