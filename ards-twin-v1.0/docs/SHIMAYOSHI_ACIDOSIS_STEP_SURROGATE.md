@@ -4,7 +4,7 @@ Date: 2026-10-11
 
 ## Status
 
-Implemented as **shadow only**. It has no closed-loop pressure authority.
+Implemented as **shadow only**. It has no closed-loop pressure authority.\n\n**Status: secondary/deprecated for production shadow use.** The preferred path is the compressed validated source-grid surrogate because it retains the source trajectories directly and has an explicit compression-error bound.
 
 Source:
 - upstream: `atakeuti/TS-AT-SM-2026-IRmodel`
