@@ -1,15 +1,6 @@
 name: v1.5 Physiology Validation
 
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - '.github/workflows/v15-physiology-validation.yml'
-      - 'ards-twin-v1.0/package.json'
-      - 'ards-twin-v1.0/package-lock.json'
-      - 'ards-twin-v1.0/src/**'
-      - 'ards-twin-v1.0/test/**'
-      - 'ards-twin-v1.0/scripts/**'
   workflow_dispatch:
 
 concurrency:
