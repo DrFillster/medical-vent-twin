@@ -1,8 +1,12 @@
 name: v1.5 Physiology Validation
 # regression revision 2: corrected Shimayoshi fixtures and HumMod myocardial SID units
-# manual-only after physician myocardial-status checkpoint
+# one-shot validation after myocardial upstream source primitives
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-physiology-validation.yml'
   workflow_dispatch:
 
 concurrency:
