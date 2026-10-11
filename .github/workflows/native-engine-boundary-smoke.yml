@@ -2,10 +2,6 @@ name: Native Engine Boundary Smoke
 # revision: native myocardial pressure shadow parity v1
 
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - '.github/workflows/native-engine-boundary-smoke.yml'
   workflow_dispatch:
 
 permissions:
