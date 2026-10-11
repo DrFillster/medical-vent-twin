@@ -1,4 +1,5 @@
 name: v1.5 Physiology Validation
+# checkpoint: source-fit acidosis LV-pressure shadow
 
 on:
   push:
