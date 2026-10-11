@@ -1,0 +1,136 @@
+name: v1.5 Shimayoshi Mild CO2 Grid Extension
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-shimayoshi-mild-co2-grid.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: v15-shimayoshi-mild-co2-grid
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mild-grid:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout Vent v1.5
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Shimayoshi source
+        uses: actions/checkout@v4
+        with:
+          repository: atakeuti/TS-AT-SM-2026-IRmodel
+          ref: 6478d2ab0acbfc88d3da461d2594658bcb2798ca
+          path: shimayoshi-upstream
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build source control extractor
+        shell: pwsh
+        run: |
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-grid.js shimayoshi-upstream control
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 SHIMAYOSHI_MILD_CONTROL_DIFF.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run source control reference
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          & $exe 0.8 shimayoshi_mild_control.csv control 0.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Restore and build acidosis extractor
+        shell: pwsh
+        run: |
+          git -C shimayoshi-upstream checkout -- simulator/main.cpp simulator/model.cpp
+          node ards-twin-v1.0/scripts/patch-shimayoshi-source-grid.js shimayoshi-upstream acidosis
+          git -C shimayoshi-upstream diff -- simulator/main.cpp simulator/model.cpp | Out-File -Encoding utf8 SHIMAYOSHI_MILD_ACIDOSIS_DIFF.patch
+          msbuild shimayoshi-upstream/VCM-CVODE.sln /m /p:Configuration=Debug /p:Platform=x64
+
+      - name: Run mild CO2 challenge levels
+        shell: pwsh
+        working-directory: shimayoshi-upstream/simulator
+        run: |
+          $exe = Resolve-Path ../x64/Debug/simulator.exe
+          foreach ($co2 in @(6.0,7.5,9.0)) {
+            $tag = ([string]$co2).Replace('.','p')
+            & $exe 960.0 "shimayoshi_acidosis_co2_$tag.csv" acidosis 0.2 $co2
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Build manifests and validate source trajectories
+        shell: pwsh
+        run: |
+          $control = [ordered]@{
+            upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+            compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+            exactCodeDiff = (Get-Content SHIMAYOSHI_MILD_CONTROL_DIFF.patch -Raw)
+            simulationDuration = '0.8 s source-model control reference'
+            protocolEnabled = 'control; ischemia disabled; respiratory acidosis disabled'
+            outputCadence = 'one row per 400 ms paced cycle'
+            cvodeTargetCadenceMs = 0.1
+            protocolName = 'control'
+            physiologyChanged = $false
+          }
+          $control | ConvertTo-Json -Depth 5 | Out-File -Encoding utf8 SHIMAYOSHI_MILD_CONTROL_SOURCE_RUN.json
+
+          $acidDiff = Get-Content SHIMAYOSHI_MILD_ACIDOSIS_DIFF.patch -Raw
+          foreach ($co2 in @(6.0,7.5,9.0)) {
+            $tag = ([string]$co2).Replace('.','p')
+            $manifest = [ordered]@{
+              upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
+              compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
+              exactCodeDiff = $acidDiff
+              simulationDuration = '960 s: 300 s control + 600 s respiratory acidosis + 60 s recovery'
+              protocolEnabled = "source respiratory acidosis enabled; challenge CO2o_p2=$co2%"
+              outputCadence = 'one row per 400 ms paced cycle'
+              cvodeTargetCadenceMs = 0.2
+              protocolName = 'acidosis'
+              sourceChallengeCo2Percent = $co2
+              physiologyChanged = $false
+            }
+            $manifestPath = "SHIMAYOSHI_ACIDOSIS_CO2_${tag}_SOURCE_RUN.json"
+            $manifest | ConvertTo-Json -Depth 5 | Out-File -Encoding utf8 $manifestPath
+            node ards-twin-v1.0/scripts/import-shimayoshi-source-run.js shimayoshi-upstream/simulator/shimayoshi_mild_control.csv SHIMAYOSHI_MILD_CONTROL_SOURCE_RUN.json "shimayoshi-upstream/simulator/shimayoshi_acidosis_co2_$tag.csv" $manifestPath "shimayoshi_acidosis_co2_${tag}_import.json"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Summarize mild source levels
+        shell: pwsh
+        run: |
+          foreach ($tag in @('6','7p5','9')) {
+            node ards-twin-v1.0/scripts/summarize-shimayoshi-source-run.js "shimayoshi_acidosis_co2_${tag}_import.json" "shimayoshi_acidosis_co2_${tag}_summary.json"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          node -e "for (const tag of ['6','7p5','9']) { const x=require('./shimayoshi_acidosis_co2_'+tag+'_summary.json'); const a=x.phaseSummaries.acidosis; console.log({tag,meanRatio:a.meanStressRatio,minRatio:a.minPeakFb.stress_ratio,minFbTimeS:a.minPeakFb.time_s,minPHi:a.minPHi.pHi}); }"
+
+      - name: Upload mild source grid
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v15-shimayoshi-mild-co2-grid
+          path: |
+            shimayoshi-upstream/simulator/shimayoshi_mild_control.csv
+            shimayoshi-upstream/simulator/shimayoshi_acidosis_co2_*.csv
+            SHIMAYOSHI_MILD_CONTROL_SOURCE_RUN.json
+            SHIMAYOSHI_ACIDOSIS_CO2_*_SOURCE_RUN.json
+            SHIMAYOSHI_MILD_CONTROL_DIFF.patch
+            SHIMAYOSHI_MILD_ACIDOSIS_DIFF.patch
+            shimayoshi_acidosis_co2_*_import.json
+            shimayoshi_acidosis_co2_*_summary.json
+          if-no-files-found: warn
+          retention-days: 14
