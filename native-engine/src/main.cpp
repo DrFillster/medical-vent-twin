@@ -60,6 +60,7 @@ std::string http_response(int status,
       << "Cache-Control: no-store\r\n";
   if (!cors_origin.empty()) {
     out << "Access-Control-Allow-Origin: " << cors_origin << "\r\n"
+        << "Access-Control-Allow-Credentials: true\r\n"
         << "Vary: Origin\r\n";
   }
   out << "Connection: close\r\n\r\n"
