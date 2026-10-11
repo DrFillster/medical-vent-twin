@@ -1,8 +1,12 @@
 name: v1.5 Physiology Validation
 # regression revision 2: corrected Shimayoshi fixtures and HumMod myocardial SID units
-# manual-only after green 632-assertion acidosis integration gate
+# one-shot current-head validation via marker file
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/v15-validation-trigger'
   workflow_dispatch:
 
 concurrency:
