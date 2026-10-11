@@ -2,6 +2,10 @@ name: v1.5 Shimayoshi Ischemia Extraction
 # mechanics revision 2: verified patch + non-empty-diff full extraction
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-shimayoshi-ischemia-extraction.yml'
   workflow_dispatch:
 
 permissions:
@@ -89,7 +93,7 @@ jobs:
         working-directory: shimayoshi-upstream/simulator
         run: |
           $exe = Resolve-Path ../x64/Debug/simulator.exe
-          & $exe 1200.0 shimayoshi_ischemia_0p2ms.csv ischemia 0.2
+          & $exe 1140.0 shimayoshi_ischemia_0p2ms.csv ischemia 0.2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run native-cadence ischemia-onset reference
@@ -115,7 +119,7 @@ jobs:
             upstreamGitSha = '6478d2ab0acbfc88d3da461d2594658bcb2798ca'
             compilerBuildEnvironment = 'GitHub Actions windows-latest; Visual Studio MSBuild; Debug x64'
             exactCodeDiff = $diff
-            simulationDuration = '1200.0 s source-model ischemia-reperfusion trajectory'
+            simulationDuration = '1140.0 s source-model ischemia-reperfusion trajectory'
             protocolEnabled = 'source ischemia enabled; source respiratory acidosis disabled'
             outputCadence = 'one row per 400 ms paced cycle'
             cvodeTargetCadenceMs = 0.2
