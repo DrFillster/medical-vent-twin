@@ -16,8 +16,8 @@ const control=[
 ].join('\n');
 const challenge=[
   header,
-  '0.4,source-protocol,8,7.0,0.08,0.04,4.8,7.5,1.2,0.0012',
-  '0.8,source-protocol,5,6.9,0.04,0.02,4.0,6.0,2.0,0.0013',
+  '0.4,control,8,7.0,0.08,0.04,4.8,7.5,1.2,0.0012',
+  '0.8,control,5,6.9,0.04,0.02,4.0,6.0,2.0,0.0013',
 ].join('\n');
 
 const manifest={
@@ -27,6 +27,7 @@ const manifest={
   simulationDuration:'fixture',
   protocolEnabled:'fixture',
   outputCadence:'one row per cycle',
+  protocolName:'control',
   physiologyChanged:false,
 };
 
@@ -56,8 +57,8 @@ console.log('ok - source stress normalizes only to source control force');
 
 const nonMonotonic=[
   header,
-  '0.8,source-protocol,8,7.0,0.08,0.04,4.8,7.5,1.2,0.0012',
-  '0.4,source-protocol,5,6.9,0.04,0.02,4.0,6.0,2.0,0.0013',
+  '0.8,control,8,7.0,0.08,0.04,4.8,7.5,1.2,0.0012',
+  '0.4,control,5,6.9,0.04,0.02,4.0,6.0,2.0,0.0013',
 ].join('\n');
 assert.throws(
   ()=>buildSourceStressTrajectory({
