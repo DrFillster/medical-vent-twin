@@ -1,6 +1,6 @@
 name: v1.5 Physiology Validation
 # regression revision 2: corrected Shimayoshi fixtures and HumMod myocardial SID units
-# checkpoint: browser-safe compressed-grid acidosis LV-pressure shadow
+# manual-only after green 632-assertion acidosis integration gate
 
 on:
   workflow_dispatch:
