@@ -2,6 +2,10 @@ name: Native Engine Boundary Smoke
 # manual-only after green Cloudflare authenticated remote-boundary smoke
 
 on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/native-engine-boundary-smoke.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,6 +27,11 @@ jobs:
       - name: Run native physiology self-tests
         run: |
           ctest --test-dir native-engine/build --output-on-failure
+
+      - name: Verify Mac Wine qualification harness
+        run: |
+          sh -n scripts/qualify-hummod-mac-wine.sh
+          node ards-twin-v1.0/test/v15_hummod_mac_wine_qualification.test.js
 
       - name: Run boundary service
         run: |
