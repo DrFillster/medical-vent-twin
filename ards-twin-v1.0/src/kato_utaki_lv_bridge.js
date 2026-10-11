@@ -51,6 +51,13 @@ function positive(v,label){
   return v;
 }
 
+function nonnegative(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)||v<0){
+    throw new Error(label+' must be finite and >= 0');
+  }
+  return v;
+}
+
 function lvRadiusCmFromVolumeMl(volumeMl){
   positive(volumeMl,'volumeMl');
   return PARAMETERS.K_R_cm_per_ml*volumeMl+PARAMETERS.K_V_cm;
@@ -62,7 +69,7 @@ function halfSarcomereLengthUmFromRadiusCm(radiusCm){
 }
 
 function scaledActiveWallStressMnPerMm2(cellularActiveStressMnPerMm2){
-  positive(cellularActiveStressMnPerMm2,'cellularActiveStressMnPerMm2');
+  nonnegative(cellularActiveStressMnPerMm2,'cellularActiveStressMnPerMm2');
   return PARAMETERS.K_S*cellularActiveStressMnPerMm2;
 }
 
