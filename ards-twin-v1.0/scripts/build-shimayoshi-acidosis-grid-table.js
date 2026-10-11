@@ -4,6 +4,8 @@
 const fs=require('node:fs');
 const path=require('node:path');
 
+const DEFAULT_COMPRESSION_TOLERANCE=0.0002;
+
 function read(p){
   return JSON.parse(fs.readFileSync(path.resolve(p),'utf8'));
 }
@@ -12,83 +14,163 @@ function challenge(run){
   return run?.provenance?.sourceChallengeCo2Percent;
 }
 
-function uniformTimeGrid(rows){
+function adaptiveKeyframeIndices(rows,tolerance=DEFAULT_COMPRESSION_TOLERANCE){
   if(!Array.isArray(rows)||rows.length<2){
     throw new Error('source trajectory must contain at least two cycles');
   }
-  const start=rows[0].time_s;
-  const step=rows[1].time_s-rows[0].time_s;
-  if(!(step>0)||!Number.isFinite(step)) throw new Error('source time step must be positive');
-  for(let i=1;i<rows.length;i++){
-    const expected=start+i*step;
-    if(Math.abs(rows[i].time_s-expected)>1e-8){
-      throw new Error('source trajectory must use one uniform paced-cycle time grid');
+  if(typeof tolerance!=='number'||!Number.isFinite(tolerance)||!(tolerance>0)){
+    throw new Error('compression tolerance must be finite and > 0');
+  }
+  const keep=new Set([0,rows.length-1]);
+  const stack=[[0,rows.length-1]];
+
+  while(stack.length){
+    const [a,b]=stack.pop();
+    const xa=rows[a].time_s;
+    const xb=rows[b].time_s;
+    const ya=rows[a].stress_ratio;
+    const yb=rows[b].stress_ratio;
+    let maxError=-1;
+    let maxIndex=null;
+
+    for(let i=a+1;i<b;i++){
+      const fraction=(rows[i].time_s-xa)/(xb-xa);
+      const predicted=ya+(yb-ya)*fraction;
+      const error=Math.abs(rows[i].stress_ratio-predicted);
+      if(error>maxError){
+        maxError=error;
+        maxIndex=i;
+      }
+    }
+
+    if(maxError>tolerance&&maxIndex!=null){
+      keep.add(maxIndex);
+      stack.push([a,maxIndex],[maxIndex,b]);
     }
   }
-  return Object.freeze({startTimeS:start,timeStepS:step,endTimeS:rows[rows.length-1].time_s,count:rows.length});
+
+  return Object.freeze([...keep].sort((a,b)=>a-b));
 }
 
-function buildTable(runs){
+function compressionError(rows,indices){
+  let maxAbsoluteStressRatioError=0;
+  let sumSquared=0;
+  let segment=0;
+
+  for(let i=0;i<rows.length;i++){
+    while(segment+1<indices.length&&i>indices[segment+1]) segment+=1;
+    let predicted;
+    if(i===indices[segment]){
+      predicted=rows[i].stress_ratio;
+    }else{
+      const a=indices[segment];
+      const b=indices[segment+1];
+      const fraction=(rows[i].time_s-rows[a].time_s)/
+        (rows[b].time_s-rows[a].time_s);
+      predicted=rows[a].stress_ratio+
+        (rows[b].stress_ratio-rows[a].stress_ratio)*fraction;
+    }
+    const error=Math.abs(predicted-rows[i].stress_ratio);
+    if(error>maxAbsoluteStressRatioError) maxAbsoluteStressRatioError=error;
+    sumSquared+=error*error;
+  }
+
+  return Object.freeze({
+    maxAbsoluteStressRatioError,
+    rootMeanSquareStressRatioError:Math.sqrt(sumSquared/rows.length),
+  });
+}
+
+function buildTable(runs,{
+  compressionTolerance=DEFAULT_COMPRESSION_TOLERANCE,
+  sourceGridWorkflowRunId=null,
+  sourceGridArtifactId=null,
+  sourceGridArtifactDigest=null,
+  challengeInterpolationValidation=null,
+}={}){
   if(!Array.isArray(runs)||runs.length<2){
     throw new Error('at least two validated source runs are required');
   }
+
   const sorted=[...runs].sort((a,b)=>challenge(a)-challenge(b));
   const refs=sorted.map(r=>r.referencePeakStressMnPerMm2);
   if(refs.some(x=>typeof x!=='number'||!Number.isFinite(x)||!(x>0))){
     throw new Error('every run must have a positive source reference peak Fb');
   }
-  const ref=refs[0];
-  if(refs.some(x=>Math.abs(x-ref)>1e-12)){
+  const referencePeakFbMnPerMm2=refs[0];
+  if(refs.some(x=>Math.abs(x-referencePeakFbMnPerMm2)>1e-12)){
     throw new Error('source runs must share the same control reference peak Fb');
   }
 
-  const upstream=sorted[0]?.provenance?.upstreamGitSha;
-  if(!upstream||sorted.some(r=>r.provenance?.upstreamGitSha!==upstream)){
+  const upstreamGitSha=sorted[0]?.provenance?.upstreamGitSha;
+  if(!upstreamGitSha||
+     sorted.some(r=>r.provenance?.upstreamGitSha!==upstreamGitSha)){
     throw new Error('source runs must share one pinned upstream SHA');
   }
 
-  const baseGrid=uniformTimeGrid(sorted[0].trajectory);
   const levels=sorted.map(run=>{
     if(run.status!=='shimayoshi-source-stress-trajectory-validated'||
        run.provenance?.protocolName!=='acidosis'){
       throw new Error('validated acidosis source run is required');
     }
-    const co2=challenge(run);
-    if(typeof co2!=='number'||!Number.isFinite(co2)||!(co2>0)){
+    const sourceChallengeCo2Percent=challenge(run);
+    if(typeof sourceChallengeCo2Percent!=='number'||
+       !Number.isFinite(sourceChallengeCo2Percent)||
+       !(sourceChallengeCo2Percent>0)){
       throw new Error('sourceChallengeCo2Percent must be finite and > 0');
     }
-    const grid=uniformTimeGrid(run.trajectory);
-    for(const key of ['startTimeS','timeStepS','endTimeS','count']){
-      if(Math.abs(grid[key]-baseGrid[key])>1e-8){
-        throw new Error('all source challenge runs must share one time grid');
-      }
+
+    const indices=adaptiveKeyframeIndices(run.trajectory,compressionTolerance);
+    const error=compressionError(run.trajectory,indices);
+    if(error.maxAbsoluteStressRatioError>compressionTolerance+1e-12){
+      throw new Error('source time compression exceeded declared error bound');
     }
+
     return Object.freeze({
-      sourceChallengeCo2Percent:co2,
+      sourceChallengeCo2Percent,
       cvodeTargetCadenceMs:run.provenance.cvodeTargetCadenceMs,
-      stressRatios:Object.freeze(run.trajectory.map(r=>r.stress_ratio)),
+      sourceCycleCount:run.trajectory.length,
+      keyframes:Object.freeze(indices.map(i=>Object.freeze([
+        run.trajectory[i].time_s,
+        run.trajectory[i].stress_ratio,
+      ]))),
+      compressionError:error,
     });
   });
 
   return Object.freeze({
-    schema:'shimayoshi-acidosis-grid-table/v2',
-    upstreamGitSha:upstream,
-    referencePeakFbMnPerMm2:ref,
-    timeGrid:baseGrid,
+    schema:'shimayoshi-acidosis-grid-table/v3',
+    upstreamGitSha,
+    sourceGridWorkflowRunId,
+    sourceGridArtifactId,
+    sourceGridArtifactDigest,
+    referencePeakFbMnPerMm2,
     protocolTimingS:Object.freeze({
       acidosisOn:300,
       recoveryOn:900,
     }),
+    sourceCyclePeriodS:0.4,
+    timeCompression:Object.freeze({
+      method:'piecewise-linear adaptive keyframes',
+      maxAbsoluteStressRatioErrorPerSourceLevel:compressionTolerance,
+      validationBasis:'all source paced cycles at each CO2 level',
+    }),
+    challengeInterpolationValidation:challengeInterpolationValidation
+      ? Object.freeze(challengeInterpolationValidation)
+      : null,
     controlAuthority:false,
     closedLoopAuthority:false,
-    interpolation:'piecewise-linear in source challenge CO2 percent and source time; no extrapolation',
+    interpolation:
+      'piecewise-linear in source challenge CO2 percent and source time; no extrapolation',
     levels:Object.freeze(levels),
   });
 }
 
 function main(argv=process.argv.slice(2)){
   if(argv.length<3){
-    throw new Error('usage: build-shimayoshi-acidosis-grid-table.js <import.json> <import.json> [...] <output.json>');
+    throw new Error(
+      'usage: build-shimayoshi-acidosis-grid-table.js <import.json> <import.json> [...] <output.json>'
+    );
   }
   const output=argv[argv.length-1];
   const inputs=argv.slice(0,-1);
@@ -98,7 +180,8 @@ function main(argv=process.argv.slice(2)){
     status:'shimayoshi-acidosis-grid-table-built',
     output,
     levels:table.levels.map(x=>x.sourceChallengeCo2Percent),
-    cyclesPerLevel:table.timeGrid.count,
+    keyframesPerLevel:table.levels.map(x=>x.keyframes.length),
+    totalKeyframes:table.levels.reduce((n,x)=>n+x.keyframes.length,0),
     upstreamGitSha:table.upstreamGitSha,
     closedLoopAuthority:false,
   },null,2)+'\n');
@@ -109,4 +192,9 @@ if(require.main===module){
   catch(error){console.error(error.stack||error.message);process.exitCode=1;}
 }
 
-module.exports=Object.freeze({uniformTimeGrid,buildTable});
+module.exports=Object.freeze({
+  DEFAULT_COMPRESSION_TOLERANCE,
+  adaptiveKeyframeIndices,
+  compressionError,
+  buildTable,
+});
