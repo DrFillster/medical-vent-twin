@@ -1,7 +1,7 @@
 # Primary myocardial-to-LV bridge: Kato/Utaki/Shim lineage
 
 Date: 2026-10-10
-Status: primary LV bridge candidate; active component implemented, total pressure fail-closed
+Status: primary LV bridge candidate; source-complete geometry, passive stress, and LV pressure mapping
 
 ## Why this supersedes CircAdapt as the primary bridge
 
@@ -72,23 +72,35 @@ P_lv = 2 * K_u * F_ext * h_lv / R_lv
 
 The 2024 paper reports the geometry/scaling parameters directly in Table 3 and states that instantaneous elastance is directly related to cellular contraction force.
 
-## Current implementation boundary
+## Passive force — Eq. 23
 
-The exact active component is implemented:
+Primary Kato 2024 transcription:
 
 ```
-F_active = K_S * F_b
+Fp = -K_PL * (1 - L/L0),                         L < L0
 
-P_active =
-  2 * K_u * F_active * h_lv / R_lv
+Fp = K_PE * (exp[D*(L/L0 - 1)] - 1),            L >= L0
 ```
 
-Total LV pressure remains null because passive force `F_p` from Eq. 23 has not yet been fully transcribed with its parameter table.
+Parameters:
+- K_PE = 0.2692 mN/mm^2
+- K_PL = 7.561 mN/mm^2
+- D = 28.08
+- L0 = 1.043 um
 
-This is deliberate:
-- no invented passive pressure;
-- no empirical whole-heart contractility multiplier;
-- no fitting to desired MAP/CO/SV.
+The paper explicitly states these parameters were manually adjusted to reproduce physiological human hemodynamics. They are published model parameters, not individualized measurements.
+
+The complete bridge now computes:
+
+```
+R_lv = K_R * V_lv + K_V
+L    = K_L * R_lv + L_b
+Fp   = passive(L)
+Fext = K_S * Fb + Fp
+P_lv = 2 * K_u * Fext * h_lv / R_lv
+```
+
+No empirical whole-heart contractility multiplier is introduced and no parameter is fitted to desired MAP/CO/SV.
 
 ## Important model implication
 
