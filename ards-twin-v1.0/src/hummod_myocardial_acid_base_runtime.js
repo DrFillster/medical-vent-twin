@@ -22,6 +22,9 @@ const {
 const {
   myocardialAcidBaseState,
 }=require('./hummod_myocardial_acid_base_state.js');
+const {
+  myocardialSid,
+}=require('./hummod_myocardial_sid_source_aligned.js');
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -107,12 +110,17 @@ function createHumModMyocardialAcidBaseRuntime({
       dxMin,
     });
 
+    const nextMyocardialLactate=lactate.nextMass/liquidVolumeMl;
+    const sid=myocardialSid({
+      intracellularPotassium,
+      myocardialLactate:nextMyocardialLactate,
+    });
+
     const co2=eulerStepMyocardialCo2({
       side,
       mass:co2Mass,
       liquidVolumeMl,
-      tissueSid:
-        intracellularPotassium+0.012-0.117-(lactate.nextMass/liquidVolumeMl),
+      tissueSid:sid.sid,
       bloodFlowMlPerMin,
       o2UseMlPerMin,
       bloodSid,
@@ -128,7 +136,7 @@ function createHumModMyocardialAcidBaseRuntime({
     const acidBase=myocardialAcidBaseState({
       side,
       intracellularPotassium,
-      myocardialLactate:lactateMass/liquidVolumeMl,
+      myocardialLactate:nextMyocardialLactate,
       co2Mass,
       liquidVolumeMl,
       bloodFlowMlPerMin,
@@ -154,6 +162,7 @@ function createHumModMyocardialAcidBaseRuntime({
         lactatePoolConcentration,
       }),
       lactate,
+      sid,
       co2,
       acidBase,
       myocardialPco2MmHg:acidBase.myocardialPco2,
