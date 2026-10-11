@@ -3,6 +3,7 @@
 const assert=require('node:assert/strict');
 const {
   createAcidosisGridSurrogate,
+  createAcidosisGridSurrogateFromTable,
 }=require('../src/shimayoshi_acidosis_grid_surrogate.js');
 
 function run(co2,scale){
@@ -48,3 +49,20 @@ assert.throws(
   /outside validated source trajectory/
 );
 console.log('ok - acidosis source-grid surrogate interpolates only inside validated source domain');
+
+const table={
+  schema:'shimayoshi-acidosis-grid-table/v1',
+  upstreamGitSha:'6478d2ab0acbfc88d3da461d2594658bcb2798ca',
+  referencePeakFbMnPerMm2:6,
+  closedLoopAuthority:false,
+  levels:[10,20,30].map(c=>({
+    sourceChallengeCo2Percent:c,
+    cvodeTargetCadenceMs:0.2,
+    rows:run(c,1-(c-10)*0.006).trajectory,
+  })),
+};
+const fromTable=createAcidosisGridSurrogateFromTable(table);
+const tableMid=fromTable.evaluate({sourceChallengeCo2Percent:15,sourceTimeS:400});
+assert(Math.abs(tableMid.stressRatio-0.93)<1e-12);
+assert.equal(tableMid.closedLoopAuthority,false);
+console.log('ok - compact source grid table loads into the same bounded surrogate');
