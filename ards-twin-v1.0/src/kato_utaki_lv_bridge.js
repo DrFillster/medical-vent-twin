@@ -85,10 +85,10 @@ function lvPressureFromCellularStress({
   const halfSarcomereLengthUm=halfSarcomereLengthUmFromRadiusCm(radiusCm);
   const activeWallStressMnPerMm2=
     scaledActiveWallStressMnPerMm2(cellularActiveStressMnPerMm2);
-  const passiveWallStressMnPerMm2=
+  const passiveStressMnPerMm2=
     passiveWallStressMnPerMm2(halfSarcomereLengthUm);
   const totalWallStressMnPerMm2=
-    activeWallStressMnPerMm2+passiveWallStressMnPerMm2;
+    activeWallStressMnPerMm2+passiveStressMnPerMm2;
   const totalPressureMmHg=
     2*PARAMETERS.K_u_mmHg_per_mN_per_mm2*
     totalWallStressMnPerMm2*
@@ -100,7 +100,7 @@ function lvPressureFromCellularStress({
     halfSarcomereLengthUm,
     cellularActiveStressMnPerMm2,
     activeWallStressMnPerMm2,
-    passiveWallStressMnPerMm2,
+    passiveWallStressMnPerMm2:passiveStressMnPerMm2,
     totalWallStressMnPerMm2,
     totalPressureMmHg,
     status:'source-complete Kato/Utaki LV geometry and pressure bridge',
