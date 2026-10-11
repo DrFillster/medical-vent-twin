@@ -12,6 +12,22 @@ function challenge(run){
   return run?.provenance?.sourceChallengeCo2Percent;
 }
 
+function uniformTimeGrid(rows){
+  if(!Array.isArray(rows)||rows.length<2){
+    throw new Error('source trajectory must contain at least two cycles');
+  }
+  const start=rows[0].time_s;
+  const step=rows[1].time_s-rows[0].time_s;
+  if(!(step>0)||!Number.isFinite(step)) throw new Error('source time step must be positive');
+  for(let i=1;i<rows.length;i++){
+    const expected=start+i*step;
+    if(Math.abs(rows[i].time_s-expected)>1e-8){
+      throw new Error('source trajectory must use one uniform paced-cycle time grid');
+    }
+  }
+  return Object.freeze({startTimeS:start,timeStepS:step,endTimeS:rows[rows.length-1].time_s,count:rows.length});
+}
+
 function buildTable(runs){
   if(!Array.isArray(runs)||runs.length<2){
     throw new Error('at least two validated source runs are required');
@@ -31,6 +47,7 @@ function buildTable(runs){
     throw new Error('source runs must share one pinned upstream SHA');
   }
 
+  const baseGrid=uniformTimeGrid(sorted[0].trajectory);
   const levels=sorted.map(run=>{
     if(run.status!=='shimayoshi-source-stress-trajectory-validated'||
        run.provenance?.protocolName!=='acidosis'){
@@ -40,22 +57,28 @@ function buildTable(runs){
     if(typeof co2!=='number'||!Number.isFinite(co2)||!(co2>0)){
       throw new Error('sourceChallengeCo2Percent must be finite and > 0');
     }
+    const grid=uniformTimeGrid(run.trajectory);
+    for(const key of ['startTimeS','timeStepS','endTimeS','count']){
+      if(Math.abs(grid[key]-baseGrid[key])>1e-8){
+        throw new Error('all source challenge runs must share one time grid');
+      }
+    }
     return Object.freeze({
       sourceChallengeCo2Percent:co2,
       cvodeTargetCadenceMs:run.provenance.cvodeTargetCadenceMs,
-      rows:Object.freeze(run.trajectory.map(r=>Object.freeze({
-        time_s:r.time_s,
-        protocol:r.protocol,
-        peak_Fb_mN_per_mm2:r.peak_Fb_mN_per_mm2,
-        stress_ratio:r.stress_ratio,
-      }))),
+      stressRatios:Object.freeze(run.trajectory.map(r=>r.stress_ratio)),
     });
   });
 
   return Object.freeze({
-    schema:'shimayoshi-acidosis-grid-table/v1',
+    schema:'shimayoshi-acidosis-grid-table/v2',
     upstreamGitSha:upstream,
     referencePeakFbMnPerMm2:ref,
+    timeGrid:baseGrid,
+    protocolTimingS:Object.freeze({
+      acidosisOn:300,
+      recoveryOn:900,
+    }),
     controlAuthority:false,
     closedLoopAuthority:false,
     interpolation:'piecewise-linear in source challenge CO2 percent and source time; no extrapolation',
@@ -70,12 +93,12 @@ function main(argv=process.argv.slice(2)){
   const output=argv[argv.length-1];
   const inputs=argv.slice(0,-1);
   const table=buildTable(inputs.map(read));
-  fs.writeFileSync(path.resolve(output),JSON.stringify(table,null,2)+'\n');
+  fs.writeFileSync(path.resolve(output),JSON.stringify(table)+'\n');
   process.stdout.write(JSON.stringify({
     status:'shimayoshi-acidosis-grid-table-built',
     output,
     levels:table.levels.map(x=>x.sourceChallengeCo2Percent),
-    rowsPerLevel:table.levels.map(x=>x.rows.length),
+    cyclesPerLevel:table.timeGrid.count,
     upstreamGitSha:table.upstreamGitSha,
     closedLoopAuthority:false,
   },null,2)+'\n');
@@ -86,4 +109,4 @@ if(require.main===module){
   catch(error){console.error(error.stack||error.message);process.exitCode=1;}
 }
 
-module.exports=Object.freeze({buildTable});
+module.exports=Object.freeze({uniformTimeGrid,buildTable});
