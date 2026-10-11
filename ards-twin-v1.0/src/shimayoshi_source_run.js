@@ -180,14 +180,33 @@ function assertMonotonicTime(rows,label){
   }
 }
 
-function normalizeStressRows(rows,referencePeakStress){
+function meanPeakShortening(rows){
+  if(!Array.isArray(rows)||rows.length===0) return null;
+  if(!rows.every(row=>Number.isFinite(row.cycle_peak_shortening_um))){
+    return null;
+  }
+  const mean=rows.reduce((sum,row)=>sum+row.cycle_peak_shortening_um,0)/rows.length;
+  if(!Number.isFinite(mean)||!(mean>0)){
+    throw new Error('control mean cycle peak shortening must be finite and > 0');
+  }
+  return mean;
+}
+
+function normalizeStressRows(rows,referencePeakStress,referencePeakShortening=null){
   if(!Number.isFinite(referencePeakStress)||!(referencePeakStress>0)){
     throw new Error('referencePeakStress must be finite and > 0');
   }
-  return Object.freeze(rows.map(row=>Object.freeze({
-    ...row,
-    stress_ratio:row.peak_Fb_mN_per_mm2/referencePeakStress,
-  })));
+  return Object.freeze(rows.map(row=>{
+    const out={
+      ...row,
+      stress_ratio:row.peak_Fb_mN_per_mm2/referencePeakStress,
+    };
+    if(referencePeakShortening!=null&&Number.isFinite(row.cycle_peak_shortening_um)){
+      out.shortening_ratio=
+        row.cycle_peak_shortening_um/referencePeakShortening;
+    }
+    return Object.freeze(out);
+  }));
 }
 
 function buildSourceStressTrajectory({
@@ -213,16 +232,22 @@ function buildSourceStressTrajectory({
 
   const controlProtocolValidation=validateProtocolTrajectory(controlRows,'control');
   const referencePeakStress=meanPeakStress(controlRows);
+  const referencePeakShorteningUm=meanPeakShortening(controlRows);
   const protocolValidation=validateProtocolTrajectory(
     challengeRows,
     provenance.protocolName
   );
-  const trajectory=normalizeStressRows(challengeRows,referencePeakStress);
+  const trajectory=normalizeStressRows(
+    challengeRows,
+    referencePeakStress,
+    referencePeakShorteningUm
+  );
 
   return Object.freeze({
     status:'shimayoshi-source-stress-trajectory-validated',
     controlAuthority:false,
     referencePeakStressMnPerMm2:referencePeakStress,
+    referencePeakShorteningUm,
     trajectory,
     controlProtocolValidation,
     protocolValidation,
@@ -238,6 +263,7 @@ module.exports=Object.freeze({
   parseSimpleCsv,
   validateManifest,
   meanPeakStress,
+  meanPeakShortening,
   normalizeStressRows,
   buildSourceStressTrajectory,
 });
