@@ -48,13 +48,18 @@ void send_all(int fd, const std::string& data) {
 std::string http_response(int status,
                           const std::string& status_text,
                           const std::string& content_type,
-                          const std::string& body) {
+                          const std::string& body,
+                          const std::string& cors_origin) {
   std::ostringstream out;
   out << "HTTP/1.1 " << status << " " << status_text << "\r\n"
       << "Content-Type: " << content_type << "\r\n"
       << "Content-Length: " << body.size() << "\r\n"
-      << "Cache-Control: no-store\r\n"
-      << "Connection: close\r\n\r\n"
+      << "Cache-Control: no-store\r\n";
+  if (!cors_origin.empty()) {
+    out << "Access-Control-Allow-Origin: " << cors_origin << "\r\n"
+        << "Vary: Origin\r\n";
+  }
+  out << "Connection: close\r\n\r\n"
       << body;
   return out.str();
 }
@@ -113,6 +118,7 @@ int main() {
 
   const std::string bind_host = getenv_or("NATIVE_ENGINE_BIND", "127.0.0.1");
   const int port = parse_port(getenv_or("NATIVE_ENGINE_PORT", "8771"));
+  const std::string cors_origin = getenv_or("NATIVE_ENGINE_CORS_ORIGIN", "");
 
   const int server_fd = ::socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
@@ -170,20 +176,24 @@ int main() {
       if (request.rfind("GET ", 0) != 0) {
         send_all(client_fd, http_response(
           405, "Method Not Allowed", "application/json",
-          "{\"error\":\"only GET is implemented in boundary prototype\"}"
+          "{\"error\":\"only GET is implemented in boundary prototype\"}",
+          cors_origin
         ));
       } else if (path == "/health") {
         send_all(client_fd, http_response(
-          200, "OK", "application/json", health_json(bind_host, port)
+          200, "OK", "application/json", health_json(bind_host, port),
+          cors_origin
         ));
       } else if (path == "/state") {
         send_all(client_fd, http_response(
-          200, "OK", "application/json", state_json()
+          200, "OK", "application/json", state_json(),
+          cors_origin
         ));
       } else {
         send_all(client_fd, http_response(
           404, "Not Found", "application/json",
-          "{\"error\":\"not found\"}"
+          "{\"error\":\"not found\"}",
+          cors_origin
         ));
       }
     }
