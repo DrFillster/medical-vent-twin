@@ -86,11 +86,13 @@ function patchMain(mainText){
     'modelSim call'
   );
 
-  mainText=replaceOnce(
-    mainText,
-    'int modelSim(double stepint, double period)\n{',
-    'int modelSim(double stepint, double period, const char* compactPath, const char* protocolLabel)\n{',
-    'modelSim definition'
+  const modelSimDefinition=/int\s+modelSim\s*\(\s*double\s+stepint\s*,\s*double\s+period\s*\)\s*\{/;
+  if(!modelSimDefinition.test(mainText)){
+    throw new Error('patch anchor not found: modelSim definition');
+  }
+  mainText=mainText.replace(
+    modelSimDefinition,
+    'int modelSim(double stepint, double period, const char* compactPath, const char* protocolLabel)\n{'
   );
 
   mainText=replaceOnce(
