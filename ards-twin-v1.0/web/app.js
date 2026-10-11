@@ -634,6 +634,10 @@
     $('clinical-current-rr').textContent = displayClinicalValue(snapshot.ventilator?.rrPerMin ?? snapshot.ventilator?.rr);
     $('clinical-current-vt').textContent = typeof snapshot.ventilator?.vtL === 'number'
       ? Math.round(snapshot.ventilator.vtL * 1000) : '—';
+    const clinicalSao2 = snapshot.systemic?.gasExchange?.sao2Fraction;
+    $('clinical-sao2').textContent = typeof clinicalSao2 === 'number' && Number.isFinite(clinicalSao2)
+      ? String(Math.round(clinicalSao2 * 100))
+      : '—';
     $('clinical-pao2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.pao2MmHg);
     $('clinical-paco2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.paco2MmHg);
     const clinicalPh = snapshot.systemic?.gasExchange?.pH;
@@ -662,6 +666,14 @@
     const hemo = snapshot.systemic?.hemodynamics || {};
     $('clinical-sv').textContent = displayClinicalInteger(hemo.strokeVolumeMl);
     $('clinical-svr').textContent = displayClinicalInteger(hemo.systemicVascularResistanceMmHgMinPerL);
+    $('clinical-rap').textContent = typeof hemo.rightAtrialPressureMmHg === 'number' &&
+      Number.isFinite(hemo.rightAtrialPressureMmHg)
+      ? hemo.rightAtrialPressureMmHg.toFixed(1)
+      : '—';
+    $('clinical-pap').textContent = typeof hemo.pulmonaryArteryPressureMmHg === 'number' &&
+      Number.isFinite(hemo.pulmonaryArteryPressureMmHg)
+      ? hemo.pulmonaryArteryPressureMmHg.toFixed(1)
+      : '—';
     $('clinical-pvr').textContent = typeof hemo.pulmonaryVascularResistanceMmHgMinPerL === 'number' &&
       Number.isFinite(hemo.pulmonaryVascularResistanceMmHgMinPerL)
       ? hemo.pulmonaryVascularResistanceMmHgMinPerL.toFixed(2)
