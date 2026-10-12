@@ -112,11 +112,40 @@ dPhv/dt =
 
 The source states that active dVu/dt terms are present only in reflex-regulated venous compartments. In this architecture, skeletal-muscle and splanchnic venous capacitance are active; brain and coronary venous compartments are passive.
 
-### Eqs. 12-13 — remaining extrasplanchnic venous pressure and total-volume closure
+### Eq. 12 — remaining extrasplanchnic venous pressure from total-volume closure
 
-The source computes Pev algebraically from known total blood volume, while Psv, Pmv, Pbv, and Phv are dynamic states. Total unstressed volume is the sum of all compartment unstressed volumes.
+The source computes Pev algebraically:
 
-Before implementing this closure, the exact printed Eq. 12 numerator will be retained verbatim in code documentation and tested for conservation of total blood volume.
+```
+Pev = 1/Cev * [
+  Vtot
+  - Csa*Psa
+  - (Csp+Cep+Cmp+Cbp+Chp)*Psp
+  - Csv*Psv
+  - Cmv*Pmv
+  - Cbv*Pbv
+  - Chv*Phv
+  - Cra*Pra
+  - Vrv
+  - Cpa*Ppa
+  - Cpp*Ppp
+  - Cpv*Ppv
+  - Cla*Pla
+  - Vlv
+  - Vu
+]
+```
+
+### Eq. 13 — total unstressed volume
+
+```
+Vu =
+  Vu,sa + Vu,sp + Vu,ep + Vu,mp + Vu,bp + Vu,hp
+  + Vu,sv + Vu,ev + Vu,mv + Vu,bv + Vu,hv + Vu,ra
+  + Vu,pa + Vu,pp + Vu,pv + Vu,la
+```
+
+The source computes Pev algebraically from known total blood volume, while Psv, Pmv, Pbv, and Phv are dynamic states.
 
 ## Basal compatibility requirement
 
