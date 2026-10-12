@@ -29,5 +29,7 @@ jobs:
         run: node test/v15_ursino_magosso_2000_local_o2_candidate.test.js
       - name: Expanded hypoxia closed loop
         run: node test/v15_ursino_magosso_2000_expanded_hypoxia_closed_loop.test.js
+      - name: Fig11 expanded trajectory values
+        run: node scripts/ursino-magosso-2000-fig11-expanded-reproduction.js
       - name: Fig11 expanded source trajectory
         run: node test/v15_ursino_magosso_2000_fig11_expanded_reproduction.test.js
