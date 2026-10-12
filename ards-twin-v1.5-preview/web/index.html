@@ -14,18 +14,18 @@
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
-<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v1.5</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">v1.5 research preview · Vent mechanics + live reduced HumMod cardiopulmonary physiology + non-authoritative published autonomic shadow validation</p></header>
+<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v1.5</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">v1.5 research preview · numerically equilibrated persistent patient · Vent mechanics + reduced systemic physiology · research shadows separated from bedside outputs</p></header>
 <main>
 <section class="clinical-preview card" aria-labelledby="clinical-title">
 <div class="section-heading"><span class="step">01</span><h2 id="clinical-title">Patient</h2></div>
-<p class="clinical-lead">Start with the reference aspiration ARDS teaching phenotype. The patient persists as you change PEEP, FiO₂, tidal volume, respiratory rate, and perform respiratory mechanics maneuvers.</p>
-<div class="product-launch"><button id="clinical-quick-start" type="button">Start reference patient <span aria-hidden="true">→</span></button><p>Preloads the reference case and starts the live browser cardiopulmonary model. You can change every exposed ventilator setting afterward.</p></div>
+<p class="clinical-lead">Start with the experimental aspiration lung-injury reference patient. The patient persists as you change PEEP, FiO₂, tidal volume, respiratory rate, and perform respiratory mechanics maneuvers.</p>
+<div class="product-launch"><button id="clinical-quick-start" type="button">Start experimental reference patient <span aria-hidden="true">→</span></button><p>Starts an equilibrated persistent research patient. The current live gas/circulation model is not yet calibrated to reproduce the authored Berlin severity label.</p></div>
 <label for="clinical-case">Synthetic ARDS case</label>
 <select id="clinical-case" aria-describedby="clinical-case-note"></select>
-<p id="clinical-case-note" class="hint">Cases are synthetic teaching constructs calibrated to published cohort envelopes; they are not deidentified patient records.</p>
+<p id="clinical-case-note" class="hint">Cases are synthetic authored targets. The live reduced cardiopulmonary core is still undergoing calibration and must not be assumed to reproduce the displayed Berlin severity label.</p>
 <div id="clinical-summary" class="clinical-summary" aria-live="polite"></div>
 <div class="clinical-grid">
-<article><h3>Berlin severity</h3><p id="clinical-severity">—</p></article>
+<article><h3>Authored Berlin target</h3><p id="clinical-severity">—</p></article>
 <article><h3>Recruitability</h3><p id="clinical-recruitability">—</p></article>
 <article><h3>Executable now?</h3><p id="clinical-executable">—</p></article>
 </div>
@@ -43,7 +43,7 @@
 </div>
 <p id="clinical-calibration-note" class="hint"></p>
 </div>
-<details class="advanced product-provenance" open><summary>Model provenance and safeguards</summary>
+<details class="advanced product-provenance"><summary>Model provenance and safeguards</summary>
 <p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. Vent owns detailed pulmonary mechanics. The default live session uses a reduced, source-aligned HumMod cardiopulmonary core in the browser; it is not the full HumMod executable and is not clinically validated. Research mode can instead replay an externally produced HumMod trajectory.</p>
 <p class="hint"><strong>Scientific transparency:</strong> every physiologically meaningful variable, equation, threshold, condition, transition, and scenario value is being assigned machine-readable provenance. The current model is a hybrid of HumMod-exact/adapted physiology, published literature anchors, and explicitly labeled engineering or scenario assumptions.</p>
 <ul>
@@ -176,7 +176,7 @@
 <article><h3>Source SA-node rate</h3><p><span id="clinical-source-hr">—</span><small> /min</small></p></article>
 <article><h3>Empirical HR overlay</h3><p><span id="clinical-hr-overlay">—</span><small> /min</small></p></article>
 <article><h3>Brain tissue PO₂</h3><p><span id="clinical-brain-po2">—</span><small> mmHg</small></p></article>
-<article><h3>Brain function effect</h3><p><span id="clinical-brain-function">—</span></p></article>
+<article><h3>HumMod BrainInsult-PO₂ effect</h3><p><span id="clinical-brain-function">—</span></p></article>
 <article><h3>Systemic circulation</h3><p><span id="clinical-circulation-mode">—</span></p></article>
 <article><h3>Sympathetic firing</h3><p><span id="clinical-sympathetic-hz">—</span><small> Hz</small></p></article>
 <article><h3>Vagal firing</h3><p><span id="clinical-vagal-hz">—</span><small> Hz</small></p></article>
@@ -186,24 +186,24 @@
 </div>
 </details>
 
-<section class="card physician-comparison-card">
-<div class="card-heading"><h2>Current model vs published-model shadow</h2><span class="pill">Physician comparison</span></div>
-<p class="hint"><strong>Publication gate:</strong> an interim physician-evaluation build must expose clinically interpretable side-by-side outputs. HR is now available from the published-model heart-period pathway; MAP, CO, SV, and SVR remain explicitly unavailable until downstream vascular/contractility mappings are source-complete.</p>
+<details class="card physician-comparison-card advanced">
+<summary>Physician validation comparison</summary><div class="card-heading"><h2>Live model vs candidate model</h2><span class="pill">Candidate · no control authority</span></div>
+<p class="hint"><strong>Physician validation:</strong> the candidate is a parallel Ursino–Magosso 2000 cardiovascular model driven by the same arterial gases and actual delivered tidal volume. It cannot control the live patient. Candidate MAP and CO are time-averaged from its pulsatile output.</p>
 <div class="clinical-grid monitor-grid">
 <article><h3>Current-model HR</h3><p><span id="clinical-compare-live-hr">—</span><small> /min</small></p></article>
-<article><h3>Published-model HR</h3><p><span id="clinical-compare-shadow-hr">—</span><small> /min</small></p></article>
+<article><h3>Candidate HR</h3><p><span id="clinical-compare-shadow-hr">—</span><small> /min</small></p></article>
 <article><h3>Current-model MAP</h3><p><span id="clinical-compare-live-map">—</span><small> mmHg</small></p></article>
-<article><h3>Published-model MAP</h3><p><span id="clinical-compare-shadow-map">Not source-complete</span></p></article>
+<article><h3>Candidate MAP</h3><p><span id="clinical-compare-shadow-map">—</span><small> mmHg</small></p></article>
 <article><h3>Current-model cardiac output</h3><p><span id="clinical-compare-live-co">—</span><small> L/min</small></p></article>
-<article><h3>Published-model cardiac output</h3><p><span id="clinical-compare-shadow-co">Not source-complete</span></p></article>
+<article><h3>Candidate cardiac output</h3><p><span id="clinical-compare-shadow-co">—</span><small> L/min</small></p></article>
 <article><h3>Current-model stroke volume</h3><p><span id="clinical-compare-live-sv">—</span><small> mL</small></p></article>
-<article><h3>Published-model stroke volume</h3><p><span id="clinical-compare-shadow-sv">Not source-complete</span></p></article>
+<article><h3>Candidate stroke volume</h3><p><span id="clinical-compare-shadow-sv">—</span><small> mL</small></p></article>
 <article><h3>Current-model SVR</h3><p><span id="clinical-compare-live-svr">—</span><small> mmHg·min/L</small></p></article>
-<article><h3>Published-model SVR</h3><p><span id="clinical-compare-shadow-svr">Not source-complete</span></p></article>
+<article><h3>Candidate systemic peripheral resistance</h3><p><span id="clinical-compare-shadow-svr">—</span><small> mmHg·min/L</small></p></article>
 <article><h3>Myocardial contractility model</h3><p><span id="clinical-compare-myocardial-status">Not source-complete</span></p></article>\n<article><h3>Native physiology engine</h3><p><span id="clinical-native-engine-status">Not configured</span></p></article>
 </div>
-<p class="hint" id="clinical-compare-status">Published-model HR is an interim secondary transcription and still requires primary-paper verification before control authority.</p>
-</section>
+<p class="hint" id="clinical-compare-status">Candidate is non-canonical and has no live-patient control authority.</p>
+</details>
 
 <details class="advanced research-shadow-panel">
 <summary>v1.5 research physiology · shadow comparison</summary>
@@ -234,25 +234,38 @@
 <div class="plot"><h3><i class="dot volume"></i>Modeled volume <span>L</span></h3><svg id="clinical-volume-chart" role="img" aria-label="Clinical session modeled lung volume over time" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="clinical-physiology-trends">
 <div class="card-heading"><h2>Physiologic trends</h2><span class="pill">Patient time</span></div>
-<p class="hint">Vertical markers identify ventilator interventions. All physiologic panels use the same patient-time window. v1.5 diagnostics preserve the source HumMod SA-node path and add a non-authoritative Ursino/Magosso autonomic shadow model with explicit provenance gates.</p>
+<p class="hint">Primary bedside variables only. Vertical markers identify ventilator interventions; all panels use the same patient-time window.</p>
 <div class="clinical-trend-grid">
+<div class="plot"><h3>Arterial O₂ saturation <span>%</span></h3><svg id="clinical-sao2-trend" role="img" aria-label="Arterial oxygen saturation trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>PaO₂ <span>mmHg</span></h3><svg id="clinical-pao2-trend" role="img" aria-label="PaO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>PaCO₂ <span>mmHg</span></h3><svg id="clinical-paco2-trend" role="img" aria-label="PaCO2 trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>pH</h3><svg id="clinical-ph-trend" role="img" aria-label="Arterial pH trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>MAP <span>mmHg</span></h3><svg id="clinical-map-trend" role="img" aria-label="Mean arterial pressure trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Heart rate <span>/min</span></h3><svg id="clinical-hr-trend" role="img" aria-label="Heart rate trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Cardiac output <span>L/min</span></h3><svg id="clinical-co-trend" role="img" aria-label="Cardiac output trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Stroke volume <span>mL</span></h3><svg id="clinical-sv-trend" role="img" aria-label="Stroke volume trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>SVR <span>mmHg·min/L</span></h3><svg id="clinical-svr-trend" role="img" aria-label="Systemic vascular resistance trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>PVR <span>mmHg·min/L</span></h3><svg id="clinical-pvr-trend" role="img" aria-label="Pulmonary vascular resistance trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>CVP / RAP <span>mmHg</span></h3><svg id="clinical-rap-trend" role="img" aria-label="Right atrial pressure trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Pulmonary artery pressure <span>mmHg</span></h3><svg id="clinical-pap-trend" role="img" aria-label="Pulmonary artery pressure trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+</div>
+<details class="advanced research-trends">
+<summary>Research/model diagnostics</summary>
+<p class="hint">Development signals below are not peer bedside outputs and may disagree while candidate models are being validated.</p>
+<div class="clinical-trend-grid">
 <div class="plot"><h3>HumMod SA-node rate <span>/min</span></h3><svg id="clinical-source-hr-trend" role="img" aria-label="Source HumMod SA-node rate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Published-model interim HR <span>/min</span></h3><svg id="clinical-shadow-hr-trend" role="img" aria-label="Published-model interim heart rate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Empirical HR overlay <span>/min</span></h3><svg id="clinical-hr-overlay-trend" role="img" aria-label="Empirical heart-rate overlay contribution trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Brain tissue PO₂ <span>mmHg</span></h3><svg id="clinical-brain-po2-trend" role="img" aria-label="Source-aligned brain tissue PO2 trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
-<div class="plot"><h3>Brain function effect</h3><svg id="clinical-brain-function-trend" role="img" aria-label="HumMod Brain-Function effect trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>HumMod BrainInsult-PO₂ effect</h3><svg id="clinical-brain-function-trend" role="img" aria-label="HumMod BrainInsult PO2 effect trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Sympathetic firing <span>Hz</span></h3><svg id="clinical-symps-trend" role="img" aria-label="HumMod sympathetic CNS firing trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Vagal firing <span>Hz</span></h3><svg id="clinical-vagus-trend" role="img" aria-label="HumMod vagal firing trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Ursino cardiac sympathetic f<sub>sh</sub> <span>spikes/s</span></h3><svg id="clinical-shadow-fsh-trend" role="img" aria-label="Ursino cardiac sympathetic shadow trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Ursino cardiac vagal f<sub>v</sub> <span>spikes/s</span></h3><svg id="clinical-shadow-fv-trend" role="img" aria-label="Ursino cardiac vagal shadow trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 <div class="plot"><h3>Global DO₂ <span>mL O₂/min</span></h3><svg id="clinical-do2-trend" role="img" aria-label="Global convective oxygen delivery trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
-<div class="plot"><h3>Oxygen debt <span>mL O₂</span></h3><svg id="clinical-o2-debt-trend" role="img" aria-label="Oxygen debt trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
-<div class="plot"><h3>pH</h3><svg id="clinical-ph-trend" role="img" aria-label="Arterial pH trend with intervention markers" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
+<div class="plot"><h3>Global oxygen-debt surrogate <span>mL O₂</span></h3><svg id="clinical-o2-debt-trend" role="img" aria-label="Global oxygen debt surrogate trend" viewBox="0 0 720 180" preserveAspectRatio="none"></svg></div>
 </div>
+</details>
 </div>
 </div>
 <div class="clinical-intervention-timeline card" aria-labelledby="clinical-intervention-title">

@@ -437,6 +437,13 @@
       paco2: Number(snapshot?.systemic?.gasExchange?.paco2MmHg),
       map: Number(snapshot?.systemic?.hemodynamics?.meanArterialPressureMmHg),
       heartRate: Number(snapshot?.systemic?.hemodynamics?.heartRatePerMin),
+      cardiacOutputLMin: Number(snapshot?.systemic?.hemodynamics?.cardiacOutputMlPerMin) / 1000,
+      strokeVolume: Number(snapshot?.systemic?.hemodynamics?.strokeVolumeMl),
+      svr: Number(snapshot?.systemic?.hemodynamics?.systemicVascularResistanceMmHgMinPerL),
+      pvr: Number(snapshot?.systemic?.hemodynamics?.pulmonaryVascularResistanceMmHgMinPerL),
+      rap: Number(snapshot?.systemic?.hemodynamics?.rightAtrialPressureMmHg),
+      pap: Number(snapshot?.systemic?.hemodynamics?.pulmonaryArteryPressureMmHg),
+      sao2Percent: Number(snapshot?.systemic?.gasExchange?.sao2Fraction) * 100,
       sourceHeartRate: Number(snapshot?.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin),
       shadowHeartRate: Number(snapshot?.systemic?.physicianComparison?.publishedModelInterim?.heartRatePerMin),
       empiricalHrOverlay: Number(snapshot?.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin),
@@ -517,6 +524,13 @@
     drawClinicalTrend('clinical-paco2-trend', 'paco2', 0);
     drawClinicalTrend('clinical-map-trend', 'map', 0);
     drawClinicalTrend('clinical-hr-trend', 'heartRate', 0);
+    drawClinicalTrend('clinical-co-trend', 'cardiacOutputLMin', 2);
+    drawClinicalTrend('clinical-sv-trend', 'strokeVolume', 0);
+    drawClinicalTrend('clinical-svr-trend', 'svr', 0);
+    drawClinicalTrend('clinical-pvr-trend', 'pvr', 2);
+    drawClinicalTrend('clinical-rap-trend', 'rap', 1);
+    drawClinicalTrend('clinical-pap-trend', 'pap', 1);
+    drawClinicalTrend('clinical-sao2-trend', 'sao2Percent', 0);
     drawClinicalTrend('clinical-source-hr-trend', 'sourceHeartRate', 0);
     drawClinicalTrend('clinical-shadow-hr-trend', 'shadowHeartRate', 0);
     drawClinicalTrend('clinical-hr-overlay-trend', 'empiricalHrOverlay', 0);
@@ -728,24 +742,39 @@
 
     const comparison = snapshot.systemic?.physicianComparison || {};
     const liveComparison = comparison.liveHumMod || {};
+    const candidateComparison = comparison.candidateModel || {};
     const shadowComparison = comparison.publishedModelInterim || {};
     setShadow('clinical-compare-live-hr', liveComparison.heartRatePerMin, 0);
-    setShadow('clinical-compare-shadow-hr', shadowComparison.heartRatePerMin, 0);
+    setShadow('clinical-compare-shadow-hr', candidateComparison.heartRatePerMin, 0);
     setShadow('clinical-compare-live-map', liveComparison.meanArterialPressureMmHg, 0);
+    setShadow('clinical-compare-shadow-map',
+      candidateComparison.meanArterialPressureMmHg, 0);
     setShadow('clinical-compare-live-co',
       typeof liveComparison.cardiacOutputMlPerMin === 'number'
         ? liveComparison.cardiacOutputMlPerMin / 1000
         : null, 2);
+    setShadow('clinical-compare-shadow-co',
+      typeof candidateComparison.cardiacOutputMlPerMin === 'number'
+        ? candidateComparison.cardiacOutputMlPerMin / 1000
+        : null, 2);
     setShadow('clinical-compare-live-sv', liveComparison.strokeVolumeMl, 0);
+    setShadow('clinical-compare-shadow-sv', candidateComparison.strokeVolumeMl, 0);
     setShadow('clinical-compare-live-svr',
       liveComparison.systemicVascularResistanceMmHgMinPerL, 0);
+    setShadow('clinical-compare-shadow-svr',
+      candidateComparison.systemicPeripheralResistanceMmHgMinPerL, 0);
     const myocardialStatus = $('clinical-compare-myocardial-status');
     if (myocardialStatus && shadowComparison.myocardialContractilityStatus) {
       myocardialStatus.textContent = shadowComparison.myocardialContractilityStatus;
     }
     const comparisonStatus = $('clinical-compare-status');
-    if (comparisonStatus && shadowComparison.status) {
-      comparisonStatus.textContent = shadowComparison.status;
+    if (comparisonStatus) {
+      const limitations = Array.isArray(candidateComparison.knownLimitations)
+        ? candidateComparison.knownLimitations.join(' ')
+        : '';
+      comparisonStatus.textContent = candidateComparison.status
+        ? candidateComparison.status + (limitations ? ' Known limitations: ' + limitations : '')
+        : 'Candidate model unavailable.';
     }
     $('clinical-ppeak').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.peakPressureCmH2O);
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
@@ -1094,6 +1123,9 @@
           ventilation: clinicalVentilationPayload(),
           dt: clinicalNumber('clinical-dt'),
         };
+        if (provider === 'live-reduced-hummod') {
+          payload.coupledEquilibrationSec = 600;
+        }
         if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {
           if (!clinicalRecruitmentHistory) {
@@ -1113,7 +1145,7 @@
           payload,
         });
         $('clinical-session-status').textContent = provider === 'live-reduced-hummod'
-          ? 'Initializing Vent + live reduced HumMod cardiopulmonary session…'
+          ? 'Equilibrating Vent + systemic physiology before patient time zero…'
           : 'Initializing Vent + HumMod replay session…';
       } catch (error) {
         showClinicalError(error.message);
