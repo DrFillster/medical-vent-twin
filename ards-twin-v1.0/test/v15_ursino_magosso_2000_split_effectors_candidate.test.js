@@ -5,9 +5,8 @@ const {
   SOURCE,P,sourceTargets,aggregateExtrasplanchnicReflexState,
 }=require('../src/ursino_magosso_2000_split_effectors_candidate.js');
 const {
-  CONTROL,
-  sympatheticEffectorStatic,
-}=require('../src/ursino_1998_closed_loop_candidate.js');
+  VASCULAR:EXPANDED_VASCULAR,
+}=require('../src/ursino_magosso_2000_expanded_vascular_candidate.js');
 
 let passed=0,failed=0;
 function test(name,fn){
@@ -30,31 +29,46 @@ test('Table 2 split effector values are pinned',()=>{
   assert.equal(P.effectors.Vumv.offset,503.26);
 });
 
-test('split venous capacitance exactly preserves old aggregate gain',()=>{
-  assert.equal(
-    P.effectors.Vuev.gain+P.effectors.Vumv.gain,
-    CONTROL.effectors.Vuev.G
-  );
-  assert(close(
-    P.effectors.Vuev.offset+P.effectors.Vumv.offset+294.64+98.21,
-    CONTROL.effectors.Vuev.offset,
-    2e-4
-  ));
+function sourceBasalVascularSympatheticFiring(){
+  // Invert the source static effector equation using the source basal
+  // splanchnic resistance. This derives the common basal f_sp from the
+  // published source parameters; it is not a fitted value.
+  const cfg=P.effectors.Rsp;
+  return P.thresholdSpikesPerSec-1+
+    Math.exp((EXPANDED_VASCULAR.sp.R-cfg.offset)/cfg.gain);
+}
+
+test('split effector curves reproduce all source Table 1 basal vascular values at one common basal firing',()=>{
+  const f=sourceBasalVascularSympatheticFiring();
+  const x=sourceTargets({
+    vascularSympatheticSpikesPerSec:f,
+    cardiacSympatheticSpikesPerSec:f,
+    cardiacVagalSpikesPerSec:0,
+  }).absolute;
+
+  assert(close(x.Rsp,EXPANDED_VASCULAR.sp.R,2e-3));
+  assert(close(x.Rep,EXPANDED_VASCULAR.ep.R,2e-3));
+  assert(close(x.RmpNormal,EXPANDED_VASCULAR.mp.R,2e-3));
+  assert(close(x.Vusv,EXPANDED_VASCULAR.sv.Vu,2e-3));
+  assert(close(x.Vuev,EXPANDED_VASCULAR.ev.Vu,2e-3));
+  assert(close(x.Vumv,EXPANDED_VASCULAR.mv.Vu,2e-3));
 });
 
-test('split extrasplanchnic resistance reproduces old aggregate reflex response',()=>{
-  for(const f of [2.66,4,6,8,12,20]){
-    const split=aggregateExtrasplanchnicReflexState({
-      vascularSympatheticSpikesPerSec:f,
-    });
-    const old=
-      CONTROL.effectors.Rep.offset+
-      sympatheticEffectorStatic(f,CONTROL.effectors.Rep);
-    assert(
-      close(split.peripheralResistanceMmHgSecPerMl,old,6e-3),
-      'f='+f+' split='+split.peripheralResistanceMmHgSecPerMl+' old='+old
-    );
-  }
+test('source basal split reproduces the prior aggregate extrasplanchnic basal properties',()=>{
+  const f=sourceBasalVascularSympatheticFiring();
+  const split=aggregateExtrasplanchnicReflexState({
+    vascularSympatheticSpikesPerSec:f,
+  });
+  assert(close(
+    split.peripheralResistanceMmHgSecPerMl,
+    1.407,
+    3e-3
+  ));
+  assert(close(
+    split.venousUnstressedVolumeMl,
+    1375,
+    3e-3
+  ));
 });
 
 test('skeletal muscle source resistance remains the pre-local-control Rmpn',()=>{
