@@ -57,12 +57,22 @@ function createUrsinoBaroreceptorShadow(){
     provenance:SOURCE,
   });
 
-  function step({dtSec,arterialPressureMmHg}={}){
+  function step({
+    dtSec,
+    arterialPressureMmHg,
+    arterialPressureRateMmHgPerSec=null,
+  }={}){
     nonNegative(dtSec,'dtSec');
     finite(arterialPressureMmHg,'arterialPressureMmHg');
-    const derivative=previousPressureMmHg==null || dtSec===0
-      ? 0
-      : (arterialPressureMmHg-previousPressureMmHg)/dtSec;
+    if(arterialPressureRateMmHgPerSec!=null){
+      finite(arterialPressureRateMmHgPerSec,
+        'arterialPressureRateMmHgPerSec');
+    }
+    const derivative=arterialPressureRateMmHgPerSec!=null
+      ? arterialPressureRateMmHgPerSec
+      : previousPressureMmHg==null || dtSec===0
+        ? 0
+        : (arterialPressureMmHg-previousPressureMmHg)/dtSec;
     const target=arterialPressureMmHg+P.tauZeroSec*derivative;
     if(filteredPressureMmHg==null){
       filteredPressureMmHg=arterialPressureMmHg;
@@ -75,6 +85,9 @@ function createUrsinoBaroreceptorShadow(){
       arterialPressureMmHg,
       filteredPressureMmHg,
       pressureDerivativeMmHgPerSec:derivative,
+      pressureDerivativeSource:arterialPressureRateMmHgPerSec!=null
+        ?'plant-source-derivative'
+        :'backward-difference-fallback',
       fAbSpikesPerSec:baroreceptorStatic(filteredPressureMmHg),
       authority:'shadow-diagnostic-only',
       pressureMapping:'systemic arterial pressure used as published-surrogate for carotid sinus pressure',
