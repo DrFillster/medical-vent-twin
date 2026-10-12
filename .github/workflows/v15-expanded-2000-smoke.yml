@@ -1,0 +1,31 @@
+name: v1.5 Expanded 2000 Smoke
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-expanded-2000-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  expanded-2000:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Split effector runtime
+        run: node test/v15_ursino_magosso_2000_split_effectors_runtime.test.js
+      - name: Expanded plant runtime
+        run: node test/v15_ursino_magosso_2000_expanded_plant_runtime.test.js
+      - name: Local O2 candidate
+        run: node test/v15_ursino_magosso_2000_local_o2_candidate.test.js
+      - name: Expanded hypoxia closed loop
+        run: node test/v15_ursino_magosso_2000_expanded_hypoxia_closed_loop.test.js
