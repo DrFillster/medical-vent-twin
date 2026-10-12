@@ -44,7 +44,8 @@ function nonNegative(v,label){
 
 function interpolate(history,target,fallback){
   if(!history.length) return fallback;
-  if(target<=history[0].t) return history[0].v;
+  if(target<history[0].t) return fallback;
+  if(target===history[0].t) return history[0].v;
   for(let i=history.length-1;i>=1;i--){
     const a=history[i-1],b=history[i];
     if(a.t<=target&&target<=b.t){
@@ -74,6 +75,13 @@ function createUrsinoMagosso2000TidalVolumeCandidate(){
   function step({dtSec,fAcSpikesPerSec}={}){
     nonNegative(dtSec,'dtSec');
     nonNegative(fAcSpikesPerSec,'fAcSpikesPerSec');
+
+    // Record the input at the beginning of the held interval. Before t=0,
+    // Eq. 29 sees the basal chemoreceptor firing; do not back-fill the first
+    // observed stimulus into negative-time history.
+    if(!history.length){
+      history.push({t:timeSec,v:fAcSpikesPerSec});
+    }
 
     const delayed=interpolate(
       history,
