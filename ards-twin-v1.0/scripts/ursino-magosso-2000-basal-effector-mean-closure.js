@@ -82,7 +82,7 @@ const out={
   },
   meanHeartRatePerMin:hrSum/n,
   actualMean:actual,
-  meanInstantaneousSourceTarget,
+  meanInstantaneousSourceTarget:meanInstantaneousTarget,
   residual,
   percentResidual,
 };
