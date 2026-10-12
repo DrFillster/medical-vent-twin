@@ -105,6 +105,9 @@ const { chromium, webkit } = require('playwright');
       assert(Number.isFinite(Number((await page.locator('#clinical-dp').textContent()).trim())));
       assert((await page.locator('#clinical-maneuver-result').textContent()).includes('total PEEP'));
 
+      // Successful initialization intentionally collapses Ventilator setup.
+      // Reopen it before changing ventilator controls later in this workflow.
+      await page.locator('#clinical-session-panel').evaluate(el => { el.open = true; });
       await page.locator('#clinical-mode').selectOption('PC_AC');
       await page.locator('#clinical-fio2').fill('0.5');
       await page.locator('#clinical-peep').fill('10');
