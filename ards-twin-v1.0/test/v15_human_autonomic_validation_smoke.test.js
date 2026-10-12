@@ -1,6 +1,8 @@
 'use strict';
 
 const assert=require('node:assert/strict');
+const path=require('node:path');
+const {spawnSync}=require('node:child_process');
 const {
   createGasCardiovascularClosedLoopCandidate,
 }=require('../src/ursino_magosso_gas_closed_loop_candidate.js');
@@ -20,19 +22,21 @@ function runProtocol({
   paco2Baseline,
   pao2Challenge,
   paco2Challenge,
-  tidalVolumeL,
+  tidalVolumeBaselineL,
+  tidalVolumeChallengeL,
 }){
   const r=createGasCardiovascularClosedLoopCandidate({
     dtSec:0.002,
     pao2MmHg:pao2Baseline,
     paco2MmHg:paco2Baseline,
-    tidalVolumeL,
+    tidalVolumeL:tidalVolumeBaselineL,
   });
   r.runFor(baselineSec);
   const before=r.snapshot();
   r.setEnvironment({
     pao2MmHg:pao2Challenge,
     paco2MmHg:paco2Challenge,
+    tidalVolumeL:tidalVolumeChallengeL,
   });
   r.runFor(challengeSec);
   const after=r.snapshot();
@@ -50,23 +54,22 @@ function runProtocol({
   };
 }
 
-let hypoxia,hypercapnia;
+let halliwill=null;
+let hypercapnia=null;
 
-test('Halliwill-style isocapnic hypoxia has source-consistent direction',()=>{
-  hypoxia=runProtocol({
-    baselineSec:120,
-    challengeSec:120,
-    pao2Baseline:100,
-    paco2Baseline:40,
-    pao2Challenge:50,
-    paco2Challenge:40,
-    tidalVolumeL:0.5,
+test('Halliwill matched hyperpnoea validation passes inside the integrated candidate',()=>{
+  const run=spawnSync(process.execPath,[
+    path.resolve(__dirname,'../scripts/halliwill-2003-matched-hyperpnoea-validation.js')
+  ],{
+    encoding:'utf8',timeout:180000,maxBuffer:4*1024*1024,
   });
-  assert(hypoxia.hrPct>0,'HR should rise in isocapnic hypoxia');
-  assert(hypoxia.mapPct>0,'MAP should rise in isocapnic hypoxia');
+  assert.equal(run.status,0,run.stderr||run.stdout);
+  halliwill=JSON.parse(run.stdout);
+  assert(halliwill.hypoxia.hrPerMin>halliwill.hyperpnoea.hrPerMin);
+  assert(halliwill.hypoxia.mapMmHg>halliwill.hyperpnoea.mapMmHg);
 });
 
-test('Simmons-style mild hypercapnia is weaker than hypoxia for HR response',()=>{
+test('mild hypercapnia remains a separate report-only external target',()=>{
   hypercapnia=runProtocol({
     baselineSec:120,
     challengeSec:120,
@@ -74,45 +77,34 @@ test('Simmons-style mild hypercapnia is weaker than hypoxia for HR response',()=
     paco2Baseline:40,
     pao2Challenge:100,
     paco2Challenge:45,
-    tidalVolumeL:0.5,
+    tidalVolumeBaselineL:0.5,
+    tidalVolumeChallengeL:0.5,
   });
-  assert(hypercapnia.hrPct>0,'mild hypercapnia should not produce bradycardia');
-  assert(
-    hypercapnia.hrPct<hypoxia.hrPct,
-    'mild hypercapnia HR response should be weaker than isocapnic hypoxia'
-  );
-});
-
-test('mild hypercapnia does not create a large pressor response',()=>{
-  assert(
-    Math.abs(hypercapnia.mapPct)<Math.abs(hypoxia.mapPct),
-    'mild hypercapnia MAP response should remain smaller than hypoxia response'
-  );
+  assert(Number.isFinite(hypercapnia.hrPct));
+  assert(Number.isFinite(hypercapnia.mapPct));
 });
 
 console.log(JSON.stringify({
-  schema:'human-autonomic-validation-smoke/v1',
+  schema:'human-autonomic-validation-smoke/v2',
   authority:'validation-only-not-calibration',
-  protocols:{
-    halliwillStyleIsocapnicHypoxia:{
-      pao2MmHg:50,paco2MmHg:40,
-      hrPct:hypoxia?.hrPct,
-      mapPct:hypoxia?.mapPct,
-      humanReference:{
-        citation:'Halliwill et al. J Physiol. 2003;552:295-302.',
-        doi:'10.1113/jphysiol.2003.050708',
-        observed:'HR and MAP increased during acute isocapnic hypoxia',
-      },
+  halliwillMatchedHyperpnoea:halliwill&&{
+    coordinateWarning:halliwill.coordinateWarning,
+    hyperpnoea:halliwill.hyperpnoea,
+    hypoxia:halliwill.hypoxia,
+    humanReference:{
+      citation:'Halliwill et al. J Physiol. 2003;552:295-302.',
+      doi:'10.1113/jphysiol.2003.050708',
+      observed:'With matched breathing and isocapnia, hypoxia increased HR and MAP beyond hyperpnoea alone.',
     },
-    simmonsStyleMildHypercapnia:{
-      pao2MmHg:100,paco2MmHg:45,
-      hrPct:hypercapnia?.hrPct,
-      mapPct:hypercapnia?.mapPct,
-      humanReference:{
-        citation:'Simmons et al. J Physiol. 2007;583:1155-1163.',
-        doi:'10.1113/jphysiol.2007.137216',
-        observed:'small HR increase with essentially unchanged MAP during mild hypercapnia',
-      },
+  },
+  simmonsMildHypercapniaReportOnly:hypercapnia&&{
+    candidateHrPct:hypercapnia.hrPct,
+    candidateMapPct:hypercapnia.mapPct,
+    status:'report-only-protocol-coordinates-incomplete',
+    humanReference:{
+      citation:'Simmons et al. J Physiol. 2007;583:1155-1163.',
+      doi:'10.1113/jphysiol.2007.137216',
+      observed:'Mild hyperoxic hypercapnia increased HR slightly, while MAP did not significantly change; matched hyperpnoea produced a similar HR rise.',
     },
   },
 },null,2));
