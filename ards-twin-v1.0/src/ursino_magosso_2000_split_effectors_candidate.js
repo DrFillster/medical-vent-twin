@@ -8,9 +8,14 @@
  * I. A mathematical model. Am J Physiol Heart Circ Physiol.
  * 2000;279:H149-H165. doi:10.1152/ajpheart.2000.279.1.H149.
  *
- * This module contains the source redistribution of the former aggregate
- * extrasplanchnic reflex effectors across remaining extrasplanchnic and
- * skeletal-muscle beds. Brain and coronary beds remain local-control only.
+ * This module contains the source split of reflex effectors across remaining
+ * extrasplanchnic and skeletal-muscle beds. Brain and coronary beds remain
+ * local-control only.
+ *
+ * Do not assume that the full split sympathetic transfer curve is identical
+ * to the prior 1998 aggregate extrasplanchnic transfer curve. The source
+ * explicitly preserves basal vascular architecture; regulated split curves
+ * are retained exactly as published.
  */
 
 const SOURCE=Object.freeze({
