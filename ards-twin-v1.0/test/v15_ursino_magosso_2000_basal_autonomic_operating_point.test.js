@@ -10,40 +10,31 @@ function test(name,fn){
   catch(e){console.error('FAIL -',name,':',e.message);failed++;}
 }
 
-test('basal autonomic operating-point audit executes',()=>{
+test('instantaneous basal autonomic audit executes',()=>{
   const run=spawnSync(process.execPath,[
     path.resolve(__dirname,'../scripts/ursino-magosso-2000-basal-autonomic-operating-point.js')
   ],{encoding:'utf8',timeout:300000,maxBuffer:2*1024*1024});
   assert.equal(run.status,0,run.stderr||run.stdout);
   x=JSON.parse(run.stdout);
-  assert.equal(x.authority,'source-reproduction-diagnostic-only');
+  assert.equal(x.schema,'ursino-magosso-2000-basal-autonomic-operating-point/v2');
 });
 
 test('published basal chemoreceptor and VT coordinates are recovered',()=>{
   assert(Math.abs(
-    x.expectedAfferents.fAc-x.publishedBasal.chemoreceptorSpikesPerSec
+    x.basalStatic.fAc-x.publishedBasal.chemoreceptorSpikesPerSec
   )<0.05);
-  assert(Math.abs(
-    x.settled.vt-x.publishedBasal.tidalVolumeL
-  )<0.01);
+  assert(Math.abs(x.basalCoordinateResidual.vt)<0.01);
+  assert(Math.abs(x.basalCoordinateResidual.fAc)<0.01);
+  assert(Math.abs(x.basalCoordinateResidual.fAp)<0.01);
+  assert(Math.abs(x.basalCoordinateResidual.thetaSp)<0.01);
+  assert(Math.abs(x.basalCoordinateResidual.thetaSh)<0.01);
 });
 
-test('settled autonomic outputs match the source static equations at settled inputs',()=>{
+test('Eqs 21-23 close instantaneously through the pulsatile basal state',()=>{
   for(const k of ['fSp','fSh','fV']){
     assert(
-      Math.abs(x.residuals[k])<0.02,
-      k+' residual='+x.residuals[k]
-    );
-  }
-});
-
-test('settled delayed effectors match source steady targets',()=>{
-  for(const k of [
-    'heartPeriod','EmaxLv','EmaxRv','Rsp','Rep','Vusv','Vuev','Vumv'
-  ]){
-    assert(
-      Math.abs(x.residuals[k])<0.02,
-      k+' residual='+x.residuals[k]
+      x.maxAbsInstantaneousResidual[k]<1e-10,
+      k+' max residual='+x.maxAbsInstantaneousResidual[k]
     );
   }
 });
