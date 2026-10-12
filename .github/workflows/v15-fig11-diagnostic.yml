@@ -53,3 +53,9 @@ jobs:
       - name: Check within-minute MAP
         if: always()
         run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.withinMinute.map>x.baseline.map)) process.exit(1)"
+      - name: Upload Fig11 trajectory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fig11-trajectory
+          path: ards-twin-v1.0/physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json
