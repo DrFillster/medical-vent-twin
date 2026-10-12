@@ -5,6 +5,7 @@ on:
     branches: [v1.5]
     paths:
       - '.github/workflows/v15-physician-preview-deploy.yml'
+      - 'ards-twin-v1.0/scripts/verify-deployable-web.js'
 
 concurrency:
   group: v15-physician-preview-deploy
