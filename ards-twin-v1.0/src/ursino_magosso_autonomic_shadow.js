@@ -176,8 +176,9 @@ function vagalFiring({
   finite(fApSpikesPerSec, 'fApSpikesPerSec');
   const p = P.vagal;
   const e = Math.exp((fAbSpikesPerSec - p.baroMidSpikesPerSec) / p.kSpikesPerSec);
-  return p.f0SpikesPerSec +
-    (p.fInfinitySpikesPerSec * e) / (1 + e) +
+  return (
+    p.f0SpikesPerSec + p.fInfinitySpikesPerSec * e
+  ) / (1 + e) +
     p.chemoWeight * fAcSpikesPerSec -
     p.pulmonaryWeight * fApSpikesPerSec -
     p.thetaSpikesPerSec;
