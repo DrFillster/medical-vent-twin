@@ -98,7 +98,7 @@ Examples:
 - P equation: E->P = -1.4; R->P = -2.3; P->P = +1.5.
 - E equation: I->E = -0.7; R->E = -2.3; E->E = +1.6.
 
-This mapping reproduces the printed Eq. 1 topology without transposition by convenience.
+This mapping resolves the source/target orientation, but it also exposes one primary-source inconsistency: Table 2 contains P->L = -3.0, while the printed Eq. 1 late-inspiratory equation omits W_PL*S(P). The candidate therefore preserves P->L=-3.0 as provenance data but does not activate it. For the governing dynamics, the printed differential equation has precedence until an author correction or source implementation proves otherwise.
 
 ### Inherited sigmoid S(X)
 
