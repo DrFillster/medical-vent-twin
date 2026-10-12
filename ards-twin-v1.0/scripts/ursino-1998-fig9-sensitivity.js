@@ -83,11 +83,12 @@ function percentChanges(after,before){
   return out;
 }
 
-function runCase(controlStrength,initialState,baseline){
+function runCase(controlStrength,checkpoint,baseline){
   const r=createUrsino1998ClosedLoopRuntime({
     dtSec:DT_SEC,
     controlStrength,
-    initialState,
+    initialState:checkpoint.state,
+    initialControlHistory:checkpoint.controlHistory,
   });
 
   const hemorrhageStartSec=r.snapshot().timeSec;
@@ -128,11 +129,11 @@ const cases={
 const basalRuntime=createUrsino1998ClosedLoopRuntime({dtSec:DT_SEC});
 basalRuntime.runFor(60);
 const commonBaseline=meanOverIntegerHeartPeriods(basalRuntime,20);
-const commonInitialState={...basalRuntime.snapshot().state};
+const commonCheckpoint=basalRuntime.checkpoint();
 
 const results={};
 for(const [name,strength] of Object.entries(cases)){
-  results[name]=runCase(strength,commonInitialState,commonBaseline);
+  results[name]=runCase(strength,commonCheckpoint,commonBaseline);
 }
 
 const intact=results.intact.percentChanges;
