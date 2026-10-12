@@ -2,7 +2,7 @@
 
 const assert=require('node:assert/strict');
 const {
-  SOURCE,W,DECAY,
+  SOURCE,W,ACTIVE_SOURCES_BY_TARGET,DECAY,
   lateInspiratoryTonic,
   respiratoryRatePerMin,
   respiratoryRateCouplingScale,
@@ -34,6 +34,11 @@ test('Table2 is source-row to target-column',()=>{
   assert.equal(W.E.P,-1.4);
   assert.equal(W.I.E,-0.7);
   assert.equal(W.R.E,-2.3);
+});
+
+test('Table2 P-to-L value is preserved but omitted by printed Eq1',()=>{
+  assert.equal(W.P.L,-3.0);
+  assert(!ACTIVE_SOURCES_BY_TARGET.L.includes('P'));
 });
 
 test('late-inspiratory tonic follows Table2 footnote',()=>{
