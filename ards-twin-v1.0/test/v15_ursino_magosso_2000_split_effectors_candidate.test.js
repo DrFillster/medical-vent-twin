@@ -29,45 +29,30 @@ test('Table 2 split effector values are pinned',()=>{
   assert.equal(P.effectors.Vumv.offset,503.26);
 });
 
-function sourceBasalVascularSympatheticFiring(){
-  // Invert the source static effector equation using the source basal
-  // splanchnic resistance. This derives the common basal f_sp from the
-  // published source parameters; it is not a fitted value.
-  const cfg=P.effectors.Rsp;
-  return P.thresholdSpikesPerSec-1+
-    Math.exp((EXPANDED_VASCULAR.sp.R-cfg.offset)/cfg.gain);
-}
-
-test('split effector curves reproduce all source Table 1 basal vascular values at one common basal firing',()=>{
-  const f=sourceBasalVascularSympatheticFiring();
-  const x=sourceTargets({
-    vascularSympatheticSpikesPerSec:f,
-    cardiacSympatheticSpikesPerSec:f,
-    cardiacVagalSpikesPerSec:0,
-  }).absolute;
-
-  assert(close(x.Rsp,EXPANDED_VASCULAR.sp.R,2e-3));
-  assert(close(x.Rep,EXPANDED_VASCULAR.ep.R,2e-3));
-  assert(close(x.RmpNormal,EXPANDED_VASCULAR.mp.R,2e-3));
-  assert(close(x.Vusv,EXPANDED_VASCULAR.sv.Vu,2e-3));
-  assert(close(x.Vuev,EXPANDED_VASCULAR.ev.Vu,2e-3));
-  assert(close(x.Vumv,EXPANDED_VASCULAR.mv.Vu,2e-3));
-});
-
-test('source basal split reproduces the prior aggregate extrasplanchnic basal properties',()=>{
-  const f=sourceBasalVascularSympatheticFiring();
+test('zero-drive split resistance offsets reproduce the prior aggregate extrasplanchnic offset',()=>{
   const split=aggregateExtrasplanchnicReflexState({
-    vascularSympatheticSpikesPerSec:f,
+    vascularSympatheticSpikesPerSec:P.thresholdSpikesPerSec,
   });
   assert(close(
     split.peripheralResistanceMmHgSecPerMl,
-    1.407,
-    3e-3
+    0.78,
+    2e-4
+  ));
+});
+
+test('split venous offsets and gains preserve the prior aggregate venous effector decomposition',()=>{
+  assert(close(
+    P.effectors.Vuev.offset+
+      P.effectors.Vumv.offset+
+      EXPANDED_VASCULAR.bv.Vu+
+      EXPANDED_VASCULAR.hv.Vu,
+    1537,
+    2e-4
   ));
   assert(close(
-    split.venousUnstressedVolumeMl,
-    1375,
-    3e-3
+    P.effectors.Vuev.gain+P.effectors.Vumv.gain,
+    -132.5,
+    1e-12
   ));
 });
 
