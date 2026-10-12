@@ -118,6 +118,43 @@ This argues against obvious persistent numerical drift in the staged challenge.
 
 ## Decision
 
-**KEEP AS SHADOW CANDIDATE. DO NOT ACTIVATE.**
+**KEEP AS CANDIDATE-NOT-CANONICAL. DO NOT EXPOSE AS CANONICAL PHYSIOLOGY.**
 
 The candidate is coherent enough to continue development, but the current fixed-VT gas response is not a general bedside ARDS cardiovascular model and must not be exposed as canonical physiology.
+
+
+## External arterial-gas response matrix
+
+Focused audit:
+- workflow: `v1.5 External Gas Audit`
+- run ID: `38193338665`
+- result: **success**
+
+This audit uses the candidate's native arterial-gas coordinates with fixed delivered VT. It does not treat SaO2, PETO2, or PETCO2 as equivalent to PaO2 or PaCO2.
+
+Percent change from the candidate's own 100/40 controlled-fixed-VT baseline:
+
+| Arterial gas challenge | HR | SAP/MAP state | CO | LV Emax | Rsp | Rep | Vusv | Vuev |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| PaO2 100 / PaCO2 45 | -3.69% | +6.02% | -9.82% | +1.32% | +8.76% | +15.76% | +0.28% | +0.11% |
+| PaO2 50 / PaCO2 40 | -12.03% | +21.11% | -6.64% | +7.59% | +16.54% | +29.75% | -18.63% | -7.57% |
+| PaO2 40 / PaCO2 40 | -4.64% | +34.59% | +3.55% | +24.16% | +18.30% | +32.92% | -20.71% | -8.42% |
+| PaO2 50 / PaCO2 50 | -21.67% | +68.04% | -12.09% | +12.20% | +60.88% | +109.52% | -45.36% | -18.43% |
+| PaO2 50 / PaCO2 60 | -19.01% | +92.12% | +7.85% | +27.02% | +60.91% | +109.57% | -68.15% | -27.69% |
+
+### Interpretation
+
+The fixed-VT bradycardic response is not by itself a source failure. The Ursino/Magosso hypoxia source family reports HR reduction under controlled ventilation and a different later response when ventilation and pulmonary stretch are allowed to change.
+
+The very large arterial-pressure / peripheral-resistance response under combined gas stress is a **model-completeness concern**. The current promoted plant uses the 1998 systemic structure but does not yet include the full 2000/2001 local gas-sensitive high-metabolic-demand vascular beds.
+
+The 2001 source family contains local O2/CO2 vascular effects for brain, heart, and skeletal muscle. Those equations must be transcribed exactly from the primary Appendix before implementation. Do not compensate for this pressure response by reducing sympathetic gains.
+
+### Current authority boundary
+
+The candidate is explicitly tagged:
+- `ventilationContext: controlled-fixed-vt`;
+- `spontaneousBreathing: false`;
+- canonical bedside authority: false.
+
+A spontaneous-breathing / assisted-breathing candidate requires a source-complete respiratory-drive -> patient-effort -> actual-VT pathway. Vent retains ownership of delivered ventilator mechanics.
