@@ -24,7 +24,11 @@ function flows(s){
 
 function meanWindow(r,seconds){
   const n=Math.round(seconds/DT);
-  const sum={hr:0,map:0,co:0,vt:0,autoregulated:0,remaining:0};
+  const sum={
+    hr:0,map:0,co:0,vt:0,autoregulated:0,remaining:0,
+    fAb:0,fAc:0,fAp:0,thetaSp:0,thetaSh:0,fSp:0,fSh:0,fV:0,
+    Rsp:0,Rep:0,Rmp:0,Rbp:0,Rhp:0,Vusv:0,Vuev:0,Vumv:0,
+  };
   for(let i=0;i<n;i++){
     const s=r.snapshot();
     const f=flows(s);
@@ -34,6 +38,20 @@ function meanWindow(r,seconds){
     sum.vt+=s.ventilation.activeTidalVolumeL;
     sum.autoregulated+=f.autoregulatedMlPerSec;
     sum.remaining+=f.remainingMlPerSec;
+    if(s.autonomic){
+      sum.fAb+=s.autonomic.fAbSpikesPerSec;
+      sum.fAc+=s.autonomic.fAcSpikesPerSec;
+      sum.fAp+=s.autonomic.fApSpikesPerSec;
+      sum.thetaSp+=s.autonomic.thetaSpSpikesPerSec;
+      sum.thetaSh+=s.autonomic.thetaShSpikesPerSec;
+      sum.fSp+=s.autonomic.fSpSpikesPerSec;
+      sum.fSh+=s.autonomic.fShSpikesPerSec;
+      sum.fV+=s.autonomic.fVSpikesPerSec;
+    }
+    const e=s.vascularEffectors;
+    sum.Rsp+=e.Rsp; sum.Rep+=e.Rep; sum.Rmp+=e.Rmp;
+    sum.Rbp+=e.Rbp; sum.Rhp+=e.Rhp;
+    sum.Vusv+=e.Vusv; sum.Vuev+=e.Vuev; sum.Vumv+=e.Vumv;
     r.step();
   }
   for(const k of Object.keys(sum)) sum[k]/=n;
@@ -61,7 +79,11 @@ const baseline=meanWindow(r,5);
 // Source Fig. 11 protocol: lower PaO2 from 95 to 28 mmHg over 10 s.
 const rampSec=10;
 const rampSteps=Math.round(rampSec/DT);
-let earlyAccumulator={hr:0,map:0,co:0,vt:0,autoregulated:0,remaining:0};
+let earlyAccumulator={
+  hr:0,map:0,co:0,vt:0,autoregulated:0,remaining:0,
+  fAb:0,fAc:0,fAp:0,thetaSp:0,thetaSh:0,fSp:0,fSh:0,fV:0,
+  Rsp:0,Rep:0,Rmp:0,Rbp:0,Rhp:0,Vusv:0,Vuev:0,Vumv:0,
+};
 let earlyN=0;
 
 for(let i=0;i<rampSteps;i++){
@@ -80,6 +102,21 @@ for(let i=0;i<rampSteps;i++){
     earlyAccumulator.vt+=s.ventilation.activeTidalVolumeL;
     earlyAccumulator.autoregulated+=f.autoregulatedMlPerSec;
     earlyAccumulator.remaining+=f.remainingMlPerSec;
+    if(s.autonomic){
+      earlyAccumulator.fAb+=s.autonomic.fAbSpikesPerSec;
+      earlyAccumulator.fAc+=s.autonomic.fAcSpikesPerSec;
+      earlyAccumulator.fAp+=s.autonomic.fApSpikesPerSec;
+      earlyAccumulator.thetaSp+=s.autonomic.thetaSpSpikesPerSec;
+      earlyAccumulator.thetaSh+=s.autonomic.thetaShSpikesPerSec;
+      earlyAccumulator.fSp+=s.autonomic.fSpSpikesPerSec;
+      earlyAccumulator.fSh+=s.autonomic.fShSpikesPerSec;
+      earlyAccumulator.fV+=s.autonomic.fVSpikesPerSec;
+    }
+    const e=s.vascularEffectors;
+    earlyAccumulator.Rsp+=e.Rsp; earlyAccumulator.Rep+=e.Rep;
+    earlyAccumulator.Rmp+=e.Rmp; earlyAccumulator.Rbp+=e.Rbp;
+    earlyAccumulator.Rhp+=e.Rhp; earlyAccumulator.Vusv+=e.Vusv;
+    earlyAccumulator.Vuev+=e.Vuev; earlyAccumulator.Vumv+=e.Vumv;
     earlyN++;
   }
   r.step();
