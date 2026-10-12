@@ -15,6 +15,10 @@ const {
   createUrsinoMagossoGasCardiovascularCandidate,
 }=require('./ursino_magosso_gas_cardiovascular_candidate.js');
 
+const {
+  createUrsinoMagosso2000TidalVolumeCandidate,
+}=require('./ursino_magosso_2000_tidal_volume_candidate.js');
+
 const SOURCE=Object.freeze({
   plant:'Ursino 1998, doi:10.1152/ajpheart.1998.275.5.H1733',
   hypoxia:'Ursino & Magosso 2000, doi:10.1152/ajpheart.2000.279.1.H149',
@@ -46,17 +50,31 @@ function createGasCardiovascularClosedLoopCandidate({
   pao2MmHg=100,
   paco2MmHg=40,
   tidalVolumeL=0.5,
+  ventilationMode='external-delivered-vt',
 }={}){
   positive(dtSec,'dtSec');
   nonNegative(pao2MmHg,'pao2MmHg');
   positive(paco2MmHg,'paco2MmHg');
   nonNegative(tidalVolumeL,'tidalVolumeL');
+  if(![
+    'external-delivered-vt',
+    'ursino-magosso-2000-spontaneous-validation',
+  ].includes(ventilationMode)){
+    throw new Error('unknown ventilationMode: '+ventilationMode);
+  }
 
   const plant=createUrsino1998ClosedLoopRuntime({dtSec,initialState});
   const controller=createUrsinoMagossoGasCardiovascularCandidate();
+  const sourceVentilation=ventilationMode===
+    'ursino-magosso-2000-spontaneous-validation'
+      ?createUrsinoMagosso2000TidalVolumeCandidate()
+      :null;
 
   let environment=Object.freeze({pao2MmHg,paco2MmHg,tidalVolumeL});
   let controllerState=null;
+  let sourceVentilationState=sourceVentilation
+    ?sourceVentilation.snapshot()
+    :null;
 
   function setEnvironment(next={}){
     const merged={...environment,...next};
@@ -85,14 +103,25 @@ function createGasCardiovascularClosedLoopCandidate({
 
   function step(){
     const before=plant.snapshot();
+    const activeTidalVolumeL=sourceVentilationState
+      ?sourceVentilationState.tidalVolumeL
+      :environment.tidalVolumeL;
+
     controllerState=controller.step({
       dtSec,
       systemicArterialPressureMmHg:
         before.hemodynamics.systemicArterialPressureMmHg,
       pao2MmHg:environment.pao2MmHg,
       paco2MmHg:environment.paco2MmHg,
-      tidalVolumeL:environment.tidalVolumeL,
+      tidalVolumeL:activeTidalVolumeL,
     });
+
+    if(sourceVentilation){
+      sourceVentilationState=sourceVentilation.step({
+        dtSec,
+        fAcSpikesPerSec:controllerState.afferents.fAcSpikesPerSec,
+      });
+    }
 
     plant.setExternalEffectors(
       controllerToExternalEffectors(controllerState)
@@ -117,6 +146,16 @@ function createGasCardiovascularClosedLoopCandidate({
     return Object.freeze({
       timeSec:p.timeSec,
       environment,
+      ventilation:Object.freeze({
+        mode:ventilationMode,
+        deliveredTidalVolumeL:environment.tidalVolumeL,
+        activeTidalVolumeL:sourceVentilationState
+          ?sourceVentilationState.tidalVolumeL
+          :environment.tidalVolumeL,
+        sourceValidationState:sourceVentilationState,
+        canonicalVentilatorAuthority:
+          ventilationMode==='external-delivered-vt',
+      }),
       hemodynamics:p.hemodynamics,
       plantState:p.state,
       plantControl:p.control,
