@@ -50,7 +50,10 @@ test('each disabled-effector case preserves the same basal hemodynamic state',()
 
 test('venous unstressed-volume control has the largest added SAP and CO protection',()=>{
   assert(audit);
-  for(const key of ['sapAddedDeterioration','coAddedDeterioration']){
+  for(const key of [
+    'sapAddedDeteriorationPercentagePoints',
+    'coAddedDeteriorationPercentagePoints',
+  ]){
     const o=audit.ordering[key];
     assert(
       o.noVenousUnstressedVolume>o.noPeripheralResistance,
@@ -69,7 +72,10 @@ test('venous unstressed-volume control has the largest added SAP and CO protecti
 
 test('Emax removal has the smallest added SAP and CO deterioration',()=>{
   assert(audit);
-  for(const key of ['sapAddedDeterioration','coAddedDeterioration']){
+  for(const key of [
+    'sapAddedDeteriorationPercentagePoints',
+    'coAddedDeteriorationPercentagePoints',
+  ]){
     const o=audit.ordering[key];
     assert(o.noEmax<o.noPeripheralResistance);
     assert(o.noEmax<o.noHeartPeriod);
