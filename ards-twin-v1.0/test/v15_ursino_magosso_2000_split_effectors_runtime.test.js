@@ -53,6 +53,49 @@ test('vascular sympathetic change does not directly alter cardiac target channel
   assert(close(after.heartPeriodSec,before.heartPeriodSec));
 });
 
+test('source pure delays retain the basal prehistory after a step input',()=>{
+  const r=createUrsinoMagosso2000SplitEffectorsRuntime({
+    initialVascularSympatheticSpikesPerSec:6,
+    initialCardiacSympatheticSpikesPerSec:6,
+    initialCardiacVagalSpikesPerSec:4,
+  });
+  const before=r.snapshot().absolute;
+
+  // Resistance delay is 2 s; venous unstressed-volume delay is 5 s.
+  for(let i=0;i<20;i++) r.step({
+    dtSec:0.1,
+    vascularSympatheticSpikesPerSec:12,
+    cardiacSympatheticSpikesPerSec:6,
+    cardiacVagalSpikesPerSec:4,
+  });
+  const at2s=r.snapshot().absolute;
+  assert(close(at2s.Rsp,before.Rsp));
+  assert(close(at2s.Rep,before.Rep));
+  assert(close(at2s.Vusv,before.Vusv));
+
+  r.step({
+    dtSec:0.1,
+    vascularSympatheticSpikesPerSec:12,
+    cardiacSympatheticSpikesPerSec:6,
+    cardiacVagalSpikesPerSec:4,
+  });
+  const after2s=r.snapshot().absolute;
+  assert(after2s.Rsp>before.Rsp);
+  assert(after2s.Rep>before.Rep);
+  assert(close(after2s.Vusv,before.Vusv));
+
+  for(let i=0;i<30;i++) r.step({
+    dtSec:0.1,
+    vascularSympatheticSpikesPerSec:12,
+    cardiacSympatheticSpikesPerSec:6,
+    cardiacVagalSpikesPerSec:4,
+  });
+  const after5s=r.snapshot().absolute;
+  assert(after5s.Vusv<before.Vusv);
+  assert(after5s.Vuev<before.Vuev);
+  assert(after5s.Vumv<before.Vumv);
+});
+
 test('after source delays vascular sympathetic activation raises R and lowers venous unstressed volumes',()=>{
   const r=createUrsinoMagosso2000SplitEffectorsRuntime({
     initialVascularSympatheticSpikesPerSec:6,
