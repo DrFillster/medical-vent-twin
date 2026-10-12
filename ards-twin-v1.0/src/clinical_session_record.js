@@ -57,6 +57,20 @@ function createClinicalSessionRecord(snapshot) {
     hemodynamics: isLiveHumModSession && snapshot.systemic && snapshot.systemic.hemodynamics
       ? Object.freeze({ ...snapshot.systemic.hemodynamics })
       : null,
+    physicianComparison: isLiveHumModSession && snapshot.systemic && snapshot.systemic.physicianComparison
+      ? Object.freeze({
+          ...snapshot.systemic.physicianComparison,
+          liveHumMod: snapshot.systemic.physicianComparison.liveHumMod
+            ? Object.freeze({ ...snapshot.systemic.physicianComparison.liveHumMod })
+            : null,
+          candidateModel: snapshot.systemic.physicianComparison.candidateModel
+            ? Object.freeze({ ...snapshot.systemic.physicianComparison.candidateModel })
+            : null,
+          publishedModelInterim: snapshot.systemic.physicianComparison.publishedModelInterim
+            ? Object.freeze({ ...snapshot.systemic.physicianComparison.publishedModelInterim })
+            : null,
+        })
+      : null,
     provenance: Object.freeze({
       ...(snapshot.provenance || {}),
       status: 'simulation-record-not-clinical-validation',
