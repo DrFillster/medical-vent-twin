@@ -79,10 +79,24 @@ Not allowed:
 
 ## Execution status
 
-The perturbation test is checked in but has not been claimed as executed.
+A narrow candidate smoke workflow was executed on GitHub Actions.
 
-Current tool constraints:
-- local container lacks outbound DNS to clone GitHub;
-- the available GitHub integration exposes workflow inspection/re-run operations but not workflow dispatch.
+Run:
+- workflow: `v1.5 Candidate Smoke`
+- run ID: `38191738869`
+- head SHA: `905fdc76820de4c2ec75107f1d5622b8ae8afdea`
+- conclusion: **success**
 
-Do not mark this gate green until an actual test run is recorded.
+Passed gates:
+1. gas-autonomic promotion parity;
+2. gas-cardiovascular perturbation gate;
+3. Ursino Fig. 9 sensitivity gate;
+4. Ursino source-reproduction gate.
+
+Interpretation:
+- promotion from shadow to candidate did not change the underlying source-family physiology;
+- normoxia, isolated hypoxia, isolated hypercapnia, and combined hypoxic-hypercapnia produced finite distinct candidate responses;
+- the Fig. 9 effector sensitivity ordering remained source-consistent;
+- the source-reproduction harness remained green.
+
+This is a **candidate-layer validation pass**, not canonical validation. Independent human trajectory validation, recovery testing, and explicit coupling step-size convergence remain required before canonical consideration.
