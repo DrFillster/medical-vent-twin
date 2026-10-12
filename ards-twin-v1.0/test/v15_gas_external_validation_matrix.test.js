@@ -37,6 +37,22 @@ test('matrix reports the candidate magnitudes without equating unlike human gas 
   }
 });
 
+test('Halliwill matched-hyperpnoea control isolates an added hypoxic response',()=>{
+  const script=path.resolve(
+    __dirname,'../scripts/halliwill-2003-matched-hyperpnoea-validation.js'
+  );
+  const run=spawnSync(process.execPath,[script],{
+    encoding:'utf8',timeout:180000,maxBuffer:4*1024*1024,
+  });
+  assert.equal(run.status,0,run.stderr||run.stdout);
+  const h=JSON.parse(run.stdout);
+  assert.equal(h.authority,'external-validation-only');
+  assert(h.hypoxia.hrPerMin>h.hyperpnoea.hrPerMin,
+    'matched hypoxia should increase HR beyond hyperpnoea alone');
+  assert(h.hypoxia.mapMmHg>h.hyperpnoea.mapMmHg,
+    'matched hypoxia should increase MAP beyond hyperpnoea alone');
+});
+
 test('combined hypoxic hypercapnia is distinct from isolated gas challenges',()=>{
   const c=x.results.combined_50_50.pct;
   const h=x.results.moderate_isocapnic_hypoxia.pct;
