@@ -137,12 +137,18 @@ for(const [name,strength] of Object.entries(cases)){
 }
 
 const intact=results.intact.percentChanges;
+
+// For SAP and CO, protection means preventing a larger negative response.
+// Do not use absolute distance from intact: source discussion notes that
+// resistance-mediated vasoconstriction increases afterload and can itself
+// depress CO. A no-resistance case can therefore move CO toward zero while
+// still differing substantially from intact.
 function addedDeterioration(caseName,key){
-  return Math.abs(results[caseName].percentChanges[key]-intact[key]);
+  return intact[key]-results[caseName].percentChanges[key];
 }
 
 const ordering={
-  sapAddedDeterioration:{
+  sapAddedDeteriorationPercentagePoints:{
     noVenousUnstressedVolume:addedDeterioration(
       'noVenousUnstressedVolume','sapMmHg'
     ),
@@ -152,7 +158,7 @@ const ordering={
     noHeartPeriod:addedDeterioration('noHeartPeriod','sapMmHg'),
     noEmax:addedDeterioration('noEmax','sapMmHg'),
   },
-  coAddedDeterioration:{
+  coAddedDeteriorationPercentagePoints:{
     noVenousUnstressedVolume:addedDeterioration(
       'noVenousUnstressedVolume','cardiacOutputMlPerSec'
     ),
@@ -178,7 +184,8 @@ const out={
   results,
   ordering,
   acceptance:{
-    expected:'Venous unstressed-volume control has the largest early protective role; resistance and heart-period controls are less important; Emax control is minor.',
+    expected:'Venous unstressed-volume control has the largest early protective role for SAP and CO; resistance and heart-period controls are less important; Emax control is minor.',
+    comparisonRule:'For SAP and CO, added deterioration = intact percent change minus disabled-mechanism percent change. Positive values mean removal caused a more negative response. Absolute distance is invalid because resistance control can reduce CO through increased afterload.',
     quantitative:'UNASSESSED pending reproducible digitization of primary-source Fig. 9 bars.',
   },
 };
