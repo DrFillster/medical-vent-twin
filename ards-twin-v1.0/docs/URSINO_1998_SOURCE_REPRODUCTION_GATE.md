@@ -33,45 +33,50 @@ These are test-harness defects. The physiologic equations were not changed.
 Corrective commits:
 - `7ee22d4a8adfe85be46e34b5843e1278aad81e2c`
 - `78f764c6e88b8f256967e89505944bbb77a937fa`
+- `659fff05c9e8d471ae4dba111a95f0aa7d3f10e8`
 
 ## Current local reproduction run
 
 Numerical step: 0.002 s
-Settling interval: 60 s
-Baseline measurement: 5-s multi-beat mean
+Settling interval before basal tracing: 60 s
+Mean measurement method: source-style 20-s-or-longer tracing, aligned to an integer number of ventricular cycles, trapezoidal time integration
 Blood loss: 530 mL over 5 s
-Post-hemorrhage measurement: starts 80 s after hemorrhage onset, 5-s multi-beat mean
+Post-hemorrhage tracing: begins after the 80-s source evaluation point
 
 ### Baseline
-- HR: 70.9001 /min
-- mean SAP: 99.8900 mmHg
-- mean LV outflow / CO: 86.8939 mL/s (5.2136 L/min)
-- equivalent systemic resistance: 0.98749 mmHg*s/mL
-- PPA: 18.4876 mmHg
-- PRA: 4.9842 mmHg
-- PLA: 7.9943 mmHg
+- HR: 70.9129 /min
+- mean SAP: 100.2076 mmHg
+- mean LV outflow / CO: 89.9192 mL/s (5.3952 L/min)
+- equivalent systemic resistance: 0.98747 mmHg*s/mL
+- PPA: 18.6135 mmHg
+- PRA: 4.9916 mmHg
+- PLA: 8.0020 mmHg
+- averaging trace: 20.306 s / 24 ventricular cycles
 
 ### 80-s post-hemorrhage state
-- HR: 77.1049 /min
-- mean SAP: 90.7856 mmHg
-- mean LV outflow / CO: 82.6058 mL/s (4.9564 L/min)
-- equivalent systemic resistance: 1.07319 mmHg*s/mL
-- PPA: 14.5337 mmHg
-- PRA: 3.6620 mmHg
-- PLA: 5.4508 mmHg
+- HR: 77.0996 /min
+- mean SAP: 90.4573 mmHg
+- mean LV outflow / CO: 75.8401 mL/s (4.5504 L/min)
+- equivalent systemic resistance: 1.07334 mmHg*s/mL
+- PPA: 14.3889 mmHg
+- PRA: 3.6487 mmHg
+- PLA: 5.4385 mmHg
+- averaging trace: 20.234 s / 26 ventricular cycles
 
 ### Percent change from baseline
-- SAP: **-9.1144%**
-- CO: **-4.9348%**
-- systemic resistance: **+8.6788%**
-- HR: **+8.7515%**
+- SAP: **-9.7301%**
+- CO: **-15.6575%**
+- systemic resistance: **+8.6962%**
+- HR: **+8.7244%**
 
 Additional internal response:
-- LV Emax increases from 2.9539 to 3.0807 mmHg/mL.
-- RV Emax increases from 1.7456 to 1.8209 mmHg/mL.
-- splanchnic venous unstressed volume decreases from 1121.7 to 1051.0 mL.
-- extrasplanchnic venous unstressed volume decreases from 1380.4 to 1345.1 mL.
+- LV Emax increases from 2.9539 to 3.0808 mmHg/mL.
+- RV Emax increases from 1.7456 to 1.8210 mmHg/mL.
+- splanchnic venous unstressed volume decreases from 1121.6 to 1050.9 mL.
+- extrasplanchnic venous unstressed volume decreases from 1380.4 to 1345.0 mL.
 - baroreceptor firing decreases, sympathetic efferent firing increases, and vagal firing decreases.
+
+The source states that values plotted in Figs. 3-9 were obtained from a 20-s stationary tracing, with an integer number of heart periods selected and trapezoidal averaging. The v3 harness now reproduces that measurement method.
 
 ## Interpretation
 
