@@ -540,23 +540,6 @@ function createBerlinLiveHumModSession({
                 'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
             })
           : null,
-        candidateModel: physicianCandidateState
-          ? Object.freeze({
-              heartRatePerMin: physicianCandidateState.heartRatePerMin,
-              meanArterialPressureMmHg:
-                physicianCandidateState.meanArterialPressureMmHg,
-              cardiacOutputMlPerMin:
-                physicianCandidateState.cardiacOutputMlPerMin,
-              strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
-              systemicPeripheralResistanceMmHgMinPerL:
-                physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
-              authority: physicianCandidateState.authority,
-              controlAuthority: false,
-              knownLimitations: physicianCandidateState.knownLimitations,
-              status:
-                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
-            })
-          : null,
         publishedModelInterim: Object.freeze({
           heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
           meanArterialPressureMmHg: null,
@@ -636,6 +619,23 @@ function createBerlinLiveHumModSession({
           systemicVascularResistanceMmHgMinPerL:
             circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
         }),
+        candidateModel: physicianCandidateState
+          ? Object.freeze({
+              heartRatePerMin: physicianCandidateState.heartRatePerMin,
+              meanArterialPressureMmHg:
+                physicianCandidateState.meanArterialPressureMmHg,
+              cardiacOutputMlPerMin:
+                physicianCandidateState.cardiacOutputMlPerMin,
+              strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
+              systemicPeripheralResistanceMmHgMinPerL:
+                physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              authority: physicianCandidateState.authority,
+              controlAuthority: false,
+              knownLimitations: physicianCandidateState.knownLimitations,
+              status:
+                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+            })
+          : null,
         publishedModelInterim: Object.freeze({
           heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
           meanArterialPressureMmHg: null,
