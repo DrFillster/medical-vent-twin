@@ -127,6 +127,7 @@ function createGasCardiovascularClosedLoopShadow({
       timeSec:p.timeSec,
       environment,
       hemodynamics:p.hemodynamics,
+      plantState:p.state,
       plantControl:p.control,
       gasAutonomic:controllerState,
       effectorOwnership:p.effectorOwnership,
