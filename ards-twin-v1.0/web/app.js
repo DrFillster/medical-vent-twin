@@ -742,24 +742,39 @@
 
     const comparison = snapshot.systemic?.physicianComparison || {};
     const liveComparison = comparison.liveHumMod || {};
+    const candidateComparison = comparison.candidateModel || {};
     const shadowComparison = comparison.publishedModelInterim || {};
     setShadow('clinical-compare-live-hr', liveComparison.heartRatePerMin, 0);
-    setShadow('clinical-compare-shadow-hr', shadowComparison.heartRatePerMin, 0);
+    setShadow('clinical-compare-shadow-hr', candidateComparison.heartRatePerMin, 0);
     setShadow('clinical-compare-live-map', liveComparison.meanArterialPressureMmHg, 0);
+    setShadow('clinical-compare-shadow-map',
+      candidateComparison.meanArterialPressureMmHg, 0);
     setShadow('clinical-compare-live-co',
       typeof liveComparison.cardiacOutputMlPerMin === 'number'
         ? liveComparison.cardiacOutputMlPerMin / 1000
         : null, 2);
+    setShadow('clinical-compare-shadow-co',
+      typeof candidateComparison.cardiacOutputMlPerMin === 'number'
+        ? candidateComparison.cardiacOutputMlPerMin / 1000
+        : null, 2);
     setShadow('clinical-compare-live-sv', liveComparison.strokeVolumeMl, 0);
+    setShadow('clinical-compare-shadow-sv', candidateComparison.strokeVolumeMl, 0);
     setShadow('clinical-compare-live-svr',
       liveComparison.systemicVascularResistanceMmHgMinPerL, 0);
+    setShadow('clinical-compare-shadow-svr',
+      candidateComparison.systemicPeripheralResistanceMmHgMinPerL, 0);
     const myocardialStatus = $('clinical-compare-myocardial-status');
     if (myocardialStatus && shadowComparison.myocardialContractilityStatus) {
       myocardialStatus.textContent = shadowComparison.myocardialContractilityStatus;
     }
     const comparisonStatus = $('clinical-compare-status');
-    if (comparisonStatus && shadowComparison.status) {
-      comparisonStatus.textContent = shadowComparison.status;
+    if (comparisonStatus) {
+      const limitations = Array.isArray(candidateComparison.knownLimitations)
+        ? candidateComparison.knownLimitations.join(' ')
+        : '';
+      comparisonStatus.textContent = candidateComparison.status
+        ? candidateComparison.status + (limitations ? ' Known limitations: ' + limitations : '')
+        : 'Candidate model unavailable.';
     }
     $('clinical-ppeak').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.peakPressureCmH2O);
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
