@@ -165,11 +165,16 @@ function createGasCardiovascularClosedLoopCandidate({
       canonicalControlAuthority:false,
       candidatePlantControlAuthority:true,
       provenance:SOURCE,
-      ventilationContext:'controlled-fixed-vt',
+      ventilationContext:sourceVentilation
+        ?'spontaneous-source-validation'
+        :'controlled-fixed-vt',
       protocolScope:Object.freeze({
-        spontaneousBreathing:false,
-        deliveredTidalVolumeOwnedByVent:true,
-        note:'Current gas-autonomic validation fixes delivered VT. Do not compare this mode directly with spontaneous-breathing human hypoxia protocols.',
+        spontaneousBreathing:!!sourceVentilation,
+        deliveredTidalVolumeOwnedByVent:!sourceVentilation,
+        sourceVentilationOwnsValidationVT:!!sourceVentilation,
+        note:sourceVentilation
+          ?'Source-reproduction mode only. Ursino-Magosso 2000 owns validation VT; it has no bedside ventilator authority.'
+          :'Controlled-ventilation mode. Delivered VT remains externally owned by Vent.',
       }),
       numericalBoundary:Object.freeze({
         scheme:'controller-then-plant explicit operator split',
