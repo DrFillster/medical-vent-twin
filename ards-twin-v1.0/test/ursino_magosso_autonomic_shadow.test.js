@@ -48,11 +48,12 @@ test('CNS hypoxia channels remain distinct', () => {
   assert.notEqual(sp, sh);
 });
 
-test('vagal Eq 23 keeps basal term inside the baroreflex sigmoid numerator', () => {
+test('vagal Eq 23 keeps basal term outside the baroreflex sigmoid fraction', () => {
   const p=P.vagal;
   const e=1; // f_ab equals the source midpoint.
   const expected=
-    (p.f0SpikesPerSec+p.fInfinitySpikesPerSec*e)/(1+e) -
+    p.f0SpikesPerSec+
+    (p.fInfinitySpikesPerSec*e)/(1+e) -
     p.thetaSpikesPerSec;
   const actual=vagalFiring({
     fAbSpikesPerSec:p.baroMidSpikesPerSec,
