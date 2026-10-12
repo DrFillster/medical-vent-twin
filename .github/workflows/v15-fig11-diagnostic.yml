@@ -1,5 +1,5 @@
 name: v1.5 Fig11 Diagnostic
-# state audit
+# state audit with source effector delays
 
 on:
   push:
