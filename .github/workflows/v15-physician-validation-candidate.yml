@@ -23,3 +23,5 @@ jobs:
           node-version: '22'
       - name: Physician validation candidate adapter
         run: node test/v15_physician_validation_candidate.test.js
+      - name: Live patient invariance
+        run: node test/v15_physician_validation_live_invariance.test.js
