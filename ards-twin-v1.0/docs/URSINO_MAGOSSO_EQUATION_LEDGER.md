@@ -291,6 +291,86 @@ Table 1:
 - theta_svn = 13.32 s^-1
 - theta_shn = 3.6 s^-1
 
+### Eqs. 8–11 — cerebral local O2/CO2 regulation
+
+Primary 2001 Appendix transcription:
+
+```
+G_bp = G_bpn * (1 + x_b,O2 + x_b,CO2)
+```
+
+```
+dx_b,O2/dt =
+  [-x_b,O2 - g_b,O2*(C_vb,O2 - C_vb,O2n)] / tau_O2
+```
+
+```
+Phi_b(PaCO2) =
+  [A + B/(1 + C*exp(D*ln(PaCO2)))]
+  / [A + B/(1 + C*exp(D*ln(PaCO2_n)))]
+  - 1
+```
+
+```
+dx_b,CO2/dt = [-x_b,CO2 + Phi_b(PaCO2)] / tau_CO2
+```
+
+The source states that local O2 and CO2 mechanisms are additive on cerebral conductance.
+
+Parameters:
+- G_bpn = 0.15 mL/(mmHg*s)
+- C_vb,O2n = 0.14
+- g_b,O2 = 10
+- A = 20.9
+- B = 92.8
+- C = 10570
+- D = -5.251
+- tau_O2 = 10 s
+- tau_CO2 = 20 s
+
+### Eqs. 12–15 — coronary and skeletal-muscle local O2/CO2 regulation
+
+For j = h (coronary) or m (skeletal muscle):
+
+```
+R_jp = R_jpn * (1 + x_j,CO2) / (1 + x_j,O2)
+```
+
+```
+dx_j,O2/dt =
+  [-x_j,O2 - g_j,O2*(C_vj,O2 - C_vj,O2n)] / tau_O2
+```
+
+```
+Phi_j(PaCO2) =
+  [1 - exp((PaCO2-PaCO2_n)/k_j,CO2)]
+  / [1 + exp((PaCO2-PaCO2_n)/k_j,CO2)]
+```
+
+```
+dx_j,CO2/dt = [-x_j,CO2 + Phi_j(PaCO2)] / tau_CO2
+```
+
+Coronary:
+- R_hpn = 19.71 (mmHg*s)/mL
+- C_vh,O2n = 0.11
+- g_h,O2 = 35
+- k_h,CO2 = 11.11 mmHg
+
+Skeletal muscle:
+- R_mpn = 4.48 (mmHg*s)/mL
+- C_vm,O2n = 0.155
+- g_m,O2 = 30
+- k_m,CO2 = 142.8 mmHg
+
+Status:
+- equation transcription: complete;
+- parameter transcription: complete;
+- live candidate integration: blocked.
+
+Blocker:
+the current 1998 plant does not contain the source brain/coronary/skeletal-muscle compartment split or the required venous O2 concentration states. These equations must not be applied to aggregate Rsp/Rep as a shortcut.
+
 ### Eqs. 16–20 — ventilation branch
 
 ```
@@ -326,16 +406,20 @@ Project ownership decision:
 
 ## Hard provenance blockers identified
 
-### 1. 2001 Eq. 1 O2-CO2 peripheral interaction
+### 1. 2001 local vascular plant integration
 
-The article’s Eq. 1 contains a PaO2-dependent piecewise coefficient K multiplying the logarithmic PaCO2 term. The available text extraction is not sufficiently reliable to guarantee every inequality/sign in that piecewise K definition.
+Eq. 1 and Eqs. 8-15 have now been transcribed from the primary article.
 
-Status: **DO NOT IMPLEMENT YET.**
+Status:
+- Eq. 1: candidate implementation permitted;
+- Eqs. 8-15: source transcription complete;
+- local vascular activation: **BLOCKED** until the expanded systemic compartment plant and venous O2 states are source-complete.
 
 Requirement to clear:
-- visually verify the printed Eq. 1 and piecewise K definition from the primary article/PDF;
-- transcribe it verbatim into this ledger;
-- independently review the transcription before activation.
+- recover the primary 2000 expanded systemic vascular compartment equations and parameters;
+- implement distinct brain, coronary, and skeletal-muscle beds;
+- implement source-valid venous O2 concentration states;
+- reproduce source controlled-ventilation hypoxia / hypercapnia trajectories before promotion.
 
 ### 2. Ursino f_ab -> HumMod mapping
 
@@ -354,4 +438,4 @@ Consequences:
 - Step 2 exact equation/parameter/unit/page transcription: complete for the 2000 Phase 1–4 equations; 2001 audit complete with Eq. 1 explicitly blocked pending visual verification.
 - Step 3 Phase 1–3 shadow module: implemented; efferent outputs gated on source-valid f_ab.
 - Step 4 lung-stretch coupling: implemented in shadow mode using actual Vent tidal volume in liters.
-- Step 5 CO2 parameter audit: complete; no CO2 control path is activated until Eq. 1 transcription blocker is cleared.
+- Step 5 CO2 autonomic candidate: promoted to candidate-not-canonical and validated for controlled fixed-VT recovery/numerical convergence. Eqs. 8-15 local vascular transcription is complete; expanded-bed plant integration remains blocked.
