@@ -8,7 +8,7 @@ if(!URL) throw new Error('BASE_URL is required');
 
 (async()=>{
   const browser=await chromium.launch({headless:true});
-  const page=await browser.newPage({viewport:{width:1440,height:1000});
+  const page=await browser.newPage({viewport:{width:1440,height:1000}});
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
 
