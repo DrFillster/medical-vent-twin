@@ -83,14 +83,13 @@ function percentChanges(after,before){
   return out;
 }
 
-function runCase(controlStrength){
+function runCase(controlStrength,initialState,baseline){
   const r=createUrsino1998ClosedLoopRuntime({
     dtSec:DT_SEC,
     controlStrength,
+    initialState,
   });
 
-  r.runFor(60);
-  const baseline=meanOverIntegerHeartPeriods(r,20);
   const hemorrhageStartSec=r.snapshot().timeSec;
 
   const steps=Math.round(5/DT_SEC);
@@ -122,9 +121,18 @@ const cases={
   noEmax:{Emax:0},
 };
 
+// Establish one intact basal orbit, measure it once, then branch every
+// sensitivity case from the same post-measurement state. This matches the
+// source requirement that the mechanism is disabled without changing the
+// basal state before the hemorrhage challenge.
+const basalRuntime=createUrsino1998ClosedLoopRuntime({dtSec:DT_SEC});
+basalRuntime.runFor(60);
+const commonBaseline=meanOverIntegerHeartPeriods(basalRuntime,20);
+const commonInitialState={...basalRuntime.snapshot().state};
+
 const results={};
 for(const [name,strength] of Object.entries(cases)){
-  results[name]=runCase(strength);
+  results[name]=runCase(strength,commonInitialState,commonBaseline);
 }
 
 const intact=results.intact.percentChanges;
