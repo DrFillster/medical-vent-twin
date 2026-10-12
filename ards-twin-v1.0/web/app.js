@@ -11,6 +11,7 @@
   let clinicalInterventions = [];
   let clinicalPhysiologyTrend = [];
   let clinicalLastAppliedVentilation = null;
+  let clinicalBuildSha = null;
   const CLINICAL_TREND_MAX_POINTS = 1800;
 
   let nativeEngineClient = null;
@@ -19,6 +20,41 @@
   function setNativeEngineStatus(text) {
     const el = $('clinical-native-engine-status');
     if (el) el.textContent = text;
+  }
+
+  async function initializeBuildIdentity() {
+    const el = $('clinical-build-sha');
+    try {
+      const response = await fetch('./DEPLOY_SOURCE_SHA.txt?cache=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const sha = (await response.text()).trim();
+      if (!/^[0-9a-f]{40}$/i.test(sha)) throw new Error('invalid SHA marker');
+      clinicalBuildSha = sha;
+      if (el) el.textContent = 'Build source: ' + sha.slice(0, 12);
+    } catch (error) {
+      clinicalBuildSha = null;
+      if (el) el.textContent = 'Build source: unavailable';
+    }
+  }
+
+  function requirePhysicianCandidateSnapshot(snapshot) {
+    if (snapshot?.sessionSchema !== 'berlin-clinical-twin-live-hummod-session/v1') return;
+    const candidate = snapshot?.systemic?.physicianComparison?.candidateModel;
+    const required = [
+      'heartRatePerMin',
+      'meanArterialPressureMmHg',
+      'cardiacOutputMlPerMin',
+      'strokeVolumeMl',
+      'systemicPeripheralResistanceMmHgMinPerL',
+    ];
+    if (!candidate) {
+      throw new Error('Physician validation candidate missing from live runtime snapshot. Reload the current build before testing.');
+    }
+    for (const key of required) {
+      if (typeof candidate[key] !== 'number' || !Number.isFinite(candidate[key])) {
+        throw new Error('Physician validation candidate has invalid ' + key + '. Reload the current build before testing.');
+      }
+    }
   }
 
   async function pollNativeEngineBoundary() {
@@ -900,7 +936,7 @@
     clinicalPhysiologyTrend = [];
     renderClinicalInterventions();
     renderClinicalPhysiologyTrends();
-    clinicalWorker = new Worker('./clinical-worker.js?v=1.5.0');
+    clinicalWorker = new Worker('./clinical-worker.js?v=1.5.1-candidate-runtime');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
@@ -911,6 +947,14 @@
         return;
       }
       if (data.type === 'initialized') {
+        try {
+          requirePhysicianCandidateSnapshot(data.snapshot);
+        } catch (error) {
+          stopClinicalContinuousRun();
+          showClinicalError(error.message);
+          $('clinical-initialize').disabled = false;
+          return;
+        }
         $('clinical-session-error').hidden = true;
         $('clinical-initialize').disabled = true;
         $('clinical-run-continuous').disabled = false;
@@ -925,6 +969,13 @@
         return;
       }
       if (data.type === 'snapshot') {
+        try {
+          requirePhysicianCandidateSnapshot(data.snapshot);
+        } catch (error) {
+          stopClinicalContinuousRun();
+          showClinicalError(error.message);
+          return;
+        }
         $('clinical-session-error').hidden = true;
         renderClinicalSnapshot(data.snapshot);
         if (data.action === 'requestInspiratoryHold' || data.action === 'requestExpiratoryHold' ||
@@ -1249,8 +1300,10 @@
         if (!window.VENT || typeof VENT.createClinicalSessionRecord !== 'function') {
           throw new Error('Clinical session export is unavailable in this browser build');
         }
+        requirePhysicianCandidateSnapshot(clinicalSnapshot);
         const baseRecord = VENT.createClinicalSessionRecord(clinicalSnapshot);
         const record = { ...baseRecord };
+        record.browserBuildSha = clinicalBuildSha;
         record.physiologyTrend = clinicalPhysiologyTrend.map(point => ({ ...point }));
         record.interventions = clinicalInterventions.map(event => ({
           timeSec: event.timeSec,
@@ -1447,5 +1500,6 @@
   initializeClinicalPreview();
   initializeClinicalSessionUi();
   initializeNativeEngineBoundary();
+  initializeBuildIdentity();
   syncControls();
 })();
