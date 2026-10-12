@@ -12,7 +12,7 @@ permissions:
 jobs:
   local-o2-isolation:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     defaults:
       run:
         working-directory: ards-twin-v1.0
@@ -21,9 +21,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Local O2 isolation diagnostic
+      - name: Generate local O2 isolation values
+        run: node scripts/ursino-magosso-2000-local-o2-isolation.js
+      - name: Local O2 isolation assertions
         run: node test/v15_ursino_magosso_2000_local_o2_isolation.test.js
       - name: Upload local O2 isolation
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: local-o2-isolation
