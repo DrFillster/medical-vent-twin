@@ -1,0 +1,30 @@
+name: v1.5 Fig11 Phase Trace
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-fig11-phase-trace.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  phase-trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate one-second phase trace
+        run: node scripts/ursino-magosso-2000-fig11-phase-trace.js
+      - name: Upload phase trace
+        uses: actions/upload-artifact@v4
+        with:
+          name: fig11-phase-trace
+          path: ards-twin-v1.0/physician-audit-results/ursino-magosso-2000-fig11-phase-trace.json
