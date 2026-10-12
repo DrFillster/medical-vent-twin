@@ -71,6 +71,11 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
   }
   delta.Tv=staticDelta('Tv',initialCardiacVagalSpikesPerSec);
 
+  const initialSignals=Object.freeze({
+    vascular:initialVascularSympatheticSpikesPerSec,
+    cardiac:initialCardiacSympatheticSpikesPerSec,
+    vagal:initialCardiacVagalSpikesPerSec,
+  });
   const history={vascular:[],cardiac:[],vagal:[]};
   let timeSec=0;
   let rates={};
@@ -102,12 +107,23 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
         'cardiacVagalSpikesPerSec'),
     };
 
+    // Record the held neural input at the beginning of this interval.
+    // For requested times before t=0, a source pure delay must see the
+    // pre-perturbation basal signal, not the current perturbed signal.
+    history.vascular.push({t:timeSec,v:current.vascular});
+    history.cardiac.push({t:timeSec,v:current.cardiac});
+    history.vagal.push({t:timeSec,v:current.vagal});
+
     const targets={};
     const nextRates={};
     for(const name of Object.keys(delta)){
       const cfg=P.effectors[name];
-      const [channel,fallback]=inputFor(name,current);
-      const fd=delayed(history[channel],timeSec-cfg.delaySec,fallback);
+      const [channel]=inputFor(name,current);
+      const fd=delayed(
+        history[channel],
+        timeSec-cfg.delaySec,
+        initialSignals[channel]
+      );
       targets[name]=staticDelta(name,fd);
       nextRates[name]=(-delta[name]+targets[name])/cfg.tauSec;
     }
@@ -122,9 +138,6 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
     }
 
     timeSec+=dtSec;
-    history.vascular.push({t:timeSec,v:current.vascular});
-    history.cardiac.push({t:timeSec,v:current.cardiac});
-    history.vagal.push({t:timeSec,v:current.vagal});
     const keepAfter=timeSec-7;
     for(const h of Object.values(history)){
       while(h.length>2&&h[1].t<keepAfter) h.shift();
