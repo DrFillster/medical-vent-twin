@@ -1,0 +1,53 @@
+name: v1.5 Origin Root Match
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-origin-root-match.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Compare public root with repository web roots
+        shell: bash
+        run: |
+          set -e
+          mkdir -p /tmp/public
+          BASE="https://hummod.defying-logic.com"
+          for asset in index.html app.js clinical-worker.js engine.js; do
+            curl -L -sS --fail --max-time 20 "$BASE/$asset" -o "/tmp/public/$asset"
+          done
+
+          echo "PUBLIC HASHES"
+          sha256sum /tmp/public/index.html /tmp/public/app.js /tmp/public/clinical-worker.js /tmp/public/engine.js
+
+          echo "CANDIDATE MATCHES"
+          for dir in             ards-twin-v1.0/web             ards-twin-v1.21/web             ards-twin-v1.3-preview/web             ards-twin-v1.5-preview/web
+          do
+            if [ -d "$dir" ]; then
+              echo "-- $dir"
+              for asset in index.html app.js clinical-worker.js engine.js; do
+                if [ -f "$dir/$asset" ]; then
+                  if cmp -s "/tmp/public/$asset" "$dir/$asset"; then
+                    echo "$asset MATCH"
+                  else
+                    echo "$asset DIFFER"
+                  fi
+                else
+                  echo "$asset MISSING"
+                fi
+              done
+            fi
+          done
+
+          echo "PUBLIC INDEX MARKERS"
+          grep -Eo 'ARDS Clinical Twin[^<]*|Current model vs published-model shadow|Live model vs candidate model|v1\.[0-9]+' /tmp/public/index.html | head -20 || true
