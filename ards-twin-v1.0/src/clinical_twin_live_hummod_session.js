@@ -34,6 +34,9 @@ const {
 const {
   createPhysicianValidationCandidate,
 } = require('./physician_validation_candidate.js');
+const {
+  createHumMod2013ChemoreflexSaNodeCandidate,
+} = require('./hummod_2013_chemoreflex_sa_node_candidate.js');
 const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('./v11_provenance_manifest.js');
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
@@ -396,6 +399,16 @@ function createBerlinLiveHumModSession({
   let physicianCandidateState = physicianCandidate
     ? physicianCandidate.snapshot()
     : null;
+  const physicianHumMod2013Compensation = physicianValidationCandidate
+    ? createHumMod2013ChemoreflexSaNodeCandidate({
+        ecfvMl: catecholamineEcfvMl,
+        initialArterialPh: 7.44,
+      })
+    : null;
+  let physicianHumMod2013CompensationState =
+    physicianHumMod2013Compensation
+      ? physicianHumMod2013Compensation.snapshot()
+      : null;
 
   function actualDeliveredTidalVolumeL() {
     const breaths = simulation.metrics();
@@ -469,6 +482,24 @@ function createBerlinLiveHumModSession({
     }
     physicianCandidateState = physicianCandidate.runFor(seconds);
     return physicianCandidateState;
+  }
+
+  function updatePhysicianHumMod2013Compensation(seconds) {
+    if (!physicianHumMod2013Compensation) return null;
+    const last = systemicSnapshot && systemicSnapshot.lastStep;
+    const arterial = last?.gas?.gases?.arterial;
+    if (!arterial ||
+        !Number.isFinite(arterial.po2MmHg) ||
+        !Number.isFinite(arterial.pH)) {
+      return physicianHumMod2013CompensationState;
+    }
+    physicianHumMod2013CompensationState =
+      physicianHumMod2013Compensation.runFor(seconds, {
+        dtSec: dt,
+        arterialPo2MmHg: arterial.po2MmHg,
+        arterialPh: arterial.pH,
+      });
+    return physicianHumMod2013CompensationState;
   }
 
   function patientTimeSec() {
