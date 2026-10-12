@@ -48,6 +48,27 @@ test('CNS hypoxia channels remain distinct', () => {
   assert.notEqual(sp, sh);
 });
 
+test('vagal Eq 23 keeps basal term inside the baroreflex sigmoid numerator', () => {
+  const p=P.vagal;
+  const e=1; // f_ab equals the source midpoint.
+  const expected=
+    (p.f0SpikesPerSec+p.fInfinitySpikesPerSec*e)/(1+e) -
+    p.thetaSpikesPerSec;
+  const actual=vagalFiring({
+    fAbSpikesPerSec:p.baroMidSpikesPerSec,
+    fAcSpikesPerSec:0,
+    fApSpikesPerSec:0,
+  });
+  approx(actual,expected,1e-12,'midpoint f_v');
+});
+
+test('vagal baroreflex component rises with baroreceptor afferent firing', () => {
+  const common={fAcSpikesPerSec:0,fApSpikesPerSec:0};
+  const low=vagalFiring({...common,fAbSpikesPerSec:0});
+  const high=vagalFiring({...common,fAbSpikesPerSec:60});
+  assert(high>low);
+});
+
 test('shadow withholds efferent channels without source-valid f_ab', () => {
   const shadow = createUrsinoMagossoAutonomicShadow();
   const state = shadow.step({ dtSec: 1, pao2MmHg: 60, tidalVolumeL: 0.45 });
