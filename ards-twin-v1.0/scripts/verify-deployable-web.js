@@ -27,7 +27,7 @@ if(failures.length===0){
     [html.includes('id="clinical-sao2"'),'arterial oxygen-saturation monitor missing'],
     [html.includes('id="clinical-rap"'),'RAP/CVP monitor missing'],
     [html.includes('id="clinical-pap"'),'pulmonary-artery-pressure monitor missing'],
-    [html.includes('Current model vs published-model shadow'),'physician comparison label is stale'],
+    [html.includes('Live model vs candidate model'),'physician comparison label is stale'],
     [html.includes('EDUCATIONAL SIMULATION'),'educational safety banner missing'],
     [html.includes('Not clinically validated'),'clinical-validation warning missing'],
     [html.includes('Not for patient care'),'patient-care warning missing'],
