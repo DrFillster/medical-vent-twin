@@ -18,6 +18,9 @@ const {
   createUrsinoMagosso2000ExpandedPlantRuntime,
 }=require('./ursino_magosso_2000_expanded_plant_runtime.js');
 const {
+  VASCULAR,
+}=require('./ursino_magosso_2000_expanded_vascular_candidate.js');
+const {
   createUrsinoBaroreceptorShadow,
 }=require('./ursino_baroreceptor_shadow.js');
 const {
@@ -74,6 +77,7 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
   paco2MmHg=40,
   tidalVolumeL=0.583,
   ventilationMode='external-delivered-vt',
+  diagnosticLocalO2Mode='source',
 }={}){
   positive(dtSec,'dtSec');
   nonNegative(pao2MmHg,'pao2MmHg');
@@ -84,6 +88,9 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     'ursino-magosso-2000-spontaneous-validation',
   ].includes(ventilationMode)){
     throw new Error('unknown ventilationMode: '+ventilationMode);
+  }
+  if(!['source','disabled'].includes(diagnosticLocalO2Mode)){
+    throw new Error('unknown diagnosticLocalO2Mode: '+diagnosticLocalO2Mode);
   }
 
   const plant=createUrsinoMagosso2000ExpandedPlantRuntime({dtSec});
@@ -202,14 +209,21 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
         averagePumpPowerMmHgMlPerSec,
     });
 
+    const localO2Active=diagnosticLocalO2Mode==='source';
     plant.setEffectors({
       EmaxLv:reflex.absolute.EmaxLv,
       EmaxRv:reflex.absolute.EmaxRv,
       Rsp:reflex.absolute.Rsp,
       Rep:reflex.absolute.Rep,
-      Rmp:localState.resistanceMmHgSecPerMl.muscle,
-      Rbp:localState.resistanceMmHgSecPerMl.brain,
-      Rhp:localState.resistanceMmHgSecPerMl.heart,
+      Rmp:localO2Active
+        ?localState.resistanceMmHgSecPerMl.muscle
+        :reflex.absolute.RmpNormal,
+      Rbp:localO2Active
+        ?localState.resistanceMmHgSecPerMl.brain
+        :VASCULAR.bp.R,
+      Rhp:localO2Active
+        ?localState.resistanceMmHgSecPerMl.heart
+        :VASCULAR.hp.R,
       Vusv:reflex.absolute.Vusv,
       Vuev:reflex.absolute.Vuev,
       Vumv:reflex.absolute.Vumv,
@@ -252,6 +266,10 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
       autonomic:autonomicState,
       localO2:localState,
       averagePumpPowerMmHgMlPerSec,
+      diagnostic:Object.freeze({
+        localO2Mode:diagnosticLocalO2Mode,
+        sourceCandidateBehavior:diagnosticLocalO2Mode==='source',
+      }),
       conservation:p.conservation,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
