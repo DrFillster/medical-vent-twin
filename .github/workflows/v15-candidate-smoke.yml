@@ -1,6 +1,6 @@
 name: v1.5 Candidate Smoke
 # smoke revision 4: rerun after source-delay and ownership fixes
-# hypoxia-source-completion revision 3
+# hypoxia-source-completion revision 4
 
 on:
   push:
