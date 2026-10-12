@@ -1,0 +1,54 @@
+name: v1.5 Public Root Version Match
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-public-root-version-match.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch public root
+        run: |
+          mkdir -p /tmp/public /tmp/prebuild
+          for asset in index.html app.js clinical-worker.js engine.js; do
+            curl -L -sS --fail --max-time 20 "https://hummod.defying-logic.com/$asset" -o "/tmp/public/$asset"
+            cp "web/$asset" "/tmp/prebuild/$asset"
+          done
+      - name: Compare raw v1.5 checkout
+        run: |
+          echo "RAW_V15"
+          for asset in index.html app.js clinical-worker.js engine.js; do
+            if cmp -s "/tmp/public/$asset" "/tmp/prebuild/$asset"; then
+              echo "$asset MATCH"
+            else
+              echo "$asset DIFFER"
+            fi
+          done
+      - name: Build current v1.5
+        run: npm run build
+      - name: Compare built v1.5
+        run: |
+          echo "BUILT_V15"
+          for asset in index.html app.js clinical-worker.js engine.js; do
+            if cmp -s "/tmp/public/$asset" "web/$asset"; then
+              echo "$asset MATCH"
+            else
+              echo "$asset DIFFER"
+            fi
+          done
+          echo "PUBLIC LABELS"
+          grep -Eo 'Current model vs published-model shadow|Live model vs candidate model|Physician validation comparison|Candidate · no control authority' /tmp/public/index.html || true
