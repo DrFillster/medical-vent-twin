@@ -496,3 +496,28 @@ Do not repeatedly trigger Actions for documentation-only work.
 - No subsystem authority without primary equations/parameters and external validation.
 - Stable prior versions remain recoverable.
 - The physician sees one digital patient, not multiple model outputs.
+
+
+## 2026-10-12 physiology registry checkpoint
+
+Physician approved creation of an exact machine-readable census of model equations and variables.
+
+Implemented on v1.5:
+- `docs/physiology-registry.json` — initial machine-readable registry seed.
+- `scripts/summarize-physiology-registry.js` — deterministic counts by authority, provenance, and subsystem.
+- `test/v15_physiology_registry.test.js` — verifies the registry is readable/nonempty and that exact totals fail closed while backfill is incomplete.
+- package scripts: `physiology:registry` and `physiology:registry:exact`.
+
+Critical rule:
+- registry completeness is currently `PARTIAL_BACKFILL` and `exactTotalsAllowed=false`;
+- do not publish an exact model-wide equation/variable total until every physiology source module is classified and completeness is explicitly promoted to `COMPLETE`;
+- unclassified relationships must remain visible as unclassified, never inferred or silently assigned;
+- the registry must preserve provenance class and authority state (canonical/live, candidate, shadow, diagnostic-only, legacy inactive).
+
+Commits:
+- `02847a8def00b01d4e37958f802bfcddb9c4c0e7` — registry seed.
+- `019d88cace9ef5ef18f684513a0ff1b549db68c8` — fail-closed summarizer.
+- `b1b76fa4e09800cfb48bf1609c3b140338c5e9ab` — registry gate test.
+- `3bbbcd4aff27366fbefda322c9430288c1eb0253` — package commands.
+
+No physiology equations, gains, or authority assignments were changed by this work.
