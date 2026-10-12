@@ -150,6 +150,9 @@ function createChannelizedEffectorCandidate({
     fSp:[],fSv:[],fSh:[],fV:[],
   };
   let timeSec=0;
+  let rates={
+    EmaxLv:0,EmaxRv:0,Rsp:0,Rep:0,Vusv:0,Vuev:0,Ts:0,Tv:0,
+  };
 
   function delayed(name,delaySec,current){
     const h=history[name];
@@ -205,7 +208,17 @@ function createChannelizedEffectorCandidate({
       Tv:vagalStatic(delayedSignals.Tv),
     };
 
-    // Exact first-order update for a held target over dt.
+    // Source Eqs. 35/38 first-order effector derivative at the start of
+    // this held-target interval. Eq. 8 of the 1998 cardiovascular plant
+    // requires dVuev/dt explicitly.
+    const nextRates={};
+    for(const name of Object.keys(delta)){
+      const cfg=P.effectors[name];
+      nextRates[name]=derivative(delta[name],targets[name],cfg.tauSec);
+    }
+    rates=nextRates;
+
+    // Exact first-order state update for the same held target over dt.
     for(const name of Object.keys(delta)){
       const cfg=P.effectors[name];
       if(dtSec>0){
@@ -241,6 +254,7 @@ function createChannelizedEffectorCandidate({
     return Object.freeze({
       timeSec,
       delta:Object.freeze({...delta}),
+      rate:Object.freeze({...rates}),
       absolute:Object.freeze(absolute),
       authority:SOURCE.authority,
       controlAuthority:false,
