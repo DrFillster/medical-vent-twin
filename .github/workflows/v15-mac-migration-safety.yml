@@ -1,0 +1,60 @@
+name: v1.5 Mac Migration Safety
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-mac-migration-safety.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  web-backup-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: bash -n .deploy/migrate-preview-to-v15.sh
+      - name: Simulate mixed public web directory
+        run: |
+          printf '\n<!-- local-public-build -->\n' >> ards-twin-v1.0/web/index.html
+          printf 'local-only\n' > ards-twin-v1.0/web/local-only.txt
+      - name: Run migration without launchd
+        env:
+          REPO_DIR: ${{ github.workspace }}
+          MIGRATE_INSTALL_SERVICES: '0'
+        run: bash .deploy/migrate-preview-to-v15.sh
+      - name: Verify backup and validated replacement
+        run: |
+          test "$(cat ards-twin-v1.0/web/DEPLOY_SOURCE_SHA.txt)" = "$(git rev-parse HEAD)"
+          grep -q 'Live model vs candidate model' ards-twin-v1.0/web/index.html
+          backup=$(find .deploy/backups -maxdepth 1 -type d -name 'v15-migration-*' | head -1)
+          test -n "$backup"
+          grep -q 'local-public-build' "$backup/web/index.html"
+          test -f "$backup/web/local-only.txt"
+
+  outside-dirty-refusal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dirty a file outside public web
+        run: printf '\nlocal change\n' >> README.md
+      - name: Require migration refusal
+        env:
+          REPO_DIR: ${{ github.workspace }}
+          MIGRATE_INSTALL_SERVICES: '0'
+        run: |
+          set +e
+          bash .deploy/migrate-preview-to-v15.sh > /tmp/out 2>&1
+          code=$?
+          cat /tmp/out
+          test "$code" = "2"
+          grep -q 'changes exist outside ards-twin-v1.0/web' /tmp/out
