@@ -118,6 +118,7 @@ function combineRk4(s,k1,k2,k3,k4,h){
 function createUrsino1998ClosedLoopRuntime({
   dtSec=0.002,
   initialState=null,
+  initialControlHistory=null,
   controlStrength=null,
 }={}){
   positive(dtSec,'dtSec');
@@ -144,8 +145,24 @@ function createUrsino1998ClosedLoopRuntime({
       })
     : basalControl;
 
-  const sympatheticHistory=[];
-  const vagalHistory=[];
+  function normalizeInitialHistory(list,label){
+    if(list==null) return [];
+    if(!Array.isArray(list)) throw new Error(label+' must be an array');
+    return list.map((item)=>{
+      finite(item.t,label+'.t');
+      finite(item.v,label+'.v');
+      return {t:item.t,v:item.v};
+    });
+  }
+
+  const sympatheticHistory=normalizeInitialHistory(
+    initialControlHistory?.sympathetic,
+    'initialControlHistory.sympathetic'
+  );
+  const vagalHistory=normalizeInitialHistory(
+    initialControlHistory?.vagal,
+    'initialControlHistory.vagal'
+  );
   let lastOutputs=null;
   let externalEffectors=null;
 
@@ -416,6 +433,23 @@ function createUrsino1998ClosedLoopRuntime({
     });
   }
 
+  function checkpoint(){
+    return Object.freeze({
+      state:Object.freeze(clone(state)),
+      controlHistory:Object.freeze({
+        // Rebase retained delay buffers to the branch point. A new runtime
+        // starts at t=0, so negative times preserve the exact pre-branch
+        // neural history required by delayed source effectors.
+        sympathetic:Object.freeze(
+          sympatheticHistory.map((x)=>Object.freeze({t:x.t-t,v:x.v}))
+        ),
+        vagal:Object.freeze(
+          vagalHistory.map((x)=>Object.freeze({t:x.t-t,v:x.v}))
+        ),
+      }),
+    });
+  }
+
   function setExternalEffectors(next=null){
     if(next==null){
       externalEffectors=null;
@@ -440,7 +474,7 @@ function createUrsino1998ClosedLoopRuntime({
   }
 
   return Object.freeze({
-    step:stepOne,runFor,snapshot,withdrawBloodMl,setExternalEffectors,
+    step:stepOne,runFor,snapshot,checkpoint,withdrawBloodMl,setExternalEffectors,
     defaultSeed,derivedRestingControlState,
     source:SOURCE,
   });
