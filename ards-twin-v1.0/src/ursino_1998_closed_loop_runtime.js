@@ -135,8 +135,20 @@ function createUrsino1998ClosedLoopRuntime({
   const sympatheticHistory=[];
   const vagalHistory=[];
   let lastOutputs=null;
+  let externalEffectors=null;
 
   function currentEffectors(s){
+    if(externalEffectors){
+      return Object.freeze({
+        EmaxLv:externalEffectors.EmaxLv,
+        EmaxRv:externalEffectors.EmaxRv,
+        Rsp:externalEffectors.Rsp,
+        Rep:externalEffectors.Rep,
+        Vusv:externalEffectors.Vusv,
+        Vuev:externalEffectors.Vuev,
+        T:externalEffectors.heartPeriodSec,
+      });
+    }
     return Object.freeze({
       EmaxLv:CONTROL.effectors.EmaxLv.offset+s.dEmaxLv,
       EmaxRv:CONTROL.effectors.EmaxRv.offset+s.dEmaxRv,
@@ -227,18 +239,32 @@ function createUrsino1998ClosedLoopRuntime({
     const targetTv=basalControl.dTv+
       strength.heartPeriod*(sourceTargetTv-basalControl.dTv);
 
-    const dDEmaxLv=(-s.dEmaxLv+sympatheticTargets.EmaxLv)/CONTROL.effectors.EmaxLv.tau;
-    const dDEmaxRv=(-s.dEmaxRv+sympatheticTargets.EmaxRv)/CONTROL.effectors.EmaxRv.tau;
-    const dDRsp=(-s.dRsp+sympatheticTargets.Rsp)/CONTROL.effectors.Rsp.tau;
-    const dDRep=(-s.dRep+sympatheticTargets.Rep)/CONTROL.effectors.Rep.tau;
-    const dDVusv=(-s.dVusv+sympatheticTargets.Vusv)/CONTROL.effectors.Vusv.tau;
-    const dDVuev=(-s.dVuev+sympatheticTargets.Vuev)/CONTROL.effectors.Vuev.tau;
-    const dDTs=(-s.dTs+sympatheticTargets.Ts)/CONTROL.effectors.Ts.tau;
-    const dDTv=(-s.dTv+targetTv)/CONTROL.effectors.Tv.tau;
+    const dDEmaxLv=externalEffectors ? 0 :
+      (-s.dEmaxLv+sympatheticTargets.EmaxLv)/CONTROL.effectors.EmaxLv.tau;
+    const dDEmaxRv=externalEffectors ? 0 :
+      (-s.dEmaxRv+sympatheticTargets.EmaxRv)/CONTROL.effectors.EmaxRv.tau;
+    const dDRsp=externalEffectors ? 0 :
+      (-s.dRsp+sympatheticTargets.Rsp)/CONTROL.effectors.Rsp.tau;
+    const dDRep=externalEffectors ? 0 :
+      (-s.dRep+sympatheticTargets.Rep)/CONTROL.effectors.Rep.tau;
+    const dDVusv=externalEffectors ? 0 :
+      (-s.dVusv+sympatheticTargets.Vusv)/CONTROL.effectors.Vusv.tau;
+    const dDVuev=externalEffectors ? 0 :
+      (-s.dVuev+sympatheticTargets.Vuev)/CONTROL.effectors.Vuev.tau;
+    const dDTs=externalEffectors ? 0 :
+      (-s.dTs+sympatheticTargets.Ts)/CONTROL.effectors.Ts.tau;
+    const dDTv=externalEffectors ? 0 :
+      (-s.dTv+targetTv)/CONTROL.effectors.Tv.tau;
 
     // Eq.8 contains derivative of extrasplanchnic unstressed volume.
+    // When an external source-family controller owns Vuev, carry its
+    // derivative explicitly rather than silently treating capacitance as
+    // static during the cardiovascular step.
+    const vuevRate=externalEffectors
+      ? externalEffectors.dVuevDtMlPerSec
+      : dDVuev;
     const dPev=(
-      (s.Psp-s.Pev)/e.Rep-(s.Pev-s.Pra)/VASCULAR.ev.R-dDVuev
+      (s.Psp-s.Pev)/e.Rep-(s.Pev-s.Pra)/VASCULAR.ev.R-vuevRate
     )/VASCULAR.ev.C;
 
     const dPla=((s.Ppv-s.Pla)/VASCULAR.pv.R-lv.inflowMlPerSec)/HEART.la.C;
@@ -368,7 +394,27 @@ function createUrsino1998ClosedLoopRuntime({
         controlStrength:strength,
         preservesBasalControlState:true,
       }),
+      effectorOwnership:Object.freeze({
+        mode:externalEffectors?'external-source-family':'ursino-1998-internal',
+        external:externalEffectors,
+      }),
     });
+  }
+
+  function setExternalEffectors(next=null){
+    if(next==null){
+      externalEffectors=null;
+      return snapshot();
+    }
+    for(const key of ['EmaxLv','EmaxRv','Rsp','Rep','Vusv','Vuev','heartPeriodSec','dVuevDtMlPerSec']){
+      finite(next[key],key);
+    }
+    if(!(next.EmaxLv>0&&next.EmaxRv>0&&next.Rsp>0&&next.Rep>0&&
+         next.Vusv>=0&&next.Vuev>=0&&next.heartPeriodSec>0)){
+      throw new Error('external effectors must remain physiologic/positive');
+    }
+    externalEffectors=Object.freeze({...next});
+    return snapshot();
   }
 
   function withdrawBloodMl(ml){
@@ -379,7 +425,7 @@ function createUrsino1998ClosedLoopRuntime({
   }
 
   return Object.freeze({
-    step:stepOne,runFor,snapshot,withdrawBloodMl,
+    step:stepOne,runFor,snapshot,withdrawBloodMl,setExternalEffectors,
     defaultSeed,derivedRestingControlState,
     source:SOURCE,
   });
