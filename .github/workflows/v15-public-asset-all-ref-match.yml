@@ -1,0 +1,50 @@
+name: v1.5 Public Asset All-Ref Match
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-public-asset-all-ref-match.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch all public assets
+        shell: bash
+        run: |
+          set -e
+          mkdir -p /tmp/public
+          for asset in index.html app.js clinical-worker.js engine.js; do
+            curl -L -sS --fail --max-time 20 "https://hummod.defying-logic.com/$asset" -o "/tmp/public/$asset"
+          done
+      - name: Search all repository history
+        shell: bash
+        run: |
+          set -e
+          for asset in index.html app.js clinical-worker.js engine.js; do
+            path="ards-twin-v1.0/web/$asset"
+            echo "== $asset =="
+            found=0
+            git log --all --format='%H' -- "$path" | awk '!seen[$0]++' > /tmp/asset_commits
+            while read sha; do
+              if git cat-file -e "$sha:$path" 2>/dev/null; then
+                git show "$sha:$path" > /tmp/candidate
+                if cmp -s "/tmp/public/$asset" /tmp/candidate; then
+                  echo "MATCH $sha $(git show -s --format='%cI %D %s' $sha)"
+                  found=1
+                  break
+                fi
+              fi
+            done < /tmp/asset_commits
+            if [ "$found" = "0" ]; then
+              echo "NO_MATCH_ANY_REF"
+            fi
+          done
