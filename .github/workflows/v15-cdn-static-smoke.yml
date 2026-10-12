@@ -1,0 +1,28 @@
+name: v1.5 CDN Static Smoke
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-cdn-static-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify immutable CDN assets
+        shell: bash
+        run: |
+          set -e
+          BASE="https://cdn.jsdelivr.net/gh/DrFillster/medical-vent-twin@420d20e203230d07acbe8aae3165abb491b0aa53/ards-twin-v1.5-preview/web"
+          for asset in index.html app.js engine.js clinical-worker.js styles.css clinical-cases.json; do
+            code=$(curl -L -sS -o "/tmp/$asset" -w '%{http_code}' --max-time 30 "$BASE/$asset")
+            echo "$asset $code"
+            test "$code" = "200"
+          done
+          grep -q "Live model vs candidate model" /tmp/index.html
+          grep -q "Candidate · no control authority" /tmp/index.html
