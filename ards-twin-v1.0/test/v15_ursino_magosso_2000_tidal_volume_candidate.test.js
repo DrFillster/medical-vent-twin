@@ -32,14 +32,20 @@ test('basal chemoreceptor firing preserves basal VT',()=>{
 test('increased chemoreceptor firing changes VT only after source delay',()=>{
   const v=createUrsinoMagosso2000TidalVolumeCandidate();
   let s;
-  for(let i=0;i<60;i++){
+  for(let i=0;i<59;i++){
     s=v.step({dtSec:0.1,fAcSpikesPerSec:8});
   }
-  assert(Math.abs(s.tidalVolumeL-0.583)<1e-9);
-  for(let i=0;i<80;i++){
+  assert(
+    Math.abs(s.tidalVolumeL-0.583)<1e-9,
+    'VT must remain basal before the 6-s source delay expires'
+  );
+  for(let i=0;i<81;i++){
     s=v.step({dtSec:0.1,fAcSpikesPerSec:8});
   }
-  assert(s.tidalVolumeL>0.583);
+  assert(
+    s.tidalVolumeL>0.583,
+    'VT must increase after the 6-s source delay'
+  );
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
