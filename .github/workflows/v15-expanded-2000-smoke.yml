@@ -32,6 +32,10 @@ jobs:
         run: node test/v15_ursino_magosso_2000_local_o2_candidate.test.js
       - name: Expanded hypoxia closed loop
         run: node test/v15_ursino_magosso_2000_expanded_hypoxia_closed_loop.test.js
+      - name: Isolated chemoreflex resistance
+        run: node test/v15_ursino_magosso_2000_isolated_chemoreflex_resistance.test.js
+      - name: Isolated chemoreflex values
+        run: node scripts/ursino-magosso-2000-isolated-chemoreflex-resistance.js
       - name: Normoxic operating point audit
         run: node scripts/ursino-magosso-2000-normoxic-operating-point-audit.js
       - name: Fig11 first-20s phase audit
