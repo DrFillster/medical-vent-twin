@@ -89,7 +89,16 @@ Reported values:
 | E | 1.371 | -0.793 | -1.351 | 1.550 | 0 | 4.140 |
 | R | 0 | -2.056 | -2.254 | -2.254 | 0.650 | 2.193 |
 
-This orientation must be reconciled explicitly with Hennigs Table 2 and Eq. 1 notation before code is enabled. Do not transpose by convenience.
+This orientation is now resolved against Hennigs Eq. 1: **rows are source populations and columns are target populations**.
+
+Examples:
+- R equation: I->R = row I / col R = -1.8; P->R = row P / col R = -2.2; R->R = +0.7.
+- I equation: E->I = -1.4; P->I = -1.7; L->I = -5.0; I->I = +0.7.
+- L equation: I->L = +1.4; E->L = -0.8; R->L = -2.1; L->L = +2.3.
+- P equation: E->P = -1.4; R->P = -2.3; P->P = +1.5.
+- E equation: I->E = -0.7; R->E = -2.3; E->E = +1.6.
+
+This mapping reproduces the printed Eq. 1 topology without transposition by convenience.
 
 ### Inherited sigmoid S(X)
 
@@ -413,7 +422,7 @@ The following can be encoded as non-authoritative pure functions with explicit p
 ### Do not activate yet
 Block canonical respiratory drive until all of these are resolved:
 1. direct verification of inherited sigmoid/K against Botros/Bruce primary source if obtainable;
-2. exact Hennigs Table-2 W_ij mapping and late-inspiratory decay/footnote;
+2. late-inspiratory tonic-input footnote / Drel-dependent B_L implementation;
 3. `GPCO2_pH`;
 4. Eq. 6 O2 weighting;
 5. Eq. 10 KRR expression;
