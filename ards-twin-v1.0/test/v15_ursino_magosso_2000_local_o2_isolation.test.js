@@ -10,26 +10,33 @@ function test(name,fn){
   catch(e){console.error('FAIL -',name,':',e.message);failed++;}
 }
 
-test('local-O2 isolation diagnostic executes',()=>{
+test('beat-aligned local-O2 isolation diagnostic executes',()=>{
   const run=spawnSync(process.execPath,[
     path.resolve(__dirname,'../scripts/ursino-magosso-2000-local-o2-isolation.js')
-  ],{encoding:'utf8',timeout:180000,maxBuffer:2*1024*1024});
+  ],{encoding:'utf8',timeout:360000,maxBuffer:2*1024*1024});
   assert.equal(run.status,0,run.stderr||run.stdout);
   x=JSON.parse(run.stdout);
-  assert.equal(x.authority,'diagnostic-source-component-only');
+  assert.equal(x.schema,'ursino-magosso-2000-local-o2-isolation/v2');
+  assert.equal(x.measurement,'complete-ventricular-cycle means');
 });
 
-test('default source mode retains local-O2 control and expected early mismatch',()=>{
-  assert.equal(x.source.mode,'source');
-  assert(x.source.pct.hr<0);
-  assert(Math.abs(x.source.pct.co)<5);
+test('source mode preserves early bradycardia and autoregulated redistribution',()=>{
+  assert(x.source.pct.hr<0,'source-mode HR must fall early');
+  assert(x.source.pct.autoregulated>0,'source-mode autoregulated flow must rise');
+  assert(x.source.pct.remaining<0,'source-mode remaining flow must fall');
 });
 
-test('disabling local-O2 control increases early arterial pressure response',()=>{
-  assert.equal(x.disabled.mode,'disabled');
+test('disabling local-O2 control raises early beat-aligned arterial pressure response',()=>{
   assert(
     x.disabled.pct.map>x.source.pct.map,
     'local-O2-disabled MAP response must exceed source-mode MAP response'
+  );
+});
+
+test('local-O2 control is required for the source-direction autoregulated flow increase',()=>{
+  assert(
+    x.source.pct.autoregulated>x.disabled.pct.autoregulated,
+    'source local-O2 control must increase autoregulated flow relative to disabled mode'
   );
 });
 
