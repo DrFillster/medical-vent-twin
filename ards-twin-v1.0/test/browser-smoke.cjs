@@ -158,6 +158,69 @@ const { chromium, webkit } = require('playwright');
       assert.deepEqual(errors,[]);reports.push({width,status:'passed'});console.log(`PASS ${width}px: clinical catalog, session run, charts, layout, PC transition, mechanics, export`);
       await page.close();
     }
+
+    // Dedicated live physician-candidate gate. This exercises the same browser
+    // worker and export path used by the physician-validation UI.
+    {
+      const page = await browser.newPage({viewport:{width:390,height:900},hasTouch:true});
+      const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+      const response=await page.goto(url); assert.equal(response.status(),200);
+      await page.waitForFunction(()=>document.querySelectorAll('#clinical-case option').length===9,null,{timeout:10000});
+      await page.locator('#clinical-session-panel').evaluate(el => { el.open = true; });
+      await page.locator('#clinical-systemic-provider').selectOption('live-reduced-hummod');
+      await page.locator('#clinical-case').selectOption('berlin-moderate-moderate-aspiration');
+      await page.locator('#clinical-mode').selectOption('VC_AC');
+      await page.locator('#clinical-fio2').fill('0.60');
+      await page.locator('#clinical-peep').fill('8');
+      await page.locator('#clinical-rr').fill('20');
+      await page.locator('#clinical-init-mode').selectOption('explicit');
+      await page.locator('#clinical-recruitment').fill('0.35');
+      await page.locator('#clinical-vt').fill('0.42');
+      await page.locator('#clinical-flow').fill('0.70');
+      await page.locator('#clinical-vc-pause').fill('0.20');
+      await page.locator('#clinical-dt').selectOption('0.002');
+      await page.locator('#clinical-initialize').click();
+      await page.waitForFunction(()=>{
+        const status=document.querySelector('#clinical-session-status');
+        const error=document.querySelector('#clinical-session-error');
+        return (status && status.textContent.startsWith('Patient active')) ||
+          (error && !error.hidden && error.textContent.trim());
+      },null,{timeout:90000});
+      const liveError=(await page.locator('#clinical-session-error').textContent()).trim();
+      assert.equal(liveError,'','Live candidate initialization error: '+liveError);
+      for(const id of [
+        '#clinical-compare-shadow-hr',
+        '#clinical-compare-shadow-map',
+        '#clinical-compare-shadow-co',
+        '#clinical-compare-shadow-sv',
+        '#clinical-compare-shadow-svr',
+      ]){
+        const value=Number((await page.locator(id).textContent()).trim());
+        assert(Number.isFinite(value),id+' must contain a finite candidate value');
+      }
+      const exportCapture=await page.evaluate(() => {
+        let captured=null;
+        const original=HTMLAnchorElement.prototype.click;
+        HTMLAnchorElement.prototype.click=function(){ captured={href:this.href,download:this.download}; };
+        try { document.querySelector('#clinical-export-session').click(); }
+        finally { HTMLAnchorElement.prototype.click=original; }
+        return captured;
+      });
+      assert(exportCapture && exportCapture.href.startsWith('data:application/json'));
+      const encoded=exportCapture.href.slice(exportCapture.href.indexOf(',')+1);
+      const data=JSON.parse(decodeURIComponent(encoded));
+      assert(data.physicianComparison,'export must preserve physicianComparison');
+      assert(data.physicianComparison.candidateModel,'export must preserve candidateModel');
+      for(const key of ['heartRatePerMin','meanArterialPressureMmHg','cardiacOutputMlPerMin','strokeVolumeMl','systemicPeripheralResistanceMmHgMinPerL']){
+        assert(Number.isFinite(data.physicianComparison.candidateModel[key]),'candidate export '+key+' must be finite');
+      }
+      assert.equal(data.physicianComparison.candidateModel.controlAuthority,false);
+      assert.deepEqual(errors,[]);
+      reports.push({width:390,status:'candidate-runtime-passed'});
+      console.log('PASS 390px: live physician candidate snapshot and export');
+      await page.close();
+    }
+
     fs.writeFileSync(path.join(artifactDir,`report-${process.env.BROWSER||'chromium'}.json`),JSON.stringify({url,date:new Date().toISOString(),reports},null,2));
   } finally {if(browser)await browser.close();if(server)server.kill();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
