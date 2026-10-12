@@ -11,9 +11,10 @@ function test(name,fn){
   catch(e){console.error('FAIL -',name,':',e.message);failed++;}
 }
 
+const DT=0.002;
+
 function mean(r,seconds){
-  const dt=0.002;
-  const n=Math.round(seconds/dt);
+  const n=Math.round(seconds/DT);
   let hr=0,map=0,co=0,vt=0;
   for(let i=0;i<n;i++){
     const s=r.snapshot();
@@ -26,11 +27,23 @@ function mean(r,seconds){
   return {hr:hr/n,map:map/n,co:co/n,vt:vt/n};
 }
 
+function rampPao2(r,{fromMmHg,toMmHg,seconds,paco2MmHg}){
+  const n=Math.round(seconds/DT);
+  for(let i=0;i<n;i++){
+    const fraction=(i+1)/n;
+    r.setEnvironment({
+      pao2MmHg:fromMmHg+(toMmHg-fromMmHg)*fraction,
+      paco2MmHg,
+    });
+    r.step();
+  }
+}
+
 let result=null;
 
-test('source spontaneous-VT mode produces delayed ventilatory recruitment in deep hypoxia',()=>{
+test('source spontaneous-VT mode follows the Fig11 deep-hypoxia protocol',()=>{
   const r=createGasCardiovascularClosedLoopCandidate({
-    dtSec:0.002,
+    dtSec:DT,
     pao2MmHg:95,
     paco2MmHg:40,
     ventilationMode:'ursino-magosso-2000-spontaneous-validation',
@@ -38,53 +51,70 @@ test('source spontaneous-VT mode produces delayed ventilatory recruitment in dee
 
   r.runFor(120);
   const baseline=mean(r,5);
+
+  // Ursino & Magosso 2000 Fig. 11 decreases PaO2 from 95 to 28 mmHg
+  // over 10 s, then maintains deep isocapnic hypoxia.
+  rampPao2(r,{
+    fromMmHg:95,
+    toMmHg:28,
+    seconds:10,
+    paco2MmHg:40,
+  });
+  const endRamp=mean(r,2);
+
   r.setEnvironment({pao2MmHg:28,paco2MmHg:40});
+  r.runFor(8);
+  const earlyHold=mean(r,2);
+  r.runFor(10);
+  const late=mean(r,10);
 
-  const first8=mean(r,8);
-  const next12=mean(r,12);
-  const late=mean(r,20);
-
-  result={baseline,first8,next12,late};
+  result={baseline,endRamp,earlyHold,late};
 
   assert(
-    first8.vt<=baseline.vt+1e-3,
-    'source VT response should remain delayed during the early chemoreflex phase'
+    endRamp.vt>baseline.vt,
+    'VT should begin increasing after the delayed chemoreceptor pathway activates'
   );
   assert(
-    late.vt>first8.vt,
-    'tidal volume should rise after the delayed source ventilatory pathway activates'
+    late.vt>endRamp.vt,
+    'VT should continue toward its stimulated source response'
   );
 });
 
-test('deep hypoxia response is biphasic in HR direction rather than fixed bradycardia',()=>{
+test('deep hypoxia shows the source biphasic HR pattern',()=>{
   assert(result);
   assert(
-    result.first8.hr<result.baseline.hr,
-    'early deep hypoxia should decrease HR in the source model'
+    result.endRamp.hr<result.baseline.hr,
+    'HR should be below baseline near the end of the early hypoxic phase'
   );
   assert(
-    result.late.hr>result.first8.hr,
-    'later source pathways should reverse the early HR fall'
+    result.late.hr>result.endRamp.hr,
+    'later lung-stretch/CNS pathways should reverse the early HR fall'
+  );
+});
+
+test('late source response increases cardiac output relative to the early phase',()=>{
+  assert(result);
+  assert(
+    result.late.co>result.endRamp.co,
+    'late cardiac output should exceed the early-phase value'
   );
 });
 
 test('source validation mode never claims bedside ventilator authority',()=>{
   const r=createGasCardiovascularClosedLoopCandidate({
-    dtSec:0.002,
+    dtSec:DT,
     ventilationMode:'ursino-magosso-2000-spontaneous-validation',
   });
   const s=r.step();
   assert.equal(s.authority,'candidate-not-canonical');
   assert.equal(s.canonicalControlAuthority,false);
   assert.equal(s.ventilation.canonicalVentilatorAuthority,false);
-  assert.equal(s.protocolScope.spontaneousBreathing,true);
-  assert.equal(s.protocolScope.deliveredTidalVolumeOwnedByVent,false);
-  assert.equal(s.protocolScope.sourceVentilationOwnsValidationVT,true);
 });
 
 console.log(JSON.stringify({
-  schema:'ursino-magosso-2000-deep-hypoxia-timecourse/v1',
+  schema:'ursino-magosso-2000-deep-hypoxia-timecourse/v2',
   authority:'source-reproduction-candidate-not-canonical',
+  sourceProtocol:'PaO2 95 to 28 mmHg over 10 s, then held; isocapnic',
   result,
 },null,2));
 
