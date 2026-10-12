@@ -79,6 +79,58 @@ Additional internal response:
 The source states that values plotted in Figs. 3-9 were obtained from a 20-s stationary tracing, with an integer number of heart periods selected and trapezoidal averaging. The v3 harness now reproduces that measurement method.
 
 
+## Primary-source parameter fidelity audit
+
+The candidate constants were checked directly against Tables 1-3 of the 1998 primary article.
+
+### Vascular plant — Table 1
+Matched values include:
+- systemic arterial: C=0.28 mL/mmHg, R=0.06 mmHg*s/mL, L=0.22e-3 mmHg*mL^-1*s^2;
+- splanchnic peripheral: C=2.05, Vu=274.4 mL, R=3.307;
+- extrasplanchnic peripheral: C=1.67, Vu=336.6 mL, R=1.407;
+- splanchnic venous: C=61.11, Vu=1121 mL, R=0.038;
+- extrasplanchnic venous: C=50.0, Vu=1375 mL, R=0.016;
+- pulmonary arterial: C=0.76, R=0.023, L=0.18e-3;
+- pulmonary peripheral: C=5.80, Vu=123 mL, R=0.0894;
+- pulmonary venous: C=25.37, Vu=120 mL, R=0.0056;
+- total blood volume=5300 mL.
+
+### Heart — Table 2
+Matched values include:
+- atrial compliances 19.23 / 31.25 mL/mmHg;
+- atrial unstressed volumes 25 / 25 mL;
+- AV-valve resistances 2.5e-3 mmHg*s/mL;
+- ventricular P0=1.5 / 1.5 mmHg;
+- kE=0.014 / 0.011 mL^-1;
+- ventricular unstressed volumes 16.77 / 40.8 mL;
+- basal Emax=2.95 / 1.75 mmHg/mL;
+- ventricular resistance coefficients 3.75e-4 / 1.4e-3 s/mL;
+- basal heart period 0.833 s;
+- ksys=0.075 s^2 and Tsys0=0.5 s.
+
+### Regulatory system — Table 3
+Matched values include:
+- carotid afferent Pn=92 mmHg, fmin=2.52 spikes/s, fmax=47.78 spikes/s, ka=11.758 mmHg, tauz=6.37 s, taup=2.076 s;
+- sympathetic f-infinity=2.10 spikes/s, f0=16.11 spikes/s, k=0.0675 s, lower threshold=2.66 spikes/s;
+- vagal f0=3.2 spikes/s, f-infinity=6.3 spikes/s, k=7.06 spikes/s, central firing point=25 spikes/s;
+- LV/RV Emax effector gains 0.475 / 0.282, tau=8 s, delay=2 s, offsets 2.392 / 1.412;
+- splanchnic/extrasplanchnic resistance gains 0.695 / 0.53, tau=6 s, delay=2 s, offsets 2.49 / 0.78;
+- venous unstressed-volume gains -265.4 / -132.5 mL per neural-rate unit, tau=20 s, delay=5 s, offsets 1435.4 / 1537 mL;
+- sympathetic heart-period gain -0.13 s per neural-rate unit, tau=2 s, delay=2 s;
+- basal heart-period term 0.58 s;
+- vagal heart-period gain 0.09 s per neural-rate unit, tau=1.5 s, delay=0.2 s.
+
+### Audit conclusion
+No Table 1-3 parameter mismatch was found in the current candidate.
+
+This narrows the remaining source-reproduction risk to:
+1. equation transcription/implementation;
+2. delayed-state numerical implementation;
+3. exact interpretation of the Fig. 9 evaluation window;
+4. extraction of the Fig. 9 model bar heights.
+
+Do not change a verified source parameter to improve agreement with Fig. 9.
+
 ## Numerical convergence check
 
 The corrected source-protocol challenge was repeated without changing physiology at three fixed RK4 step sizes:
