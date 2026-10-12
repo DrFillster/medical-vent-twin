@@ -1,0 +1,578 @@
+{
+  "schema": "medical-vent-twin/physiology-registry/v1",
+  "generatedFromBranch": "v1.5",
+  "sourceSnapshot": "ed2bbe39ab7be275fe07c1a2105bdbcfb253f847",
+  "completeness": {
+    "status": "PARTIAL_BACKFILL",
+    "exactTotalsAllowed": false,
+    "rule": "Do not publish an exact model-wide equation/variable total until status=COMPLETE and all physiology source modules are classified.",
+    "unclassifiedPolicy": "fail-closed"
+  },
+  "provenanceClasses": [
+    "HUMMOD_EXACT",
+    "HUMMOD_ADAPTED",
+    "LITERATURE_DIRECT",
+    "LITERATURE_CALIBRATED",
+    "ENGINEERING_ASSUMPTION",
+    "DERIVED",
+    "MEASURED_OR_USER_SUPPLIED",
+    "SCENARIO_AUTHORED"
+  ],
+  "authorityStates": [
+    "CANONICAL_LIVE",
+    "CANDIDATE",
+    "SHADOW",
+    "DIAGNOSTIC_ONLY",
+    "LEGACY_INACTIVE"
+  ],
+  "equations": [
+    {
+      "id": "vent.elastic_pressure",
+      "subsystem": "vent-mechanics",
+      "equation": "p_el = -K ln(1 - V/Vmax); P_alv = AOP + p_el",
+      "units": "cmH2O",
+      "provenance": "ENGINEERING_ASSUMPTION",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/compartments.js"
+    },
+    {
+      "id": "vent.elastic_forward",
+      "subsystem": "vent-mechanics",
+      "equation": "V = Vmax[1-exp(-(P-AOP)/K)]",
+      "units": "L",
+      "provenance": "DERIVED",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/compartments.js"
+    },
+    {
+      "id": "vent.branch_flow",
+      "subsystem": "vent-mechanics",
+      "equation": "dV_i/dt = G_i(Pbranch-Palv_i)",
+      "units": "L/s",
+      "provenance": "ENGINEERING_ASSUMPTION",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/mechanics.js"
+    },
+    {
+      "id": "vent.recruit_open",
+      "subsystem": "recruitment",
+      "equation": "dr/dt = k_open(pdist-P_open)(1-r)",
+      "units": "1/s",
+      "provenance": "ENGINEERING_ASSUMPTION",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/recruitment.js"
+    },
+    {
+      "id": "vent.recruit_close",
+      "subsystem": "recruitment",
+      "equation": "dr/dt = -k_close(P_close-pdist)r",
+      "units": "1/s",
+      "provenance": "ENGINEERING_ASSUMPTION",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/recruitment.js"
+    },
+    {
+      "id": "thorax.pleural_partition",
+      "subsystem": "thorax",
+      "equation": "dPpl = dPaw * Ecw/Ers",
+      "units": "cmH2O",
+      "provenance": "ENGINEERING_ASSUMPTION",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_thorax.js"
+    },
+    {
+      "id": "hummod.ph",
+      "subsystem": "acid-base",
+      "equation": "pH = pK + log10(SID/PCO2)",
+      "units": "pH",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_chemistry.js"
+    },
+    {
+      "id": "hummod.hco3",
+      "subsystem": "acid-base",
+      "equation": "HCO3 = 0.2325*SID + 0.00036*PCO2",
+      "units": "mol/L",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_gas_exchange.js"
+    },
+    {
+      "id": "hummod.o2_content",
+      "subsystem": "oxygen-transport",
+      "equation": "content = saturation*O2max (+ dissolved O2 above 120 mmHg)",
+      "units": "mL O2/mL blood",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_gas_exchange.js"
+    },
+    {
+      "id": "hummod.vascular_pressure",
+      "subsystem": "circulation",
+      "equation": "P = (V-V0)/C + Pexternal",
+      "units": "mmHg",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_hemodynamics.js"
+    },
+    {
+      "id": "hummod.conductance_flow",
+      "subsystem": "circulation",
+      "equation": "Q = G(Pup-Pdown)",
+      "units": "mL/min",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_hemodynamics.js"
+    },
+    {
+      "id": "hummod.ventricular_edv",
+      "subsystem": "heart",
+      "equation": "EDV = (TMP_dias/A_dias)^(1/N_dias)",
+      "units": "mL",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_hemodynamics.js"
+    },
+    {
+      "id": "hummod.ventricular_esv",
+      "subsystem": "heart",
+      "equation": "ESV = (TMP_sys/A_sys)^(1/N_sys)",
+      "units": "mL",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_hemodynamics.js"
+    },
+    {
+      "id": "hummod.cardiac_output",
+      "subsystem": "heart",
+      "equation": "CO = HR(EDV-ESV)",
+      "units": "mL/min",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_core_hemodynamics.js"
+    },
+    {
+      "id": "oxygen.do2",
+      "subsystem": "oxygen-delivery",
+      "equation": "DO2 = blood flow * arterial O2 content",
+      "units": "mL O2/min",
+      "provenance": "DERIVED",
+      "authority": "DIAGNOSTIC_ONLY",
+      "source": "src/hummod_organ_oxygen_delivery.js"
+    },
+    {
+      "id": "oxygen.extraction",
+      "subsystem": "oxygen-delivery",
+      "equation": "VO2_extract = DO2 - venous O2 outflow",
+      "units": "mL O2/min",
+      "provenance": "DERIVED",
+      "authority": "DIAGNOSTIC_ONLY",
+      "source": "src/hummod_organ_oxygen_delivery.js"
+    },
+    {
+      "id": "blood.hemorrhage_rbc",
+      "subsystem": "blood-volume",
+      "equation": "RBC loss = Hct * hemorrhage rate",
+      "units": "mL/min",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_blood_volume_source_aligned.js"
+    },
+    {
+      "id": "blood.hgb_from_hct",
+      "subsystem": "hemoglobin",
+      "equation": "Hgb = (Hct/0.44)*0.15 g/mL",
+      "units": "g/mL",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_hgb_concentration_source_aligned.js"
+    },
+    {
+      "id": "autonomic.hr",
+      "subsystem": "autonomic",
+      "equation": "HR = basic SA rate + parasympathetic effect + sympathetic effect",
+      "units": "1/min",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_autonomic_source_aligned.js"
+    },
+    {
+      "id": "autonomic.symps_reflex",
+      "subsystem": "autonomic",
+      "equation": "ReflexNA = BaroEffect * LowPressureEffect * SympsChemoEffect",
+      "units": "normalized",
+      "provenance": "HUMMOD_EXACT",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_ards_autonomic_source_aligned.js"
+    },
+    {
+      "id": "chemoreceptor.signal",
+      "subsystem": "chemoreceptor",
+      "equation": "basic firing = PO2 effect + pH effect + sympathetic effect",
+      "units": "source firing units",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "DIAGNOSTIC_ONLY",
+      "source": "src/hummod_chemoreceptors_source_aligned.js"
+    },
+    {
+      "id": "muscle.flow",
+      "subsystem": "skeletal-muscle",
+      "equation": "Q = pressure gradient * conductance(PO2,symps,A2,ADH,metabolic,pump,...)",
+      "units": "mL/min",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_skeletal_muscle_flow_source_aligned.js"
+    },
+    {
+      "id": "brain.flow",
+      "subsystem": "brain",
+      "equation": "Qbrain = pressure gradient * conductance(PO2,PCO2,...)",
+      "units": "mL/min",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANONICAL_LIVE",
+      "source": "src/hummod_brain_hypoxia_source_aligned.js"
+    },
+    {
+      "id": "ursino.chemo_static",
+      "subsystem": "candidate-autonomic",
+      "equation": "phi_ac=[fmax+fmin*exp((PaO2-Pn)/k)]/[1+exp((PaO2-Pn)/k)]",
+      "units": "spikes/s",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "CANDIDATE",
+      "source": "docs/URSINO_MAGOSSO_EQUATION_LEDGER.md"
+    },
+    {
+      "id": "ursino.chemo_dynamic",
+      "subsystem": "candidate-autonomic",
+      "equation": "df_ac/dt=(-f_ac+phi_ac)/tau_c",
+      "units": "spikes/s2",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "CANDIDATE",
+      "source": "docs/URSINO_MAGOSSO_EQUATION_LEDGER.md"
+    },
+    {
+      "id": "ursino.stretch",
+      "subsystem": "candidate-autonomic",
+      "equation": "phi_ap=G_ap*VT",
+      "units": "spikes/s",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "CANDIDATE",
+      "source": "docs/URSINO_MAGOSSO_EQUATION_LEDGER.md"
+    },
+    {
+      "id": "ursino.sympathetic_peripheral",
+      "subsystem": "candidate-autonomic",
+      "equation": "f_sp=f_inf+(f0-f_inf)exp[k(-Wb f_ab+Wc f_ac-Wp f_ap-theta_sp)]",
+      "units": "spikes/s",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "CANDIDATE",
+      "source": "docs/URSINO_MAGOSSO_EQUATION_LEDGER.md"
+    },
+    {
+      "id": "shimayoshi.dynamic_stress",
+      "subsystem": "myocardium",
+      "equation": "stress ratio = 1 - x_fast + x_slow",
+      "units": "ratio",
+      "provenance": "LITERATURE_CALIBRATED",
+      "authority": "SHADOW",
+      "source": "src/shimayoshi_dynamic_acidosis_surrogate.js"
+    },
+    {
+      "id": "shimayoshi.fast_state",
+      "subsystem": "myocardium",
+      "equation": "dx_fast/dt=(Aeq(u)-x_fast)/tau_fast(u)",
+      "units": "1/s",
+      "provenance": "LITERATURE_CALIBRATED",
+      "authority": "SHADOW",
+      "source": "src/shimayoshi_dynamic_acidosis_surrogate.js"
+    },
+    {
+      "id": "shimayoshi.slow_state",
+      "subsystem": "myocardium",
+      "equation": "dx_slow/dt=(Beq(u)-x_slow)/tau_slow(u)",
+      "units": "1/s",
+      "provenance": "LITERATURE_CALIBRATED",
+      "authority": "SHADOW",
+      "source": "src/shimayoshi_dynamic_acidosis_surrogate.js"
+    },
+    {
+      "id": "kato.lv_radius",
+      "subsystem": "myocardium",
+      "equation": "R_lv=K_R*V_lv+K_V",
+      "units": "cm",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "SHADOW",
+      "source": "src/kato_utaki_lv_bridge.js"
+    },
+    {
+      "id": "kato.lv_pressure",
+      "subsystem": "myocardium",
+      "equation": "P_lv=2*K_u*F_ext*h_lv/R_lv",
+      "units": "mmHg",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "SHADOW",
+      "source": "src/kato_utaki_lv_bridge.js"
+    },
+    {
+      "id": "karamolegkos.rpal",
+      "subsystem": "pulmonary-vascular",
+      "equation": "R_pal=Rpp,total/[2(1-sh)]*(VA/FRC)^2",
+      "units": "mmHg*s/mL",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "CANDIDATE",
+      "source": "src/karamolegkos_pulmonary_circulation_candidate.js"
+    },
+    {
+      "id": "severinghaus.odc",
+      "subsystem": "oxygen-dissociation",
+      "equation": "S=1/[23400/(PO2^3+150*PO2)+1]",
+      "units": "fraction",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "CANDIDATE",
+      "source": "src/severinghaus_1979_standard_odc_candidate.js"
+    },
+    {
+      "id": "yamanaka.permeability",
+      "subsystem": "sepsis",
+      "equation": "La=(La_max-La_min)/[1+(EC50_La/N*)^slope]+La_min",
+      "units": "source units",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "SHADOW",
+      "source": "docs/YAMANAKA_SEPSIS_EQUATION_LEDGER.md"
+    },
+    {
+      "id": "hennigs.neural_oscillator",
+      "subsystem": "respiratory-drive",
+      "equation": "dX/dt=-aX*X + weighted sigmoid inputs + tonic drive",
+      "units": "model neural units/s",
+      "provenance": "LITERATURE_DIRECT",
+      "authority": "SHADOW",
+      "source": "docs/HENNIGS_RESPIRATORY_CENTER_AUDIT.md"
+    }
+  ],
+  "variables": [
+    {
+      "id": "PaO2",
+      "units": "mmHg",
+      "subsystem": "gas-exchange",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "PaCO2",
+      "units": "mmHg",
+      "subsystem": "gas-exchange",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "arterial_pH",
+      "units": "pH",
+      "subsystem": "acid-base",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "SaO2",
+      "units": "fraction",
+      "subsystem": "oxygen-transport",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "CaO2",
+      "units": "mL O2/mL blood",
+      "subsystem": "oxygen-transport",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "SvO2",
+      "units": "fraction",
+      "subsystem": "oxygen-transport",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "heart_rate",
+      "units": "1/min",
+      "subsystem": "autonomic",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "MAP",
+      "units": "mmHg",
+      "subsystem": "circulation",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "cardiac_output",
+      "units": "mL/min",
+      "subsystem": "circulation",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "stroke_volume",
+      "units": "mL",
+      "subsystem": "heart",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "SVR",
+      "units": "mmHg*min/L",
+      "subsystem": "circulation",
+      "authority": "DERIVED"
+    },
+    {
+      "id": "PVR",
+      "units": "mmHg*min/L",
+      "subsystem": "circulation",
+      "authority": "DERIVED"
+    },
+    {
+      "id": "systemic_arterial_volume",
+      "units": "mL",
+      "subsystem": "circulation",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "systemic_venous_volume",
+      "units": "mL",
+      "subsystem": "circulation",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "right_atrial_pressure",
+      "units": "mmHg",
+      "subsystem": "circulation",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "pulmonary_artery_pressure",
+      "units": "mmHg",
+      "subsystem": "circulation",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "left_atrial_pressure",
+      "units": "mmHg",
+      "subsystem": "circulation",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "symps_cns_hz",
+      "units": "Hz",
+      "subsystem": "autonomic",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "vagus_hz",
+      "units": "Hz",
+      "subsystem": "autonomic",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "symps_chemo_effect",
+      "units": "ratio",
+      "subsystem": "autonomic",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "norepinephrine",
+      "units": "pg/mL",
+      "subsystem": "catecholamines",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "epinephrine",
+      "units": "pg/mL",
+      "subsystem": "catecholamines",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "blood_volume",
+      "units": "mL",
+      "subsystem": "blood-volume",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "hematocrit",
+      "units": "fraction",
+      "subsystem": "blood-volume",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "global_DO2",
+      "units": "mL O2/min",
+      "subsystem": "oxygen-delivery",
+      "authority": "DIAGNOSTIC_ONLY"
+    },
+    {
+      "id": "oxygen_debt",
+      "units": "mL O2",
+      "subsystem": "decompensation",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "recruitment_fraction",
+      "units": "fraction",
+      "subsystem": "recruitment",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "plateau_pressure",
+      "units": "cmH2O",
+      "subsystem": "vent-mechanics",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "total_PEEP",
+      "units": "cmH2O",
+      "subsystem": "vent-mechanics",
+      "authority": "CANONICAL_LIVE"
+    },
+    {
+      "id": "driving_pressure",
+      "units": "cmH2O",
+      "subsystem": "vent-mechanics",
+      "authority": "DERIVED"
+    },
+    {
+      "id": "candidate_f_ac",
+      "units": "spikes/s",
+      "subsystem": "candidate-autonomic",
+      "authority": "CANDIDATE"
+    },
+    {
+      "id": "candidate_f_sp",
+      "units": "spikes/s",
+      "subsystem": "candidate-autonomic",
+      "authority": "CANDIDATE"
+    },
+    {
+      "id": "candidate_f_sh",
+      "units": "spikes/s",
+      "subsystem": "candidate-autonomic",
+      "authority": "CANDIDATE"
+    },
+    {
+      "id": "candidate_f_v",
+      "units": "spikes/s",
+      "subsystem": "candidate-autonomic",
+      "authority": "CANDIDATE"
+    },
+    {
+      "id": "shimayoshi_x_fast",
+      "units": "state",
+      "subsystem": "myocardium",
+      "authority": "SHADOW"
+    },
+    {
+      "id": "shimayoshi_x_slow",
+      "units": "state",
+      "subsystem": "myocardium",
+      "authority": "SHADOW"
+    },
+    {
+      "id": "shimayoshi_stress_ratio",
+      "units": "ratio",
+      "subsystem": "myocardium",
+      "authority": "SHADOW"
+    }
+  ]
+}
