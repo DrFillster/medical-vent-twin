@@ -22,7 +22,8 @@
     "hummod:fidelity-graph": "node scripts/build-hummod-ards-core-graph.js",
     "shadow:v1.5-autonomic": "node scripts/v15-autonomic-shadow-suite.js",
     "shadow:v1.5-oxygen-transport": "node scripts/v15-oxygen-transport-mechanism-suite.js",
-    "shimayoshi:import": "node scripts/import-shimayoshi-source-run.js"
+    "shimayoshi:import": "node scripts/import-shimayoshi-source-run.js",
+    "test:physician-candidate-runtime": "node test/v15_physician_validation_candidate.test.js && node test/v15_physician_comparison_export.test.js && node test/v15_physician_candidate_browser_contract.test.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
