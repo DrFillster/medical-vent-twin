@@ -146,6 +146,7 @@ function createUrsinoMagossoGasCardiovascularShadow(){
         thetaSh:a.thetaSh,
       }),
       effectors:e.absolute,
+      effectorRate:e.rate,
       candidateHeartRatePerMin:hrPerMin,
       authority:SOURCE.authority,
       controlAuthority:false,
