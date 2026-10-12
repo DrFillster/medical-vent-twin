@@ -32,7 +32,8 @@
     "audit:hummod-sympathoadrenal-candidate": "node scripts/hummod-sympathoadrenal-sa-node-candidate-audit.js",
     "test:hummod-sympathoadrenal-candidate": "node test/v15_hummod_sympathoadrenal_sa_node_candidate.test.js && node scripts/hummod-sympathoadrenal-sa-node-candidate-audit.js",
     "test:cardiopulmonary-compensation-candidate": "node test/v15_hummod_brain_fuel_cardiopulmonary_candidate.test.js && node scripts/hummod-cardiopulmonary-compensation-audit.js",
-    "audit:brain-fuel-signal-gap": "node scripts/v15-brain-fuel-signal-gap-audit.js"
+    "audit:brain-fuel-signal-gap": "node scripts/v15-brain-fuel-signal-gap-audit.js",
+    "test:hummod-2013-chemoreflex-candidate": "node test/v15_hummod_2013_chemoreflex_sa_node_candidate.test.js && node scripts/hummod-2013-chemoreflex-sa-node-qualification.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
