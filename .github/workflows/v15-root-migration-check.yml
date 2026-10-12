@@ -1,0 +1,22 @@
+name: v1.5 Root Migration Check
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-root-migration-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check public root
+        run: |
+          curl -L -sS --max-time 20 -o root.html -w 'root %{http_code}\n' https://hummod.defying-logic.com/
+          curl -L -sS --max-time 20 -o marker.txt -w 'marker %{http_code}\n' https://hummod.defying-logic.com/DEPLOY_SOURCE_SHA.txt
+          grep -E 'Live model vs candidate model|Current model vs published-model shadow' root.html || true
+          cat marker.txt || true
