@@ -31,6 +31,9 @@ const {
 const {
   createUrsinoDownstreamEffectorShadow,
 } = require('./ursino_downstream_effectors_shadow.js');
+const {
+  createPhysicianValidationCandidate,
+} = require('./physician_validation_candidate.js');
 const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require('./v11_provenance_manifest.js');
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
@@ -160,6 +163,7 @@ function createBerlinLiveHumModSession({
   mechanicalWarmupSec = 30,
   coupledEquilibrationSec = 0,
   nativeCalibrationTarget = null,
+  physicianValidationCandidate = true,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -380,6 +384,18 @@ function createBerlinLiveHumModSession({
   let autonomicShadowState = autonomicShadow.snapshot();
   let heartPeriodShadowState = heartPeriodShadow.snapshot();
   let downstreamEffectorShadowState = downstreamEffectorShadow.snapshot();
+  const physicianCandidate = physicianValidationCandidate
+    ? createPhysicianValidationCandidate({
+        dtSec: dt,
+        pao2MmHg: 95,
+        paco2MmHg: 40,
+        tidalVolumeL: ventilation.vtL,
+        averagingWindowSec: 1,
+      })
+    : null;
+  let physicianCandidateState = physicianCandidate
+    ? physicianCandidate.snapshot()
+    : null;
 
   function actualDeliveredTidalVolumeL() {
     const breaths = simulation.metrics();
@@ -438,6 +454,23 @@ function createBerlinLiveHumModSession({
     return autonomicShadowState;
   }
 
+  function updatePhysicianValidationCandidate(seconds) {
+    if (!physicianCandidate) return null;
+    const last = systemicSnapshot && systemicSnapshot.lastStep;
+    const arterial = last?.gas?.gases?.arterial;
+    const deliveredVt = actualDeliveredTidalVolumeL();
+    if (arterial && Number.isFinite(arterial.po2MmHg) &&
+        Number.isFinite(arterial.pco2MmHg)) {
+      physicianCandidate.setEnvironment({
+        pao2MmHg: arterial.po2MmHg,
+        paco2MmHg: arterial.pco2MmHg,
+        tidalVolumeL: deliveredVt > 0 ? deliveredVt : ventilation.vtL,
+      });
+    }
+    physicianCandidateState = physicianCandidate.runFor(seconds);
+    return physicianCandidateState;
+  }
+
   function patientTimeSec() {
     return Math.max(0, systemicSnapshot.timeSec - patientTimeOriginSec);
   }
@@ -490,6 +523,40 @@ function createBerlinLiveHumModSession({
           strokeVolumeMl: null,
           systemicVascularResistanceMmHgMinPerL: null,
         }),
+        candidateModel: physicianCandidateState
+          ? Object.freeze({
+              heartRatePerMin: physicianCandidateState.heartRatePerMin,
+              meanArterialPressureMmHg:
+                physicianCandidateState.meanArterialPressureMmHg,
+              cardiacOutputMlPerMin:
+                physicianCandidateState.cardiacOutputMlPerMin,
+              strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
+              systemicPeripheralResistanceMmHgMinPerL:
+                physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              authority: physicianCandidateState.authority,
+              controlAuthority: false,
+              knownLimitations: physicianCandidateState.knownLimitations,
+              status:
+                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+            })
+          : null,
+        candidateModel: physicianCandidateState
+          ? Object.freeze({
+              heartRatePerMin: physicianCandidateState.heartRatePerMin,
+              meanArterialPressureMmHg:
+                physicianCandidateState.meanArterialPressureMmHg,
+              cardiacOutputMlPerMin:
+                physicianCandidateState.cardiacOutputMlPerMin,
+              strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
+              systemicPeripheralResistanceMmHgMinPerL:
+                physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              authority: physicianCandidateState.authority,
+              controlAuthority: false,
+              knownLimitations: physicianCandidateState.knownLimitations,
+              status:
+                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+            })
+          : null,
         publishedModelInterim: Object.freeze({
           heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
           meanArterialPressureMmHg: null,
@@ -804,6 +871,7 @@ function createBerlinLiveHumModSession({
       simulation.runFor(h);
       systemicSnapshot = systemicRuntime.step({ dtSec: h });
       updateAutonomicShadow(h);
+      updatePhysicianValidationCandidate(h);
       remaining -= h;
     }
   }
@@ -835,6 +903,9 @@ function createBerlinLiveHumModSession({
     initialize() {
       if (initialized) return snapshot();
       equilibrateCoupledBaseline(coupledEquilibrationSec);
+      if (physicianCandidate) {
+        updatePhysicianValidationCandidate(120);
+      }
       patientTimeOriginSec = systemicSnapshot.timeSec;
       initialized = true;
       sessionEvents.push(Object.freeze({
@@ -908,7 +979,11 @@ function createBerlinLiveHumModSession({
       advanceUntilMeasurement('EXPIRATORY_HOLD', expiratoryCount, maxAdvanceSecPerHold);
 
       const elapsed = simulation.state.t - startVentTime;
-      if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+      if (elapsed > 0) {
+        systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+        updateAutonomicShadow(elapsed);
+        updatePhysicianValidationCandidate(elapsed);
+      }
       sessionEvents.push(Object.freeze({
         t: patientTimeSec(),
         kind: 'PASSIVE_MECHANICS_MEASUREMENT_COMPLETED',
@@ -933,7 +1008,11 @@ function createBerlinLiveHumModSession({
       simulation.requestInspiratoryHold(durationSec);
       advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
       const elapsed = simulation.state.t - startVentTime;
-      if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+      if (elapsed > 0) {
+        systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+        updateAutonomicShadow(elapsed);
+        updatePhysicianValidationCandidate(elapsed);
+      }
       const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
         t: patientTimeSec(),
