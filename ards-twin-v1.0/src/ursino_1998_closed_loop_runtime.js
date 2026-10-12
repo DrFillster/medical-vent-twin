@@ -15,6 +15,11 @@ function positive(v,label){
   finite(v,label); if(!(v>0)) throw new Error(label+' must be > 0'); return v;
 }
 function clone(x){ return {...x}; }
+function unitInterval(v,label){
+  finite(v,label);
+  if(v<0||v>1) throw new Error(label+' must be between 0 and 1');
+  return v;
+}
 
 const STATE_KEYS=Object.freeze([
   'Ppa','Fpa','Ppp','Ppv','Psa','Fsa','Psp','Pev','Vt',
@@ -113,8 +118,16 @@ function combineRk4(s,k1,k2,k3,k4,h){
 function createUrsino1998ClosedLoopRuntime({
   dtSec=0.002,
   initialState=null,
+  controlStrength=null,
 }={}){
   positive(dtSec,'dtSec');
+  const strength=Object.freeze({
+    Emax:unitInterval(controlStrength?.Emax ?? 1,'controlStrength.Emax'),
+    resistance:unitInterval(controlStrength?.resistance ?? 1,'controlStrength.resistance'),
+    unstressedVolume:unitInterval(controlStrength?.unstressedVolume ?? 1,'controlStrength.unstressedVolume'),
+    heartPeriod:unitInterval(controlStrength?.heartPeriod ?? 1,'controlStrength.heartPeriod'),
+  });
+  const basalControl=derivedRestingControlState();
   let t=0;
   let state=clone(initialState||defaultSeed());
   for(const k of STATE_KEYS) finite(state[k],k);
@@ -138,6 +151,21 @@ function createUrsino1998ClosedLoopRuntime({
   function delayedNeural(name,delay,now,current){
     const h=name==='sympathetic'?sympatheticHistory:vagalHistory;
     return interpHistory(h,now-delay,current);
+  }
+
+  function groupForEffector(name){
+    if(name==='EmaxLv'||name==='EmaxRv') return 'Emax';
+    if(name==='Rsp'||name==='Rep') return 'resistance';
+    if(name==='Vusv'||name==='Vuev') return 'unstressedVolume';
+    if(name==='Ts') return 'heartPeriod';
+    throw new Error('unknown effector group: '+name);
+  }
+
+  function preserveBasalStrength(name,sourceTarget){
+    const group=groupForEffector(name);
+    const scale=strength[group];
+    const basal=basalControl['d'+name];
+    return basal+scale*(sourceTarget-basal);
   }
 
   function derivatives(s,now,delayed){
@@ -189,12 +217,15 @@ function createUrsino1998ClosedLoopRuntime({
       const fd=delayed[name] == null
         ? delayedNeural('sympathetic',cfg.D,now,fEs)
         : delayed[name];
-      sympatheticTargets[name]=sympatheticEffectorStatic(fd,cfg);
+      const sourceTarget=sympatheticEffectorStatic(fd,cfg);
+      sympatheticTargets[name]=preserveBasalStrength(name,sourceTarget);
     }
     const delayedFev=delayed.Tv == null
       ? delayedNeural('vagal',CONTROL.effectors.Tv.D,now,fEv)
       : delayed.Tv;
-    const targetTv=vagalHeartPeriodStatic(delayedFev);
+    const sourceTargetTv=vagalHeartPeriodStatic(delayedFev);
+    const targetTv=basalControl.dTv+
+      strength.heartPeriod*(sourceTargetTv-basalControl.dTv);
 
     const dDEmaxLv=(-s.dEmaxLv+sympatheticTargets.EmaxLv)/CONTROL.effectors.EmaxLv.tau;
     const dDEmaxRv=(-s.dEmaxRv+sympatheticTargets.EmaxRv)/CONTROL.effectors.EmaxRv.tau;
@@ -333,6 +364,10 @@ function createUrsino1998ClosedLoopRuntime({
       }),
       provenance:SOURCE,
       authority:'candidate-not-canonical',
+      sourceSensitivity:Object.freeze({
+        controlStrength:strength,
+        preservesBasalControlState:true,
+      }),
     });
   }
 
