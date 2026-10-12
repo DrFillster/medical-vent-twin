@@ -916,6 +916,12 @@
         $('clinical-run-continuous').disabled = false;
         $('clinical-pause-continuous').disabled = true;
         renderClinicalSnapshot(data.snapshot);
+        const setupPanel = $('clinical-session-panel');
+        if (setupPanel) setupPanel.open = false;
+        const livePanel = $('clinical-live');
+        if (livePanel && typeof livePanel.scrollIntoView === 'function') {
+          livePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         return;
       }
       if (data.type === 'snapshot') {
