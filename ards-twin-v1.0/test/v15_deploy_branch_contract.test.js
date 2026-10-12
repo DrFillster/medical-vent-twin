@@ -11,6 +11,9 @@ const sync = fs.readFileSync(path.join(repoRoot, '.deploy', 'preview-sync-main.s
 assert.match(migrate, /TARGET_BRANCH="v1\.5"/);
 assert.doesNotMatch(migrate, /TARGET_BRANCH="v1\.5-release"/);
 assert.match(sync, /BRANCH="v1\.5"/);
-assert.doesNotMatch(sync, /BRANCH="v1\.5-release"/);
+assert.doesNotMatch(sync, /BRANCH="v1\\.5-release"/);
+assert.match(migrate, /DEPLOY_SOURCE_SHA\\.txt/);
+assert.match(migrate, /Live model vs candidate model/);
+assert.match(migrate, /local origin did not verify expected physician-preview content/);
 
-console.log('ok - v1.5 migration and sync daemon use the same active deployment branch');
+console.log('ok - v1.5 migration and sync daemon use the same active deployment branch and local origin is verified');
