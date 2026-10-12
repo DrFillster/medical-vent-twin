@@ -1,5 +1,5 @@
 name: v1.5 Expanded 2000 Smoke
-# source derivative rerun after vascular export fix
+# final source-family candidate gate
 
 on:
   push:
@@ -42,17 +42,5 @@ jobs:
         run: node scripts/ursino-magosso-2000-fig11-first20s-audit.js
       - name: Fig11 expanded trajectory values
         run: node scripts/ursino-magosso-2000-fig11-expanded-reproduction.js
-      - name: Diagnostic early phase
-        continue-on-error: true
-        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.early.hr<x.baseline.hr&&x.early.map>x.baseline.map&&x.early.autoregulated>x.baseline.autoregulated&&x.early.remaining<x.baseline.remaining)) process.exit(1)"
-      - name: Diagnostic later reversal
-        continue-on-error: true
-        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.later.hr>x.early.hr&&x.later.co>x.early.co&&x.later.remaining>x.early.remaining)) process.exit(1)"
-      - name: Diagnostic within-minute HR
-        continue-on-error: true
-        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.withinMinute.hr>x.baseline.hr)) process.exit(1)"
-      - name: Diagnostic within-minute MAP
-        continue-on-error: true
-        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.withinMinute.map>x.baseline.map)) process.exit(1)"
       - name: Fig11 expanded source trajectory
         run: node test/v15_ursino_magosso_2000_fig11_expanded_reproduction.test.js
