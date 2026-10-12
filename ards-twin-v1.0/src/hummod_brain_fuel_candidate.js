@@ -129,10 +129,15 @@ function brainFuelState({
 
   const anaerobicGlucoseDeliveredMgPerMin=
     glucoseDeliveredMgPerMin-aerobicGlucoseUsedMgPerMin;
+  // Exact HumMod Brain-Fuel.DES transcription:
+  // AnaerobicGlucoseUsed(Cal/Min) =
+  //   Brain-Metabolism.AnaerobicCals MIN AnaerobicGlucoseDelivered
+  // where AnaerobicGlucoseDelivered is carried in mg/min in the source.
+  // This is dimensionally unusual, but it is reproduced rather than
+  // silently repaired.
   const anaerobicGlucoseUsedCalPerMin=Math.min(
     anaerobicCalsPerMin,
-    Math.max(anaerobicGlucoseDeliveredMgPerMin,0)/
-      P.carboAnaerobicMgPerCal
+    Math.max(anaerobicGlucoseDeliveredMgPerMin,0)
   );
   const anaerobicGlucoseUsedMgPerMin=
     anaerobicGlucoseUsedCalPerMin*P.carboAnaerobicMgPerCal;
