@@ -1,6 +1,6 @@
 # Magosso–Ursino 2001 CO2 Parameter Audit
 
-Status: completed parameter audit; activation blocked where noted
+Status: primary Eq. 1 transcription recovered; candidate implementation permitted; authority still blocked pending external validation
 Date: 2026-10-10
 Source: Magosso E, Ursino M. A mathematical model of CO2 effect on cardiovascular regulation. Am J Physiol Heart Circ Physiol. 2001;281:H2036-H2052. DOI: 10.1152/ajpheart.2001.281.5.H2036. PMID: 11668065.
 
@@ -94,7 +94,7 @@ No direct PaCO2-to-heart-rate gain is supported by this model.
 
 ## Equation status
 
-- Eq. 1 peripheral O2-CO2 static response: **BLOCKED** pending visual verification of the printed piecewise K definition.
+- Eq. 1 peripheral O2-CO2 static response: primary Appendix transcription recovered from the published article and independently cross-checked against later implementations. The printed piecewise K function is preserved exactly, including its unusual branch behavior near PaO2=40 mmHg. This clears transcription for **candidate/shadow implementation only**, not physiologic authority.
 - Eq. 2 peripheral chemoreceptor dynamics: verified.
 - Eq. 3 sympathetic integration: verified.
 - Eqs. 4–7 CNS O2/CO2: verified.
@@ -103,9 +103,9 @@ No direct PaCO2-to-heart-rate gain is supported by this model.
 
 ## Implementation rule
 
-This audit does not authorize activation. A CO2 controller can move from audit-only to shadow mode only after:
-- Eq. 1 is visually transcribed and independently checked;
-- all code variables have explicit units;
-- f_ab has a source-valid mapping;
-- ownership conflicts with Vent/Hennigs respiratory control are resolved;
-- isolated hypercapnia and combined hypoxic-hypercapnic validation tests exist.
+This audit does not authorize canonical patient-state control. Candidate/shadow implementation is permitted because the primary equation and parameters are now transcribed. Canonical authority still requires:
+- all code variables to retain explicit units;
+- source-valid baroreceptor afferent input in spikes/s;
+- a single selected owner for each downstream canonical variable;
+- isolated hypercapnia, hypoxia, combined hypoxic-hypercapnia, controlled-ventilation, and recovery validation against independent physiology;
+- no blending with HumMod merely to obtain agreement.
