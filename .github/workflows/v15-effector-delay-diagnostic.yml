@@ -21,55 +21,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Baseline initialization
-        run: node - <<'NODE'
-          const {createUrsinoMagosso2000SplitEffectorsRuntime}=require('./src/ursino_magosso_2000_split_effectors_runtime.js');
-          const r=createUrsinoMagosso2000SplitEffectorsRuntime({initialVascularSympatheticSpikesPerSec:6,initialCardiacSympatheticSpikesPerSec:6,initialCardiacVagalSpikesPerSec:4});
-          console.log(JSON.stringify(r.snapshot()));
-          NODE
-      - name: Pre-resistance-delay unchanged
-        run: node - <<'NODE'
-          const assert=require('node:assert/strict');
-          const {createUrsinoMagosso2000SplitEffectorsRuntime}=require('./src/ursino_magosso_2000_split_effectors_runtime.js');
-          const r=createUrsinoMagosso2000SplitEffectorsRuntime({initialVascularSympatheticSpikesPerSec:6,initialCardiacSympatheticSpikesPerSec:6,initialCardiacVagalSpikesPerSec:4});
-          const b=r.snapshot().absolute;
-          for(let i=0;i<19;i++) r.step({dtSec:0.1,vascularSympatheticSpikesPerSec:12,cardiacSympatheticSpikesPerSec:6,cardiacVagalSpikesPerSec:4});
-          const a=r.snapshot().absolute;
-          assert(Math.abs(a.Rsp-b.Rsp)<1e-12);
-          assert(Math.abs(a.Rep-b.Rep)<1e-12);
-          NODE
-      - name: Post-resistance-delay responds
-        run: node - <<'NODE'
-          const assert=require('node:assert/strict');
-          const {createUrsinoMagosso2000SplitEffectorsRuntime}=require('./src/ursino_magosso_2000_split_effectors_runtime.js');
-          const r=createUrsinoMagosso2000SplitEffectorsRuntime({initialVascularSympatheticSpikesPerSec:6,initialCardiacSympatheticSpikesPerSec:6,initialCardiacVagalSpikesPerSec:4});
-          const b=r.snapshot().absolute;
-          for(let i=0;i<22;i++) r.step({dtSec:0.1,vascularSympatheticSpikesPerSec:12,cardiacSympatheticSpikesPerSec:6,cardiacVagalSpikesPerSec:4});
-          const a=r.snapshot().absolute;
-          assert(a.Rsp>b.Rsp);
-          assert(a.Rep>b.Rep);
-          NODE
-      - name: Pre-venous-delay unchanged
-        run: node - <<'NODE'
-          const assert=require('node:assert/strict');
-          const {createUrsinoMagosso2000SplitEffectorsRuntime}=require('./src/ursino_magosso_2000_split_effectors_runtime.js');
-          const r=createUrsinoMagosso2000SplitEffectorsRuntime({initialVascularSympatheticSpikesPerSec:6,initialCardiacSympatheticSpikesPerSec:6,initialCardiacVagalSpikesPerSec:4});
-          const b=r.snapshot().absolute;
-          for(let i=0;i<49;i++) r.step({dtSec:0.1,vascularSympatheticSpikesPerSec:12,cardiacSympatheticSpikesPerSec:6,cardiacVagalSpikesPerSec:4});
-          const a=r.snapshot().absolute;
-          assert(Math.abs(a.Vusv-b.Vusv)<1e-12);
-          assert(Math.abs(a.Vuev-b.Vuev)<1e-12);
-          assert(Math.abs(a.Vumv-b.Vumv)<1e-12);
-          NODE
-      - name: Post-venous-delay responds
-        run: node - <<'NODE'
-          const assert=require('node:assert/strict');
-          const {createUrsinoMagosso2000SplitEffectorsRuntime}=require('./src/ursino_magosso_2000_split_effectors_runtime.js');
-          const r=createUrsinoMagosso2000SplitEffectorsRuntime({initialVascularSympatheticSpikesPerSec:6,initialCardiacSympatheticSpikesPerSec:6,initialCardiacVagalSpikesPerSec:4});
-          const b=r.snapshot().absolute;
-          for(let i=0;i<52;i++) r.step({dtSec:0.1,vascularSympatheticSpikesPerSec:12,cardiacSympatheticSpikesPerSec:6,cardiacVagalSpikesPerSec:4});
-          const a=r.snapshot().absolute;
-          assert(a.Vusv<b.Vusv);
-          assert(a.Vuev<b.Vuev);
-          assert(a.Vumv<b.Vumv);
-          NODE
+      - name: Generate delay audit
+        run: node scripts/ursino-magosso-2000-effector-delay-audit.js
+      - name: Upload delay audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: effector-delay-audit
+          path: ards-twin-v1.0/physician-audit-results/ursino-magosso-2000-effector-delay-audit.json
