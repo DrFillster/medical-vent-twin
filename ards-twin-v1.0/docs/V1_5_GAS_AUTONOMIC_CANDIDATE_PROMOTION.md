@@ -100,3 +100,28 @@ Interpretation:
 - the source-reproduction harness remained green.
 
 This is a **candidate-layer validation pass**, not canonical validation. Independent human trajectory validation, recovery testing, and explicit coupling step-size convergence remain required before canonical consideration.
+
+
+## Recovery and numerical convergence gate
+
+A second narrow candidate smoke run was executed after adding recovery and coupling-convergence tests.
+
+Run:
+- workflow: `v1.5 Candidate Smoke`
+- run ID: `38193016501`
+- head SHA: `8c92866820b6364ef8a8f79d44bba7ca3f5f11a0`
+- conclusion: **success**
+
+New gate results:
+- recovery after combined hypoxic-hypercapnic stress: **PASS**;
+- explicit controller/plant step-size convergence: **PASS**.
+
+Recovery criterion:
+- after 120 s baseline and 120 s combined PaO2 50 / PaCO2 60 stress, restoration to PaO2 100 / PaCO2 40 for 180 s moved the tracked HR/MAP/Emax/resistance/venous-volume state closer to the prior baseline.
+
+Convergence criterion:
+- tested dt = 0.004, 0.002, and 0.001 s;
+- the 0.002-s solution remained within 1% of the 0.001-s solution across the tracked integrated outputs;
+- halving dt from 0.004 to 0.002 did not move the result farther from the 0.001-s solution.
+
+These criteria establish numerical and recovery fitness for continued **candidate-layer** evaluation. They do not establish clinical validity or canonical authority.
