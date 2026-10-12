@@ -135,6 +135,8 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     const baroState=baro.step({
       dtSec,
       arterialPressureMmHg:before.hemodynamics.systemicArterialPressureMmHg,
+      arterialPressureRateMmHgPerSec:
+        before.hemodynamics.systemicArterialPressureRateMmHgPerSec,
     });
 
     const activeTidalVolumeL=sourceVentilationState
