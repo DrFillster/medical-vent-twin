@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/medical-vent-twin}"
-BRANCH="${DEPLOY_BRANCH:-v1.5-release}"
+BRANCH="v1.5"
 APP_DIR="$REPO_DIR/ards-twin-v1.0"
 MARKER="$APP_DIR/web/DEPLOY_SOURCE_SHA.txt"
 
