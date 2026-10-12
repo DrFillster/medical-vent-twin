@@ -27,6 +27,8 @@ jobs:
         run: node test/v15_gas_cardiovascular_candidate.test.js
       - name: Gas-cardiovascular recovery and convergence
         run: node test/v15_gas_cardiovascular_recovery_convergence.test.js
+      - name: External gas trajectory gate
+        run: node test/v15_gas_external_validation_matrix.test.js
       - name: Ursino Fig9 sensitivity gate
         run: node test/v15_ursino_1998_fig9_sensitivity.test.js
       - name: Ursino source-reproduction gate
