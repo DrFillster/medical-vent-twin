@@ -1,11 +1,10 @@
 name: v1.5 Physician Evaluation Gate
 
+# Manual-only. The v1.5 branch changes frequently during evidence-first
+# physiology work; automatic push validation consumed Actions on every
+# research commit. Run this gate only at deliberate physician-review
+# checkpoints.
 on:
-  push:
-    branches: [v1.5]
-    paths:
-      - 'ards-twin-v1.0/**'
-      - '.github/workflows/v15-physician-eval.yml'
   workflow_dispatch:
 
 concurrency:
