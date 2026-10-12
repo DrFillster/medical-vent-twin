@@ -131,6 +131,18 @@ function createUrsino1998ClosedLoopRuntime({
   let t=0;
   let state=clone(initialState||defaultSeed());
   for(const k of STATE_KEYS) finite(state[k],k);
+  const controlReference=initialState
+    ? Object.freeze({
+        dEmaxLv:state.dEmaxLv,
+        dEmaxRv:state.dEmaxRv,
+        dRsp:state.dRsp,
+        dRep:state.dRep,
+        dVusv:state.dVusv,
+        dVuev:state.dVuev,
+        dTs:state.dTs,
+        dTv:state.dTv,
+      })
+    : basalControl;
 
   const sympatheticHistory=[];
   const vagalHistory=[];
@@ -176,8 +188,8 @@ function createUrsino1998ClosedLoopRuntime({
   function preserveBasalStrength(name,sourceTarget){
     const group=groupForEffector(name);
     const scale=strength[group];
-    const basal=basalControl['d'+name];
-    return basal+scale*(sourceTarget-basal);
+    const reference=controlReference['d'+name];
+    return reference+scale*(sourceTarget-reference);
   }
 
   function derivatives(s,now,delayed){
@@ -236,8 +248,8 @@ function createUrsino1998ClosedLoopRuntime({
       ? delayedNeural('vagal',CONTROL.effectors.Tv.D,now,fEv)
       : delayed.Tv;
     const sourceTargetTv=vagalHeartPeriodStatic(delayedFev);
-    const targetTv=basalControl.dTv+
-      strength.heartPeriod*(sourceTargetTv-basalControl.dTv);
+    const targetTv=controlReference.dTv+
+      strength.heartPeriod*(sourceTargetTv-controlReference.dTv);
 
     const dDEmaxLv=externalEffectors ? 0 :
       (-s.dEmaxLv+sympatheticTargets.EmaxLv)/CONTROL.effectors.EmaxLv.tau;
@@ -393,6 +405,9 @@ function createUrsino1998ClosedLoopRuntime({
       sourceSensitivity:Object.freeze({
         controlStrength:strength,
         preservesBasalControlState:true,
+        referenceMode:initialState
+          ?'initial-state-effector-reference'
+          :'source-nominal-reference',
       }),
       effectorOwnership:Object.freeze({
         mode:externalEffectors?'external-source-family':'ursino-1998-internal',
