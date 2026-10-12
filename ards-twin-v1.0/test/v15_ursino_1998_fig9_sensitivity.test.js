@@ -70,11 +70,11 @@ test('venous unstressed-volume control has the largest added SAP and CO protecti
   }
 });
 
-test('Emax removal has the smallest added SAP and CO deterioration',()=>{
+test('Emax removal has the smallest SAP and CO effect magnitude',()=>{
   assert(audit);
   for(const key of [
-    'sapAddedDeteriorationPercentagePoints',
-    'coAddedDeteriorationPercentagePoints',
+    'sapAbsoluteEffectPercentagePoints',
+    'coAbsoluteEffectPercentagePoints',
   ]){
     const o=audit.ordering[key];
     assert(o.noEmax<o.noPeripheralResistance);
