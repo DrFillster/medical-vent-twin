@@ -125,3 +125,22 @@ Convergence criterion:
 - halving dt from 0.004 to 0.002 did not move the result farther from the 0.001-s solution.
 
 These criteria establish numerical and recovery fitness for continued **candidate-layer** evaluation. They do not establish clinical validity or canonical authority.
+
+
+## Recovery and coupling-convergence gate
+
+A second narrow candidate smoke run was executed after adding recovery and numerical-coupling validation.
+
+Run:
+- workflow: `v1.5 Candidate Smoke`
+- run ID: `38193016501`
+- head SHA: `8c92866820b6364ef8a8f79d44bba7ca3f5f11a0`
+- conclusion: **success**
+
+New passed gate:
+- combined hypoxic-hypercapnic stress moves the integrated state away from baseline;
+- normalization of PaO2/PaCO2 moves the integrated state back toward baseline;
+- at the tested 60-s combined stress endpoint, the 0.002-s explicit controller/plant coupling solution is within 1% of the 0.001-s solution across HR, systemic arterial pressure, LV Emax, systemic resistance, and venous unstressed-volume outputs;
+- halving the step from 0.004 s to 0.002 s does not move the solution farther from the 0.001-s reference.
+
+This is a numerical/candidate validation result only. It does not establish human physiologic validity.
