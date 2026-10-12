@@ -27,7 +27,8 @@
     "physiology:registry": "node scripts/summarize-physiology-registry.js",
     "physiology:registry:exact": "node scripts/summarize-physiology-registry.js --exact",
     "audit:physician-tachycardia": "node scripts/v15-physician-tachycardia-audit.js",
-    "audit:chronotropy-coupling": "node scripts/v15-chronotropy-coupling-audit.js"
+    "audit:chronotropy-coupling": "node scripts/v15-chronotropy-coupling-audit.js",
+    "audit:source-stressor-suite": "node scripts/v15-source-stressor-suite.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
