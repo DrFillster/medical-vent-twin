@@ -84,7 +84,9 @@ test('source pure delays retain the basal prehistory after a step input',()=>{
   assert(after2s.Rep>before.Rep);
   assert(close(after2s.Vusv,before.Vusv));
 
-  for(let i=0;i<30;i++) r.step({
+  // Step beyond the exact floating-point boundary so this tests the source
+  // latency rather than binary representation of 5.0 s.
+  for(let i=0;i<31;i++) r.step({
     dtSec:0.1,
     vascularSympatheticSpikesPerSec:12,
     cardiacSympatheticSpikesPerSec:6,
