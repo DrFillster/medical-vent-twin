@@ -26,6 +26,7 @@ test('candidate runtime assets use one cache-busting key',()=>{
 test('live browser path hard-fails when physician candidate is absent',()=>{
   assert(app.includes('function requirePhysicianCandidateSnapshot(snapshot)'));
   assert(app.includes('Physician validation candidate missing from live runtime snapshot'));
+  assert(app.includes('HumMod 2013 compensation comparison missing or invalid'));
   assert(app.includes('requirePhysicianCandidateSnapshot(data.snapshot)'));
 });
 
