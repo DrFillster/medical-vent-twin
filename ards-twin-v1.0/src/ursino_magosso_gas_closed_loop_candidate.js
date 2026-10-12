@@ -126,10 +126,16 @@ function createGasCardiovascularClosedLoopCandidate({
       canonicalControlAuthority:false,
       candidatePlantControlAuthority:true,
       provenance:SOURCE,
+      ventilationContext:'controlled-fixed-vt',
+      protocolScope:Object.freeze({
+        spontaneousBreathing:false,
+        deliveredTidalVolumeOwnedByVent:true,
+        note:'Current gas-autonomic validation fixes delivered VT. Do not compare this mode directly with spontaneous-breathing human hypoxia protocols.',
+      }),
       numericalBoundary:Object.freeze({
         scheme:'controller-then-plant explicit operator split',
         dtSec,
-        validationStatus:'requires perturbation and step-size validation before canonical activation',
+        validationStatus:'candidate recovery and step-size convergence passed; clinical/source trajectory validation remains protocol-specific',
       }),
     });
   }
