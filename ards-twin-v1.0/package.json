@@ -31,7 +31,8 @@
     "audit:source-stressor-suite": "node scripts/v15-source-stressor-suite.js",
     "audit:hummod-sympathoadrenal-candidate": "node scripts/hummod-sympathoadrenal-sa-node-candidate-audit.js",
     "test:hummod-sympathoadrenal-candidate": "node test/v15_hummod_sympathoadrenal_sa_node_candidate.test.js && node scripts/hummod-sympathoadrenal-sa-node-candidate-audit.js",
-    "test:cardiopulmonary-compensation-candidate": "node test/v15_hummod_brain_fuel_cardiopulmonary_candidate.test.js && node scripts/hummod-cardiopulmonary-compensation-audit.js"
+    "test:cardiopulmonary-compensation-candidate": "node test/v15_hummod_brain_fuel_cardiopulmonary_candidate.test.js && node scripts/hummod-cardiopulmonary-compensation-audit.js",
+    "audit:brain-fuel-signal-gap": "node scripts/v15-brain-fuel-signal-gap-audit.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
