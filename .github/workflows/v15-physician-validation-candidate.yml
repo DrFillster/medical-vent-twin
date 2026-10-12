@@ -1,0 +1,25 @@
+name: v1.5 Physician Validation Candidate
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-physician-validation-candidate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Physician validation candidate adapter
+        run: node test/v15_physician_validation_candidate.test.js
