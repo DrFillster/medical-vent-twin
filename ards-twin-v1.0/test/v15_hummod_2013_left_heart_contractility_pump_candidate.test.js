@@ -37,13 +37,13 @@ test('source pH and K-multiplier curve identities are preserved',()=>{
   near(contractilityHermite(K_MULTIPLIER,3),1.3);
 });
 
-test('source sizing algebra reproduces reference stroke volume',()=>{
+test('source sizing algebra preserves supplied regression-fixture identity',()=>{
   near(sizing.strokeVolumeMl,5000/77);
   near(sizing.leftHeartEsvMl,0.175*300);
   near(sizing.leftHeartEdvMl,sizing.leftHeartEsvMl+sizing.strokeVolumeMl);
 });
 
-test('2013 implicit LV pump reproduces source-sized SBP and stroke at neutral contractility',()=>{
+test('2013 implicit LV pump reproduces regression-fixture sizing identity at neutral contractility',()=>{
   const c=leftHeartContractility({
     cardiacGangliaHz:1.5,
     beta1PoolEffect:1.001,
