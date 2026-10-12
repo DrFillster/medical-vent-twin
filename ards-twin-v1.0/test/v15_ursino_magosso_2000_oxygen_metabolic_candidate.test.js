@@ -5,6 +5,8 @@ const {
   SOURCE,P,
   oxygenDissociationFactor,
   arterialO2ConcentrationMmolPerL,
+  mmolPerLToMlO2PerMlBlood,
+  arterialO2ConcentrationMlO2PerMlBlood,
   venousO2ConcentrationSameUnits,
   heartO2ConsumptionMlPerSec,
   instantaneousCardiacPumpPowerMmHgMlPerSec,
@@ -50,6 +52,14 @@ test('Eq 44 arterial O2 concentration increases monotonically with PaO2',()=>{
   assert(normal<P.dissociation.saturationConcentrationMmolPerL);
 });
 
+test('documented unit bridge maps 9 mmol/L to physiological whole-blood O2 units',()=>{
+  assert(close(mmolPerLToMlO2PerMlBlood(9),0.200304,1e-12));
+  const ca=arterialO2ConcentrationMlO2PerMlBlood({
+    pao2MmHg:100,paco2MmHg:40,
+  });
+  assert(ca>0.18&&ca<0.21);
+});
+
 test('Eq 43 same-unit extraction mass balance is exact',()=>{
   const cv=venousO2ConcentrationSameUnits({
     arterialO2Concentration:0.2,
@@ -88,12 +98,11 @@ test('Eqs 47-48 retain pump-work sign and low-pass direction',()=>{
   })>0);
 });
 
-test('unit boundary stays explicit instead of silently converting Eq 44 into Eq 43 units',()=>{
+test('unit bridge is provenance-labeled as conversion only',()=>{
+  assert.equal(SOURCE.unitBridge.role,'unit-conversion-only');
   assert.equal(
-    Object.prototype.hasOwnProperty.call(
-      P.dissociation,'saturationConcentrationMlO2PerMlBlood'
-    ),
-    false
+    SOURCE.unitBridge.mmolPerLToMlO2PerMlBlood,
+    0.022256
   );
 });
 
