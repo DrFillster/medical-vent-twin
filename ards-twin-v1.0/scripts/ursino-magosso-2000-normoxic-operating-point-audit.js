@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs=require('node:fs');
+const path=require('node:path');
+
 const {
   createUrsinoMagosso2000ExpandedHypoxiaClosedLoop,
 }=require('../src/ursino_magosso_2000_expanded_hypoxia_closed_loop.js');
@@ -74,9 +77,16 @@ for(const target of [120,240,360,600]){
   elapsed+=10;
 }
 
-console.log(JSON.stringify({
+const out={
   schema:'ursino-magosso-2000-normoxic-operating-point-audit/v1',
   authority:'diagnostic-source-reproduction-only',
   environment:{pao2MmHg:95,paco2MmHg:40},
   checkpoints,
-},null,2));
+};
+const dir=path.resolve(__dirname,'../physician-audit-results');
+fs.mkdirSync(dir,{recursive:true});
+fs.writeFileSync(
+  path.join(dir,'ursino-magosso-2000-normoxic-operating-point-audit.json'),
+  JSON.stringify(out,null,2)+'\n'
+);
+console.log(JSON.stringify(out,null,2));
