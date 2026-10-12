@@ -1,5 +1,5 @@
 name: v1.5 Candidate Smoke
-# human-validation revision 3
+# hypoxia-source-completion revision 1
 
 on:
   push:
@@ -28,6 +28,10 @@ jobs:
         run: node test/v15_gas_cardiovascular_candidate.test.js
       - name: Gas-cardiovascular recovery and convergence
         run: node test/v15_gas_cardiovascular_recovery_convergence.test.js
+      - name: Source hypoxia tidal-volume candidate
+        run: node test/v15_ursino_magosso_2000_tidal_volume_candidate.test.js
+      - name: Source deep-hypoxia time-course gate
+        run: node test/v15_ursino_magosso_2000_deep_hypoxia_timecourse.test.js
       - name: External gas trajectory gate
         run: node test/v15_gas_external_validation_matrix.test.js
       - name: Human autonomic validation smoke
