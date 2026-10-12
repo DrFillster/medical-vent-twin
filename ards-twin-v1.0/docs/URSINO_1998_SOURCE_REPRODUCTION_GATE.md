@@ -203,6 +203,32 @@ This is **not a quantitative source-reproduction pass**.
 
 The exact Fig. 9 model bar heights have not yet been transcribed from the primary figure with sufficient accuracy. Do not substitute the intact-dog experimental values for the source-model values. Do not tune the model to either set.
 
+## Fig. 9 effector-sensitivity reproduction
+
+The source's bottom-panel experiment was reproduced as a separate non-canonical challenge. Each control mechanism was set to zero individually while its basal contribution was preserved, so all cases begin from the same basal hemodynamic state.
+
+Current source-style results at the post-hemorrhage evaluation:
+
+| Case | SAP change | CO change | Peripheral R change | HR change |
+| --- | ---: | ---: | ---: | ---: |
+| Intact control | -9.7301% | -15.6575% | +8.6962% | +8.7244% |
+| No venous unstressed-volume control | -13.5273% | -21.2511% | +11.9386% | +12.2424% |
+| No peripheral-resistance control | -11.6804% | -11.0384% | approximately 0% | +10.6564% |
+| No heart-period control | -11.2174% | -18.1879% | +10.0700% | approximately 0% |
+| No Emax control | -10.0674% | -16.1719% | +8.9532% | +9.0131% |
+
+Mechanistic ordering:
+- removing venous unstressed-volume control produces the largest additional fall in SAP and CO;
+- resistance and heart-period control have smaller protective effects;
+- removing Emax control produces the smallest additional deterioration.
+
+This matches the qualitative ordering stated in the primary paper. It is a **qualitative source-reproduction pass only**. Exact quantitative agreement with the Fig. 9 bottom bars remains unassessed until those bars are reproducibly digitized.
+
+Implementation:
+- runtime source-sensitivity controls: `bddc42ff7a80b47dfc8f42bcf40771e5d2e1378f`;
+- challenge: `2ca492973ad1c448a495ad0a0050a66e369c51af`;
+- regression guard: `1a30de1fbc11b03ff991949e034a411dc871c553`.
+
 ## Acceptance gate
 
 Before this candidate is integrated into the canonical patient state:
