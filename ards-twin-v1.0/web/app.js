@@ -961,7 +961,7 @@
         $('clinical-pause-continuous').disabled = true;
         renderClinicalSnapshot(data.snapshot);
         const setupPanel = $('clinical-session-panel');
-        if (setupPanel) setupPanel.open = false;
+        if (setupPanel) setupPanel.open = true;
         const livePanel = $('clinical-live');
         if (livePanel && typeof livePanel.scrollIntoView === 'function') {
           livePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
