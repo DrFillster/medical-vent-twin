@@ -78,6 +78,22 @@ Additional internal response:
 
 The source states that values plotted in Figs. 3-9 were obtained from a 20-s stationary tracing, with an integer number of heart periods selected and trapezoidal averaging. The v3 harness now reproduces that measurement method.
 
+
+## Numerical convergence check
+
+The corrected source-protocol challenge was repeated without changing physiology at three fixed RK4 step sizes:
+
+| dt | SAP change | CO change | R change | HR change |
+| --- | ---: | ---: | ---: | ---: |
+| 0.004 s | -9.7273% | -15.6430% | +8.6956% | +8.7238% |
+| 0.002 s | -9.7301% | -15.6575% | +8.6962% | +8.7244% |
+| 0.001 s | -9.7295% | -15.6534% | +8.6965% | +8.7248% |
+
+Interpretation:
+- the candidate hemorrhage response is effectively step-size stable over this range;
+- the remaining quantitative uncertainty is therefore dominated by source reproduction / protocol interpretation rather than an obvious fixed-step numerical artifact;
+- this does not prove equation fidelity or physiologic validity.
+
 ## Interpretation
 
 The candidate currently has the correct qualitative closed-loop pattern for the source challenge:
