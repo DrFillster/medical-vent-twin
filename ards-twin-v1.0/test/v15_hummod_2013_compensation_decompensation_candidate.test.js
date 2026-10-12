@@ -89,9 +89,11 @@ test('falling myocardial pHi depresses LV output despite persistent hypoxic adre
   assert(decomp.cardiacOutputMlPerMin<compensated.cardiacOutputMlPerMin);
 });
 
-test('recovery of oxygenation and myocardial pHi restores the pump trajectory',()=>{
+test('recovery of oxygenation and myocardial pHi returns the pump toward baseline',()=>{
   const c=make();
   c.runFor(600,BASE);
+  const baseline=c.snapshot();
+
   c.runFor(600,{...BASE,arterialPo2MmHg:30});
   c.runFor(300,{
     ...BASE,
@@ -99,13 +101,26 @@ test('recovery of oxygenation and myocardial pHi restores the pump trajectory',(
     arterialPh:7.10,
     myocardialIntracellularPh:6.68,
   });
-  const low=c.snapshot();
+  const stressed=c.snapshot();
+
   c.runFor(900,BASE);
   const rec=c.snapshot();
 
-  assert(rec.leftHeartContractility.phEffect>low.leftHeartContractility.phEffect);
-  assert(rec.strokeVolumeMl>low.strokeVolumeMl);
-  assert(rec.cardiacOutputMlPerMin>low.cardiacOutputMlPerMin);
+  assert(rec.leftHeartContractility.phEffect>stressed.leftHeartContractility.phEffect);
+  assert(
+    Math.abs(rec.strokeVolumeMl-baseline.strokeVolumeMl) <
+    Math.abs(stressed.strokeVolumeMl-baseline.strokeVolumeMl)
+  );
+  assert(
+    Math.abs(rec.cardiacOutputMlPerMin-baseline.cardiacOutputMlPerMin) <
+    Math.abs(stressed.cardiacOutputMlPerMin-baseline.cardiacOutputMlPerMin)
+  );
+  assert(
+    Math.abs(rec.leftHeartContractility.contractility-
+      baseline.leftHeartContractility.contractility) <
+    Math.abs(stressed.leftHeartContractility.contractility-
+      baseline.leftHeartContractility.contractility)
+  );
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
