@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/medical-vent-twin}"
-TARGET_BRANCH="v1.5-release"
+TARGET_BRANCH="v1.5"
 
 cd "$REPO_DIR"
 
