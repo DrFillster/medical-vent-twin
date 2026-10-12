@@ -1,0 +1,33 @@
+name: v1.5 Muscle O2 Drive Trace
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-muscle-o2-drive-trace.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  muscle-o2-drive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate muscle O2 drive trace
+        run: node scripts/ursino-magosso-2000-muscle-o2-drive-trace.js
+      - name: Muscle O2 drive assertions
+        run: node test/v15_ursino_magosso_2000_muscle_o2_drive_trace.test.js
+      - name: Upload muscle O2 drive trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: muscle-o2-drive-trace
+          path: ards-twin-v1.0/physician-audit-results/ursino-magosso-2000-muscle-o2-drive-trace.json
