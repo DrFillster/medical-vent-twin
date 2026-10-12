@@ -25,6 +25,8 @@ jobs:
         run: node test/v15_gas_autonomic_candidate_promotion_parity.test.js
       - name: Gas-cardiovascular perturbation gate
         run: node test/v15_gas_cardiovascular_candidate.test.js
+      - name: Gas-cardiovascular recovery and convergence
+        run: node test/v15_gas_cardiovascular_recovery_convergence.test.js
       - name: Ursino Fig9 sensitivity gate
         run: node test/v15_ursino_1998_fig9_sensitivity.test.js
       - name: Ursino source-reproduction gate
