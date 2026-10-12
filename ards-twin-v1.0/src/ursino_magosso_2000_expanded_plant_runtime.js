@@ -262,6 +262,8 @@ function createUrsinoMagosso2000ExpandedPlantRuntime({
       phaseFraction:state.phase,Tsec:e.heartPeriodSec,
       EmaxMmHgPerMl:e.EmaxRv,
     });
+    const systemicArterialPressureRateMmHgPerSec=
+      (lv.outflowMlPerSec-state.Fsa)/VASCULAR.sa.C;
     const reconstructedVolumeMl=reconstructedTotalBloodVolumeMl({
       Psa:state.Psa,Psp:state.Psp,
       Psv:state.Psv,Pev,Pmv:state.Pmv,Pbv:state.Pbv,Phv:state.Phv,
@@ -277,6 +279,7 @@ function createUrsinoMagosso2000ExpandedPlantRuntime({
       effectors,
       hemodynamics:Object.freeze({
         systemicArterialPressureMmHg:state.Psa,
+        systemicArterialPressureRateMmHgPerSec,
         systemicPeripheralPressureMmHg:state.Psp,
         splanchnicVenousPressureMmHg:state.Psv,
         extrasplanchnicVenousPressureMmHg:Pev,
