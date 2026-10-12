@@ -42,6 +42,18 @@ const W=Object.freeze({
   E:Object.freeze({R:null,I:-1.4,L:-0.8,P:-1.4,E:1.6}),
 });
 
+// Active Eq.1 topology. Hennigs Table 2 contains P->L=-3.0, but the
+// published late-inspiratory differential equation omits W_PL*S(P).
+// Preserve the table value in W for provenance, but do not activate a term
+// that is absent from the governing equation.
+const ACTIVE_SOURCES_BY_TARGET=Object.freeze({
+  R:Object.freeze(['I','P','R']),
+  I:Object.freeze(['E','P','L','I']),
+  L:Object.freeze(['I','E','R','L']),
+  P:Object.freeze(['E','R','P']),
+  E:Object.freeze(['I','R','E']),
+});
+
 const BASAL_TONIC=Object.freeze({
   R:2.19,
   I:5.04,
@@ -156,9 +168,13 @@ function oscillatorDerivatives({
   const dx={};
   for(const target of POPULATIONS){
     let coupling=0;
-    for(const source of POPULATIONS){
+    for(const source of ACTIVE_SOURCES_BY_TARGET[target]){
       const wij=W[source][target];
-      if(wij==null) continue;
+      if(wij==null){
+        throw new Error(
+          'Eq.1 active edge missing from Table 2: '+source+'->'+target
+        );
+      }
       coupling+=kRR*wij*activity[source];
     }
     dx[target]=-DECAY[target]*x[target]+coupling+b[target];
@@ -179,6 +195,7 @@ module.exports=Object.freeze({
   SOURCE,
   POPULATIONS,
   W,
+  ACTIVE_SOURCES_BY_TARGET,
   BASAL_TONIC,
   DECAY,
   RR,
