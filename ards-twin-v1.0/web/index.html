@@ -187,9 +187,9 @@
 </div>
 </details>
 
-<details class="card physician-comparison-card advanced">
+<details class="card physician-comparison-card advanced" open>
 <summary>Physician validation comparison</summary><div class="card-heading"><h2>Live model vs candidate model</h2><span class="pill">Candidate · no control authority</span></div>
-<p class="hint"><strong>Physician validation:</strong> the candidate is a parallel Ursino–Magosso 2000 cardiovascular model driven by the same arterial gases and actual delivered tidal volume. It cannot control the live patient. Candidate MAP and CO are time-averaged from its pulsatile output.</p>
+<p class="hint"><strong>Physician validation:</strong> the existing candidate is a parallel Ursino–Magosso 2000 cardiovascular model. The HumMod 2013 compensation channel is a separate source-generation-consistent chemoreflex → sympathetic/catecholamine → SA-node model driven by live arterial PO₂ and pH. Neither can control the live patient. Myocardial decompensation is not yet coupled to the 2013 compensation channel.</p>
 <div class="clinical-grid monitor-grid">
 <article><h3>Current-model HR</h3><p><span id="clinical-compare-live-hr">—</span><small> /min</small></p></article>
 <article><h3>Candidate HR</h3><p><span id="clinical-compare-shadow-hr">—</span><small> /min</small></p></article>
@@ -201,6 +201,15 @@
 <article><h3>Candidate stroke volume</h3><p><span id="clinical-compare-shadow-sv">—</span><small> mL</small></p></article>
 <article><h3>Current-model SVR</h3><p><span id="clinical-compare-live-svr">—</span><small> mmHg·min/L</small></p></article>
 <article><h3>Candidate systemic peripheral resistance</h3><p><span id="clinical-compare-shadow-svr">—</span><small> mmHg·min/L</small></p></article>
+<article><h3>HumMod 2013 compensation HR</h3><p><span id="clinical-compare-hm2013-hr">—</span><small> /min</small></p></article>
+<article><h3>2013 chemoreceptor firing</h3><p><span id="clinical-compare-hm2013-chemo">—</span></p></article>
+<article><h3>2013 CNS chemoreflex effect</h3><p><span id="clinical-compare-hm2013-cns">—</span></p></article>
+<article><h3>2013 cardiac sympathetic</h3><p><span id="clinical-compare-hm2013-cardiac-symps">—</span><small> Hz</small></p></article>
+<article><h3>2013 adrenal sympathetic</h3><p><span id="clinical-compare-hm2013-adrenal-symps">—</span><small> Hz</small></p></article>
+<article><h3>2013 general sympathetic</h3><p><span id="clinical-compare-hm2013-general-symps">—</span><small> Hz</small></p></article>
+<article><h3>2013 norepinephrine</h3><p><span id="clinical-compare-hm2013-ne">—</span><small> pg/mL</small></p></article>
+<article><h3>2013 epinephrine</h3><p><span id="clinical-compare-hm2013-epi">—</span><small> pg/mL</small></p></article>
+<article><h3>2013 Beta1 effect</h3><p><span id="clinical-compare-hm2013-beta1">—</span></p></article>
 <article><h3>Myocardial contractility model</h3><p><span id="clinical-compare-myocardial-status">Not source-complete</span></p></article>\n<article><h3>Native physiology engine</h3><p><span id="clinical-native-engine-status">Not configured</span></p></article>
 </div>
 <p class="hint" id="clinical-compare-status">Candidate is non-canonical and has no live-patient control authority.</p>
