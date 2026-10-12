@@ -23,3 +23,5 @@ jobs:
           node-version: '22'
       - name: Expanded cardiovascular plant
         run: node test/v15_ursino_magosso_2000_expanded_plant_runtime.test.js
+      - name: Split systemic effectors
+        run: node test/v15_ursino_magosso_2000_split_effectors_runtime.test.js
