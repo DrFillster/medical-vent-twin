@@ -26,12 +26,27 @@ jobs:
       - name: Check audit schema
         if: always()
         run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(x.authority!=='source-reproduction-candidate-not-canonical'||x.source.figure!=='Fig. 11') process.exit(1)"
-      - name: Check early phase
+      - name: Check early HR falls
         if: always()
-        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.early.hr<x.baseline.hr&&x.early.map>x.baseline.map&&x.early.autoregulated>x.baseline.autoregulated&&x.early.remaining<x.baseline.remaining)) process.exit(1)"
-      - name: Check later reversal
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.early.hr<x.baseline.hr)) process.exit(1)"
+      - name: Check early MAP rises
         if: always()
-        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.later.hr>x.early.hr&&x.later.co>x.early.co&&x.later.remaining>x.early.remaining)) process.exit(1)"
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.early.map>x.baseline.map)) process.exit(1)"
+      - name: Check early autoregulated flow rises
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.early.autoregulated>x.baseline.autoregulated)) process.exit(1)"
+      - name: Check early remaining flow falls
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.early.remaining<x.baseline.remaining)) process.exit(1)"
+      - name: Check later HR reverses
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.later.hr>x.early.hr)) process.exit(1)"
+      - name: Check later CO reverses
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.later.co>x.early.co)) process.exit(1)"
+      - name: Check later remaining flow recovers
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.later.remaining>x.early.remaining)) process.exit(1)"
       - name: Check within-minute HR
         if: always()
         run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.withinMinute.hr>x.baseline.hr)) process.exit(1)"
