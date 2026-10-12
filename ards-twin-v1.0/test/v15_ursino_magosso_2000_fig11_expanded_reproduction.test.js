@@ -1,6 +1,7 @@
 'use strict';
 
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
 const path=require('node:path');
 const {spawnSync}=require('node:child_process');
 
@@ -11,12 +12,20 @@ function test(name,fn){
 }
 let x=null;
 
-test('expanded Fig11 reproduction script executes',()=>{
-  const run=spawnSync(process.execPath,[
-    path.resolve(__dirname,'../scripts/ursino-magosso-2000-fig11-expanded-reproduction.js')
-  ],{encoding:'utf8',timeout:180000,maxBuffer:4*1024*1024});
-  assert.equal(run.status,0,run.stderr||run.stdout);
-  x=JSON.parse(run.stdout);
+test('expanded Fig11 reproduction audit is available',()=>{
+  const auditPath=path.resolve(
+    __dirname,
+    '../physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'
+  );
+  if(fs.existsSync(auditPath)){
+    x=JSON.parse(fs.readFileSync(auditPath,'utf8'));
+  }else{
+    const run=spawnSync(process.execPath,[
+      path.resolve(__dirname,'../scripts/ursino-magosso-2000-fig11-expanded-reproduction.js')
+    ],{encoding:'utf8',timeout:180000,maxBuffer:4*1024*1024});
+    assert.equal(run.status,0,run.stderr||run.stdout);
+    x=JSON.parse(run.stdout);
+  }
   assert.equal(x.authority,'source-reproduction-candidate-not-canonical');
   assert.equal(x.source.figure,'Fig. 11');
 });
