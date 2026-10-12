@@ -25,15 +25,65 @@ function sample(s){
   };
 }
 
-function meanWindow(r,seconds){
-  const n=Math.round(seconds/DT),sum={map:0,hr:0,co:0,autoregulated:0,remaining:0};
-  for(let i=0;i<n;i++){
-    const x=sample(r.snapshot());
-    for(const k of Object.keys(sum)) sum[k]+=x[k];
-    r.step();
+function meanRows(rows){
+  const out={map:0,hr:0,co:0,autoregulated:0,remaining:0};
+  for(const r of rows){
+    for(const k of Object.keys(out)) out[k]+=r[k];
   }
-  for(const k of Object.keys(sum)) sum[k]/=n;
-  return sum;
+  for(const k of Object.keys(out)) out[k]/=rows.length;
+  return out;
+}
+
+function collectCompleteBeats(r,durationSec,environmentFn){
+  let elapsed=0;
+  let priorPhase=r.snapshot().vascularState.phase;
+  let inBeat=false;
+  let beatStart=0;
+  let sums=null;
+  let beatDuration=0;
+  const beats=[];
+
+  while(elapsed<durationSec-1e-12){
+    if(environmentFn) environmentFn(elapsed,r);
+
+    const s=r.snapshot();
+    const phase=s.vascularState.phase;
+    const wrapped=phase<priorPhase;
+
+    if(wrapped){
+      if(inBeat&&beatDuration>0){
+        const mean={};
+        for(const [k,v] of Object.entries(sums)) mean[k]=v/beatDuration;
+        beats.push({
+          startSec:beatStart,
+          endSec:elapsed,
+          midpointSec:(beatStart+elapsed)/2,
+          ...mean,
+        });
+      }
+      inBeat=true;
+      beatStart=elapsed;
+      sums={map:0,hr:0,co:0,autoregulated:0,remaining:0};
+      beatDuration=0;
+    }
+
+    if(inBeat){
+      const x=sample(s);
+      for(const k of Object.keys(sums)) sums[k]+=x[k]*DT;
+      beatDuration+=DT;
+    }
+
+    priorPhase=phase;
+    r.step();
+    elapsed+=DT;
+  }
+  return beats;
+}
+
+function pct(row,baseline){
+  const out={};
+  for(const k of Object.keys(row)) out[k]=100*(row[k]-baseline[k])/baseline[k];
+  return out;
 }
 
 function run(mode){
@@ -43,40 +93,48 @@ function run(mode){
     diagnosticLocalO2Mode:mode,
   });
   r.runFor(120);
-  const baseline=meanWindow(r,5);
 
-  const rampSteps=Math.round(10/DT);
-  let earlySum={map:0,hr:0,co:0,autoregulated:0,remaining:0},earlyN=0;
-  for(let i=0;i<rampSteps;i++){
-    const t=i*DT;
-    const pao2=95+(28-95)*(t/10);
-    r.setEnvironment({pao2MmHg:pao2,paco2MmHg:40});
-    const x=sample(r.snapshot());
-    if(t>=8){
-      for(const k of Object.keys(earlySum)) earlySum[k]+=x[k];
-      earlyN++;
+  const baselineBeats=collectCompleteBeats(r,10,null);
+  const baseline=meanRows(baselineBeats);
+
+  const challengeBeats=collectCompleteBeats(
+    r,10,
+    (elapsed,runtime)=>{
+      runtime.setEnvironment({
+        pao2MmHg:95+(28-95)*(elapsed/10),
+        paco2MmHg:40,
+      });
     }
-    r.step();
-  }
-  const early={};
-  for(const k of Object.keys(earlySum)) early[k]=earlySum[k]/earlyN;
+  );
 
-  const pct={};
-  for(const k of Object.keys(early)){
-    pct[k]=100*(early[k]-baseline[k])/baseline[k];
-  }
-  return {mode,baseline,early,pct};
+  const earlyBeats=challengeBeats.filter(
+    b=>b.midpointSec>=8&&b.midpointSec<=10
+  );
+  if(!earlyBeats.length) throw new Error('no complete beats in early 8-10 s window');
+  const early=meanRows(earlyBeats);
+
+  return {
+    mode,
+    baseline,
+    early,
+    pct:pct(early,baseline),
+    baselineBeatCount:baselineBeats.length,
+    earlyBeatCount:earlyBeats.length,
+    earlyBeats,
+  };
 }
 
 const source=run('source');
 const disabled=run('disabled');
+
 const out={
-  schema:'ursino-magosso-2000-local-o2-isolation/v1',
+  schema:'ursino-magosso-2000-local-o2-isolation/v2',
   authority:'diagnostic-source-component-only',
+  measurement:'complete-ventricular-cycle means',
   source,
   disabled,
   interpretation:{
-    question:'Does source local-O2 vascular control reverse the sign of the early SAP response in the current composition?',
+    question:'Does source local-O2 vascular control reverse the sign of the early beat-aligned SAP response in the current composition?',
     sourceEarlyMapPct:source.pct.map,
     disabledEarlyMapPct:disabled.pct.map,
   },
