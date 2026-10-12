@@ -288,8 +288,16 @@ function createUrsinoMagosso2000ExpandedPlantRuntime({
         leftAtrialPressureMmHg:state.Pla,
         heartPeriodSec:e.heartPeriodSec,
         heartRatePerMin:60/e.heartPeriodSec,
+        leftVentriclePressureMmHg:lv.ventricularPressureMmHg,
+        rightVentriclePressureMmHg:rv.ventricularPressureMmHg,
+        leftVentricleInflowMlPerSec:lv.inflowMlPerSec,
+        rightVentricleInflowMlPerSec:rv.inflowMlPerSec,
         leftVentricleOutflowMlPerSec:lv.outflowMlPerSec,
         rightVentricleOutflowMlPerSec:rv.outflowMlPerSec,
+        leftVentricleVolumeRateMlPerSec:
+          lv.inflowMlPerSec-lv.outflowMlPerSec,
+        rightVentricleVolumeRateMlPerSec:
+          rv.inflowMlPerSec-rv.outflowMlPerSec,
       }),
       conservation:Object.freeze({
         sourceTotalBloodVolumeMl:state.Vt,
