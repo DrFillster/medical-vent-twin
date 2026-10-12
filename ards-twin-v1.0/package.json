@@ -25,7 +25,8 @@
     "shimayoshi:import": "node scripts/import-shimayoshi-source-run.js",
     "test:physician-candidate-runtime": "node test/v15_physician_validation_candidate.test.js && node test/v15_physician_comparison_export.test.js && node test/v15_physician_candidate_browser_contract.test.js",
     "physiology:registry": "node scripts/summarize-physiology-registry.js",
-    "physiology:registry:exact": "node scripts/summarize-physiology-registry.js --exact"
+    "physiology:registry:exact": "node scripts/summarize-physiology-registry.js --exact",
+    "audit:physician-tachycardia": "node scripts/v15-physician-tachycardia-audit.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
