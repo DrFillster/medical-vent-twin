@@ -1,0 +1,30 @@
+name: v1.5 Normoxic Operating Point Diagnostic
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-normoxic-operating-point-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  normoxic-operating-point:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate normoxic operating point
+        run: node scripts/ursino-magosso-2000-normoxic-operating-point-audit.js
+      - name: Upload operating-point audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: normoxic-operating-point
+          path: ards-twin-v1.0/physician-audit-results/ursino-magosso-2000-normoxic-operating-point-audit.json
