@@ -56,6 +56,10 @@ test('source Brain-Fuel stress input propagates without arterial-gas shortcut',(
   assert(fuelStress.sympsCnsHz>baseline.sympsCnsHz);
   assert(fuelStress.catecholamines.epiPgPerMl>baseline.catecholamines.epiPgPerMl);
   assert(fuelStress.heartRatePerMin>baseline.heartRatePerMin);
+  assert(
+    fuelStress.heartRatePerMin>100,
+    'source-native Brain-Fuel stress must demonstrate a tachycardic candidate state >100/min'
+  );
 });
 
 test('explicit operator split converges across smaller timesteps',()=>{
