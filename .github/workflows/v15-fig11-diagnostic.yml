@@ -1,0 +1,40 @@
+name: v1.5 Fig11 Diagnostic
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-fig11-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  fig11-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate Fig11 trajectory
+        run: node scripts/ursino-magosso-2000-fig11-expanded-reproduction.js
+      - name: Check audit schema
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(x.authority!=='source-reproduction-candidate-not-canonical'||x.source.figure!=='Fig. 11') process.exit(1)"
+      - name: Check early phase
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.early.hr<x.baseline.hr&&x.early.map>x.baseline.map&&x.early.autoregulated>x.baseline.autoregulated&&x.early.remaining<x.baseline.remaining)) process.exit(1)"
+      - name: Check later reversal
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.later.hr>x.early.hr&&x.later.co>x.early.co&&x.later.remaining>x.early.remaining)) process.exit(1)"
+      - name: Check within-minute HR
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.withinMinute.hr>x.baseline.hr)) process.exit(1)"
+      - name: Check within-minute MAP
+        if: always()
+        run: node -e "const x=require('./physician-audit-results/ursino-magosso-2000-fig11-expanded-reproduction.json'); if(!(x.withinMinute.map>x.baseline.map)) process.exit(1)"
