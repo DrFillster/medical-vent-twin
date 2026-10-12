@@ -35,7 +35,8 @@
     "audit:brain-fuel-signal-gap": "node scripts/v15-brain-fuel-signal-gap-audit.js",
     "test:hummod-2013-chemoreflex-candidate": "node test/v15_hummod_2013_chemoreflex_sa_node_candidate.test.js && node scripts/hummod-2013-chemoreflex-sa-node-qualification.js",
     "test:hummod-2013-cardiopulmonary-compensation": "node test/v15_hummod_2013_cardiopulmonary_compensation_candidate.test.js && node scripts/hummod-2013-integrated-cardiopulmonary-compensation-audit.js",
-    "test:myocardial-decompensation-observer": "node test/v15_hummod_myocardial_decompensation_observer.test.js"
+    "test:myocardial-decompensation-observer": "node test/v15_hummod_myocardial_decompensation_observer.test.js",
+    "test:hummod-2013-physician-candidate": "node scripts/build.js && node test/v15_hummod_2013_chemoreflex_sa_node_candidate.test.js && node test/v15_hummod_2013_cardiopulmonary_compensation_candidate.test.js && node test/v15_hummod_2013_physician_comparison_live_invariance.test.js && node test/v15_physician_candidate_ui.test.js && node test/v15_physician_candidate_browser_contract.test.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
