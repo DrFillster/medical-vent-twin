@@ -8,12 +8,13 @@
  * I. A mathematical model. Am J Physiol Heart Circ Physiol.
  * 2000;279:H149-H165. doi:10.1152/ajpheart.2000.279.1.H149.
  *
- * IMPORTANT UNIT BOUNDARY:
+ * UNIT BRIDGE:
  * - Eq. 44 / Table 3 report arterial O2 concentration with C = 9 mmol/L.
- * - Eq. 43 defines venous O2 concentration in mL O2 / mL blood and combines
- *   it with Mdot/F where Mdot is mL O2/s and flow is mL blood/s.
- * - This module does NOT invent an implicit mmol/L -> mL/mL conversion.
- * - Therefore Eq. 43 is exposed only as a same-unit mass-balance primitive.
+ * - Eq. 43 uses mL O2 / mL blood with Mdot in mL O2/s and flow in mL blood/s.
+ * - A later whole-blood implementation of the same dissociation framework
+ *   states that mL O2/mL blood = 22.256 * mol/L whole-blood O2.
+ * - Therefore mmol/L -> mL O2/mL blood uses 0.022256.
+ * - This is a documented unit conversion, not a fitted physiologic gain.
  */
 
 const SOURCE=Object.freeze({
@@ -22,6 +23,13 @@ const SOURCE=Object.freeze({
   doi:'10.1152/ajpheart.2000.279.1.H149',
   equations:Object.freeze([43,44,45,46,47,48]),
   parameterTable:3,
+  unitBridge:Object.freeze({
+    citation:
+      'Dash RK, Bassingthwaighte JB. Blood HbO2 and HbCO2 dissociation curves at varied O2, CO2, pH, 2,3-DPG and temperature levels.',
+    conversion:'mL O2/mL blood = 22.256 * mol/L whole-blood O2',
+    mmolPerLToMlO2PerMlBlood:0.022256,
+    role:'unit-conversion-only',
+  }),
   authority:'candidate-not-canonical',
 });
 
@@ -84,6 +92,19 @@ function arterialO2ConcentrationMmolPerL({pao2MmHg,paco2MmHg=40}={}){
 // Eq. 43 expressed only for quantities already in one concentration system.
 // For the published mL O2/mL blood form, oxygenConsumptionPerSec must be
 // mL O2/s and bloodFlowPerSec must be mL blood/s.
+function mmolPerLToMlO2PerMlBlood(valueMmolPerL){
+  nonNegative(valueMmolPerL,'valueMmolPerL');
+  return valueMmolPerL*SOURCE.unitBridge.mmolPerLToMlO2PerMlBlood;
+}
+
+function arterialO2ConcentrationMlO2PerMlBlood({
+  pao2MmHg,paco2MmHg=40,
+}={}){
+  return mmolPerLToMlO2PerMlBlood(
+    arterialO2ConcentrationMmolPerL({pao2MmHg,paco2MmHg})
+  );
+}
+
 function venousO2ConcentrationSameUnits({
   arterialO2Concentration,
   oxygenConsumptionPerSec,
@@ -141,6 +162,8 @@ module.exports=Object.freeze({
   SOURCE,P,
   oxygenDissociationFactor,
   arterialO2ConcentrationMmolPerL,
+  mmolPerLToMlO2PerMlBlood,
+  arterialO2ConcentrationMlO2PerMlBlood,
   venousO2ConcentrationSameUnits,
   heartO2ConsumptionMlPerSec,
   instantaneousCardiacPumpPowerMmHgMlPerSec,
