@@ -78,6 +78,7 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
   tidalVolumeL=0.583,
   ventilationMode='external-delivered-vt',
   diagnosticLocalO2Mode='source',
+  diagnosticLocalO2EnabledBeds=null,
 }={}){
   positive(dtSec,'dtSec');
   nonNegative(pao2MmHg,'pao2MmHg');
@@ -91,6 +92,14 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
   }
   if(!['source','disabled'].includes(diagnosticLocalO2Mode)){
     throw new Error('unknown diagnosticLocalO2Mode: '+diagnosticLocalO2Mode);
+  }
+  const localO2Beds=diagnosticLocalO2Mode==='disabled'
+    ?new Set()
+    :new Set(diagnosticLocalO2EnabledBeds||['muscle','brain','heart']);
+  for(const bed of localO2Beds){
+    if(!['muscle','brain','heart'].includes(bed)){
+      throw new Error('unknown diagnostic local-O2 bed: '+bed);
+    }
   }
 
   const plant=createUrsinoMagosso2000ExpandedPlantRuntime({dtSec});
@@ -209,19 +218,18 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
         averagePumpPowerMmHgMlPerSec,
     });
 
-    const localO2Active=diagnosticLocalO2Mode==='source';
     plant.setEffectors({
       EmaxLv:reflex.absolute.EmaxLv,
       EmaxRv:reflex.absolute.EmaxRv,
       Rsp:reflex.absolute.Rsp,
       Rep:reflex.absolute.Rep,
-      Rmp:localO2Active
+      Rmp:localO2Beds.has('muscle')
         ?localState.resistanceMmHgSecPerMl.muscle
         :reflex.absolute.RmpNormal,
-      Rbp:localO2Active
+      Rbp:localO2Beds.has('brain')
         ?localState.resistanceMmHgSecPerMl.brain
         :VASCULAR.bp.R,
-      Rhp:localO2Active
+      Rhp:localO2Beds.has('heart')
         ?localState.resistanceMmHgSecPerMl.heart
         :VASCULAR.hp.R,
       Vusv:reflex.absolute.Vusv,
@@ -268,7 +276,9 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
       averagePumpPowerMmHgMlPerSec,
       diagnostic:Object.freeze({
         localO2Mode:diagnosticLocalO2Mode,
-        sourceCandidateBehavior:diagnosticLocalO2Mode==='source',
+        localO2EnabledBeds:Object.freeze([...localO2Beds]),
+        sourceCandidateBehavior:
+          diagnosticLocalO2Mode==='source'&&localO2Beds.size===3,
       }),
       conservation:p.conservation,
       authority:SOURCE.authority,
