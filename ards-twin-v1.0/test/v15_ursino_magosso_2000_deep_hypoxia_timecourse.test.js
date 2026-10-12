@@ -77,6 +77,9 @@ test('source validation mode never claims bedside ventilator authority',()=>{
   assert.equal(s.authority,'candidate-not-canonical');
   assert.equal(s.canonicalControlAuthority,false);
   assert.equal(s.ventilation.canonicalVentilatorAuthority,false);
+  assert.equal(s.protocolScope.spontaneousBreathing,true);
+  assert.equal(s.protocolScope.deliveredTidalVolumeOwnedByVent,false);
+  assert.equal(s.protocolScope.sourceVentilationOwnsValidationVT,true);
 });
 
 console.log(JSON.stringify({
