@@ -12,7 +12,7 @@ const {
   sourceTargets,
 }=require('../src/ursino_magosso_2000_split_effectors_candidate.js');
 const {
-  P:VASCULAR_P,
+  VASCULAR_2000,
 }=require('../src/ursino_magosso_2000_hypoxia_plant_parameters.js');
 
 function parallel(...rs){
@@ -53,8 +53,8 @@ function stateAt(pao2MmHg){
   // the reflex arm acts on splanchnic, remaining extrasplanchnic, and muscle.
   const totalPeripheralResistance=parallel(
     e.Rsp,e.Rep,e.RmpNormal,
-    VASCULAR_P.brain.R,
-    VASCULAR_P.heart.R
+    VASCULAR_2000.bp.R,
+    VASCULAR_2000.hp.R
   );
 
   return {
