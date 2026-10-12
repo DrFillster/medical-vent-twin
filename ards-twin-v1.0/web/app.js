@@ -40,6 +40,8 @@
   function requirePhysicianCandidateSnapshot(snapshot) {
     if (snapshot?.sessionSchema !== 'berlin-clinical-twin-live-hummod-session/v1') return;
     const candidate = snapshot?.systemic?.physicianComparison?.candidateModel;
+    const hummod2013 =
+      snapshot?.systemic?.physicianComparison?.hummod2013Compensation;
     const required = [
       'heartRatePerMin',
       'meanArterialPressureMmHg',
@@ -54,6 +56,13 @@
       if (typeof candidate[key] !== 'number' || !Number.isFinite(candidate[key])) {
         throw new Error('Physician validation candidate has invalid ' + key + '. Reload the current build before testing.');
       }
+    }
+    if (!hummod2013 ||
+        typeof hummod2013.heartRatePerMin !== 'number' ||
+        !Number.isFinite(hummod2013.heartRatePerMin)) {
+      throw new Error(
+        'HumMod 2013 compensation comparison missing or invalid. Reload the current build before testing.'
+      );
     }
   }
 
@@ -779,6 +788,7 @@
     const comparison = snapshot.systemic?.physicianComparison || {};
     const liveComparison = comparison.liveHumMod || {};
     const candidateComparison = comparison.candidateModel || {};
+    const hummod2013Comparison = comparison.hummod2013Compensation || {};
     const shadowComparison = comparison.publishedModelInterim || {};
     setShadow('clinical-compare-live-hr', liveComparison.heartRatePerMin, 0);
     setShadow('clinical-compare-shadow-hr', candidateComparison.heartRatePerMin, 0);
@@ -799,6 +809,24 @@
       liveComparison.systemicVascularResistanceMmHgMinPerL, 0);
     setShadow('clinical-compare-shadow-svr',
       candidateComparison.systemicPeripheralResistanceMmHgMinPerL, 0);
+    setShadow('clinical-compare-hm2013-hr',
+      hummod2013Comparison.heartRatePerMin, 0);
+    setShadow('clinical-compare-hm2013-chemo',
+      hummod2013Comparison.chemoreceptorFiringRate, 2);
+    setShadow('clinical-compare-hm2013-cns',
+      hummod2013Comparison.chemoCnsEffect, 2);
+    setShadow('clinical-compare-hm2013-cardiac-symps',
+      hummod2013Comparison.cardiacSympatheticHz, 2);
+    setShadow('clinical-compare-hm2013-adrenal-symps',
+      hummod2013Comparison.adrenalSympatheticHz, 2);
+    setShadow('clinical-compare-hm2013-general-symps',
+      hummod2013Comparison.generalSympatheticHz, 2);
+    setShadow('clinical-compare-hm2013-ne',
+      hummod2013Comparison.norepinephrinePgPerMl, 0);
+    setShadow('clinical-compare-hm2013-epi',
+      hummod2013Comparison.epinephrinePgPerMl, 0);
+    setShadow('clinical-compare-hm2013-beta1',
+      hummod2013Comparison.beta1Effect, 2);
     const myocardialStatus = $('clinical-compare-myocardial-status');
     if (myocardialStatus && shadowComparison.myocardialContractilityStatus) {
       myocardialStatus.textContent = shadowComparison.myocardialContractilityStatus;
