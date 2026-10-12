@@ -21,7 +21,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Build browser bundle
+        run: npm run build
       - name: Physician validation candidate adapter
         run: node test/v15_physician_validation_candidate.test.js
       - name: Live patient invariance
         run: node test/v15_physician_validation_live_invariance.test.js
+      - name: Physician candidate UI
+        run: node test/v15_physician_candidate_ui.test.js
