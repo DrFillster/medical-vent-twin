@@ -196,7 +196,8 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
       coronaryFlowMlPerSec:flows.heart,
       muscleFlowMlPerSec:flows.muscle,
       muscleNormalResistanceMmHgSecPerMl:reflex.absolute.RmpNormal,
-      averageCardiacPumpPowerMmHgMlPerSec,
+      averageCardiacPumpPowerMmHgMlPerSec:
+        averagePumpPowerMmHgMlPerSec,
     });
 
     plant.setEffectors({
