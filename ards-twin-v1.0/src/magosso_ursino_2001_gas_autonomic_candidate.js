@@ -7,6 +7,10 @@
  * Candidate only. No control authority.
  */
 
+const {
+  vagalFiring,
+}=require('./ursino_magosso_autonomic_shadow.js');
+
 const SOURCE=Object.freeze({
   citation:
     'Magosso E, Ursino M. A mathematical model of CO2 effect on cardiovascular regulation. Am J Physiol Heart Circ Physiol. 2001;281:H2036-H2052.',
@@ -154,6 +158,7 @@ function createMagossoUrsinoGasAutonomicCandidate(){
     fAcSpikesPerSec:null,
     thetaSp:null,thetaSv:null,thetaSh:null,
     fSpSpikesPerSec:null,fSvSpikesPerSec:null,fShSpikesPerSec:null,
+    fVSpikesPerSec:null,
     provenance:SOURCE,
   });
 
@@ -198,6 +203,15 @@ function createMagossoUrsinoGasAutonomicCandidate(){
     const fSp=sympatheticFiring({...common,channel:'p',thetaSpikesPerSec:theta.p});
     const fSv=sympatheticFiring({...common,channel:'v',thetaSpikesPerSec:theta.v});
     const fSh=sympatheticFiring({...common,channel:'h',thetaSpikesPerSec:theta.h});
+    // The 2001 extension adds CO2-aware f_ac and separated sympathetic
+    // channels. Cardiac vagal output retains the source 2000 Eq. 23 pathway:
+    // baroreceptor + chemoreceptor + pulmonary-stretch inputs, with no direct
+    // PaCO2-to-heart-rate term.
+    const fV=vagalFiring({
+      fAbSpikesPerSec,
+      fAcSpikesPerSec:fAc,
+      fApSpikesPerSec,
+    });
 
     state=Object.freeze({
       pao2MmHg,paco2MmHg,
@@ -217,6 +231,7 @@ function createMagossoUrsinoGasAutonomicCandidate(){
       fSpSpikesPerSec:fSp,
       fSvSpikesPerSec:fSv,
       fShSpikesPerSec:fSh,
+      fVSpikesPerSec:fV,
       authority:SOURCE.authority,
       provenance:SOURCE,
     });
