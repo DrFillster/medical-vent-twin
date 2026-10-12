@@ -147,6 +147,12 @@ function addedDeterioration(caseName,key){
   return intact[key]-results[caseName].percentChanges[key];
 }
 
+function absoluteEffect(caseName,key){
+  return Math.abs(
+    results[caseName].percentChanges[key]-intact[key]
+  );
+}
+
 const ordering={
   sapAddedDeteriorationPercentagePoints:{
     noVenousUnstressedVolume:addedDeterioration(
@@ -170,6 +176,28 @@ const ordering={
     ),
     noEmax:addedDeterioration('noEmax','cardiacOutputMlPerSec'),
   },
+  sapAbsoluteEffectPercentagePoints:{
+    noVenousUnstressedVolume:absoluteEffect(
+      'noVenousUnstressedVolume','sapMmHg'
+    ),
+    noPeripheralResistance:absoluteEffect(
+      'noPeripheralResistance','sapMmHg'
+    ),
+    noHeartPeriod:absoluteEffect('noHeartPeriod','sapMmHg'),
+    noEmax:absoluteEffect('noEmax','sapMmHg'),
+  },
+  coAbsoluteEffectPercentagePoints:{
+    noVenousUnstressedVolume:absoluteEffect(
+      'noVenousUnstressedVolume','cardiacOutputMlPerSec'
+    ),
+    noPeripheralResistance:absoluteEffect(
+      'noPeripheralResistance','cardiacOutputMlPerSec'
+    ),
+    noHeartPeriod:absoluteEffect(
+      'noHeartPeriod','cardiacOutputMlPerSec'
+    ),
+    noEmax:absoluteEffect('noEmax','cardiacOutputMlPerSec'),
+  },
 };
 
 const out={
@@ -185,7 +213,7 @@ const out={
   ordering,
   acceptance:{
     expected:'Venous unstressed-volume control has the largest early protective role for SAP and CO; resistance and heart-period controls are less important; Emax control is minor.',
-    comparisonRule:'For SAP and CO, added deterioration = intact percent change minus disabled-mechanism percent change. Positive values mean removal caused a more negative response. Absolute distance is invalid because resistance control can reduce CO through increased afterload.',
+    comparisonRule:'Use directional added deterioration to assess protection of SAP/CO. Use absolute effect magnitude to assess whether an effector has only a minor role. These are distinct because resistance control can reduce CO through increased afterload.',
     quantitative:'UNASSESSED pending reproducible digitization of primary-source Fig. 9 bars.',
   },
 };
