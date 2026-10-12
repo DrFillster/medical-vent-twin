@@ -71,10 +71,28 @@ printf '%s\n' "$published_sha" > "$WEB_REL/DEPLOY_SOURCE_SHA.txt"
 
 if [ "$INSTALL_SERVICES" = "1" ]; then
   bash .deploy/install-preview-sync-launchd.sh
+
+  local_ok=0
+  for attempt in $(seq 1 20); do
+    index_code=$(curl -L -sS -o /tmp/v15-origin-index.html -w '%{http_code}' --max-time 5 http://127.0.0.1:8770/ || printf '000')
+    source_code=$(curl -L -sS -o /tmp/v15-origin-source.txt -w '%{http_code}' --max-time 5 http://127.0.0.1:8770/DEPLOY_SOURCE_SHA.txt || printf '000')
+    live_sha=$(tr -d '\r\n' < /tmp/v15-origin-source.txt 2>/dev/null || true)
+    if [ "$index_code" = "200" ] && [ "$source_code" = "200" ] && [ "$live_sha" = "$published_sha" ] && grep -q "Live model vs candidate model" /tmp/v15-origin-index.html; then
+      local_ok=1
+      break
+    fi
+    sleep 1
+  done
+  rm -f /tmp/v15-origin-index.html /tmp/v15-origin-source.txt
+  if [ "$local_ok" != "1" ]; then
+    echo "v15-migrate: local origin did not verify expected physician-preview content at $published_sha" >&2
+    exit 5
+  fi
 else
   echo "v15-migrate: service installation skipped by MIGRATE_INSTALL_SERVICES=$INSTALL_SERVICES"
 fi
 
 echo "v15-migrate: branch=$(git branch --show-current)"
 echo "v15-migrate: sha=$published_sha"
+echo "v15-migrate: local-origin-verified=$INSTALL_SERVICES"
 echo "v15-migrate: origin=http://127.0.0.1:8770/"
