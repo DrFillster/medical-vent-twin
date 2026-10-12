@@ -1,0 +1,33 @@
+name: v1.5 Basal Autonomic Operating Point
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-basal-autonomic-operating-point.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  basal-autonomic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate basal autonomic audit
+        run: node scripts/ursino-magosso-2000-basal-autonomic-operating-point.js
+      - name: Basal autonomic assertions
+        run: node test/v15_ursino_magosso_2000_basal_autonomic_operating_point.test.js
+      - name: Upload basal autonomic audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basal-autonomic-operating-point
+          path: ards-twin-v1.0/physician-audit-results/ursino-magosso-2000-basal-autonomic-operating-point.json
