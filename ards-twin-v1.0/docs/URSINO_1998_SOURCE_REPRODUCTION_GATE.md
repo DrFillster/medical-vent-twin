@@ -131,6 +131,49 @@ This narrows the remaining source-reproduction risk to:
 
 Do not change a verified source parameter to improve agreement with Fig. 9.
 
+## Primary-source equation-structure audit
+
+The current implementation was checked against the Appendix equation structure.
+
+### Vascular equations
+- Eqs. 1-4: pulmonary arterial, peripheral, and venous mass/force balances match the implemented `Ppa/Fpa/Ppp/Ppv` derivatives.
+- Eqs. 5-8: systemic arterial, peripheral, and extrasplanchnic venous equations match the implemented `Psa/Fsa/Psp/Pev` derivatives.
+- Eq. 8 includes the required `-dVuev/dt` term.
+- Eqs. 9-10: splanchnic venous pressure is closed from total blood volume minus stressed and unstressed volumes. The implementation substitutes the controlled splanchnic/extrasplanchnic venous unstressed-volume states in the total unstressed-volume sum.
+- Eq. 11: the source permits total blood volume to change through an injection/withdrawal rate. The hemorrhage harness approximates the source 5-s withdrawal with 2-ms incremental volume removal.
+
+### Cardiac equations
+- Eqs. 12-18: left atrial mass balance, ideal AV valve, LV mass balance, ideal aortic valve, pressure-dependent ventricular viscous resistance, instantaneous LV pressure, and time-varying isometric pressure are represented.
+- Eqs. 19-22: squared half-sine activation, integrate-and-fire cardiac phase, and rate-dependent systolic duration are represented.
+- Eqs. 23-29: the corresponding right-heart equations are represented.
+
+### Baroreflex equations
+- Eq. 30: the implemented filtered pressure contains the source derivative term `tau_z * dPsa/dt`; this term must not be dropped.
+- Eq. 31: afferent carotid firing uses the source sigmoidal function.
+- In closed loop, the source sets carotid sinus pressure equal to systemic arterial pressure; the candidate does the same.
+- Eqs. 33-34: sympathetic exponential and vagal sigmoidal efferent mappings are represented.
+- Eqs. 35-37: sympathetic effector latency, logarithmic static mapping, first-order dynamics, and baseline offset are represented.
+- Eqs. 38-42: sympathetic and vagal heart-period pathways and their additive heart-period combination are represented.
+
+### Resistance quantity used for Fig. 9
+
+The Fig. 9 caption identifies `R` as **peripheral systemic resistance**. For this model, splanchnic and extrasplanchnic peripheral beds are parallel. The source-reproduction harness therefore uses the parallel equivalent of `Rsp` and `Rep`.
+
+It does **not**:
+- substitute MAP/CO;
+- add systemic arterial resistance;
+- add venous resistance.
+
+### Remaining implementation-level uncertainty
+
+No structural equation mismatch has been identified in this audit. Remaining implementation questions are narrower:
+1. exact handling of delayed neural values inside Runge-Kutta substeps;
+2. the small discrete approximation used for Eq. 11 during hemorrhage;
+3. whether the source's 20-s stationary mean was collected immediately after the 80-s evaluation point or over a window ending at that point;
+4. exact Fig. 9 model-bar extraction.
+
+The demonstrated step-size convergence makes a large fixed-step integration error unlikely, but it does not replace source-figure reproduction.
+
 ## Numerical convergence check
 
 The corrected source-protocol challenge was repeated without changing physiology at three fixed RK4 step sizes:
