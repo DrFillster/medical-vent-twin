@@ -2,8 +2,8 @@
 'use strict';
 
 const {
-  createGasCardiovascularClosedLoopCandidate,
-}=require('../src/ursino_magosso_gas_closed_loop_candidate.js');
+  createUrsinoMagosso2000ExpandedHypoxiaClosedLoop,
+}=require('../src/ursino_magosso_2000_expanded_hypoxia_closed_loop.js');
 const {
   standardPo2FromSaturation,
 }=require('../src/severinghaus_1979_standard_odc_candidate.js');
@@ -27,7 +27,7 @@ function meanWindow(r,seconds=10){
 const baselinePaO2MmHg=standardPo2FromSaturation(0.97);
 const hypoxicPaO2MmHg=standardPo2FromSaturation(0.84);
 
-const r=createGasCardiovascularClosedLoopCandidate({
+const r=createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
   dtSec:DT,
   pao2MmHg:baselinePaO2MmHg,
   paco2MmHg:40,
