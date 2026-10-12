@@ -1,0 +1,31 @@
+name: v1.5 Origin Diagnostic
+
+on:
+  push:
+    branches: [v1.5]
+    paths:
+      - '.github/workflows/v15-origin-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe public origin
+        shell: bash
+        run: |
+          set +e
+          BASE="https://hummod.defying-logic.com"
+          for path in             "/"             "/ards-twin-v1.3-preview/web/"             "/ards-twin-v1.3-preview/web/DEPLOY_SOURCE_SHA.txt"             "/ards-twin-v1.5-preview/web/"             "/ards-twin-v1.5-preview/web/DEPLOY_SOURCE_SHA.txt"
+          do
+            url="$BASE$path"
+            code=$(curl -L -sS -o /tmp/body -w '%{http_code}' --max-time 20 "$url")
+            printf '%s -> %s\n' "$path" "$code"
+            if [ -s /tmp/body ]; then
+              head -c 300 /tmp/body | tr '\n' ' '
+              printf '\n'
+            fi
+          done
