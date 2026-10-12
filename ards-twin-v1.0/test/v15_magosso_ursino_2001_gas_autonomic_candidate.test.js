@@ -55,11 +55,33 @@ test('dynamic candidate exposes distinct cardiac, vascular, and venous channels'
     dtSec:1,pao2MmHg:60,paco2MmHg:50,
     fAbSpikesPerSec:25,fApSpikesPerSec:10,
   });
-  for(const k of ['fSpSpikesPerSec','fSvSpikesPerSec','fShSpikesPerSec']){
+  for(const k of ['fSpSpikesPerSec','fSvSpikesPerSec','fShSpikesPerSec','fVSpikesPerSec']){
     assert(Number.isFinite(s[k]),k+' missing');
   }
   assert.equal(s.authority,'candidate-not-canonical');
 });
+
+test('hypercapnia changes vagal output only through the source chemoreceptor pathway',()=>{
+  const norm=createMagossoUrsinoGasAutonomicCandidate();
+  const hyper=createMagossoUrsinoGasAutonomicCandidate();
+
+  let a,b;
+  for(let i=0;i<20;i++){
+    a=norm.step({
+      dtSec:1,pao2MmHg:90,paco2MmHg:40,
+      fAbSpikesPerSec:25,fApSpikesPerSec:10,
+    });
+    b=hyper.step({
+      dtSec:1,pao2MmHg:90,paco2MmHg:50,
+      fAbSpikesPerSec:25,fApSpikesPerSec:10,
+    });
+  }
+
+  assert(b.fAcSpikesPerSec>a.fAcSpikesPerSec);
+  assert(b.fVSpikesPerSec>a.fVSpikesPerSec);
+  assert(Number.isFinite(b.fVSpikesPerSec));
+});
+
 
 test('hypercapnia drives direct CNS cardiac CO2 offset with source gain',()=>{
   const c=createMagossoUrsinoGasAutonomicCandidate();
