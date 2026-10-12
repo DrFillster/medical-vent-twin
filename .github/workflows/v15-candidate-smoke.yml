@@ -31,12 +31,22 @@ jobs:
         run: node test/v15_gas_cardiovascular_candidate.test.js
       - name: Gas-cardiovascular recovery and convergence
         run: node test/v15_gas_cardiovascular_recovery_convergence.test.js
+      - name: 2000 split effector runtime
+        run: node test/v15_ursino_magosso_2000_split_effectors_runtime.test.js
+      - name: 2000 expanded plant runtime
+        run: node test/v15_ursino_magosso_2000_expanded_plant_runtime.test.js
+      - name: 2000 local O2 candidate
+        run: node test/v15_ursino_magosso_2000_local_o2_candidate.test.js
+      - name: 2000 expanded hypoxia closed loop
+        run: node test/v15_ursino_magosso_2000_expanded_hypoxia_closed_loop.test.js
       - name: Source hypoxia tidal-volume candidate
         run: node test/v15_ursino_magosso_2000_tidal_volume_candidate.test.js
       - name: Source deep-hypoxia time-course gate
         run: node test/v15_ursino_magosso_2000_deep_hypoxia_timecourse.test.js
       - name: External gas trajectory gate
         run: node test/v15_gas_external_validation_matrix.test.js
+      - name: Houssiere 2005 hypoxia validation
+        run: node test/v15_houssiere_2005_hypoxia_validation.test.js
       - name: Human autonomic validation smoke
         run: node test/v15_human_autonomic_validation_smoke.test.js
       - name: Ursino Fig9 sensitivity gate
