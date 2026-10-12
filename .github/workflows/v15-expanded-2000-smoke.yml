@@ -21,6 +21,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Primary Eq23 autonomic transcription
+        run: node test/ursino_magosso_autonomic_shadow.test.js
       - name: Split effector runtime
         run: node test/v15_ursino_magosso_2000_split_effectors_runtime.test.js
       - name: Expanded plant runtime
