@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Severinghaus standard ODC candidate
+        run: node test/v15_severinghaus_1979_standard_odc_candidate.test.js
       - name: Gas-autonomic promotion parity
         run: node test/v15_gas_autonomic_candidate_promotion_parity.test.js
       - name: Gas-cardiovascular perturbation gate
