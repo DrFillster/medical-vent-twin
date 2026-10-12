@@ -502,6 +502,31 @@ function createBerlinLiveHumModSession({
     return physicianHumMod2013CompensationState;
   }
 
+  function physicianHumMod2013ComparisonView() {
+    const s=physicianHumMod2013CompensationState;
+    if (!s || !Number.isFinite(s.heartRatePerMin)) return null;
+    return Object.freeze({
+      heartRatePerMin:s.heartRatePerMin,
+      chemoreceptorFiringRate:s.chemoreceptor?.firingRate ?? null,
+      chemoreceptorPo2Effect:s.chemoreceptor?.po2Effect ?? null,
+      chemoreceptorPhEffect:s.chemoreceptor?.phEffect ?? null,
+      chemoCnsEffect:s.chemoreceptorsCns?.effect ?? null,
+      cardiacSympatheticHz:s.sympathetic?.cardiacHz ?? null,
+      adrenalSympatheticHz:s.sympathetic?.adrenalHz ?? null,
+      generalSympatheticHz:s.sympathetic?.generalHz ?? null,
+      epinephrinePgPerMl:s.catecholamines?.epiPgPerMl ?? null,
+      norepinephrinePgPerMl:s.catecholamines?.nePgPerMl ?? null,
+      beta1Effect:s.catecholamines?.beta1Effect ?? null,
+      authority:s.authority,
+      controlAuthority:false,
+      status:
+        'Parallel HumMod 2012/2013 chemoreflex compensation candidate; live arterial PO2 and pH inputs; no live-patient control authority',
+      limitation:
+        'Compensation mechanism only; myocardial depression and conduction failure are not included in this comparison channel',
+      provenance:s.provenance ?? null,
+    });
+  }
+
   function patientTimeSec() {
     return Math.max(0, systemicSnapshot.timeSec - patientTimeOriginSec);
   }
@@ -571,6 +596,7 @@ function createBerlinLiveHumModSession({
                 'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
             })
           : null,
+        hummod2013Compensation: physicianHumMod2013ComparisonView(),
         publishedModelInterim: Object.freeze({
           heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
           meanArterialPressureMmHg: null,
@@ -667,6 +693,7 @@ function createBerlinLiveHumModSession({
                 'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
             })
           : null,
+        hummod2013Compensation: physicianHumMod2013ComparisonView(),
         publishedModelInterim: Object.freeze({
           heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
           meanArterialPressureMmHg: null,
