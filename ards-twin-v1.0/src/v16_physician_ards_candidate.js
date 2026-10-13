@@ -25,6 +25,12 @@ const {
 const {
   createV16IntegratedArdsCardiopulmonaryCandidate,
 }=require('./v16_integrated_ards_cardiopulmonary_candidate.js');
+const {
+  createReferenceAnchoredAlveolarVolumeAdapter,
+}=require('./v16_reference_anchored_alveolar_volume_adapter.js');
+const {
+  createVentKaramolegkosPressureCoordinateAdapter,
+}=require('./v16_vent_karamolegkos_pressure_coordinate_adapter.js');
 
 const SOURCE=Object.freeze({
   role:'physician-facing persistent ARDS composition harness',
@@ -72,13 +78,17 @@ function createV16PhysicianArdsCandidate({
   initialRecruitmentState,
   ventilatorSettings,
   anatomicalShuntFraction,
+  anatomicalShuntProvenance,
+  referenceAbsoluteAlveolarVolumeL,
+  referenceAbsoluteAlveolarVolumeProvenance,
+  referencePleuralPressureCmH2O,
+  referencePleuralPressureProvenance,
   excessLungWaterMl,
   blood,
   metabolism,
   environment,
   dtSec=0.002,
-  pulmonaryVascularInitialState,
-  pulmonaryVascularInitialStateProvenance,
+  pulmonaryVascularInitialState=null,
   deadSpaceBtpsMlProvider=null,
   averagingWindowSec=1,
 }={}){
@@ -86,22 +96,38 @@ function createV16PhysicianArdsCandidate({
   if(!initialRecruitmentState) throw new Error('initialRecruitmentState is required');
   validateVcSettings(ventilatorSettings);
   fraction(anatomicalShuntFraction,'anatomicalShuntFraction');
+  if(!anatomicalShuntProvenance ||
+     anatomicalShuntProvenance.sourceQualified!==true){
+    throw new Error(
+      'anatomicalShuntProvenance.sourceQualified=true is required'
+    );
+  }
+  positive(
+    referenceAbsoluteAlveolarVolumeL,
+    'referenceAbsoluteAlveolarVolumeL'
+  );
+  if(!referenceAbsoluteAlveolarVolumeProvenance ||
+     referenceAbsoluteAlveolarVolumeProvenance.sourceQualified!==true){
+    throw new Error(
+      'referenceAbsoluteAlveolarVolumeProvenance.sourceQualified=true is required'
+    );
+  }
+  finite(
+    referencePleuralPressureCmH2O,
+    'referencePleuralPressureCmH2O'
+  );
+  if(!referencePleuralPressureProvenance ||
+     referencePleuralPressureProvenance.sourceQualified!==true){
+    throw new Error(
+      'referencePleuralPressureProvenance.sourceQualified=true is required'
+    );
+  }
   nonNegative(excessLungWaterMl,'excessLungWaterMl');
   if(!blood||!metabolism||!environment){
     throw new Error('blood, metabolism, and environment are required');
   }
   positive(dtSec,'dtSec');
   positive(averagingWindowSec,'averagingWindowSec');
-  if(!pulmonaryVascularInitialState){
-    throw new Error('pulmonaryVascularInitialState is required');
-  }
-  if(!pulmonaryVascularInitialStateProvenance ||
-     pulmonaryVascularInitialStateProvenance.sourceQualified!==true){
-    throw new Error(
-      'pulmonaryVascularInitialStateProvenance.sourceQualified=true is required'
-    );
-  }
-
   const controller=new VcAcController({...ventilatorSettings});
   const simulation=new Simulation({
     params:patientParams,
@@ -113,11 +139,33 @@ function createV16PhysicianArdsCandidate({
     initialRecruitmentState,
   });
 
+  const alveolarVolumeAdapter=
+    createReferenceAnchoredAlveolarVolumeAdapter({
+      simulation,
+      referenceAbsoluteAlveolarVolumeL,
+      referenceProvenance:
+        referenceAbsoluteAlveolarVolumeProvenance,
+    });
+
+  const pulmonaryCoordinateAdapter=
+    createVentKaramolegkosPressureCoordinateAdapter({
+      alveolarVolumeAdapter,
+      referencePleuralPressureCmH2O,
+      passivePatient:true,
+      referenceProvenance:
+        referencePleuralPressureProvenance,
+    });
+
   const integrated=createV16IntegratedArdsCardiopulmonaryCandidate({
     simulation,
     dtSec,
     pulmonaryVascularInitialState,
-    pulmonaryShuntFractionProvider:()=>anatomicalShuntFraction,
+    pulmonaryCoordinateAdapter,
+    pulmonaryShuntFractionProvider:()=>Object.freeze({
+      sourceQualified:true,
+      shuntFraction:anatomicalShuntFraction,
+      provenance:Object.freeze({...anatomicalShuntProvenance}),
+    }),
     blood,
     metabolism,
     environment,
@@ -354,8 +402,17 @@ function createV16PhysicianArdsCandidate({
       interventions:Object.freeze([...simulation.interventions]),
       measurements:Object.freeze([...simulation.measurements]),
       ownership:lastIntegrated.ownership??null,
-      pulmonaryVascularInitialStateProvenance:
-        Object.freeze({...pulmonaryVascularInitialStateProvenance}),
+      pulmonaryReferenceState:Object.freeze({
+        absoluteAlveolarVolumeL:referenceAbsoluteAlveolarVolumeL,
+        referencePleuralPressureCmH2O,
+        anatomicalShuntFraction,
+        absoluteAlveolarVolumeProvenance:
+          Object.freeze({...referenceAbsoluteAlveolarVolumeProvenance}),
+        pleuralPressureProvenance:
+          Object.freeze({...referencePleuralPressureProvenance}),
+        anatomicalShuntProvenance:
+          Object.freeze({...anatomicalShuntProvenance}),
+      }),
       provenance:SOURCE,
     });
   }
