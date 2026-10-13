@@ -55,16 +55,17 @@
   ],
   "current_ards_candidate": {
     "module": "ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js",
-    "status": "candidate-only",
+    "status": "candidate-only-green-focused-gate",
+    "focused_workflow": ".github/workflows/v16-ards-candidate.yml",
+    "last_green_workflow_run": "38333451380",
     "mechanics_owner": "Vent",
     "cardiovascular_owner": "Ursino/Magosso source-family candidate",
     "pulmonary_vascular_owner": "Karamolegkos source-family candidate",
-    "gas_equations": "HumMod source-aligned",
-    "pulmonary_perfusion_contract": "Karamolegkos runtime export; source-qualified upstream pulmonary mechanics coordinates required",
-    "synthetic_vq_shortcut_allowed": false,
-    "absolute_alveolar_volume_bridge_status": "blocked pending source-validated Vent-compatible coordinate",
-    "focused_workflow": ".github/workflows/v16-ards-candidate.yml",
-    "last_known_integrated_test_step": "success in workflow 38332342937; workflow cleanup was still finishing at metadata update"
+    "arterial_oxygen_owner": "Vent regional ventilation + Das/Marshall regional HPV/perfusion + Karamolegkos anatomical shunt + HumMod blood-O2/delay",
+    "carbon_dioxide_ph_owner": "HumMod source-aligned gas core",
+    "legacy_vent_perfusion_metadata_used": false,
+    "absolute_alveolar_volume_bridge_status": "still blocked pending source-validated Vent-compatible V_A/P_A/P_pl coordinate",
+    "synthetic_vq_shortcut_allowed": false
   },
   "myocardial_state": {
     "strategy": "derive myocardial pHi from upstream source states; no manually supplied pHi",
