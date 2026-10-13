@@ -127,15 +127,22 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
             'pulmonaryCoordinateAdapter must return source-qualified coordinates'
           );
         }
+        const shuntState=pulmonaryShuntFractionProvider({
+          timeSec:pvTimeSec,
+          simulation,
+          cardiovascular:cvSnapshot,
+          previousPulmonary:previous,
+          previousGas:gasSnapshot,
+          coordinate,
+        });
+        if(!shuntState||typeof shuntState!=='object'||
+           shuntState.sourceQualified!==true){
+          throw new Error(
+            'pulmonaryShuntFractionProvider must return a source-qualified case state'
+          );
+        }
         const shuntFraction=finite(
-          pulmonaryShuntFractionProvider({
-            timeSec:pvTimeSec,
-            simulation,
-            cardiovascular:cvSnapshot,
-            previousPulmonary:previous,
-            previousGas:gasSnapshot,
-            coordinate,
-          }),
+          shuntState.shuntFraction,
           'pulmonary shunt fraction'
         );
         if(shuntFraction<0||shuntFraction>=1){
@@ -147,6 +154,9 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
           alveolarPressureMmHg:coordinate.alveolarPressureMmHg,
           pleuralPressureMmHg:coordinate.pleuralPressureMmHg,
           shuntFraction,
+          shuntProvenance:Object.freeze({
+            ...(shuntState.provenance||{}),
+          }),
           coordinateSnapshot:coordinate,
         });
       }
