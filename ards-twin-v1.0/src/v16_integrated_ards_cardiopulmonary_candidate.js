@@ -24,9 +24,6 @@ const {
   createV15IntegratedCardiopulmonaryCandidate,
 }=require('./v15_integrated_cardiopulmonary_candidate.js');
 const {
-  createV16PulmonaryCoordinateRuntime,
-}=require('./v16_albanese_karamolegkos_pulmonary_coordinate_runtime.js');
-const {
   createV16KaramolegkosPulmonaryVascularRuntime,
 }=require('./v16_karamolegkos_pulmonary_vascular_runtime.js');
 const {
@@ -60,6 +57,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
   dtSec=0.002,
   pulmonaryVascularInitialState,
   pulmonaryMechanicsBoundaryProvider=null,
+  pulmonaryCoordinateAdapter=null,
   pulmonaryShuntFractionProvider=null,
   blood,
   metabolism,
@@ -75,11 +73,18 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
      typeof pulmonaryMechanicsBoundaryProvider!=='function'){
     throw new Error('pulmonaryMechanicsBoundaryProvider must be a function or null');
   }
-  if(pulmonaryMechanicsBoundaryProvider==null &&
-     typeof pulmonaryShuntFractionProvider!=='function'){
-    throw new Error(
-      'pulmonaryShuntFractionProvider is required when using the internal source-coordinate runtime'
-    );
+  if(pulmonaryMechanicsBoundaryProvider==null){
+    if(!pulmonaryCoordinateAdapter ||
+       typeof pulmonaryCoordinateAdapter.snapshot!=='function'){
+      throw new Error(
+        'pulmonaryCoordinateAdapter.snapshot is required when no explicit pulmonaryMechanicsBoundaryProvider is supplied'
+      );
+    }
+    if(typeof pulmonaryShuntFractionProvider!=='function'){
+      throw new Error(
+        'pulmonaryShuntFractionProvider is required with pulmonaryCoordinateAdapter'
+      );
+    }
   }
 
   const cv=createV15IntegratedCardiopulmonaryCandidate({
@@ -95,17 +100,6 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
   let regionalO2Snapshot=null;
   let last=null;
   let timeSec=0;
-
-  const coordinateRuntime=
-    pulmonaryMechanicsBoundaryProvider==null
-      ?createV16PulmonaryCoordinateRuntime({
-        dtSec:0.0005,
-        airwayOpeningPressureProvider:()=>finite(
-          simulation.state?.airwayPressure,
-          'simulation.state.airwayPressure'
-        ),
-      })
-      :null;
 
   const pulmonary=createV16KaramolegkosPulmonaryVascularRuntime({
     dtSec,
@@ -127,7 +121,12 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
           );
         }
       }else{
-        const coordinate=coordinateRuntime.runFor(dtSec);
+        const coordinate=pulmonaryCoordinateAdapter.snapshot();
+        if(!coordinate||coordinate.sourceQualified!==true){
+          throw new Error(
+            'pulmonaryCoordinateAdapter must return source-qualified coordinates'
+          );
+        }
         const shuntFraction=finite(
           pulmonaryShuntFractionProvider({
             timeSec:pvTimeSec,
@@ -143,7 +142,10 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
           throw new Error('pulmonary shunt fraction must be in [0,1)');
         }
         mechanics=Object.freeze({
-          ...coordinate.pulmonaryVascularBoundary,
+          sourceQualified:true,
+          alveolarVolumeL:coordinate.alveolarVolumeL,
+          alveolarPressureMmHg:coordinate.alveolarPressureMmHg,
+          pleuralPressureMmHg:coordinate.pleuralPressureMmHg,
           shuntFraction,
           coordinateSnapshot:coordinate,
         });
@@ -255,7 +257,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
         pulmonaryMechanicsCoordinate:
           pulmonaryMechanicsBoundaryProvider
             ?'external-source-qualified-boundary'
-            :'Vent airway pressure -> Albanese/Karamolegkos source-coordinate runtime',
+            :'reference-anchored Vent delta-volume + passive Albanese/Karamolegkos A34/A40 coordinate adapter',
       }),
       unresolvedBoundary:Object.freeze({
         shuntFraction:
