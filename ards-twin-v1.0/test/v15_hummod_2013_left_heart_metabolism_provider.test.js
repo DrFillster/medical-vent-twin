@@ -7,6 +7,7 @@ const {
   WORK_HEAT_CALS_PER_MIN,
   WORK_TOTAL_CALS_PER_MIN,
   CAL_TO_O2_ML_PER_CAL,
+  O2_TO_CAL_PER_ML,
   leftHeartO2Demand2013,
 }=require('../src/hummod_2013_left_heart_metabolism_provider.js');
 
@@ -26,6 +27,7 @@ test('source metabolic and work constants are preserved',()=>{
   near(WORK_HEAT_CALS_PER_MIN,87);
   near(WORK_TOTAL_CALS_PER_MIN,111);
   near(CAL_TO_O2_ML_PER_CAL,0.2093);
+  near(O2_TO_CAL_PER_ML,4.778);
 });
 
 test('neutral modifiers preserve exact source algebra',()=>{
