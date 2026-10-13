@@ -1,0 +1,27 @@
+name: v1.6 Governance Consistency
+
+on:
+  push:
+    branches: [v1.6]
+    paths:
+      - 'START_HERE.md'
+      - 'candidate-state.json'
+      - 'AGENTS.md'
+      - 'ards-twin-v1.0/HANDOFF.md'
+      - 'ards-twin-v1.0/test/v16_governance_consistency.test.js'
+      - '.github/workflows/v16-governance-consistency.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify project recovery state consistency
+        run: node ards-twin-v1.0/test/v16_governance_consistency.test.js
