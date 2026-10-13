@@ -6,7 +6,6 @@ const REQUIRED_FIELDS=Object.freeze([
   'pressureGradientMmHg',
   'alphaReceptorActivity',
   'adhPoolLog10Conc',
-  'noPoolConcentration',
   'o2NeedMlPerMin',
   'viscosityConductanceEffect',
   'anesthesiaVascularConductance',
@@ -53,11 +52,6 @@ const PROVIDERS=Object.freeze({
     status:STATUS.SOURCE_PRIMITIVE_NOT_LIVE,
     provider:'hummod_adh_source_aligned',
     note:'ADH storage/secretion/pool primitives exist; osmolality, pituitary neural drive and clearance providers are not live-coupled',
-  }),
-  noPoolConcentration:Object.freeze({
-    status:STATUS.BLOCKED,
-    provider:'NOPool.[NO--]',
-    note:'2012 LeftHeart-Flow requires NOPool concentration; upstream NO-production provenance is unresolved because the inspected mirror contains a 2025 VascularEndothelium implementation',
   }),
   o2NeedMlPerMin:Object.freeze({
     status:STATUS.SOURCE_PRIMITIVE_NOT_LIVE,
