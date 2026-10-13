@@ -850,3 +850,23 @@ Systemic lactate focused gate has been committed and is pending at this checkpoi
 Myocardial-pHi architecture consequence:
 - intracellular K is no longer blocked on a missing KCell equation/runtime; it is blocked one layer upstream on live KPool/aldosterone/cell-water state;
 - systemic lactate concentration is no longer blocked on a missing LacPool equation/runtime; it is blocked one layer upstream on the full organ lactate-outflow network and live ECFV.
+
+
+### v1.6 checkpoint — LV liquid volume green; nine-state upstream composer added
+
+LV liquid-volume implementation:
+- added `src/hummod_2013_left_heart_liquid_volume_runtime.js`;
+- preserves the source initialization-derived left-heart fraction of total tissue water;
+- current LV liquid volume is derived only from live whole-body interstitial + cell-water volumes;
+- no frozen initial LV liquid-volume substitution is used.
+
+Validation:
+- focused workflow run `38330636489` completed **SUCCESS**;
+- prior myocardial-pHi, chemistry, coronary/O2, KCell, and systemic-lactate gates remained green.
+
+Composition layer:
+- added `src/v16_myocardial_upstream_runtime.js`;
+- composes live gas SID/HCO3, integrated coronary flow/O2 use, source zero anaerobic glucose use, persistent KCell-derived intracellular K, persistent LV-water-derived liquid volume, and persistent systemic LacPool concentration into the nine-input myocardial acid-base boundary;
+- myocardial lactate use remains the only direct myocardial input at this composition layer because its HumMod LeftHeart-Fuel equation needs additional live substrate/metabolic states not yet exposed by the cardiopulmonary candidate.
+
+The upstream composition focused gate is pending at this checkpoint.
