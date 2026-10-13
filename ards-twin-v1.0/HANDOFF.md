@@ -1084,3 +1084,47 @@ Governance commits:
 - `5bf3a4f6b6b0d05d96f9ffa164070f4fdc8d652f` — governance workflow.
 
 The first governance workflow had not yet registered a run when checked immediately after commit. Do not call the governance gate green until a run actually executes successfully.
+
+
+## v1.6 ARDS build checkpoint — integrated pulmonary vascular/gas/cardiovascular spine
+
+Governance recovery gate:
+- workflow `38331801840`: **SUCCESS**.
+
+Prior focused ARDS pulmonary-gas gate:
+- workflow `38331382939`: **SUCCESS**.
+
+New pulmonary vascular runtime:
+- `src/v16_karamolegkos_pulmonary_vascular_runtime.js`;
+- preserves Karamolegkos Appendix pulmonary state equations using transmural pressure coordinates;
+- requires source-qualified external absolute alveolar volume, alveolar pressure, pleural pressure, shunt fraction, and capillary resistance;
+- consumes RV outflow and LA pressure from the cardiovascular candidate;
+- does **not** map Vent elastic volume to Karamolegkos absolute V_A;
+- exports a source-qualified pulmonary perfusion state for the gas runtime.
+
+New integrated ARDS composition:
+- `src/v16_integrated_ards_cardiopulmonary_candidate.js`;
+- composes one persistent candidate patient using:
+  1. Vent mechanics;
+  2. source-qualified pulmonary mechanics coordinates;
+  3. Karamolegkos pulmonary vascular runtime;
+  4. HumMod source-aligned ARDS gas exchange;
+  5. Ursino/Magosso cardiovascular/autonomic candidate;
+- sequential coupling order is pulmonary vascular -> gas -> cardiovascular;
+- no physiologic gain is added by the composition layer;
+- PaO2/PaCO2 from the gas state feed the cardiovascular/autonomic candidate on the same persistent runtime;
+- RV outflow and LA pressure feed the pulmonary vascular state on subsequent split steps.
+
+Focused tests added:
+- `test/v16_karamolegkos_pulmonary_vascular_runtime.test.js`;
+- `test/v16_integrated_ards_cardiopulmonary_candidate.test.js`.
+
+Current validation state:
+- pulmonary vascular focused workflow `38332224996` was queued at last check;
+- integrated ARDS workflow commit `1ca4cdd29c6592fb2a560f6111bc5c0ae15d471b` had not yet registered a run at last check;
+- therefore the integrated spine is **built but not yet execution-verified** at this checkpoint.
+
+Remaining hard ARDS boundary:
+- source-qualified global pulmonary mechanics coordinates `V_A`, `P_A`, and `P_pl`;
+- source-qualified Karamolegkos shunt and `R_pc` values;
+- no convenience bridge is authorized.
