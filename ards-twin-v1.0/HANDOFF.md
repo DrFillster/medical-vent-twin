@@ -806,3 +806,18 @@ No physiology will be changed in response to the failed gate. The failure is bei
 - `KCell.Change = KFluxToCell.Rate - KFluxToPool.Rate`;
 - `KFluxToCell.Rate = 0.0018 * KAldoEffect.Delayed * KPool.Mass`;
 - `KFluxToPool.Rate = 8e-5 * (KCell.Mass - 2180)`.
+
+
+### v1.6 repair checkpoint — KCell workflow failure was YAML, not physiology
+
+The first two KCell workflow runs did not start a job. GitHub exposed the workflow path as the run name and returned an empty job list.
+
+Root cause:
+- the workflow edit inserted literal `\\n` sequences into the YAML path list;
+- this invalidated the workflow before Node tests executed.
+
+Therefore:
+- there is **no KCell physiology/test failure established by those runs**;
+- source equations remain unchanged;
+- the workflow YAML was repaired in commit `e35145cf81acd0076d96793d804f52afa17e6e8a`;
+- focused rerun result is pending at this checkpoint.
