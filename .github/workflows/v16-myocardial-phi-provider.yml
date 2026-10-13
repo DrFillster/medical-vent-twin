@@ -10,7 +10,7 @@ on:
       - 'ards-twin-v1.0/src/v16_myocardial_live_input_adapter.js'
       - 'ards-twin-v1.0/test/v16_myocardial_live_input_adapter.test.js'
       - 'ards-twin-v1.0/src/v15_integrated_cardiopulmonary_candidate.js'
-      - 'ards-twin-v1.0/test/v16_integrated_myocardial_source_state.test.js'
+      - 'ards-twin-v1.0/test/v16_integrated_myocardial_source_state.test.js'\n      - 'ards-twin-v1.0/src/hummod_2013_kcell_runtime.js'\n      - 'ards-twin-v1.0/test/v16_hummod_2013_kcell_runtime.test.js'
 
 permissions:
   contents: read
