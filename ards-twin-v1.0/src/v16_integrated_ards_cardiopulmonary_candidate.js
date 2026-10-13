@@ -32,9 +32,6 @@ const {
 const {
   createVentRegionalArdsOxygenState,
 }=require('./v16_vent_regional_ards_oxygen_bridge.js');
-const {
-  createVentRegionalArdsOxygenState,
-}=require('./v16_vent_regional_ards_oxygen_bridge.js');
 
 const SOURCE=Object.freeze({
   cardiovascular:'Ursino/Magosso source-family candidate',
