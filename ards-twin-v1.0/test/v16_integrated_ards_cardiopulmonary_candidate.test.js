@@ -138,6 +138,10 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
     'Vent + Das-Marshall regional VQ/HPV + HumMod blood-O2 candidate'
   );
   assert.equal(s.regionalOxygen.legacyVentPerfusionMetadataUsed,false);
+  assert.equal(
+    s.pulmonaryGas.gas.exchange.massBalance.arterialO2TargetAuthority,
+    'Vent + Das-Marshall regional VQ/HPV + HumMod blood-O2 candidate'
+  );
   assert(Number.isFinite(
     s.cardiovascular.cardiovascular.hemodynamics.heartRatePerMin
   ));
