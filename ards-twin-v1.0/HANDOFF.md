@@ -1322,3 +1322,33 @@ Current milestone status:
 - next step is physician browser exposure / perturbation review, not additional broad physiology expansion;
 - myocardial O2/pHi/contractility reconnection remains the next physiology item after ARDS physician exposure;
 - sepsis/pressors remain deferred.
+
+
+## v1.6 negative checkpoint — regional oxygen promotion integration gate
+
+Workflow `38333235127`: **FAILURE**.
+
+Classification: **test fixture / integration harness**, not physiology.
+
+Evidence from the same focused workflow:
+- ARDS pulmonary gas: PASS;
+- Karamolegkos source equations: PASS;
+- Karamolegkos pulmonary vascular runtime: PASS;
+- Das regional perfusion: PASS;
+- Marshall HPV: PASS;
+- Das-Marshall HPV/perfusion: PASS;
+- regional ARDS O2/perfusion fixed point: PASS;
+- Vent regional alveolar-ventilation adapter: PASS;
+- Vent regional ARDS oxygen bridge: PASS;
+- integrated ARDS candidate: FAIL.
+
+Exact failure:
+`Vent simulation state and parameters are required` from `deriveRegionalVentilationAudit()`.
+
+Cause:
+- the integrated-candidate test mock supplied `simulation.params.airwayOpeningPressure` but did not supply `simulation.params.compartments`;
+- the promoted regional ventilation adapter requires Vent compartment parameters by design.
+
+Decision:
+- do not change physiology;
+- repair only the integrated test fixture to include the same Vent compartment parameter structure used by the already-green regional adapter tests.
