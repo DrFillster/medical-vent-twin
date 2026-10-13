@@ -88,6 +88,92 @@ function validateBoundary(b){
   return b;
 }
 
+
+// Source-steady initialization for the split Karamolegkos pulmonary circuit.
+//
+// Albanese public CP-model source initializes:
+//   Fpa = 100 mL/s
+//   Pla = 8 mmHg
+//   respiratory PA = 0 cmH2O
+//   respiratory Ppl = -5 cmH2O
+//
+// Karamolegkos nominal normal state adds:
+//   VA = FRCnom = 2.25 L
+//   sh = 0.017
+//
+// The split pressures are then obtained algebraically from the source
+// steady-state equations A6, A9, A12, A15, A16 and A25.
+// No fitted pressure or gain is introduced.
+function deriveSourceSteadyPulmonarySeed({
+  totalPulmonaryFlowMlPerSec=100,
+  leftAtrialPressureMmHg=8,
+  alveolarPressureMmHg=0,
+  pleuralPressureMmHg=-5*0.7355592401,
+  alveolarVolumeL=K.PARAMETERS.frcNominalL,
+  shuntFraction=0.017,
+}={}){
+  positive(totalPulmonaryFlowMlPerSec,'totalPulmonaryFlowMlPerSec');
+  finite(leftAtrialPressureMmHg,'leftAtrialPressureMmHg');
+  finite(alveolarPressureMmHg,'alveolarPressureMmHg');
+  finite(pleuralPressureMmHg,'pleuralPressureMmHg');
+  positive(alveolarVolumeL,'alveolarVolumeL');
+  nonNegative(shuntFraction,'shuntFraction');
+  if(!(shuntFraction<1)) throw new Error('shuntFraction must be < 1');
+
+  const qTotal=totalPulmonaryFlowMlPerSec;
+  const qPal=(1-shuntFraction)*qTotal;
+  const rPv=K.PARAMETERS.RpvMmHgSecPerMl;
+  const rPc=K.pulmonaryCapillaryResistance({
+    shuntFraction,
+  });
+  const rPal=K.pulmonaryArteriolarResistance({
+    alveolarVolumeL,
+    shuntFraction,
+  });
+  const rPa=K.PARAMETERS.RpaMmHgSecPerMl;
+
+  const Ppv=leftAtrialPressureMmHg+rPv*qTotal;
+  const Ppc=Ppv+rPc*qPal;
+  const Ppal=Ppc+rPal*qPal;
+  const Ppa=Ppal+rPa*qTotal;
+
+  return Object.freeze({
+    state:Object.freeze({
+      PpaTm:Ppa-pleuralPressureMmHg,
+      Fpa:qTotal,
+      PpalTm:Ppal-pleuralPressureMmHg,
+      PpcTm:Ppc-alveolarPressureMmHg,
+      PpvTm:Ppv-pleuralPressureMmHg,
+    }),
+    boundary:Object.freeze({
+      totalPulmonaryFlowMlPerSec:qTotal,
+      leftAtrialPressureMmHg,
+      alveolarPressureMmHg,
+      pleuralPressureMmHg,
+      alveolarVolumeL,
+      shuntFraction,
+    }),
+    absolutePressuresMmHg:Object.freeze({
+      Ppa,
+      Ppal,
+      Ppc,
+      Ppv,
+    }),
+    provenance:Object.freeze({
+      sourceQualified:true,
+      flowAndLeftAtrium:
+        'Albanese public integratedModel.m createcvic: Fpa=100 mL/s, Pla=8 mmHg',
+      respiratoryReference:
+        'Albanese public integratedModel.m createrespic: PA=0 cmH2O, Ppl=-5 cmH2O',
+      pulmonaryReference:
+        'Karamolegkos 2021: FRCnom=2.25 L, normal shunt=0.017',
+      splitPressureDerivation:
+        'Karamolegkos source steady-state A6/A9/A12/A15/A16/A25',
+      fittedParameterAdded:false,
+    }),
+  });
+}
+
 function createV16KaramolegkosPulmonaryVascularRuntime({
   dtSec=0.002,
   initialState,
@@ -285,5 +371,6 @@ module.exports=Object.freeze({
   STATE_KEYS,
   validateInitialState,
   validateBoundary,
+  deriveSourceSteadyPulmonarySeed,
   createV16KaramolegkosPulmonaryVascularRuntime,
 });
