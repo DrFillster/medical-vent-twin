@@ -5,6 +5,9 @@ const {
   initialLeftHeartMass2013,
 }=require('../src/hummod_2013_left_heart_mass_provider.js');
 const {
+  initialLeftHeartComposition2013,
+}=require('../src/hummod_2013_left_heart_liquid_volume_provider.js');
+const {
   sourceSizingFromReference,
 }=require('../src/hummod_2013_left_heart_pump_candidate.js');
 const {
@@ -29,6 +32,10 @@ const lv=initialLeftHeartMass2013({
   stochasmPercent:0,
 });
 
+const lvComposition=initialLeftHeartComposition2013({
+  initialLeftHeartMassG:lv.initialLeftHeartMassG,
+});
+
 const sizing=sourceSizingFromReference({
   sourceCardiacOutputMlPerMin:5000,
   leftHeartMassG:lv.initialLeftHeartMassG,
@@ -40,7 +47,7 @@ function make(){
     ecfvMl:15000,
     sourceSizing:sizing,
     initialLeftHeartMassG:lv.initialLeftHeartMassG,
-    initialLeftHeartLiquidVolumeMl:lv.initialLeftHeartLiquidVolumeMl,
+    initialLeftHeartLiquidVolumeMl:lvComposition.initialLiquidVolumeMl,
     initialArterialPh:7.44,
   });
 }
@@ -62,7 +69,7 @@ const BASE=Object.freeze({
   pericardialPressureMmHg:-4,
 
   myocardialMassG:lv.initialLeftHeartMassG,
-  myocardialLiquidVolumeMl:lv.initialLeftHeartLiquidVolumeMl,
+  myocardialLiquidVolumeMl:lvComposition.initialLiquidVolumeMl,
   intracellularPotassium:0.140,
   hematocritFraction:0.44,
   adhPoolLog10Conc:Math.log10(2),
