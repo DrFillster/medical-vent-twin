@@ -642,3 +642,40 @@ Focused execution status at this checkpoint:
 - focused-provider job completed successfully;
 - nine-input myocardial acid-base provider test: **PASS**;
 - no full regression/deploy run was triggered.
+
+
+### v1.6 checkpoint — live chemistry + myocardial flow/O2 coupling
+
+Implemented:
+- `src/v16_myocardial_live_input_adapter.js`
+- `test/v16_myocardial_live_input_adapter.test.js`
+- integrated candidate now exposes source-family coronary blood flow and
+  myocardial O2 use in `cardiovascular.myocardialSourceState`
+- `test/v16_integrated_myocardial_source_state.test.js`
+
+Commits:
+- `eb4c5f2847581cf64326628d2342906361db2e0e` — live SID/HCO3 adapter.
+- `bb1cb077f7d92562bf36de1384909d6a8933d5f3` — chemistry adapter gate.
+- `a2b4fce8510cc6fabf01348a3e7c2b27c3075878` — focused workflow expanded for live chemistry.
+- `2c2af331bde9868ea5ca16a473980b900fc30892` — expose source coronary flow and myocardial O2 use.
+- `45394380f243a918cc27b3f527ba8ab7a9130168` — source-output gate.
+- `d00d526f79e9043b41b1652559daf3a8efb052f3` — focused workflow expanded for myocardial source outputs.
+
+Myocardial pHi upstream status now:
+- blood SID: **wired from live gas snapshot**
+- arterial HCO3-: **wired from live gas snapshot**
+- myocardial blood flow: **source-family value exposed from integrated coronary bed**
+- myocardial O2 use: **source-family value exposed from Eq. 46 cardiac O2 consumption**
+- intracellular K: blocked on whole-body KCell/KPool + CellH2O live state
+- LV liquid volume: blocked on whole-body interstitial + cell-water live state
+- anaerobic glucose use: source-transcribed, live coupling pending
+- myocardial lactate use: source-transcribed, live coupling pending
+- systemic lactate-pool concentration: source-transcribed, whole-body pool coupling pending
+
+No new physiologic gain was added. The mL/s -> mL/min conversion is dimensional
+only and is recorded explicitly in the candidate output.
+
+Validation:
+- prior persistent pHi provider gate: PASS, workflow run `38330067273`.
+- latest chemistry + coronary-flow/O2 focused gate: workflow committed;
+  latest run not yet registered at time of this checkpoint, so **result pending**.
