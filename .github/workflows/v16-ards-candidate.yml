@@ -5,6 +5,7 @@ on:
     branches: [v1.6]
     paths:
       - '.github/workflows/v16-ards-candidate.yml'
+      - 'ards-twin-v1.0/src/hummod_ards_core_runtime.js'
       - 'ards-twin-v1.0/src/v16_ards_pulmonary_gas_candidate.js'
       - 'ards-twin-v1.0/test/v16_ards_pulmonary_gas_candidate.test.js'
       - 'ards-twin-v1.0/src/karamolegkos_pulmonary_circulation_candidate.js'
@@ -23,10 +24,6 @@ on:
       - 'ards-twin-v1.0/test/v16_vent_regional_alveolar_ventilation_adapter.test.js'
       - 'ards-twin-v1.0/src/v16_vent_regional_ards_oxygen_bridge.js'
       - 'ards-twin-v1.0/test/v16_vent_regional_ards_oxygen_bridge.test.js'
-      - 'ards-twin-v1.0/test/v16_vent_regional_alveolar_ventilation_adapter.test.js'
-      - 'ards-twin-v1.0/test/v16_regional_ards_o2_perfusion_candidate.test.js'
-      - 'ards-twin-v1.0/test/v16_das_marshall_regional_hpv_perfusion.test.js'
-      - 'ards-twin-v1.0/test/v16_das_ards_regional_perfusion_candidate.test.js'
       - 'ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js'
       - 'ards-twin-v1.0/test/v16_integrated_ards_cardiopulmonary_candidate.test.js'
 
