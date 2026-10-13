@@ -110,6 +110,7 @@ function createV15IntegratedCardiopulmonaryCandidate({
   let effectors=null;
   let controllerState=null;
   let localO2State=null;
+  let myocardialSourceState=null;
   let averagePumpPowerMmHgMlPerSec=
     O2_P.metabolism.heartBasalPowerMmHgMlPerSec;
 
@@ -223,6 +224,19 @@ function createV15IntegratedCardiopulmonaryCandidate({
       averageCardiacPumpPowerMmHgMlPerSec,
     });
 
+    myocardialSourceState=Object.freeze({
+      coronaryBloodFlowMlPerMin:flows.heart*60,
+      myocardialO2UseMlPerMin:
+        localO2State.oxygenConsumptionMlPerSec.heart*60,
+      sourceFlowCoordinate:'Ursino/Magosso 2000 coronary bed flow',
+      sourceO2UseCoordinate:
+        'Ursino/Magosso 2000 Eq. 46 cardiac O2 consumption from averaged pump power',
+      conversionOnly:Object.freeze({
+        secondsPerMinute:60,
+        physiologicGainAdded:false,
+      }),
+    });
+
     plant.setEffectors({
       EmaxLv:e.absolute.EmaxLv,
       EmaxRv:e.absolute.EmaxRv,
@@ -296,6 +310,7 @@ function createV15IntegratedCardiopulmonaryCandidate({
         vascularEffectors:s.effectors,
         controller:controllerState,
         localO2:localO2State,
+        myocardialSourceState,
         averagePumpPowerMmHgMlPerSec,
         conservation:s.conservation,
       }),
