@@ -1403,3 +1403,27 @@ Reference-case browser inputs:
 - excess lung water is visible and explicit; no clinically unvalidated HumMod sensitivity-sweep value is hidden as a default.
 
 At this checkpoint, workflow `38334499150` is still executing the persistent physician-candidate step. Do not call the browser candidate green until that run reaches the browser-session/build steps and completes successfully.
+
+
+## v1.6 negative/positive checkpoint — zero-pause inspiratory hold bug fixed
+
+Superseded focused runs `38334387759` and `38334499150` failed only at the persistent physician-candidate bedside-hold test after all upstream ARDS physiology gates had passed.
+
+Failure:
+- `INSPIRATORY_HOLD did not complete within maxAdvanceSec`.
+
+Root cause was in Vent maneuver scheduling, not cardiopulmonary physiology:
+- pending-maneuver activation was checked before `controller.step()`;
+- with `inspiratoryPause = 0`, the VC controller transitioned inspiration -> expiration inside `controller.step()`;
+- `lastCommittedPhase` was then updated before the next activation check, so the first-expiration/end-inspiratory transition could never be recognized.
+
+Fix:
+- `src/simulation.js` now performs a second pending-maneuver activation check immediately after `controller.step()`, before mechanics are committed;
+- if a zero-pause inspiratory hold activates at that transition, the controller is restored to its pre-step state so the ventilator cycle clock remains frozen at end inspiration;
+- the airway boundary becomes the same zero-flow occlusion used by the ordinary hold path;
+- no mechanics equation, physiology parameter, or timestep changed.
+
+Regression:
+- `test/hold_maneuvers.test.js` now includes a VC case with `inspiratoryPause = 0`;
+- focused workflow `38334748816` reports **Vent zero-pause bedside hold regression: SUCCESS** at this checkpoint;
+- the same workflow is still executing the full persistent physician/browser candidate and must complete before physician preview deployment.
