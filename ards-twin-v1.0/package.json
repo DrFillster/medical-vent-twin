@@ -58,7 +58,8 @@
     "test:hummod-2013-myocardial-phi-readiness": "node test/v15_hummod_2013_myocardial_phi_provider_contract.test.js",
     "test:hummod-2013-derived-phi-candidate": "node test/v15_hummod_2013_left_heart_fuel.test.js && node test/v15_hummod_2013_left_heart_lactate.test.js && node test/v15_hummod_2013_left_heart_co2_ph.test.js && node test/v15_hummod_2013_myocardial_acid_base_runtime.test.js && node test/v15_hummod_2013_derived_phi_compensation_decompensation.test.js",
     "audit:hummod-2013-derived-phi-hypoxia": "node scripts/hummod-2013-derived-phi-hypoxia-diagnostic.js",
-    "qualify:hummod-2013-derived-phi": "npm run test:hummod-2013-myocardial-provider-foundation && npm run test:hummod-2013-derived-phi-candidate && npm run audit:hummod-2013-derived-phi-hypoxia"
+    "qualify:hummod-2013-derived-phi": "npm run test:hummod-2013-myocardial-provider-foundation && npm run test:hummod-2013-derived-phi-candidate && npm run audit:hummod-2013-derived-phi-hypoxia",
+    "test:hummod-2013-derived-phi-decompensation": "node test/v15_hummod_2013_left_heart_fuel.test.js && node test/v15_hummod_2013_left_heart_lactate.test.js && node test/v15_hummod_2013_left_heart_co2_ph.test.js && node test/v15_hummod_2013_derived_phi_compensation_decompensation.test.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
