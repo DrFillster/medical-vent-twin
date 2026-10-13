@@ -1,0 +1,145 @@
+'use strict';
+
+const assert=require('node:assert/strict');
+const {
+  createV16IntegratedArdsCardiopulmonaryCandidate,
+}=require('../src/v16_integrated_ards_cardiopulmonary_candidate.js');
+
+let passed=0,failed=0;
+function test(name,fn){
+  try{fn();console.log('ok -',name);passed++;}
+  catch(e){console.error('FAIL -',name,':',e.stack||e.message);failed++;}
+}
+
+class VcAcController{
+  constructor(){
+    this.settings={fio2:0.6,peep:10,rr:20,vt:0.42};
+  }
+}
+function mockVent(){
+  return {
+    controller:new VcAcController(),
+    trace:[],
+    params:{airwayOpeningPressure:0},
+    measurements:[],
+    state:{
+      t:0,
+      airwayPressure:20,
+      totalFlow:0,
+      totalVolume:0.42,
+      compartments:[
+        {id:'fast',volume:0.14,flow:0,alveolarPressure:10,recruitment:1},
+        {id:'slow',volume:0.14,flow:0,alveolarPressure:10,recruitment:0.8},
+        {id:'recruitable',volume:0.14,flow:0,alveolarPressure:10,recruitment:0.5},
+      ],
+    },
+  };
+}
+
+function pulmonaryMechanicsBoundary(){
+  return Object.freeze({
+    sourceQualified:true,
+    alveolarVolumeL:2.25,
+    alveolarPressureMmHg:0,
+    pleuralPressureMmHg:-3,
+    shuntFraction:0.05,
+    capillaryResistanceMmHgSecPerMl:0.04,
+    provenance:Object.freeze({
+      fixture:'focused integration test only',
+      canonical:false,
+    }),
+  });
+}
+
+test('integrated ARDS candidate advances one persistent sourced composition',()=>{
+  const c=createV16IntegratedArdsCardiopulmonaryCandidate({
+    simulation:mockVent(),
+    dtSec:0.0005,
+    pulmonaryVascularInitialState:{
+      PpaTm:18,
+      Fpa:80,
+      PpalTm:13,
+      PpcTm:9,
+      PpvTm:10,
+    },
+    pulmonaryMechanicsBoundaryProvider:pulmonaryMechanicsBoundary,
+    blood:{
+      sidMolPerL:0.040,
+      o2MaxMlPerMl:0.201,
+      tempC:37,
+      carboxyPercent:0,
+    },
+    metabolism:{
+      tissueO2UseMlPerMin:250,
+      tissueCo2ProductionMmolPerMin:9,
+    },
+    environment:{
+      barometricPressureMmHg:760,
+      inspiredCo2Fraction:0,
+    },
+    excessLungWaterProvider:()=>0,
+    deadSpaceBtpsMlProvider:()=>150,
+  });
+
+  const s=c.runFor(0.01);
+  assert.equal(s.schema,'v16-integrated-ards-cardiopulmonary-candidate/v1');
+  assert.equal(s.canonicalControlAuthority,false);
+  assert.equal(s.coupling.physiologicGainAdded,false);
+  assert.equal(s.ownership.ventilatorMechanics,'Vent');
+  assert.equal(
+    s.ownership.pulmonaryMechanicsCoordinate,
+    'external-source-qualified-boundary-until-Vent-transform-is-validated'
+  );
+
+  for(const [k,v] of Object.entries(s.physicianState)){
+    if(typeof v==='number'){
+      assert(Number.isFinite(v),k+' must be finite');
+    }
+  }
+
+  assert(s.pulmonaryVascular.pulmonaryPerfusionState.sourceQualified);
+  assert(Number.isFinite(s.pulmonaryGas.gas.gases.arterial.po2MmHg));
+  assert(Number.isFinite(s.pulmonaryGas.gas.gases.arterial.pco2MmHg));
+  assert(Number.isFinite(
+    s.cardiovascular.cardiovascular.hemodynamics.heartRatePerMin
+  ));
+});
+
+test('integrated ARDS candidate refuses unqualified pulmonary mechanics',()=>{
+  const c=createV16IntegratedArdsCardiopulmonaryCandidate({
+    simulation:mockVent(),
+    dtSec:0.0005,
+    pulmonaryVascularInitialState:{
+      PpaTm:18,
+      Fpa:80,
+      PpalTm:13,
+      PpcTm:9,
+      PpvTm:10,
+    },
+    pulmonaryMechanicsBoundaryProvider:()=>({
+      ...pulmonaryMechanicsBoundary(),
+      sourceQualified:false,
+    }),
+    blood:{
+      sidMolPerL:0.040,
+      o2MaxMlPerMl:0.201,
+      tempC:37,
+      carboxyPercent:0,
+    },
+    metabolism:{
+      tissueO2UseMlPerMin:250,
+      tissueCo2ProductionMmolPerMin:9,
+    },
+    environment:{
+      barometricPressureMmHg:760,
+      inspiredCo2Fraction:0,
+    },
+    excessLungWaterProvider:()=>0,
+    deadSpaceBtpsMlProvider:()=>150,
+  });
+
+  assert.throws(()=>c.step(),/source-qualified coordinates/);
+});
+
+console.log('\nTests: passed='+passed+' failed='+failed);
+process.exit(failed===0?0:1);
