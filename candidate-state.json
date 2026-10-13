@@ -54,14 +54,17 @@
     "unsourced gains to force HR/MAP/CO/PVR/contractility"
   ],
   "current_ards_candidate": {
-    "module": "ards-twin-v1.0/src/v16_ards_pulmonary_gas_candidate.js",
+    "module": "ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js",
     "status": "candidate-only",
     "mechanics_owner": "Vent",
+    "cardiovascular_owner": "Ursino/Magosso source-family candidate",
+    "pulmonary_vascular_owner": "Karamolegkos source-family candidate",
     "gas_equations": "HumMod source-aligned",
-    "pulmonary_perfusion_contract": "source-qualified provider required; fail closed",
+    "pulmonary_perfusion_contract": "Karamolegkos runtime export; source-qualified upstream pulmonary mechanics coordinates required",
     "synthetic_vq_shortcut_allowed": false,
-    "absolute_alveolar_volume_bridge_status": "blocked pending source-validated coordinate",
-    "focused_workflow": ".github/workflows/v16-ards-candidate.yml"
+    "absolute_alveolar_volume_bridge_status": "blocked pending source-validated Vent-compatible coordinate",
+    "focused_workflow": ".github/workflows/v16-ards-candidate.yml",
+    "last_known_integrated_test_step": "success in workflow 38332342937; workflow cleanup was still finishing at metadata update"
   },
   "myocardial_state": {
     "strategy": "derive myocardial pHi from upstream source states; no manually supplied pHi",
