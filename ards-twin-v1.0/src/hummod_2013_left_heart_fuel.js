@@ -41,6 +41,16 @@ const CARBO_AEROBIC_MG_PER_CAL=0.2439;
 const CARBO_ANAEROBIC_MG_PER_CAL=6.3411;
 const LAC_MG_PER_CAL=0.2538;
 
+function sourceAnaerobicGlucoseUse2013(){
+  return Object.freeze({
+    anaerobicGlucoseUsedCalsPerMin:0,
+    anaerobicGlucoseUsedMgPerMin:0,
+    sourceStatement:'Exact 2013 LeftHeart-Fuel source: AnaerobicGlucoseUsed(Cals/Min) = 0.',
+    controlAuthority:false,
+    provenance:SOURCE,
+  });
+}
+
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
   return v;
@@ -208,7 +218,9 @@ function leftHeartFuelInstant2013({
   );
 
   // Exact 2013 source: no anaerobic glucose use in LeftHeart-Fuel.
-  const anaerobicGlucoseUsedCalsPerMin=0;
+  const sourceAnaerobic=sourceAnaerobicGlucoseUse2013();
+  const anaerobicGlucoseUsedCalsPerMin=
+    sourceAnaerobic.anaerobicGlucoseUsedCalsPerMin;
   const totalGlucoseUsedCalsPerMin=
     aerobicGlucoseUsedCalsPerMin+anaerobicGlucoseUsedCalsPerMin;
   const totalUsedCalsPerMin=
@@ -229,7 +241,7 @@ function leftHeartFuelInstant2013({
     aerobicGlucoseUsedCalsPerMin*CARBO_AEROBIC_MG_PER_CAL;
   const lacUsedMgPerMin=lacUsedCalsPerMin*LAC_MG_PER_CAL;
   const anaerobicGlucoseUsedMgPerMin=
-    anaerobicGlucoseUsedCalsPerMin*CARBO_ANAEROBIC_MG_PER_CAL;
+    sourceAnaerobic.anaerobicGlucoseUsedMgPerMin;
   const totalGlucoseUsedMgPerMin=
     aerobicGlucoseUsedMgPerMin+anaerobicGlucoseUsedMgPerMin;
 
@@ -323,6 +335,7 @@ module.exports=Object.freeze({
   CARBO_AEROBIC_MG_PER_CAL,
   CARBO_ANAEROBIC_MG_PER_CAL,
   LAC_MG_PER_CAL,
+  sourceAnaerobicGlucoseUse2013,
   INSULIN_EFFECT,
   FA_USED_FRACTION,
   hermite,
