@@ -77,13 +77,8 @@ function createV16PhysicianArdsCandidate({
   metabolism,
   environment,
   dtSec=0.002,
-  pulmonaryVascularInitialState={
-    PpaTm:18,
-    Fpa:80,
-    PpalTm:13,
-    PpcTm:9,
-    PpvTm:10,
-  },
+  pulmonaryVascularInitialState,
+  pulmonaryVascularInitialStateProvenance,
   deadSpaceBtpsMlProvider=null,
   averagingWindowSec=1,
 }={}){
@@ -97,6 +92,15 @@ function createV16PhysicianArdsCandidate({
   }
   positive(dtSec,'dtSec');
   positive(averagingWindowSec,'averagingWindowSec');
+  if(!pulmonaryVascularInitialState){
+    throw new Error('pulmonaryVascularInitialState is required');
+  }
+  if(!pulmonaryVascularInitialStateProvenance ||
+     pulmonaryVascularInitialStateProvenance.sourceQualified!==true){
+    throw new Error(
+      'pulmonaryVascularInitialStateProvenance.sourceQualified=true is required'
+    );
+  }
 
   const controller=new VcAcController({...ventilatorSettings});
   const simulation=new Simulation({
@@ -350,6 +354,8 @@ function createV16PhysicianArdsCandidate({
       interventions:Object.freeze([...simulation.interventions]),
       measurements:Object.freeze([...simulation.measurements]),
       ownership:lastIntegrated.ownership??null,
+      pulmonaryVascularInitialStateProvenance:
+        Object.freeze({...pulmonaryVascularInitialStateProvenance}),
       provenance:SOURCE,
     });
   }
