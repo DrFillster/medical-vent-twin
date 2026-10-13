@@ -10,6 +10,8 @@ on:
       - 'ards-twin-v1.0/test/v16_ards_pulmonary_gas_candidate.test.js'
       - 'ards-twin-v1.0/src/karamolegkos_pulmonary_circulation_candidate.js'
       - 'ards-twin-v1.0/test/v15_karamolegkos_pulmonary_circulation_candidate.test.js'
+      - 'ards-twin-v1.0/src/v16_albanese_karamolegkos_pulmonary_coordinate_runtime.js'
+      - 'ards-twin-v1.0/test/v16_albanese_karamolegkos_pulmonary_coordinate_runtime.test.js'
       - 'ards-twin-v1.0/src/v16_karamolegkos_pulmonary_vascular_runtime.js'
       - 'ards-twin-v1.0/test/v16_karamolegkos_pulmonary_vascular_runtime.test.js'
       - 'ards-twin-v1.0/src/v16_das_ards_regional_perfusion_candidate.js'
@@ -46,6 +48,8 @@ jobs:
         run: node test/v16_ards_pulmonary_gas_candidate.test.js
       - name: Karamolegkos source equations including Appendix A25
         run: node test/v15_karamolegkos_pulmonary_circulation_candidate.test.js
+      - name: Albanese-Karamolegkos pulmonary coordinate runtime
+        run: node test/v16_albanese_karamolegkos_pulmonary_coordinate_runtime.test.js
       - name: v1.6 Karamolegkos pulmonary vascular runtime
         run: node test/v16_karamolegkos_pulmonary_vascular_runtime.test.js
       - name: Das human-ARDS regional perfusion equations
