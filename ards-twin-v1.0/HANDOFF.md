@@ -821,3 +821,32 @@ Therefore:
 - source equations remain unchanged;
 - the workflow YAML was repaired in commit `e35145cf81acd0076d96793d804f52afa17e6e8a`;
 - focused rerun result is pending at this checkpoint.
+
+
+### v1.6 checkpoint — persistent KCell runtime green; systemic lactate runtime added
+
+KCell implementation:
+- added `src/hummod_2013_kcell_runtime.js`;
+- preserves source equation `KCell.Change = KFluxToCell.Rate - KFluxToPool.Rate`;
+- preserves HumMod-2013 constants `BasicK=0.0018/min`, `BasicK=8e-5/min`, and `CaptiveMass=2180 mEq`;
+- uses exact zero-order-hold integration of the linear continuous source mass equation;
+- derives intracellular K concentration from persistent KCell mass / live CellH2O volume;
+- remains candidate-only and fails closed without KPool mass, delayed aldosterone effect, and CellH2O volume.
+
+Validation:
+- workflow YAML failure was repaired without physiology changes;
+- focused workflow run `38330536094` completed **SUCCESS**;
+- the prior five-of-nine myocardial-pHi gates remained green in the same focused workflow.
+
+Systemic lactate implementation:
+- added `src/hummod_2013_systemic_lactate_pool_runtime.js`;
+- preserves source `LacPool.Change` as the sum of 13 organ lactate outflows + IVDrip.LacRate + PumpRate;
+- concentration is derived from persistent mass / live ECFV;
+- no fixed 1 mEq/L concentration is used after initialization;
+- fails closed if any required organ outflow is absent.
+
+Systemic lactate focused gate has been committed and is pending at this checkpoint.
+
+Myocardial-pHi architecture consequence:
+- intracellular K is no longer blocked on a missing KCell equation/runtime; it is blocked one layer upstream on live KPool/aldosterone/cell-water state;
+- systemic lactate concentration is no longer blocked on a missing LacPool equation/runtime; it is blocked one layer upstream on the full organ lactate-outflow network and live ECFV.
