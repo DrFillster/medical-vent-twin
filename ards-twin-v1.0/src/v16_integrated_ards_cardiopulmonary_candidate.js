@@ -24,6 +24,9 @@ const {
   createV15IntegratedCardiopulmonaryCandidate,
 }=require('./v15_integrated_cardiopulmonary_candidate.js');
 const {
+  createV16PulmonaryCoordinateRuntime,
+}=require('./v16_albanese_karamolegkos_pulmonary_coordinate_runtime.js');
+const {
   createV16KaramolegkosPulmonaryVascularRuntime,
 }=require('./v16_karamolegkos_pulmonary_vascular_runtime.js');
 const {
@@ -56,7 +59,8 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
   simulation,
   dtSec=0.002,
   pulmonaryVascularInitialState,
-  pulmonaryMechanicsBoundaryProvider,
+  pulmonaryMechanicsBoundaryProvider=null,
+  pulmonaryShuntFractionProvider=null,
   blood,
   metabolism,
   environment,
@@ -67,8 +71,15 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
 }={}){
   if(!simulation) throw new Error('simulation is required');
   positive(dtSec,'dtSec');
-  if(typeof pulmonaryMechanicsBoundaryProvider!=='function'){
-    throw new Error('pulmonaryMechanicsBoundaryProvider is required');
+  if(pulmonaryMechanicsBoundaryProvider!=null &&
+     typeof pulmonaryMechanicsBoundaryProvider!=='function'){
+    throw new Error('pulmonaryMechanicsBoundaryProvider must be a function or null');
+  }
+  if(pulmonaryMechanicsBoundaryProvider==null &&
+     typeof pulmonaryShuntFractionProvider!=='function'){
+    throw new Error(
+      'pulmonaryShuntFractionProvider is required when using the internal source-coordinate runtime'
+    );
   }
 
   const cv=createV15IntegratedCardiopulmonaryCandidate({
@@ -85,22 +96,57 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
   let last=null;
   let timeSec=0;
 
+  const coordinateRuntime=
+    pulmonaryMechanicsBoundaryProvider==null
+      ?createV16PulmonaryCoordinateRuntime({
+        dtSec:0.0005,
+        airwayOpeningPressureProvider:()=>finite(
+          simulation.state?.airwayPressure,
+          'simulation.state.airwayPressure'
+        ),
+      })
+      :null;
+
   const pulmonary=createV16KaramolegkosPulmonaryVascularRuntime({
     dtSec,
     initialState:pulmonaryVascularInitialState,
     boundaryProvider:({timeSec:pvTimeSec,previous})=>{
       const h=cvSnapshot.cardiovascular.hemodynamics;
-      const mechanics=pulmonaryMechanicsBoundaryProvider({
-        timeSec:pvTimeSec,
-        simulation,
-        cardiovascular:cvSnapshot,
-        previousPulmonary:previous,
-        previousGas:gasSnapshot,
-      });
-      if(!mechanics||mechanics.sourceQualified!==true){
-        throw new Error(
-          'pulmonaryMechanicsBoundaryProvider must return source-qualified coordinates'
+      let mechanics;
+      if(pulmonaryMechanicsBoundaryProvider){
+        mechanics=pulmonaryMechanicsBoundaryProvider({
+          timeSec:pvTimeSec,
+          simulation,
+          cardiovascular:cvSnapshot,
+          previousPulmonary:previous,
+          previousGas:gasSnapshot,
+        });
+        if(!mechanics||mechanics.sourceQualified!==true){
+          throw new Error(
+            'pulmonaryMechanicsBoundaryProvider must return source-qualified coordinates'
+          );
+        }
+      }else{
+        const coordinate=coordinateRuntime.runFor(dtSec);
+        const shuntFraction=finite(
+          pulmonaryShuntFractionProvider({
+            timeSec:pvTimeSec,
+            simulation,
+            cardiovascular:cvSnapshot,
+            previousPulmonary:previous,
+            previousGas:gasSnapshot,
+            coordinate,
+          }),
+          'pulmonary shunt fraction'
         );
+        if(shuntFraction<0||shuntFraction>=1){
+          throw new Error('pulmonary shunt fraction must be in [0,1)');
+        }
+        mechanics=Object.freeze({
+          ...coordinate.pulmonaryVascularBoundary,
+          shuntFraction,
+          coordinateSnapshot:coordinate,
+        });
       }
       return Object.freeze({
         ...mechanics,
@@ -207,15 +253,11 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
             ?'Vent + Das-Marshall regional VQ/HPV + HumMod blood-O2 candidate'
             :'HumMod whole-lung startup fallback until completed Vent breath',
         pulmonaryMechanicsCoordinate:
-          'external-source-qualified-boundary-until-Vent-transform-is-validated',
+          pulmonaryMechanicsBoundaryProvider
+            ?'external-source-qualified-boundary'
+            :'Vent airway pressure -> Albanese/Karamolegkos source-coordinate runtime',
       }),
       unresolvedBoundary:Object.freeze({
-        absoluteAlveolarVolume:
-          'source-qualified external coordinate still required',
-        alveolarPressure:
-          'source-qualified external coordinate still required',
-        pleuralPressure:
-          'source-qualified external coordinate still required',
         shuntFraction:
           'Karamolegkos anatomical shunt remains explicit source/case boundary; low V/Q is modeled regionally and is not relabeled as shunt',
         postCapillaryResistance:
