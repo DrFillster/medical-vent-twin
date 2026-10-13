@@ -108,6 +108,21 @@ test('VT RR and FiO2 controller changes apply at a breath boundary without reset
   assert.equal(after.gas.anatomicalShuntFraction,0.05);
 });
 
+test('bedside hold advances the same coupled patient and records plateau',()=>{
+  const c=createCandidate();
+  c.runFor(3.2);
+  const t0=c.snapshot().timeSec;
+  const s=c.requestInspiratoryHold(0.1);
+  assert(s.timeSec>t0);
+  assert(
+    s.measurements.some(m=>
+      m.kind==='INSPIRATORY_HOLD' &&
+      Number.isFinite(m.plateauPressureCmH2O)
+    )
+  );
+  assert.equal(s.hemodynamics.status,'ready');
+});
+
 test('candidate refuses to infer anatomical shunt',()=>{
   assert.throws(()=>createV16PhysicianArdsCandidate({
     patientParams:PRESETS.phenotype_moderate_recruitability(),
