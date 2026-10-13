@@ -66,7 +66,7 @@
     "absolute_alveolar_volume_bridge_status": "closed without Vent elastic-volume mapping; source coordinate runtime initializes at Karamolegkos FRC and evolves A36",
     "remaining_ards_boundary": "anatomical shunt fraction must be explicit source/case state; do not infer from low VQ or recruitment",
     "focused_workflow": ".github/workflows/v16-ards-candidate.yml",
-    "last_green_workflow": "38333725034",
+    "last_green_workflow": "38334748816",
     "physician_candidate_module": "ards-twin-v1.0/src/v16_physician_ards_candidate.js",
     "physician_candidate_status": "backend-green",
     "persistent_interventions": [
@@ -92,7 +92,12 @@
       "Vent settings",
       "recruitment"
     ],
-    "next_task": "expose persistent v1.6 ARDS candidate to physician browser surface"
+    "next_task": "deploy isolated v1.6 physician preview for physician review",
+    "physician_browser_status": "green-ready-for-isolated-preview",
+    "last_green_source_sha": "1e74762942893f51b304d8cc50f09f755647c241",
+    "zero_pause_hold_status": "green",
+    "browser_session_status": "green",
+    "browser_bundle_status": "green"
   },
   "myocardial_state": {
     "strategy": "derive myocardial pHi from upstream source states; no manually supplied pHi",
