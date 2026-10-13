@@ -24,6 +24,7 @@ const {
   createV15IntegratedCardiopulmonaryCandidate,
 }=require('./v15_integrated_cardiopulmonary_candidate.js');
 const {
+  deriveSourceSteadyPulmonarySeed,
   createV16KaramolegkosPulmonaryVascularRuntime,
 }=require('./v16_karamolegkos_pulmonary_vascular_runtime.js');
 const {
@@ -55,7 +56,7 @@ function positive(v,label){
 function createV16IntegratedArdsCardiopulmonaryCandidate({
   simulation,
   dtSec=0.002,
-  pulmonaryVascularInitialState,
+  pulmonaryVascularInitialState=null,
   pulmonaryMechanicsBoundaryProvider=null,
   pulmonaryCoordinateAdapter=null,
   pulmonaryShuntFractionProvider=null,
@@ -100,10 +101,56 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
   let regionalO2Snapshot=null;
   let last=null;
   let timeSec=0;
+  let pulmonaryInitialization=null;
+
+  let resolvedPulmonaryInitialState=pulmonaryVascularInitialState;
+  if(resolvedPulmonaryInitialState==null &&
+     pulmonaryMechanicsBoundaryProvider==null){
+    const coordinate=pulmonaryCoordinateAdapter.snapshot();
+    if(!coordinate||coordinate.sourceQualified!==true){
+      throw new Error(
+        'pulmonaryCoordinateAdapter must return source-qualified coordinates for initialization'
+      );
+    }
+    const initialShuntState=pulmonaryShuntFractionProvider({
+      timeSec:0,
+      simulation,
+      cardiovascular:cvSnapshot,
+      previousPulmonary:null,
+      previousGas:null,
+      coordinate,
+    });
+    if(!initialShuntState||typeof initialShuntState!=='object'||
+       initialShuntState.sourceQualified!==true){
+      throw new Error(
+        'pulmonaryShuntFractionProvider must return a source-qualified case state for initialization'
+      );
+    }
+    const initialShuntFraction=finite(
+      initialShuntState.shuntFraction,
+      'initial pulmonary shunt fraction'
+    );
+    if(initialShuntFraction<0||initialShuntFraction>=1){
+      throw new Error('initial pulmonary shunt fraction must be in [0,1)');
+    }
+
+    pulmonaryInitialization=deriveSourceSteadyPulmonarySeed({
+      alveolarPressureMmHg:coordinate.alveolarPressureMmHg,
+      pleuralPressureMmHg:coordinate.pleuralPressureMmHg,
+      alveolarVolumeL:coordinate.alveolarVolumeL,
+      shuntFraction:initialShuntFraction,
+    });
+    resolvedPulmonaryInitialState=pulmonaryInitialization.state;
+  }
+  if(resolvedPulmonaryInitialState==null){
+    throw new Error(
+      'pulmonaryVascularInitialState is required with an explicit pulmonaryMechanicsBoundaryProvider'
+    );
+  }
 
   const pulmonary=createV16KaramolegkosPulmonaryVascularRuntime({
     dtSec,
-    initialState:pulmonaryVascularInitialState,
+    initialState:resolvedPulmonaryInitialState,
     boundaryProvider:({timeSec:pvTimeSec,previous})=>{
       const h=cvSnapshot.cardiovascular.hemodynamics;
       let mechanics;
@@ -257,6 +304,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
       }),
       cardiovascular:cvSnapshot,
       pulmonaryVascular:pulmonarySnapshot,
+      pulmonaryInitialization,
       pulmonaryGas:gasSnapshot,
       regionalOxygen:regionalO2Snapshot,
       ownership:Object.freeze({
