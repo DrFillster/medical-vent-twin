@@ -870,3 +870,23 @@ Composition layer:
 - myocardial lactate use remains the only direct myocardial input at this composition layer because its HumMod LeftHeart-Fuel equation needs additional live substrate/metabolic states not yet exposed by the cardiopulmonary candidate.
 
 The upstream composition focused gate is pending at this checkpoint.
+
+
+### v1.6 checkpoint — myocardial upstream composition gate green
+
+Focused workflow run `38330701408` completed **SUCCESS**.
+
+Validated together:
+- persistent nine-input myocardial acid-base provider;
+- live SID/HCO3 chemistry adapter;
+- integrated coronary flow + myocardial O2 use;
+- source-owned zero anaerobic glucose use;
+- persistent KCell runtime;
+- persistent systemic lactate-pool runtime;
+- live left-heart liquid-volume runtime;
+- nine-state myocardial upstream composition runtime.
+
+Current direct unresolved myocardial-pHi dependency at the composition boundary:
+- myocardial lactate use.
+
+The HumMod-2013 LeftHeart-Fuel equation for myocardial lactate use is already transcribed, but requires additional live metabolic/substrate inputs: insulin receptor binding, glucose pool concentration, fatty-acid pool concentration, plasma flow, myocardial lactate concentration, aerobic caloric use, total caloric use, and myocardial O2 use. These will be audited and wired source-first; no normal defaults will be substituted.
