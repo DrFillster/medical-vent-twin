@@ -1493,3 +1493,43 @@ Correction:
 - isolation check now uses `git status --porcelain --untracked-files=all`, forcing per-file paths before the same strict allow-list is evaluated.
 
 No file was committed to `main` by the failed run. Existing v1.5 preview remains untouched.
+
+
+## v1.6 physician perturbation audit checkpoint
+
+Added a focused local physician-review command without changing physiology:
+- script: `scripts/v16-physician-ards-perturbation-audit.js`;
+- npm command: `test:v16-physician-ards-candidate`;
+- commit adding audit: `d34af9f3d104245c0584b92a79509dc545f32f70`;
+- commit wiring npm command: `9bfe0bd8086a3547ada107400409a74bf50591da`.
+
+Purpose:
+- run the persistent v1.6 ARDS candidate locally on the Mac;
+- print physician-readable state at baseline, after PEEP 14, after VT/RR/FiO2 change, and after passive mechanics holds;
+- include PaO2, PaCO2, pH, regional oxygenation/perfusion/HPV, HR, MAP, CO, SV, SVR, PVR, PAP/RAP/LAP, recruitment, and the latest bedside measurement;
+- preserve the same explicit source-qualified fixture boundaries already used by the v1.6 physician candidate regression test.
+
+Important:
+- this is a report-only audit;
+- it embeds no expected clinical target, fitted gain, pass band, or equation tuning;
+- physician review determines whether trajectories are clinically plausible;
+- if an output is close but uncertain, ask the physician rather than changing equations.
+
+Next local command:
+
+```bash
+cd ~/medical-vent-twin
+git fetch origin
+git switch v1.6
+git pull --ff-only origin v1.6
+
+cd ards-twin-v1.0
+npm run test:v16-physician-ards-candidate \
+  | tee ~/Desktop/v16-physician-ards-candidate.txt
+```
+
+After the local result is available, classify:
+1. technical pass/fail;
+2. directionality of gas exchange and hemodynamic response;
+3. physician plausibility;
+4. only then decide whether any source-model investigation is required.
