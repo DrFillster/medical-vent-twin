@@ -15,7 +15,9 @@ for(const name of required){
 function read(name){return fs.readFileSync(path.join(web,name),'utf8');}
 if(failures.length===0){
   const html=read('index.html'), app=read('app.js'), css=read('styles.css'), engine=read('engine.js'), clinicalWorker=read('clinical-worker.js');
-  const assetVersion=pkg.version;
+  const assetVersion=process.env.BROWSER_ASSET_VERSION ||
+    '1.6-integrated-ards-candidate';
+  const sourceBranch=process.env.SOURCE_BRANCH || 'v1.6';
   const checks=[
     [html.includes('id="clinical-quick-start"'),'quick-start control missing'],
     [html.includes('id="clinical-ph"'),'pH monitor missing'],
@@ -32,7 +34,7 @@ if(failures.length===0){
     [html.includes('Not clinically validated'),'clinical-validation warning missing'],
     [html.includes('Not for patient care'),'patient-care warning missing'],
     [html.includes('MODEL_PROVENANCE_AUDIT.md'),'model provenance audit link missing'],
-    [html.includes('github.com/DrFillster/medical-vent-twin/tree/v1.5'),'v1.5 source-branch link missing'],
+    [html.includes('github.com/DrFillster/medical-vent-twin/tree/'+sourceBranch),sourceBranch+' source-branch link missing'],
     [app.includes("clinical-quick-start"),'quick-start behavior missing'],
     [html.includes('id="clinical-run-continuous"'),'continuous-run control missing'],
     [html.includes('id="clinical-pause-continuous"'),'continuous-pause control missing'],
@@ -69,6 +71,9 @@ if(failures.length===0){
 const report={
   schema:'vent-deployable-web-verification/v1',
   version:pkg.version,
+  browserAssetVersion:process.env.BROWSER_ASSET_VERSION ||
+    '1.6-integrated-ards-candidate',
+  sourceBranch:process.env.SOURCE_BRANCH || 'v1.6',
   webRoot:'web/',
   requiredFiles:required,
   deployable:failures.length===0,
