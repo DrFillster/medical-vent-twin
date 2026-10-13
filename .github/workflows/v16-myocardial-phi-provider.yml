@@ -7,6 +7,8 @@ on:
       - '.github/workflows/v16-myocardial-phi-provider.yml'
       - 'ards-twin-v1.0/src/hummod_2013_live_myocardial_acid_base_provider.js'
       - 'ards-twin-v1.0/test/v16_live_myocardial_acid_base_provider.test.js'
+      - 'ards-twin-v1.0/src/v16_myocardial_live_input_adapter.js'
+      - 'ards-twin-v1.0/test/v16_myocardial_live_input_adapter.test.js'
 
 permissions:
   contents: read
@@ -25,3 +27,5 @@ jobs:
           node-version: '22'
       - name: Nine-input myocardial acid-base provider
         run: node test/v16_live_myocardial_acid_base_provider.test.js
+      - name: Live myocardial chemistry adapter
+        run: node test/v16_myocardial_live_input_adapter.test.js
