@@ -1281,3 +1281,44 @@ The integrated ARDS candidate now uses this translator by default. External `pul
 **Anatomical shunt fraction** remains explicit. Do not derive it from low V/Q, Berlin grade, recruitment fraction, or Vent legacy perfusion metadata without a sourced case relationship.
 
 Normal Karamolegkos physiology and ARDS study-specific shunt values must remain distinct. The next build target is a physician-testable ARDS perturbation candidate with a clearly authored/source-qualified anatomical-shunt case state, not a universal inferred shunt formula.
+
+
+## v1.6 milestone — persistent physician-testable ARDS candidate green
+
+Focused ARDS workflow `38333725034`: **SUCCESS**.
+
+New physician candidate:
+- `src/v16_physician_ards_candidate.js`;
+- focused test: `test/v16_physician_ards_candidate.test.js`.
+
+The candidate owns no new physiology. It keeps one real Vent `Simulation` and one v1.6 integrated cardiopulmonary runtime alive across interventions.
+
+Explicit required case inputs remain explicit:
+- Vent mechanical phenotype;
+- starting recruitment state;
+- starting ventilator settings;
+- anatomical shunt fraction;
+- excess lung water;
+- blood/metabolic/environment boundaries.
+
+No Berlin-severity -> shunt/recruitment/hemodynamic inference is performed.
+
+Physician-facing persistent outputs now include:
+- PaO2, PaCO2, arterial pH;
+- regional alveolar PO2, HPV coefficient, and perfusion fraction;
+- HR, time-averaged MAP, CO, SV, SVR;
+- mean PAP, RAP, LAP, derived PVR;
+- Vent settings, airway pressure, lung elastic volume, recruitment state;
+- intervention and measurement history.
+
+The hemodynamic bedside outputs use completed time-averaging windows; instantaneous pulsatile valve outflow is not reported as cardiac output.
+
+Validated persistent interventions:
+- PEEP change through Vent `setPEEP()` without patient reset;
+- VT/RR/FiO2/controller change queued and applied at a breath boundary without patient reset.
+
+Current milestone status:
+- **backend physician-testable integrated ARDS candidate achieved**;
+- next step is physician browser exposure / perturbation review, not additional broad physiology expansion;
+- myocardial O2/pHi/contractility reconnection remains the next physiology item after ARDS physician exposure;
+- sepsis/pressors remain deferred.
