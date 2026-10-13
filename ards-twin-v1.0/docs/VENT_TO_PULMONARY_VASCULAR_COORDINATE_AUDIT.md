@@ -102,3 +102,41 @@ physiology.
 
 Do not infer Karamolegkos absolute alveolar volume from Vent elastic volume without
 a validated coordinate transform.
+
+
+## v1.6 update — Option A implemented as a reference-anchored coordinate
+
+The original prohibition remains unchanged:
+
+```
+V_A = FRC_nom + Vent.totalVolume
+```
+
+is still **not authorized**.
+
+However, Option A is now implemented for cases in which an authoritative absolute alveolar volume is available at a Vent state observed at the same instant.
+
+At a synchronized reference state:
+
+```
+V_A,ref       = source-qualified/measured absolute alveolar volume
+V_Vent,ref    = Vent elastic distal volume at that same instant
+```
+
+Thereafter the candidate coordinate adapter uses only the volume change:
+
+```
+V_A(t) = V_A,ref + [V_Vent(t) - V_Vent,ref]
+```
+
+This does **not** assert that Vent zero equals FRC. It translates a distal gas-volume change after the two coordinates have been explicitly registered at one reference state.
+
+Implementation:
+- `src/v16_reference_anchored_alveolar_volume_adapter.js`
+- `test/v16_reference_anchored_alveolar_volume_adapter.test.js`
+
+Authority limits:
+- the adapter is candidate-only;
+- it fails closed without a source-qualified reference absolute volume;
+- it does not solve the remaining global alveolar-pressure or pleural-pressure coordinate problem;
+- it does not authorize use of Karamolegkos nominal FRC as an arbitrary patient-specific reference.
