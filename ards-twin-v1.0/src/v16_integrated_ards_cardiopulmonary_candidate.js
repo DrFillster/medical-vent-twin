@@ -274,6 +274,21 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
 
     timeSec+=dtSec;
     const h=cvSnapshot.cardiovascular.hemodynamics;
+    const activeController=cvSnapshot.cardiovascular.controller;
+    const heartRateCoupling=activeController
+      ?Object.freeze({
+        sourceQualified:true,
+        owner:'Ursino/Magosso delayed sympathetic/vagal heart-period effectors -> cardiovascular plant',
+        heartPeriodSec:
+          activeController.effectors?.absolute?.heartPeriodSec??null,
+        heartRatePerMin:h.heartRatePerMin,
+        cardiacSympatheticSpikesPerSec:
+          activeController.autonomic?.fShSpikesPerSec??null,
+        cardiacVagalSpikesPerSec:
+          activeController.autonomic?.fVSpikesPerSec??null,
+        physiologicGainAdded:false,
+      })
+      :null;
     const perf=pulmonarySnapshot.pulmonaryPerfusionState;
 
     last=Object.freeze({
@@ -303,6 +318,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
           perf.ventilatedPulmonaryBloodFlowMlPerMin,
       }),
       cardiovascular:cvSnapshot,
+      heartRateCoupling,
       pulmonaryVascular:pulmonarySnapshot,
       pulmonaryInitialization,
       pulmonaryGas:gasSnapshot,
@@ -310,6 +326,8 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
       ownership:Object.freeze({
         ventilatorMechanics:'Vent',
         cardiovascularAutonomic:'Ursino/Magosso-candidate',
+        heartRate:
+          'Ursino/Magosso cardiac sympathetic + vagal effectors -> heart period -> cardiovascular plant',
         pulmonaryVascular:'Karamolegkos-candidate',
         gasExchangeCo2PhMixedVenous:
           'HumMod-source-aligned-candidate',
@@ -329,8 +347,9 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
           'derived internally from Karamolegkos Appendix A25 and shunt fraction',
       }),
       coupling:Object.freeze({
-        order:'pulmonary-vascular -> regional-O2-target -> gas-delay/CO2 -> cardiovascular',
+        order:'pulmonary-vascular -> regional-O2-target -> gas-delay/CO2 -> autonomic effectors -> heart period -> cardiovascular plant',
         method:'sequential-operator-splitting',
+        heartRateCoupledToPlant:true,
         physiologicGainAdded:false,
       }),
       provenance:SOURCE,

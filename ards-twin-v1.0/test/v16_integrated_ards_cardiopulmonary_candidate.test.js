@@ -174,6 +174,21 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
   assert(Number.isFinite(
     s.cardiovascular.cardiovascular.hemodynamics.heartRatePerMin
   ));
+  assert(s.heartRateCoupling);
+  assert.equal(s.heartRateCoupling.sourceQualified,true);
+  assert.equal(s.heartRateCoupling.physiologicGainAdded,false);
+  assert(Number.isFinite(s.heartRateCoupling.heartPeriodSec));
+  assert(Number.isFinite(s.heartRateCoupling.heartRatePerMin));
+  assert.equal(
+    s.heartRateCoupling.heartRatePerMin,
+    s.physicianState.heartRatePerMin
+  );
+  assert.equal(
+    s.heartRateCoupling.heartPeriodSec,
+    s.cardiovascular.cardiovascular.controller.effectors.absolute.heartPeriodSec
+  );
+  assert.equal(s.coupling.heartRateCoupledToPlant,true);
+  assert.match(s.ownership.heartRate,/heart period/);
 });
 
 test('integrated ARDS candidate refuses unsourced default pulmonary coordinates',()=>{

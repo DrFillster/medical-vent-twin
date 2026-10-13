@@ -85,6 +85,16 @@ jobs:
         run: node test/v16_reference_anchored_alveolar_volume_adapter.test.js
       - name: Passive Vent-Karamolegkos pressure coordinate
         run: node test/v16_vent_karamolegkos_pressure_coordinate_adapter.test.js
+      - name: Active HR and cardiovascular source-family dependencies
+        run: |
+          node test/ursino_baroreceptor_shadow.test.js
+          node test/v15_magosso_ursino_2001_gas_autonomic_candidate.test.js
+          node test/v15_ursino_magosso_2000_split_effectors_candidate.test.js
+          node test/v15_ursino_magosso_2000_split_effectors_runtime.test.js
+          node test/v15_ursino_magosso_2000_expanded_plant_runtime.test.js
+          node test/v15_ursino_magosso_2000_local_o2_candidate.test.js
+          node test/v15_ursino_magosso_2000_oxygen_metabolic_candidate.test.js
+          node test/v15_integrated_cardiopulmonary_candidate.test.js
       - name: v1.6 integrated ARDS cardiopulmonary candidate
         run: node test/v16_integrated_ards_cardiopulmonary_candidate.test.js
       - name: Vent zero-pause bedside hold regression

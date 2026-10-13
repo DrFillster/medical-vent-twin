@@ -56,7 +56,17 @@ Do not tune the oxygen equations until the diagnostic trace determines whether a
 
 ### Autonomics
 
-The active cardiovascular/autonomic candidate receives PaO2, PaCO2, and delivered tidal volume. Source-family chemoreceptor, sympathetic, vagal, and SA-node states exist, but the current physician perturbation case does not establish the severe hypoxia/hypercarbia -> autonomic -> tachycardia behavior. Review the full chain before changing gains.
+The active cardiovascular/autonomic candidate receives PaO2, PaCO2, delivered tidal volume, and arterial-pressure feedback. The v1.6 composition now exposes the active HR ownership chain explicitly:
+
+```
+arterial pressure + PaO2 + PaCO2 + delivered VT
+ -> source-family baroreceptor / chemoreceptor / pulmonary-stretch signals
+ -> cardiac sympathetic + vagal firing
+ -> delayed heart-period effectors
+ -> cardiovascular plant HR
+```
+
+The integration adds no physiologic gain. The v1.6 focused gate also runs the active upstream HR/cardiovascular dependency tests before the integrated ARDS test. This establishes software coupling and source-module regression coverage; it does **not** establish that severe hypoxia/hypercarbia produces a clinically validated chronotropic trajectory.
 
 ### Positive-pressure cardiovascular coupling
 

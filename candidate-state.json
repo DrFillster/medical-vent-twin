@@ -92,7 +92,7 @@
       "Vent settings",
       "recruitment"
     ],
-    "next_task": "physician review of v1.6 trajectories before any physiology tuning",
+    "next_task": "validate explicit end-to-end HR coupling and full active dependency gate in v1.6; then physician review of trajectories",
     "physician_browser_status": "green-ready-for-isolated-preview",
     "last_green_source_sha": "1e74762942893f51b304d8cc50f09f755647c241",
     "zero_pause_hold_status": "green",
@@ -108,8 +108,9 @@
       "software_integration": "focused physician candidate gate 5/5 passed locally",
       "physiology_validation": "not established",
       "oxygen_trajectory": "diagnostic trace added; interpretation pending physician review",
-      "autonomics": "source-family path present; severe-stress behavior not yet physician-validated",
-      "cardiopulmonary_mechanics": "pulmonary vascular/RV pressure coupling present; direct intrathoracic-pressure coupling into systemic cardiovascular plant remains incomplete"
+      "autonomics": "source-family HR path is explicitly coupled into the cardiovascular plant and included in the v1.6 focused dependency gate; severe-stress physiology remains physician-validation-open",
+      "cardiopulmonary_mechanics": "pulmonary vascular/RV pressure coupling present; direct intrathoracic-pressure coupling into systemic cardiovascular plant remains incomplete",
+      "hr_coupling": "explicit integration contract added: gas/baroreceptor/pulmonary-stretch autonomics -> cardiac sympathetic/vagal effectors -> heart period -> cardiovascular plant HR; no new physiologic gain"
     }
   },
   "myocardial_state": {
