@@ -9,6 +9,8 @@ on:
       - 'ards-twin-v1.0/test/v16_ards_pulmonary_gas_candidate.test.js'
       - 'ards-twin-v1.0/src/v16_karamolegkos_pulmonary_vascular_runtime.js'
       - 'ards-twin-v1.0/test/v16_karamolegkos_pulmonary_vascular_runtime.test.js'
+      - 'ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js'
+      - 'ards-twin-v1.0/test/v16_integrated_ards_cardiopulmonary_candidate.test.js'
 
 permissions:
   contents: read
@@ -29,3 +31,5 @@ jobs:
         run: node test/v16_ards_pulmonary_gas_candidate.test.js
       - name: v1.6 Karamolegkos pulmonary vascular runtime
         run: node test/v16_karamolegkos_pulmonary_vascular_runtime.test.js
+      - name: v1.6 integrated ARDS cardiopulmonary candidate
+        run: node test/v16_integrated_ards_cardiopulmonary_candidate.test.js
