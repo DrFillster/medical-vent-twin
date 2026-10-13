@@ -30,6 +30,18 @@ function createCandidate(){
     },
     anatomicalShuntFraction:0.05,
     excessLungWaterMl:0,
+    pulmonaryVascularInitialState:{
+      PpaTm:18,
+      Fpa:80,
+      PpalTm:13,
+      PpcTm:9,
+      PpvTm:10,
+    },
+    pulmonaryVascularInitialStateProvenance:{
+      sourceQualified:true,
+      fixture:'focused physician candidate test only',
+      canonical:false,
+    },
     blood:{
       sidMolPerL:0.040,
       o2MaxMlPerMl:0.201,
@@ -132,6 +144,18 @@ test('candidate refuses to infer anatomical shunt',()=>{
       inspiratoryFlow:0.5,inspiratoryPause:0,
     },
     excessLungWaterMl:0,
+    pulmonaryVascularInitialState:{
+      PpaTm:18,
+      Fpa:80,
+      PpalTm:13,
+      PpcTm:9,
+      PpvTm:10,
+    },
+    pulmonaryVascularInitialStateProvenance:{
+      sourceQualified:true,
+      fixture:'focused physician candidate test only',
+      canonical:false,
+    },
     blood:{sidMolPerL:0.040,o2MaxMlPerMl:0.201,tempC:37,carboxyPercent:0},
     metabolism:{tissueO2UseMlPerMin:250,tissueCo2ProductionMmolPerMin:9},
     environment:{barometricPressureMmHg:760,inspiredCo2Fraction:0},
