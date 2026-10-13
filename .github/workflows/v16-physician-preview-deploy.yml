@@ -126,6 +126,7 @@ jobs:
             index_code=$(curl -L -sS -o smoke/index.html -w '%{http_code}' --max-time 20 "$BASE/" || printf '000')
             source_code=$(curl -L -sS -o smoke/source.txt -w '%{http_code}' --max-time 20 "$BASE/DEPLOY_SOURCE_SHA.txt" || printf '000')
             live_sha=$(tr -d '\r\n' < smoke/source.txt 2>/dev/null || true)
+            echo "attempt=$attempt index_code=$index_code source_code=$source_code live_sha=${live_sha:-missing} expected_sha=$SOURCE_SHA"
             if [ "$index_code" = "200" ] && [ "$source_code" = "200" ] && [ "$live_sha" = "$SOURCE_SHA" ] && grep -q "v1.6 integrated ARDS candidate" smoke/index.html; then
               ok=1
               break
