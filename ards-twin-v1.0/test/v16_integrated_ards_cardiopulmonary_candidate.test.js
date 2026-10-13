@@ -79,7 +79,7 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
       PpcTm:9,
       PpvTm:10,
     },
-    pulmonaryMechanicsBoundaryProvider:pulmonaryMechanicsBoundary,
+    pulmonaryShuntFractionProvider:()=>0.05,
     blood:{
       sidMolPerL:0.040,
       o2MaxMlPerMl:0.201,
@@ -105,7 +105,7 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
   assert.equal(s.ownership.ventilatorMechanics,'Vent');
   assert.equal(
     s.ownership.pulmonaryMechanicsCoordinate,
-    'external-source-qualified-boundary-until-Vent-transform-is-validated'
+    'Vent airway pressure -> Albanese/Karamolegkos source-coordinate runtime'
   );
 
   for(const [k,v] of Object.entries(s.physicianState)){
@@ -115,6 +115,14 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
   }
 
   assert(s.pulmonaryVascular.pulmonaryPerfusionState.sourceQualified);
+  assert.equal(
+    s.pulmonaryVascular.boundary.coordinateSnapshot.canonicalMechanicsAuthority,
+    false
+  );
+  assert(
+    s.pulmonaryVascular.boundary.alveolarVolumeL>2.25,
+    'positive Vent airway pressure should raise source-coordinate alveolar volume'
+  );
   assert(Number.isFinite(s.pulmonaryGas.gas.gases.arterial.po2MmHg));
   assert(Number.isFinite(s.pulmonaryGas.gas.gases.arterial.pco2MmHg));
   assert.equal(s.regionalOxygen.status,'ready');
