@@ -188,8 +188,20 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
   function step(){
     pulmonarySnapshot=pulmonary.step();
 
+    if(gasSnapshot==null){
+      gasSnapshot=gas.initialize();
+    }
+
+    regionalO2Snapshot=createVentRegionalArdsOxygenState({
+      simulation,
+      pulmonaryVascularSnapshot:pulmonarySnapshot,
+      gasSnapshot,
+      blood,
+      environment,
+    });
+
     const arterialO2TargetOverride=
-      regionalO2Snapshot?.status==='ready'
+      regionalO2Snapshot.status==='ready'
         ?Object.freeze({
           sourceQualified:true,
           o2ContentMlPerMl:regionalO2Snapshot.arterialO2ContentMlPerMl,
@@ -204,17 +216,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
     });
 
     const arterial=gasSnapshot.gas.gases.arterial;
-    regionalO2Snapshot=createVentRegionalArdsOxygenState({
-      simulation,
-      pulmonaryVascularSnapshot:pulmonarySnapshot,
-      gasSnapshot,
-      blood,
-      environment,
-    });
-    const candidatePao2MmHg=
-      regionalO2Snapshot.status==='ready'
-        ?regionalO2Snapshot.arterialPo2MmHg
-        :arterial.po2MmHg;
+    const candidatePao2MmHg=arterial.po2MmHg;
 
     cv.setCanonicalInputs({
       pao2MmHg:candidatePao2MmHg,
@@ -241,7 +243,10 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
         leftAtrialPressureMmHg:h.leftAtrialPressureMmHg,
         pao2MmHg:candidatePao2MmHg,
         paco2MmHg:arterial.pco2MmHg,
-        wholeLungShadowPao2MmHg:arterial.po2MmHg,
+        regionalArterialPo2TargetMmHg:
+          regionalO2Snapshot.status==='ready'
+            ?regionalO2Snapshot.arterialPo2MmHg
+            :null,
         arterialPh:arterial.pH,
         fio2:gasSnapshot.mechanics.fio2,
         tidalVolumeL:gasSnapshot.mechanics.tidalVolumeL,
