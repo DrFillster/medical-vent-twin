@@ -1238,3 +1238,46 @@ The prior failure in workflow `38333389670` was confirmed to be test wording onl
 
 Remaining major ARDS mechanics boundary:
 - source-valid translation from Vent volume/pressure coordinates to Karamolegkos absolute alveolar volume `V_A`, alveolar pressure `P_A`, and pleural pressure `P_pl` for dynamic PVR/RV loading.
+
+
+## v1.6 positive checkpoint — Vent-driven pulmonary coordinates + regional V/Q/O2 integrated
+
+Focused ARDS workflow `38333520882`: **SUCCESS**.
+
+This checkpoint closes two major ARDS integration boundaries without changing Vent mechanics or adding fitted physiology.
+
+### Regional V/Q / oxygen authority
+
+The integrated patient now contains the source-traceable chain:
+`Vent regional completed-breath ventilation -> HumMod BTPS/STPD + blood O2 relations -> regional alveolar PO2 -> Marshall HPV response -> Das regional pulmonary resistance/perfusion -> non-shunt capillary O2 mixing -> Karamolegkos anatomical shunt mixing -> arterial O2`.
+
+Key implementation files:
+- `src/v16_das_ards_regional_perfusion_candidate.js`;
+- `src/v16_marshall_hpv_candidate.js`;
+- `src/v16_das_marshall_regional_hpv_perfusion.js`;
+- `src/v16_regional_ards_o2_perfusion_candidate.js`;
+- `src/v16_vent_regional_alveolar_ventilation_adapter.js`;
+- `src/v16_vent_regional_ards_oxygen_bridge.js`.
+
+Vent legacy `perfusionFraction` metadata is not used by this path. Low V/Q is modeled regionally and is not relabeled as anatomical shunt.
+
+The source-qualified regional arterial O2 target is also fed back into the HumMod gas runtime on the following operator-split step, so the persistent gas/venous extraction state and the cardiovascular/autonomic candidate share the same regional O2 authority. The one-step feedback lag is numerical operator splitting, not a physiologic delay or gain.
+
+### Vent -> Karamolegkos pulmonary mechanics coordinates
+
+New coordinate translator:
+- `src/v16_albanese_karamolegkos_pulmonary_coordinate_runtime.js`;
+- source equations Albanese 2016 A30-A36;
+- passive mechanical-ventilation boundary (`dPmus/dt = 0`);
+- input is Vent airway-opening pressure;
+- outputs source-native alveolar pressure `P_A`, pleural pressure `P_pl`, and absolute alveolar volume `V_A`;
+- `V_A` initializes at Karamolegkos nominal FRC 2.25 L and evolves via source Eq. A36;
+- Vent elastic volume is never used as absolute alveolar volume.
+
+The integrated ARDS candidate now uses this translator by default. External `pulmonaryMechanicsBoundaryProvider` remains only as an explicit source-qualified override/debug path.
+
+### Current remaining ARDS boundary
+
+**Anatomical shunt fraction** remains explicit. Do not derive it from low V/Q, Berlin grade, recruitment fraction, or Vent legacy perfusion metadata without a sourced case relationship.
+
+Normal Karamolegkos physiology and ARDS study-specific shunt values must remain distinct. The next build target is a physician-testable ARDS perturbation candidate with a clearly authored/source-qualified anatomical-shunt case state, not a universal inferred shunt formula.
