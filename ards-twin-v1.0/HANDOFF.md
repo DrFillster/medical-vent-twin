@@ -794,3 +794,15 @@ Decision:
 - build the missing source-owned upstream runtimes beneath these states.
 
 Next implementation: persistent HumMod-2013 KCell runtime, candidate-only and fail-closed on live KPool/cell-water inputs.
+
+
+### v1.6 negative checkpoint — first KCell focused gate
+
+Focused workflow run `38330464440` completed **FAILURE** after adding the persistent HumMod-2013 KCell runtime.
+
+The preceding five-of-nine myocardial gates had been green. The new failure is isolated to the newly added KCell focused gate until proven otherwise.
+
+No physiology will be changed in response to the failed gate. The failure is being inspected before repair; any correction must preserve the source equations:
+- `KCell.Change = KFluxToCell.Rate - KFluxToPool.Rate`;
+- `KFluxToCell.Rate = 0.0018 * KAldoEffect.Delayed * KPool.Mass`;
+- `KFluxToPool.Rate = 8e-5 * (KCell.Mass - 2180)`.
