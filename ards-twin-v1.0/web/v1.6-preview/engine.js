@@ -19441,6 +19441,17 @@ function createV16PhysicianArdsCandidate({
         anatomicalShuntFraction,
       }),
       hemodynamics:physicianHemodynamics(),
+      myocardial:Object.freeze({
+        coronaryBloodFlowMlPerMin:
+          lastIntegrated.myocardialSourceState?.coronaryBloodFlowMlPerMin??null,
+        myocardialO2UseMlPerMin:
+          lastIntegrated.myocardialSourceState?.myocardialO2UseMlPerMin??null,
+        intracellularPh:null,
+        contractilityAuthority:'not-coupled-fail-closed',
+        status:lastIntegrated.myocardialSourceState
+          ?'source-flow-and-o2-use-live'
+          :'awaiting-integrated-source-state',
+      }),
       pulmonary:Object.freeze({
         pulmonaryVascular:lastIntegrated.pulmonaryVascular??null,
         sourceCoordinate:
@@ -19784,6 +19795,8 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
         physiologicGainAdded:false,
       })
       :null;
+    const myocardialSourceState=
+      cvSnapshot.cardiovascular.myocardialSourceState||null;
     const perf=pulmonarySnapshot.pulmonaryPerfusionState;
 
     last=Object.freeze({
@@ -19814,6 +19827,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
       }),
       cardiovascular:cvSnapshot,
       heartRateCoupling,
+      myocardialSourceState,
       pulmonaryVascular:pulmonarySnapshot,
       pulmonaryInitialization,
       pulmonaryGas:gasSnapshot,
@@ -19823,6 +19837,10 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
         cardiovascularAutonomic:'Ursino/Magosso-candidate',
         heartRate:
           'Ursino/Magosso cardiac sympathetic + vagal effectors -> heart period -> cardiovascular plant',
+        myocardialFlowAndO2Use:
+          'Ursino/Magosso coronary bed flow + source cardiac O2-use candidate; diagnostic source state only',
+        myocardialAcidBaseContractility:
+          'fail-closed-not-yet-coupled',
         pulmonaryVascular:'Karamolegkos-candidate',
         gasExchangeCo2PhMixedVenous:
           'HumMod-source-aligned-candidate',
