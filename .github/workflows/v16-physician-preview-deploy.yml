@@ -36,6 +36,9 @@ jobs:
       - name: v1.6 physician UI contract
         run: node test/v16_physician_browser_ui_contract.test.js
       - name: Verify deployable web
+        env:
+          BROWSER_ASSET_VERSION: 1.6-integrated-ards-candidate
+          SOURCE_BRANCH: v1.6
         run: npm run verify:deploy
       - name: Verify integrated provider export
         run: grep -q "createBerlinV16ArdsSession" web/engine.js
