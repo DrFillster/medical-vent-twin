@@ -1,0 +1,27 @@
+name: v1.6 Myocardial pHi Provider
+
+on:
+  push:
+    branches: [v1.6]
+    paths:
+      - '.github/workflows/v16-myocardial-phi-provider.yml'
+      - 'ards-twin-v1.0/src/hummod_2013_live_myocardial_acid_base_provider.js'
+      - 'ards-twin-v1.0/test/v16_live_myocardial_acid_base_provider.test.js'
+
+permissions:
+  contents: read
+
+jobs:
+  focused-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Nine-input myocardial acid-base provider
+        run: node test/v16_live_myocardial_acid_base_provider.test.js
