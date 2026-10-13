@@ -86,7 +86,7 @@ jobs:
           test -f ards-twin-v1.6-preview/web/DEPLOY_SOURCE_SHA.txt
           grep -q "v1.6 integrated ARDS candidate" ards-twin-v1.6-preview/web/index.html
           grep -q "createBerlinV16ArdsSession" ards-twin-v1.6-preview/web/engine.js
-          git status --porcelain | tee /tmp/status.txt
+          git status --porcelain --untracked-files=all | tee /tmp/status.txt
           if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.6-preview/web/)' | grep -q .; then
             echo "Refusing deployment: files outside isolated v1.6 preview changed."
             exit 1
