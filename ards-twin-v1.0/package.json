@@ -43,11 +43,13 @@
     "test:hummod-2013-coronary-flow-provider": "node test/v15_hummod_2013_left_heart_flow_candidate.test.js && node test/v15_hummod_2013_coronary_flow_provider_readiness.test.js",
     "test:hummod-blood-oxygen-provider": "node test/v15_hummod_blood_oxygen_provider_candidate.test.js",
     "test:hummod-2013-lv-mass-provider": "node test/v15_hummod_2013_left_heart_mass_provider.test.js",
-    "test:hummod-2013-myocardial-provider-foundation": "node test/v15_hummod_blood_oxygen_provider_candidate.test.js && node test/v15_hummod_2013_left_heart_mass_provider.test.js && node test/v15_hummod_2013_left_heart_metabolism_provider.test.js && node test/v15_hummod_2013_myocardial_metabolic_modifiers.test.js && node test/v15_hummod_2013_left_heart_structure.test.js && node test/v15_hummod_2013_left_heart_vasculature_provider.test.js && node test/v15_hummod_2013_adh_provider_contract.test.js && node test/v15_hummod_2013_left_heart_flow_candidate.test.js && node test/v15_hummod_2013_coronary_flow_provider_readiness.test.js",
+    "test:hummod-2013-myocardial-provider-foundation": "node test/v15_hummod_blood_oxygen_provider_candidate.test.js && node test/v15_hummod_2013_left_heart_mass_provider.test.js && node test/v15_hummod_2013_left_heart_liquid_volume_provider.test.js && node test/v15_hummod_2013_kcell_provider.test.js && node test/v15_hummod_2013_left_heart_metabolism_provider.test.js && node test/v15_hummod_2013_myocardial_metabolic_modifiers.test.js && node test/v15_hummod_2013_left_heart_structure.test.js && node test/v15_hummod_2013_left_heart_vasculature_provider.test.js && node test/v15_hummod_2013_adh_provider_contract.test.js && node test/v15_hummod_2013_left_heart_flow_candidate.test.js && node test/v15_hummod_2013_coronary_flow_provider_readiness.test.js",
     "test:hummod-2013-lv-vasculature-provider": "node test/v15_hummod_2013_left_heart_vasculature_provider.test.js",
     "test:hummod-2013-myocardial-metabolism-provider": "node test/v15_hummod_2013_left_heart_metabolism_provider.test.js && node test/v15_hummod_2013_myocardial_metabolic_modifiers.test.js",
     "test:hummod-2013-left-heart-structure": "node test/v15_hummod_2013_left_heart_structure.test.js",
-    "test:hummod-2013-adh-provider-contract": "node test/v15_hummod_2013_adh_provider_contract.test.js"
+    "test:hummod-2013-adh-provider-contract": "node test/v15_hummod_2013_adh_provider_contract.test.js",
+    "test:hummod-2013-kcell-provider": "node test/v15_hummod_2013_kcell_provider.test.js",
+    "test:hummod-2013-lv-liquid-volume-provider": "node test/v15_hummod_2013_left_heart_liquid_volume_provider.test.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
