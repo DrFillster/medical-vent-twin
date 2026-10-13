@@ -108,17 +108,30 @@ function nonShuntArteriolarFlow({
     pulmonaryCapillaryPressureMmHg) / r;
 }
 
-// Appendix A12. R_pc is deliberately explicit because this candidate does not
-// invent a default that has not yet been verified from the primary source.
+// Appendix A25. Post-capillary resistance is source-derived from total
+// pulmonary peripheral resistance and selected shunt fraction.
+function pulmonaryCapillaryResistance({
+  shuntFraction: sh,
+  totalPeripheralResistanceMmHgSecPerMl =
+    PARAMETERS.RppTotalMmHgSecPerMl,
+} = {}) {
+  shuntFraction(sh);
+  positive(totalPeripheralResistanceMmHgSecPerMl,
+    'totalPeripheralResistanceMmHgSecPerMl');
+  return totalPeripheralResistanceMmHgSecPerMl /
+    (2 * (1 - sh));
+}
+
+// Appendix A12 using source Appendix A25 for R_pc.
 function pulmonaryCapillaryFlow({
   pulmonaryCapillaryPressureMmHg,
   pulmonaryVenousPressureMmHg,
-  capillaryResistanceMmHgSecPerMl,
+  shuntFraction: sh,
 } = {}) {
   finite(pulmonaryCapillaryPressureMmHg, 'pulmonaryCapillaryPressureMmHg');
   finite(pulmonaryVenousPressureMmHg, 'pulmonaryVenousPressureMmHg');
-  positive(capillaryResistanceMmHgSecPerMl,
-    'capillaryResistanceMmHgSecPerMl');
+  const capillaryResistanceMmHgSecPerMl =
+    pulmonaryCapillaryResistance({shuntFraction:sh});
   return (pulmonaryCapillaryPressureMmHg -
     pulmonaryVenousPressureMmHg) / capillaryResistanceMmHgSecPerMl;
 }
@@ -255,6 +268,7 @@ module.exports = Object.freeze({
   pulmonaryShuntFlow,
   totalPeripheralFlow,
   nonShuntArteriolarFlow,
+  pulmonaryCapillaryResistance,
   pulmonaryCapillaryFlow,
   pulmonaryVenousFlow,
   compliantVolume,
