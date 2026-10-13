@@ -40,8 +40,10 @@ jobs:
           BROWSER_ASSET_VERSION: 1.6-integrated-ards-candidate
           SOURCE_BRANCH: v1.6
         run: npm run verify:deploy
-      - name: Verify integrated provider export
-        run: grep -q "createBerlinV16ArdsSession" web/engine.js
+      - name: Verify integrated provider export and provenance
+        run: |
+          grep -q "createBerlinV16ArdsSession" web/engine.js
+          grep -q "github.com/DrFillster/medical-vent-twin/tree/v1.6" web/index.html
       - name: Upload validated physician preview
         uses: actions/upload-artifact@v4
         with:
