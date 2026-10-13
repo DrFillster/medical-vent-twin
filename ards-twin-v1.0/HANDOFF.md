@@ -1575,3 +1575,51 @@ The next review must inspect the numerical perturbation trajectory from the save
 Apply the physician-variability rule:
 - if direction and magnitude are clearly implausible, trace source equations/state ownership before changing anything;
 - if values are clinically close but uncertain, ask the physician before changing equations or parameters.
+
+
+## v1.6 diagnostic checkpoint — oxygen target versus arterial state and autonomic trace
+
+Clinical review of the first physician perturbation audit identified two unresolved questions:
+1. FiO2 0.60 -> 0.80 produced large increases in regional alveolar PO2 but the reported arterial PaO2 did not improve at the 12-second snapshot;
+2. heart rate remained near 60 and then fell despite persistent hypoxemia.
+
+No physiology parameter or equation was changed.
+
+Source-path inspection confirmed:
+- the regional O2 bridge computes a source-qualified arterial O2-content target from Vent regional ventilation, Das/Marshall perfusion/HPV, explicit anatomical shunt, and HumMod blood-O2 relations;
+- the target is then applied to the persistent HumMod arterial O2 state through the existing first-order delay;
+- the gas runtime uses HumMod delay coefficient K = 5/min, so a 12-second observation is approximately one time constant and can still be materially transient;
+- the cardiovascular candidate receives the resulting delayed arterial PaO2 and PaCO2;
+- active autonomic path is Magosso/Ursino gas chemoreflex plus baroreflex and pulmonary-stretch inputs.
+
+Added report-only diagnostic:
+- `scripts/v16-physician-ards-oxygen-autonomic-trace.js`;
+- npm command: `trace:v16-oxygen-autonomic`;
+- commits `db4872c91678d4183e76b5346e08528132e3088a` and `17f8c5776653803b02780026a9316d9e8db2ed52`.
+
+The trace reports:
+- delayed arterial PaO2;
+- regional arterial PaO2 target;
+- arterial and venous O2 content / venous PO2;
+- applied regional O2-content target versus global HumMod lung target;
+- oxygen delivery/use/deficit;
+- baroreceptor, chemoreceptor and pulmonary-stretch afferents;
+- vascular sympathetic, cardiac sympathetic and cardiac vagal firing;
+- hemodynamics and regional V/Q/HPV state.
+
+It samples FiO2 0.80 at both +12 seconds and +36 seconds to distinguish source target error from expected first-order state lag.
+
+Next local command:
+
+```bash
+cd ~/medical-vent-twin
+git fetch origin
+git switch v1.6
+git pull --ff-only origin v1.6
+
+cd ards-twin-v1.0
+npm run trace:v16-oxygen-autonomic \
+  | tee ~/Desktop/v16-oxygen-autonomic-trace.txt
+```
+
+Do not tune physiology until this trace is reviewed.
