@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101d2a">
 <meta name="description" content="Explore pressure, flow, volume, and recruitment with an inspectable three-compartment mechanical lung model.">
-<title>ARDS Clinical Twin · v1.5</title>
+<title>ARDS Clinical Twin · v1.6</title>
 <link rel="stylesheet" href="./styles.css?v=1.6-integrated-ards-candidate">
 <script src="./engine.js?v=1.6-integrated-ards-candidate" defer></script>
 <script src="./native-engine-config.js?v=1.6-integrated-ards-candidate" defer></script>
@@ -14,12 +14,13 @@
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
-<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v1.5</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">v1.5 research preview · numerically equilibrated persistent patient · Vent mechanics + reduced systemic physiology · research shadows separated from bedside outputs</p></header>
+<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v1.6</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">v1.6 physician review build · persistent Vent patient · regional V/Q/HPV + pulmonary vascular/RV coupling + gas exchange + cardiovascular/autonomic candidate</p></header>
 <main>
 <section class="clinical-preview card" aria-labelledby="clinical-title">
 <div class="section-heading"><span class="step">01</span><h2 id="clinical-title">Patient</h2></div>
 <p class="clinical-lead">Start with the experimental aspiration lung-injury reference patient. The patient persists as you change PEEP, FiO₂, tidal volume, respiratory rate, and perform respiratory mechanics maneuvers.</p>
-<div class="product-launch"><button id="clinical-quick-start" type="button">Start experimental reference patient <span aria-hidden="true">→</span></button><p>Starts an equilibrated persistent research patient. The current live gas/circulation model is not yet calibrated to reproduce the authored Berlin severity label.</p></div>
+<div class="product-launch"><button id="clinical-quick-start" type="button">Start v1.6 physician review patient <span aria-hidden="true">→</span></button><p>Starts the persistent v1.6 integrated ARDS candidate. Use the monitor, interventions, holds, and research diagnostics to judge trajectory behavior yourself.</p></div>
+<div class="clinical-summary"><strong>v1.6 review status:</strong> Architecture is integrated and persistent. Engineering/continuity gates are green. Physiology trajectory validation remains open for oxygen-state dynamics, severe hypoxia/hypercarbia autonomic response, and direct intrathoracic-pressure coupling into the systemic cardiovascular plant. No physiologic equation was tuned to force an expected result.</div>
 <label for="clinical-case">Synthetic ARDS case</label>
 <select id="clinical-case" aria-describedby="clinical-case-note"></select>
 <p id="clinical-case-note" class="hint">Cases are synthetic authored targets. The live reduced cardiopulmonary core is still undergoing calibration and must not be assumed to reproduce the displayed Berlin severity label.</p>
@@ -53,7 +54,8 @@
 <li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/HUMMOD_PRODUCTION_RUNTIME_STRATEGY.md" target="_blank" rel="noopener">HumMod production runtime strategy</a></li>
 <li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/V2_HUMMOD_CO_SIMULATION.md" target="_blank" rel="noopener">v2.0 HumMod co-simulation architecture</a></li>
 <li><a href="https://github.com/DrFillster/medical-vent-twin/issues/6" target="_blank" rel="noopener">Live provenance coverage tracker</a></li>
-<li><a href="https://github.com/DrFillster/medical-vent-twin/tree/v1.6" target="_blank" rel="noopener">v1.5 source branch</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/v1.6/ards-twin-v1.0/docs/PHYSICIAN_REVIEW_V1_6.md" target="_blank" rel="noopener">v1.6 physician review notes</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/tree/v1.6" target="_blank" rel="noopener">v1.6 source branch</a></li>
 </ul>
 </details>
 
@@ -231,7 +233,7 @@
 </details>
 
 <details class="advanced research-shadow-panel">
-<summary>v1.5 research physiology · shadow comparison</summary>
+<summary>v1.6 research physiology · diagnostic comparison</summary>
 <p class="hint"><strong>Evaluation only:</strong> these published-model states are diagnostic and have no control authority over HR, vascular tone, venous tone, or the SA node.</p>
 <div class="clinical-grid monitor-grid">
 <article><h3>Ursino baroreceptor f<sub>ab</sub></h3><p><span id="clinical-shadow-fab">—</span><small> spikes/s</small></p></article>

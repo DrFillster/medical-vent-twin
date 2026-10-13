@@ -5,6 +5,13 @@ on:
     branches: [v1.6]
     paths:
       - '.github/workflows/v16-physician-preview-deploy.yml'
+      - 'ards-twin-v1.0/web/**'
+      - 'ards-twin-v1.0/src/v16_**'
+      - 'ards-twin-v1.0/src/hummod_ards_core_**'
+      - 'ards-twin-v1.0/test/v16_**'
+      - 'ards-twin-v1.0/scripts/v16-**'
+      - 'ards-twin-v1.0/docs/PHYSICIAN_REVIEW_V1_6.md'
+      - 'candidate-state.json'
 
 concurrency:
   group: v16-physician-preview-deploy

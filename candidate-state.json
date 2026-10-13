@@ -61,14 +61,14 @@
     "pulmonary_vascular_owner": "Karamolegkos source-family candidate",
     "regional_vq_owner": "Das 2015 + Marshall 1994 candidate",
     "gas_equations": "HumMod source-aligned; regional arterial O2 target feeds persistent gas state",
-    "pulmonary_mechanics_coordinate": "Vent airway pressure -> Albanese 2016 A30-A36 coordinate runtime -> Karamolegkos V_A/P_A/P_pl",
+    "pulmonary_mechanics_coordinate": "Physician candidate: reference-anchored Vent distal elastic-volume change -> absolute alveolar-volume adapter -> passive Albanese A34/A40 pleural/alveolar pressure coordinates -> Karamolegkos pulmonary vascular runtime",
     "synthetic_vq_shortcut_allowed": false,
-    "absolute_alveolar_volume_bridge_status": "closed without Vent elastic-volume mapping; source coordinate runtime initializes at Karamolegkos FRC and evolves A36",
+    "absolute_alveolar_volume_bridge_status": "implemented as a reference-anchored coordinate translation: VA(t)=VA_ref+[Vent.totalVolume(t)-Vent.totalVolume_ref]; VA_ref and synchronized pleural-pressure reference remain explicit source/case boundaries",
     "remaining_ards_boundary": "anatomical shunt fraction must be explicit source/case state; do not infer from low VQ or recruitment",
     "focused_workflow": ".github/workflows/v16-ards-candidate.yml",
     "last_green_workflow": "38334748816",
     "physician_candidate_module": "ards-twin-v1.0/src/v16_physician_ards_candidate.js",
-    "physician_candidate_status": "backend-green",
+    "physician_candidate_status": "physician-review-ready-local; physiology-trajectory-validation-open",
     "persistent_interventions": [
       "PEEP",
       "VT",
@@ -92,12 +92,25 @@
       "Vent settings",
       "recruitment"
     ],
-    "next_task": "deploy isolated v1.6 physician preview for physician review",
+    "next_task": "physician review of v1.6 trajectories before any physiology tuning",
     "physician_browser_status": "green-ready-for-isolated-preview",
     "last_green_source_sha": "1e74762942893f51b304d8cc50f09f755647c241",
     "zero_pause_hold_status": "green",
     "browser_session_status": "green",
-    "browser_bundle_status": "green"
+    "browser_bundle_status": "green",
+    "review_open_questions": [
+      "Does FiO2/PEEP/VT/RR perturbation produce credible time-course behavior once regional O2 target is separated from delayed arterial O2 state?",
+      "Does severe hypoxia/hypercarbia drive the expected chemoreceptor -> autonomic -> SA-node response without fitted gains?",
+      "How should Vent/PEEP pleural-pressure state enter systemic cardiovascular transmural-pressure/venous-return mechanics?",
+      "Are explicit fixture boundaries (anatomical shunt, absolute alveolar reference volume, pleural reference pressure) appropriate for the physician-review case?"
+    ],
+    "known_validation_status": {
+      "software_integration": "focused physician candidate gate 5/5 passed locally",
+      "physiology_validation": "not established",
+      "oxygen_trajectory": "diagnostic trace added; interpretation pending physician review",
+      "autonomics": "source-family path present; severe-stress behavior not yet physician-validated",
+      "cardiopulmonary_mechanics": "pulmonary vascular/RV pressure coupling present; direct intrathoracic-pressure coupling into systemic cardiovascular plant remains incomplete"
+    }
   },
   "myocardial_state": {
     "strategy": "derive myocardial pHi from upstream source states; no manually supplied pHi",
