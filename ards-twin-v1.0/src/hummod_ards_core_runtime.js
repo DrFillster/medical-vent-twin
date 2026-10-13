@@ -327,6 +327,7 @@ function createHumModArdsGasRuntime({
   function step({
     dtSec,
     boundary: nextBoundary,
+    arterialO2TargetOverride = null,
   } = {}) {
     positive(dtSec, 'dtSec');
     if (nextBoundary) currentBoundary = validateBoundary(nextBoundary);
@@ -389,9 +390,29 @@ function createHumModArdsGasRuntime({
 
     const co = c.cardiacOutputMlPerMin;
 
-    const arterialO2Target =
+    const globalArterialO2Target =
       state.venousO2ContentMlPerMl +
       (oxygen.uptakeMlPerMin / co);
+
+    let arterialO2Target = globalArterialO2Target;
+    let arterialO2TargetAuthority = 'HumMod-global-lung-O2-exchange';
+    if (arterialO2TargetOverride != null) {
+      if (!arterialO2TargetOverride ||
+          typeof arterialO2TargetOverride !== 'object' ||
+          arterialO2TargetOverride.sourceQualified !== true) {
+        throw new Error(
+          'arterialO2TargetOverride must be a source-qualified object'
+        );
+      }
+      nonNegative(
+        arterialO2TargetOverride.o2ContentMlPerMl,
+        'arterialO2TargetOverride.o2ContentMlPerMl'
+      );
+      arterialO2Target = arterialO2TargetOverride.o2ContentMlPerMl;
+      arterialO2TargetAuthority =
+        arterialO2TargetOverride.authority ||
+        'source-qualified-regional-pulmonary-O2-target';
+    }
 
     const venousHgbForExtraction = hemoglobinProperties({
       tempC: b.tempC,
@@ -505,12 +526,16 @@ function createHumModArdsGasRuntime({
         criticalVenousPo2Provenance: CRITICAL_VENOUS_PO2_PROVENANCE,
         criticalVenousO2ContentMlPerMl,
         lungO2UptakeMlPerMin: oxygen.uptakeMlPerMin,
+        globalLungArterialO2TargetMlPerMl: globalArterialO2Target,
+        appliedArterialO2TargetMlPerMl: arterialO2Target,
+        arterialO2TargetAuthority,
         tissueCo2ProductionMmolPerMin:
           m.tissueCo2ProductionMmolPerMin,
         lungCo2OutflowMmolPerMin,
       }),
       targets: Object.freeze({
         arterialO2ContentMlPerMl: arterialO2Target,
+        globalArterialO2ContentMlPerMl: globalArterialO2Target,
         venousO2ContentMlPerMl: venousO2Target,
         arterialHco3MolPerL: arterialHco3Target,
         venousHco3MolPerL: venousHco3Target,
