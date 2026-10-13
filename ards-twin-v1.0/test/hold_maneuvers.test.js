@@ -92,6 +92,20 @@ test('inspiratory hold produces an explicit plateau-pressure measurement', () =>
   assert(m.source.includes('zero-flow airway occlusion'), 'measurement provenance must be explicit');
 });
 
+test('inspiratory hold completes when VC has no configured inspiratory pause', () => {
+  const sim = makeStandardSimulation({ pause: 0 });
+  sim.requestInspiratoryHold(0.1);
+  sim.runFor(1.5);
+
+  const m = sim.measurements.find(x => x.kind === ManeuverKind.INSPIRATORY_HOLD);
+  assert(m, 'expected completed zero-pause inspiratory hold measurement');
+  assert(Number.isFinite(m.plateauPressureCmH2O), 'plateau pressure must be finite');
+  assert(Math.abs(m.medianLateAirwayFlowLps) < 1e-8,
+    `zero-pause hold flow should be zero, got ${m.medianLateAirwayFlowLps}`);
+  assert(sim.interventions.some(x => x.kind === 'START_INSPIRATORY_HOLD'),
+    'hold must activate at the inspiration-to-expiration boundary');
+});
+
 test('expiratory hold waits until end expiration and measures total PEEP', () => {
   const sim = makeStandardSimulation();
   sim.requestExpiratoryHold(0.3);
