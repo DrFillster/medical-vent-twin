@@ -181,8 +181,8 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
           'source-qualified external coordinate still required',
         shuntFraction:
           'source-qualified external pulmonary vascular boundary required',
-        capillaryResistance:
-          'source-qualified Karamolegkos R_pc boundary required',
+        postCapillaryResistance:
+          'derived internally from Karamolegkos Appendix A25 and shunt fraction',
       }),
       coupling:Object.freeze({
         order:'pulmonary-vascular -> gas -> cardiovascular',
