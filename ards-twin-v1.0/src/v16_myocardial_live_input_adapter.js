@@ -12,12 +12,13 @@
  * cardiopulmonary candidate.
  */
 
-const REQUIRED_SEVEN=Object.freeze([
+const {
+  sourceAnaerobicGlucoseUse2013,
+}=require('./hummod_2013_left_heart_fuel.js');
+
+const REQUIRED_EXTERNAL=Object.freeze([
   'intracellularPotassiumMeqPerMl',
   'leftVentricleLiquidVolumeMl',
-  'myocardialBloodFlowMlPerMin',
-  'myocardialO2UseMlPerMin',
-  'anaerobicGlucoseUseMgPerMin',
   'myocardialLactateUseMgPerMin',
   'systemicLactatePoolMeqPerMl',
 ]);
@@ -50,8 +51,22 @@ function resolveLiveChemistryFromGasSnapshot(gasSnapshot){
   });
 }
 
+function resolveIntegratedMyocardialSourceState(cardiopulmonarySnapshot){
+  const m=cardiopulmonarySnapshot?.cardiovascular?.myocardialSourceState;
+  if(!m||typeof m!=='object'){
+    throw new Error('cardiopulmonarySnapshot.cardiovascular.myocardialSourceState is required');
+  }
+  finite(m.coronaryBloodFlowMlPerMin,'coronaryBloodFlowMlPerMin');
+  finite(m.myocardialO2UseMlPerMin,'myocardialO2UseMlPerMin');
+  return Object.freeze({
+    myocardialBloodFlowMlPerMin:m.coronaryBloodFlowMlPerMin,
+    myocardialO2UseMlPerMin:m.myocardialO2UseMlPerMin,
+  });
+}
+
 function composeLiveMyocardialAcidBaseInputs({
   gasSnapshot,
+  cardiopulmonarySnapshot,
   upstream,
 }={}){
   if(!upstream||typeof upstream!=='object'||Array.isArray(upstream)){
@@ -59,27 +74,34 @@ function composeLiveMyocardialAcidBaseInputs({
   }
 
   const chemistry=resolveLiveChemistryFromGasSnapshot(gasSnapshot);
-  const missing=REQUIRED_SEVEN.filter(k=>upstream[k]==null);
+  const myocardialSource=
+    resolveIntegratedMyocardialSourceState(cardiopulmonarySnapshot);
+  const sourceAnaerobic=sourceAnaerobicGlucoseUse2013();
+  const missing=REQUIRED_EXTERNAL.filter(k=>upstream[k]==null);
   if(missing.length){
     throw new Error(
       'missing live myocardial upstream states: '+missing.join(', ')
     );
   }
 
-  const seven={};
-  for(const key of REQUIRED_SEVEN){
+  const external={};
+  for(const key of REQUIRED_EXTERNAL){
     finite(upstream[key],key);
-    seven[key]=upstream[key];
+    external[key]=upstream[key];
   }
 
   return Object.freeze({
     ...chemistry,
-    ...seven,
+    ...myocardialSource,
+    anaerobicGlucoseUseMgPerMin:
+      sourceAnaerobic.anaerobicGlucoseUsedMgPerMin,
+    ...external,
   });
 }
 
 module.exports=Object.freeze({
-  REQUIRED_SEVEN,
+  REQUIRED_EXTERNAL,
   resolveLiveChemistryFromGasSnapshot,
+  resolveIntegratedMyocardialSourceState,
   composeLiveMyocardialAcidBaseInputs,
 });
