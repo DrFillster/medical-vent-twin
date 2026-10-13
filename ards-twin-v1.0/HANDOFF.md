@@ -1153,3 +1153,26 @@ Current ARDS hard boundaries, in priority order:
 2. preserve shunt as explicit source/case state (normal and ARDS-study values must not be conflated);
 3. create a source-valid Vent-compatible `P_A/P_pl/V_A` coordinate adapter without replacing Vent mechanics or using `FRC + Vent.totalVolume`;
 4. only after these are closed, run physician ARDS perturbations (PEEP, VT, RR, FiO2/airway pressure) through the integrated patient.
+
+
+## v1.6 positive checkpoint — Karamolegkos R_pc source closure
+
+Primary-source Appendix audit closed a previously artificial runtime boundary.
+
+Source equations:
+- A20: `R_pc = R_pal@FRCnom`;
+- A22: `R_pp,total = 2 * (1-sh) * R_pal@FRCnom`;
+- A25: `R_pc = R_pp,total / [2 * (1-sh)]`;
+- A15: `Q_ps = sh/(1-sh) * Q_pal`, so explicit `R_ps` is unnecessary.
+
+Implementation changes:
+- `karamolegkos_pulmonary_circulation_candidate.js` now derives `R_pc` internally from A25;
+- `v16_karamolegkos_pulmonary_vascular_runtime.js` no longer accepts an external capillary resistance;
+- stale v1.5 test claiming R_pc was unverified was replaced by a direct A25 gate;
+- integrated ARDS fixtures no longer supply R_pc.
+
+Focused ARDS workflow `38332594818`: **SUCCESS**.
+
+Remaining pulmonary source boundaries:
+1. shunt/VQ state;
+2. Vent-compatible source coordinate for alveolar volume/pressure and pleural pressure.
