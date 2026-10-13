@@ -21,6 +21,10 @@ on:
       - 'ards-twin-v1.0/test/v16_myocardial_upstream_runtime.test.js'
       - 'ards-twin-v1.0/src/v16_left_heart_fuel_live_bridge.js'
       - 'ards-twin-v1.0/test/v16_left_heart_fuel_live_bridge.test.js'
+      - 'ards-twin-v1.0/src/hummod_2013_glucose_pool_runtime.js'
+      - 'ards-twin-v1.0/test/v16_hummod_2013_glucose_pool_runtime.test.js'
+      - 'ards-twin-v1.0/src/hummod_2013_fatty_acid_pool_runtime.js'
+      - 'ards-twin-v1.0/test/v16_hummod_2013_fatty_acid_pool_runtime.test.js'
 
 permissions:
   contents: read
@@ -53,3 +57,7 @@ jobs:
         run: node test/v16_myocardial_upstream_runtime.test.js
       - name: Live HumMod 2013 LeftHeart-Fuel bridge
         run: node test/v16_left_heart_fuel_live_bridge.test.js
+      - name: Persistent HumMod 2013 GlucosePool
+        run: node test/v16_hummod_2013_glucose_pool_runtime.test.js
+      - name: Persistent HumMod 2013 FAPool
+        run: node test/v16_hummod_2013_fatty_acid_pool_runtime.test.js
