@@ -16,8 +16,8 @@ self.onmessage = ({ data }) => {
     if (type === 'initialize') {
       const payload = data.payload || {};
       const provider = data.provider || payload.systemicMode;
-      if (provider === 'v1.6-integrated-ards-candidate') {
-        session = VENT.createV16PhysicianArdsBrowserSession(payload);
+      if (provider === 'v16-integrated-ards') {
+        session = VENT.createBerlinV16ArdsSession(payload);
       } else if (provider === 'live-reduced-hummod' || provider === 'live-core') {
         session = VENT.createBerlinLiveHumModSession(payload);
       } else if (provider === 'replay') {
