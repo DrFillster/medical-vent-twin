@@ -1063,3 +1063,24 @@ Immediate reprioritization:
 - finish only the minimum source-complete myocardial-lactate/pHi dependencies;
 - then return to ARDS pulmonary vascular/RV coupling, septic vasoplegia, and pressor/inotrope integration;
 - physician validation should focus on trajectories under hypoxemia, hypercapnia/acidemia, increasing PEEP/airway pressure, distributive shock, norepinephrine/vasopressin/inotrope support, and eventual myocardial decompensation if produced by the equations.
+
+
+## Anti-regression governance checkpoint
+
+Implemented on v1.6:
+- root `START_HERE.md` — one-page orientation and current work order;
+- root `candidate-state.json` — machine-readable milestone, ownership, deferred work, and forbidden shortcuts;
+- root `AGENTS.md` — mandatory startup/continuation contract for future AI/agent sessions;
+- top-of-file `CURRENT RECOVERY POINT` block in this HANDOFF;
+- `test/v16_governance_consistency.test.js` — checks that branch/version/milestone/deferred scope/forbidden shortcuts remain aligned;
+- `.github/workflows/v16-governance-consistency.yml` — tiny governance-only gate, no build/deploy/physiology suite.
+
+Governance commits:
+- `1d1d9eaf8fc6e2017047260b8db5af915c6958bf` — START_HERE;
+- `2f221d8292bd30f91cc8c633a547fcd8ddd8e222` — candidate-state.json;
+- `30dbd10479da7713f01249d2d4436de3f3333e27` — AGENTS.md;
+- `c5c2d72a03b7dfd6cf2018af2a0a5fcab7bb3e78` — current recovery block;
+- `5d97684b1c7bfe3330ab6dfdb65e2337feb9ba52` — consistency test;
+- `5bf3a4f6b6b0d05d96f9ffa164070f4fdc8d652f` — governance workflow.
+
+The first governance workflow had not yet registered a run when checked immediately after commit. Do not call the governance gate green until a run actually executes successfully.
