@@ -40,7 +40,10 @@
     "test:hummod-2013-lv-decompensation-candidate": "node test/v15_hummod_2013_left_heart_contractility_pump_candidate.test.js",
     "test:hummod-2013-compensation-decompensation": "node test/v15_hummod_2013_compensation_decompensation_candidate.test.js && node scripts/hummod-2013-compensation-decompensation-audit.js",
     "audit:hummod-2013-recovery": "node scripts/hummod-2013-recovery-diagnostic.js",
-    "test:hummod-2013-coronary-flow-provider": "node test/v15_hummod_2013_left_heart_flow_candidate.test.js && node test/v15_hummod_2013_coronary_flow_provider_readiness.test.js"
+    "test:hummod-2013-coronary-flow-provider": "node test/v15_hummod_2013_left_heart_flow_candidate.test.js && node test/v15_hummod_2013_coronary_flow_provider_readiness.test.js",
+    "test:hummod-blood-oxygen-provider": "node test/v15_hummod_blood_oxygen_provider_candidate.test.js",
+    "test:hummod-2013-lv-mass-provider": "node test/v15_hummod_2013_left_heart_mass_provider.test.js",
+    "test:hummod-2013-myocardial-provider-foundation": "node test/v15_hummod_blood_oxygen_provider_candidate.test.js && node test/v15_hummod_2013_left_heart_mass_provider.test.js && node test/v15_hummod_2013_left_heart_flow_candidate.test.js && node test/v15_hummod_2013_coronary_flow_provider_readiness.test.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
