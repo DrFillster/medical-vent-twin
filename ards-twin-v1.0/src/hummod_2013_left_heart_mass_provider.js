@@ -37,6 +37,8 @@ const AGE_ON_OTHER_MASS=Object.freeze([
 ]);
 
 const LEFT_HEART_PERCENT=1.1;
+const LEFT_HEART_H2O_FRACT_MASS=0.67;
+const H2O_DENSITY_G_PER_ML=1.0;
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -99,11 +101,21 @@ function initialLeftHeartMass2013(inputs={}){
   const other=contextOtherMass2013(inputs);
   const baseMassG=other.massG;
   const initialLeftHeartMassG=(LEFT_HEART_PERCENT/100)*baseMassG;
+  const initialLeftHeartLiquidVolumeMl=
+    LEFT_HEART_H2O_FRACT_MASS*
+    initialLeftHeartMassG/
+    H2O_DENSITY_G_PER_ML;
+  const initialLeftHeartSolidMassG=
+    (1-LEFT_HEART_H2O_FRACT_MASS)*initialLeftHeartMassG;
   return Object.freeze({
     contextOtherMass:other,
     baseMassG,
     leftHeartPercent:LEFT_HEART_PERCENT,
+    leftHeartH2oFractMass:LEFT_HEART_H2O_FRACT_MASS,
+    h2oDensityGPerMl:H2O_DENSITY_G_PER_ML,
     initialLeftHeartMassG,
+    initialLeftHeartLiquidVolumeMl,
+    initialLeftHeartSolidMassG,
     controlAuthority:false,
     provenance:SOURCE,
   });
@@ -114,6 +126,8 @@ module.exports=Object.freeze({
   OTHER_MASS_KG,
   AGE_ON_OTHER_MASS,
   LEFT_HEART_PERCENT,
+  LEFT_HEART_H2O_FRACT_MASS,
+  H2O_DENSITY_G_PER_ML,
   hermite,
   contextOtherMass2013,
   initialLeftHeartMass2013,
