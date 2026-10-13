@@ -1,6 +1,6 @@
 'use strict';
 
-importScripts('./engine.js?v=1.6-ards-candidate');
+importScripts('./engine.js?v=1.6-integrated-ards-candidate');
 
 let session = null;
 
@@ -16,7 +16,7 @@ self.onmessage = ({ data }) => {
     if (type === 'initialize') {
       const payload = data.payload || {};
       const provider = data.provider || payload.systemicMode;
-      if (provider === 'v1.6-ards-candidate') {
+      if (provider === 'v1.6-integrated-ards-candidate') {
         session = VENT.createV16PhysicianArdsBrowserSession(payload);
       } else if (provider === 'live-reduced-hummod' || provider === 'live-core') {
         session = VENT.createBerlinLiveHumModSession(payload);
