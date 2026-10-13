@@ -1,0 +1,27 @@
+name: v1.6 ARDS Candidate
+
+on:
+  push:
+    branches: [v1.6]
+    paths:
+      - '.github/workflows/v16-ards-candidate.yml'
+      - 'ards-twin-v1.0/src/v16_ards_pulmonary_gas_candidate.js'
+      - 'ards-twin-v1.0/test/v16_ards_pulmonary_gas_candidate.test.js'
+
+permissions:
+  contents: read
+
+jobs:
+  focused-ards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: v1.6 ARDS pulmonary gas candidate
+        run: node test/v16_ards_pulmonary_gas_candidate.test.js
