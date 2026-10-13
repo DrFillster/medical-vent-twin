@@ -701,4 +701,9 @@ Repair:
   `averageCardiacPumpPowerMmHgMlPerSec: averagePumpPowerMmHgMlPerSec`.
 - physiology unchanged.
 
-Rerun result pending at this checkpoint.
+Rerun:
+- workflow `38330215758` completed **SUCCESS**;
+- persistent pHi provider: PASS;
+- live SID/HCO3 adapter: PASS;
+- integrated coronary-flow/myocardial-O2 source output: PASS.
+
