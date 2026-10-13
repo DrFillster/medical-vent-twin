@@ -771,7 +771,9 @@
     $('clinical-circulation-mode').textContent =
       circulationMode === 'explicit-organ-network'
         ? 'Explicit HumMod organ flow'
-        : 'Reduced conductance';
+        : circulationMode === 'Ursino-Magosso-source-family-candidate'
+          ? 'Ursino/Magosso candidate'
+          : 'Reduced conductance';
     $('clinical-sympathetic-hz').textContent =
       typeof hemo.sympatheticFiringHz === 'number' && Number.isFinite(hemo.sympatheticFiringHz)
         ? hemo.sympatheticFiringHz.toFixed(2) : '—';
@@ -884,9 +886,11 @@
         (decompStatus.cardiacArrestReason ? ' · ' + decompStatus.cardiacArrestReason : '')
       : 'Patient active · ' +
         (snapshot.ventilatorChangePending ? 'ventilator change pending next breath boundary' : 'settings applied') +
-        (snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
-          ? ' · dynamic cardiopulmonary simulation'
-          : ' · fixed systemic trajectory replay');
+        (snapshot.coupling.mode === 'v1.6-integrated-ards-candidate'
+          ? ' · v1.6 integrated ARDS candidate'
+          : snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
+            ? ' · legacy dynamic cardiopulmonary simulation'
+            : ' · fixed systemic trajectory replay');
     // The legacy 'new PEEP' draft input was removed in the bedside UX rev.
     // Sync any matching element only if it still exists; otherwise leave
     // the form inputs the user is editing untouched.
