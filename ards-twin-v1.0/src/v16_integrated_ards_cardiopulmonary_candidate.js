@@ -29,6 +29,9 @@ const {
 const {
   createV16ArdsPulmonaryGasCandidate,
 }=require('./v16_ards_pulmonary_gas_candidate.js');
+const {
+  createVentRegionalArdsOxygenState,
+}=require('./v16_vent_regional_ards_oxygen_bridge.js');
 
 const SOURCE=Object.freeze({
   cardiovascular:'Ursino/Magosso source-family candidate',
@@ -78,6 +81,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
   let cvSnapshot=cv.snapshot();
   let pulmonarySnapshot=null;
   let gasSnapshot=null;
+  let regionalO2Snapshot=null;
   let last=null;
   let timeSec=0;
 
@@ -128,8 +132,20 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
     gasSnapshot=gas.step({dtSec});
 
     const arterial=gasSnapshot.gas.gases.arterial;
+    regionalO2Snapshot=createVentRegionalArdsOxygenState({
+      simulation,
+      pulmonaryVascularSnapshot:pulmonarySnapshot,
+      gasSnapshot,
+      blood,
+      environment,
+    });
+    const candidatePao2MmHg=
+      regionalO2Snapshot.status==='ready'
+        ?regionalO2Snapshot.arterialPo2MmHg
+        :arterial.po2MmHg;
+
     cv.setCanonicalInputs({
-      pao2MmHg:arterial.po2MmHg,
+      pao2MmHg:candidatePao2MmHg,
       paco2MmHg:arterial.pco2MmHg,
       deliveredTidalVolumeL:gasSnapshot.mechanics.tidalVolumeL,
     });
@@ -151,8 +167,9 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
           pulmonarySnapshot.pressuresMmHg.pulmonaryArtery,
         rightAtrialPressureMmHg:h.rightAtrialPressureMmHg,
         leftAtrialPressureMmHg:h.leftAtrialPressureMmHg,
-        pao2MmHg:arterial.po2MmHg,
+        pao2MmHg:candidatePao2MmHg,
         paco2MmHg:arterial.pco2MmHg,
+        wholeLungShadowPao2MmHg:arterial.po2MmHg,
         arterialPh:arterial.pH,
         fio2:gasSnapshot.mechanics.fio2,
         tidalVolumeL:gasSnapshot.mechanics.tidalVolumeL,
@@ -164,11 +181,17 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
       cardiovascular:cvSnapshot,
       pulmonaryVascular:pulmonarySnapshot,
       pulmonaryGas:gasSnapshot,
+      regionalOxygen:regionalO2Snapshot,
       ownership:Object.freeze({
         ventilatorMechanics:'Vent',
         cardiovascularAutonomic:'Ursino/Magosso-candidate',
         pulmonaryVascular:'Karamolegkos-candidate',
-        gasExchange:'HumMod-source-aligned-candidate',
+        gasExchangeCo2PhMixedVenous:
+          'HumMod-source-aligned-candidate',
+        arterialOxygen:
+          regionalO2Snapshot.status==='ready'
+            ?'Vent + Das-Marshall regional VQ/HPV + HumMod blood-O2 candidate'
+            :'HumMod whole-lung startup fallback until completed Vent breath',
         pulmonaryMechanicsCoordinate:
           'external-source-qualified-boundary-until-Vent-transform-is-validated',
       }),
@@ -180,7 +203,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
         pleuralPressure:
           'source-qualified external coordinate still required',
         shuntFraction:
-          'source-qualified external pulmonary vascular boundary required',
+          'Karamolegkos anatomical shunt remains explicit source/case boundary; low V/Q is modeled regionally and is not relabeled as shunt',
         postCapillaryResistance:
           'derived internally from Karamolegkos Appendix A25 and shunt fraction',
       }),
