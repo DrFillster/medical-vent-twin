@@ -7,9 +7,11 @@
  * - blood SID
  * - arterial HCO3-
  *
- * The remaining seven myocardial upstream states stay explicit and fail closed
- * until their source-transcribed providers are wired into the persistent
- * cardiopulmonary candidate.
+ * It also resolves integrated source-family coronary flow, myocardial O2 use,
+ * and the HumMod-2013 source-owned zero anaerobic glucose-use term.
+ * Four upstream states remain external and fail closed until their live
+ * source providers are wired: intracellular K, LV liquid volume, myocardial
+ * lactate use, and systemic lactate-pool concentration.
  */
 
 const {
