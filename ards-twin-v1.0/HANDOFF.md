@@ -1128,3 +1128,28 @@ Remaining hard ARDS boundary:
 - source-qualified global pulmonary mechanics coordinates `V_A`, `P_A`, and `P_pl`;
 - source-qualified Karamolegkos shunt and `R_pc` values;
 - no convenience bridge is authorized.
+
+
+## v1.6 positive checkpoint — integrated ARDS spine green
+
+Focused validation results:
+- governance consistency workflow `38331801840`: **SUCCESS**;
+- ARDS pulmonary-gas workflow `38331382939`: **SUCCESS**;
+- Karamolegkos pulmonary vascular workflow `38332224996`: **SUCCESS**;
+- integrated ARDS cardiopulmonary workflow `38332342937`: **SUCCESS**.
+
+Important negative result preserved:
+- integrated workflow `38332291750` initially failed because the composition exported instantaneous **RV ejection flow** as total pulmonary blood flow for gas exchange;
+- RV valve outflow is pulsatile and legitimately reaches zero between ejections;
+- gas exchange requires downstream pulmonary peripheral perfusion, not instantaneous valve outflow;
+- corrected export is `Q_pal + Q_ps` from the Karamolegkos pulmonary state;
+- no physiologic gain, parameter, or source equation was changed.
+
+Current integrated owner chain:
+`Vent mechanics -> source-qualified pulmonary coordinates -> Karamolegkos pulmonary vascular state -> HumMod ARDS gas state -> PaO2/PaCO2 -> Ursino/Magosso cardiovascular/autonomic candidate -> RV outflow/LA pressure -> pulmonary vascular state`.
+
+Current ARDS hard boundaries, in priority order:
+1. verify/close Karamolegkos `R_pc` from the primary source;
+2. preserve shunt as explicit source/case state (normal and ARDS-study values must not be conflated);
+3. create a source-valid Vent-compatible `P_A/P_pl/V_A` coordinate adapter without replacing Vent mechanics or using `FRC + Vent.totalVolume`;
+4. only after these are closed, run physician ARDS perturbations (PEEP, VT, RR, FiO2/airway pressure) through the integrated patient.
