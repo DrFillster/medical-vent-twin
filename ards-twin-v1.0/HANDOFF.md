@@ -1352,3 +1352,21 @@ Cause:
 Decision:
 - do not change physiology;
 - repair only the integrated test fixture to include the same Vent compartment parameter structure used by the already-green regional adapter tests.
+
+
+## v1.6 negative checkpoint — reference-qualified integrated ARDS path
+
+Focused workflow `38333906067` completed **FAILURE** at the final integrated ARDS cardiopulmonary candidate step.
+
+All upstream ARDS components passed in the same workflow, including:
+- ARDS pulmonary gas candidate;
+- Karamolegkos source equations/A25;
+- Albanese-Karamolegkos source-coordinate shadow runtime;
+- Karamolegkos pulmonary vascular runtime;
+- Das/Marshall regional perfusion and HPV;
+- regional O2-perfusion fixed point;
+- Vent regional alveolar ventilation and oxygen bridge;
+- reference-anchored absolute alveolar volume adapter;
+- passive Vent-Karamolegkos pressure-coordinate adapter.
+
+Classification at this checkpoint: **integrated default-path failure**, not an upstream source-equation failure. The exact stack/assertion is being inspected before any change. No physiology parameter or equation will be altered until the cause is classified.
