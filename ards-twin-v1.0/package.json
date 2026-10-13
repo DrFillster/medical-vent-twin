@@ -60,7 +60,8 @@
     "audit:hummod-2013-derived-phi-hypoxia": "node scripts/hummod-2013-derived-phi-hypoxia-diagnostic.js",
     "qualify:hummod-2013-derived-phi": "npm run test:hummod-2013-myocardial-provider-foundation && npm run test:hummod-2013-derived-phi-candidate && npm run audit:hummod-2013-derived-phi-hypoxia",
     "test:hummod-2013-derived-phi-decompensation": "node test/v15_hummod_2013_left_heart_fuel.test.js && node test/v15_hummod_2013_left_heart_lactate.test.js && node test/v15_hummod_2013_left_heart_co2_ph.test.js && node test/v15_hummod_2013_derived_phi_compensation_decompensation.test.js && node scripts/hummod-2013-derived-phi-hypoxia-diagnostic.js",
-    "test:v16-physician-ards-candidate": "node test/v16_physician_ards_candidate.test.js && node scripts/v16-physician-ards-perturbation-audit.js"
+    "test:v16-physician-ards-candidate": "node test/v16_physician_ards_candidate.test.js && node scripts/v16-physician-ards-perturbation-audit.js",
+    "trace:v16-oxygen-autonomic": "node scripts/v16-physician-ards-oxygen-autonomic-trace.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"
