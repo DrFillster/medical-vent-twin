@@ -29,19 +29,24 @@ function createCandidate(){
       inspiratoryPause:0,
     },
     anatomicalShuntFraction:0.05,
-    excessLungWaterMl:0,
-    pulmonaryVascularInitialState:{
-      PpaTm:18,
-      Fpa:80,
-      PpalTm:13,
-      PpcTm:9,
-      PpvTm:10,
-    },
-    pulmonaryVascularInitialStateProvenance:{
+    anatomicalShuntProvenance:{
       sourceQualified:true,
-      fixture:'focused physician candidate test only',
+      fixture:'focused physician shunt case state only',
       canonical:false,
     },
+    referenceAbsoluteAlveolarVolumeL:2.25,
+    referenceAbsoluteAlveolarVolumeProvenance:{
+      sourceQualified:true,
+      fixture:'focused synchronized absolute-volume reference only',
+      canonical:false,
+    },
+    referencePleuralPressureCmH2O:-5,
+    referencePleuralPressureProvenance:{
+      sourceQualified:true,
+      fixture:'focused passive pleural-pressure reference only',
+      canonical:false,
+    },
+    excessLungWaterMl:0,
     blood:{
       sidMolPerL:0.040,
       o2MaxMlPerMl:0.201,
@@ -83,6 +88,14 @@ test('physician candidate produces one persistent bedside ARDS state',()=>{
   assert(Number.isFinite(s.gas.pao2MmHg));
   assert(Number.isFinite(s.gas.paco2MmHg));
   assert(Number.isFinite(s.gas.arterialPh));
+  assert.equal(
+    s.pulmonaryReferenceState.absoluteAlveolarVolumeL,
+    2.25
+  );
+  assert.equal(
+    s.pulmonaryReferenceState.referencePleuralPressureCmH2O,
+    -5
+  );
 });
 
 test('PEEP changes preserve patient state and intervention history',()=>{
@@ -144,18 +157,6 @@ test('candidate refuses to infer anatomical shunt',()=>{
       inspiratoryFlow:0.5,inspiratoryPause:0,
     },
     excessLungWaterMl:0,
-    pulmonaryVascularInitialState:{
-      PpaTm:18,
-      Fpa:80,
-      PpalTm:13,
-      PpcTm:9,
-      PpvTm:10,
-    },
-    pulmonaryVascularInitialStateProvenance:{
-      sourceQualified:true,
-      fixture:'focused physician candidate test only',
-      canonical:false,
-    },
     blood:{sidMolPerL:0.040,o2MaxMlPerMl:0.201,tempC:37,carboxyPercent:0},
     metabolism:{tissueO2UseMlPerMin:250,tissueCo2ProductionMmolPerMin:9},
     environment:{barometricPressureMmHg:760,inspiredCo2Fraction:0},
