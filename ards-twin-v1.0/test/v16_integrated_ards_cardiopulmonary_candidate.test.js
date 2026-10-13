@@ -20,8 +20,26 @@ function mockVent(){
   return {
     controller:new VcAcController(),
     trace:[],
-    params:{airwayOpeningPressure:0},
+    params:{
+      airwayOpeningPressure:0,
+      compartments:[
+        {id:'fast',perfusionFraction:0.8},
+        {id:'slow',perfusionFraction:0.1},
+        {id:'recruitable',perfusionFraction:0.1},
+      ],
+    },
     measurements:[],
+    metrics:()=>[{
+      breathIndex:1,
+      breathStartT:0,
+      breathEndT:3,
+      RR:20,
+      compartments:{
+        comp_0:{endInspV:0.30,endExpV:0.10,endInspP:20,endExpP:10},
+        comp_1:{endInspV:0.20,endExpV:0.10,endInspP:20,endExpP:10},
+        comp_2:{endInspV:0.12,endExpV:0.10,endInspP:20,endExpP:10},
+      },
+    }],
     state:{
       t:0,
       airwayPressure:20,
@@ -99,6 +117,17 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
   assert(s.pulmonaryVascular.pulmonaryPerfusionState.sourceQualified);
   assert(Number.isFinite(s.pulmonaryGas.gas.gases.arterial.po2MmHg));
   assert(Number.isFinite(s.pulmonaryGas.gas.gases.arterial.pco2MmHg));
+  assert.equal(s.regionalOxygen.status,'ready');
+  assert(Number.isFinite(s.regionalOxygen.arterialPo2MmHg));
+  assert.equal(
+    s.physicianState.pao2MmHg,
+    s.regionalOxygen.arterialPo2MmHg
+  );
+  assert.equal(
+    s.ownership.arterialOxygen,
+    'Vent + Das-Marshall regional VQ/HPV + HumMod blood-O2 candidate'
+  );
+  assert.equal(s.regionalOxygen.legacyVentPerfusionMetadataUsed,false);
   assert(Number.isFinite(
     s.cardiovascular.cardiovascular.hemodynamics.heartRatePerMin
   ));
