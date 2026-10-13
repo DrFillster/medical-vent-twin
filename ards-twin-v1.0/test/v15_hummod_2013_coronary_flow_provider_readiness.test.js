@@ -48,8 +48,8 @@ test('coronary-flow provider readiness remains fail-closed',()=>{
   assert.equal(r.summary.readyForLiveSourceCompleteCoronaryFlow,false);
   assert.equal(r.summary.neutralBackfillAllowed,false);
   assert(r.summary.blockedFields.includes('adhPoolLog10Conc'));
-  assert(r.summary.blockedFields.includes('initialLeftHeartMassG'));
-  assert(r.summary.blockedFields.includes('plasmaVolumeFraction'));
+  assert(!r.summary.blockedFields.includes('initialLeftHeartMassG'));
+  assert(!r.summary.blockedFields.includes('plasmaVolumeFraction'));
 });
 
 test('runtime-present synthetic boundaries are not mislabeled source-complete live',()=>{
@@ -57,7 +57,7 @@ test('runtime-present synthetic boundaries are not mislabeled source-complete li
   const byName=Object.fromEntries(r.fields.map(x=>[x.field,x]));
   assert.equal(
     byName.o2MaxMlPerMl.status,
-    STATUS.RUNTIME_BOUNDARY_DEPENDENT
+    STATUS.DERIVABLE_PARALLEL
   );
   assert.equal(
     byName.arterialO2ContentMlPerMl.status,
@@ -69,8 +69,13 @@ test('runtime-present synthetic boundaries are not mislabeled source-complete li
   );
 });
 
-test('only verified live pressure gradient is classified source-complete live',()=>{
+test('new LV-mass and blood providers are parallel-derivable, not live authority',()=>{
   const r=readiness();
+  const byName=Object.fromEntries(r.fields.map(x=>[x.field,x]));
+  assert.equal(byName.initialLeftHeartMassG.status,STATUS.DERIVABLE_PARALLEL);
+  assert.equal(byName.viscosityConductanceEffect.status,STATUS.DERIVABLE_PARALLEL);
+  assert.equal(byName.plasmaVolumeFraction.status,STATUS.DERIVABLE_PARALLEL);
+  assert.equal(byName.o2MaxMlPerMl.status,STATUS.DERIVABLE_PARALLEL);
   assert(r.summary.sourceCompleteLiveFields.includes('pressureGradientMmHg'));
 });
 
