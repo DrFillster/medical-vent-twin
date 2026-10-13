@@ -1205,3 +1205,36 @@ Workflow `38333389670` reached the integrated ARDS test and the runtime executed
 Classification: **test-fixture wording failure**, not physiology or integration failure.
 
 No physiology/source code will be changed for this failure. Only the authority-string assertion will be made semantically tolerant of the existing documented wording.
+
+
+## v1.6 positive checkpoint — unified regional ARDS oxygen state green
+
+Focused workflow `38333451380`: **SUCCESS**.
+
+All focused ARDS gates passed together:
+1. HumMod source-aligned pulmonary gas candidate;
+2. Karamolegkos source equations including Appendix A25;
+3. Karamolegkos pulmonary vascular runtime;
+4. Das human-ARDS regional perfusion equations;
+5. Marshall HPV candidate;
+6. Das-Marshall regional HPV/perfusion composition;
+7. regional ARDS O2-perfusion fixed point;
+8. Vent regional alveolar ventilation adapter;
+9. Vent regional ARDS oxygen bridge;
+10. integrated ARDS cardiopulmonary candidate.
+
+Current O2 architecture:
+- Vent supplies measured regional alveolar tidal ventilation;
+- Das/Marshall allocates non-shunt pulmonary perfusion dynamically from regional alveolar PO2 and mixed-venous PO2;
+- Karamolegkos supplies total pulmonary peripheral flow and anatomical shunt;
+- regional end-capillary O2 contents are flow-mixed, then anatomical shunt is applied;
+- the resulting source-qualified arterial O2 content is fed back into the persistent HumMod arterial O2 state through the existing HumMod first-order arterial delay;
+- HumMod remains the CO2/pH authority;
+- the Ursino/Magosso cardiovascular/autonomic candidate receives the resulting persistent PaO2/PaCO2 state.
+
+Legacy Vent `perfusionFraction` metadata is not used by this regional oxygenation path.
+
+The prior failure in workflow `38333389670` was confirmed to be test wording only and was corrected without physiology changes.
+
+Remaining major ARDS mechanics boundary:
+- source-valid translation from Vent volume/pressure coordinates to Karamolegkos absolute alveolar volume `V_A`, alveolar pressure `P_A`, and pleural pressure `P_pl` for dynamic PVR/RV loading.
