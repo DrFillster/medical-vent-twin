@@ -707,3 +707,40 @@ Rerun:
 - live SID/HCO3 adapter: PASS;
 - integrated coronary-flow/myocardial-O2 source output: PASS.
 
+
+
+### v1.6 checkpoint — five of nine myocardial pHi inputs source/live-resolved
+
+Additional implementation:
+- `hummod_2013_left_heart_fuel.js` now exposes the source-owned
+  LeftHeart anaerobic-glucose-use state explicitly.
+- Exact HumMod 2013 source behavior is preserved:
+  `AnaerobicGlucoseUsed(Cals/Min) = 0`, therefore the corresponding
+  mg/min state is also zero.
+- `v16_myocardial_live_input_adapter.js` now composes:
+  1. blood SID from live gas state;
+  2. arterial HCO3- from live gas state;
+  3. myocardial blood flow from integrated Ursino/Magosso coronary-bed flow;
+  4. myocardial O2 use from Ursino/Magosso Eq. 46 cardiac O2 consumption;
+  5. anaerobic glucose use from the exact HumMod-2013 source statement.
+
+Still unresolved/fail-closed:
+1. intracellular K;
+2. LV liquid volume;
+3. myocardial lactate use;
+4. systemic lactate-pool concentration.
+
+Important blocker detail:
+- current intracellular K cannot be replaced with a permanent 140 mEq/L value;
+  the source provider requires dynamic KCell/KPool + CellH2O state.
+- current LV liquid volume cannot be frozen at initial composition;
+  the source provider requires live interstitial + cell-water compartments.
+
+Commits:
+- `acca45aed46d3280acc4ad9205892c2cb4f36b7e` — expose source-owned zero anaerobic glucose use.
+- `8b3a26920561a473d5fb292dedf85d6bd577149b` — compose live flow/O2 + source anaerobic state.
+- `c1142138dc6ec233f173702e3c3f7eecd97dc812` — ownership documentation correction.
+- `905ba790aede0d45af8a17fac07826247901aa12` — gate 5 resolved / 4 unresolved myocardial inputs.
+
+No physiology was tuned and no blocked water/K state was replaced with a fixed
+normal value.
