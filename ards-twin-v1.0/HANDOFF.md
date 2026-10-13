@@ -1,7 +1,7 @@
-# HumMod / Vent v1.5 Handoff
+# HumMod / Vent v1.6 Handoff
 
 Date: 2026-10-11
-Active product branch: `v1.5`
+Active product branch: `v1.6`
 Active physiology/reference branch: `DrFillster/hummod-vent-core:main`
 
 ## Governing product definition
@@ -521,3 +521,85 @@ Commits:
 - `3bbbcd4aff27366fbefda322c9430288c1eb0253` — package commands.
 
 No physiology equations, gains, or authority assignments were changed by this work.
+
+
+## 2026-10-12/13 v1.6 cardiopulmonary-candidate checkpoint
+
+### Branch point
+
+v1.6 starts exactly from v1.5 commit:
+- `b0425e60e7e0fa21fe969966dd3e5b2976dbd583`
+
+No v1.5 history was rewritten.
+
+### Primary v1.6 objective
+
+Build one integrated cardiopulmonary candidate patient rather than continue
+isolated HR or reduced-systemic patches.
+
+Current candidate spine inherited from v1.5:
+- Vent remains owner of ventilator/airway mechanics.
+- PaO2 + PaCO2 + delivered VT feed the source-family autonomic chain.
+- Ursino/Magosso five-bed cardiovascular plant owns candidate systemic
+  hemodynamics.
+- local O2 regulation is present for brain, skeletal muscle, and coronary beds.
+- Karamolegkos pressure/absolute-alveolar-volume coupling remains fail-closed
+  until the Vent coordinate bridge is source-verified.
+- no guessed physiologic gains are authorized.
+
+### Myocardial pHi integration state
+
+The manual myocardial intracellular-pH coordinate is no longer the intended
+architecture. The HumMod 2012/2013 myocardial acid-base runtime is already
+source-transcribed and derives myocardial pHi internally from its upstream
+states.
+
+Nine upstream states are required to eliminate externally supplied myocardial pHi.
+
+Already live-accessible:
+1. blood SID
+2. arterial HCO3-
+
+Source-transcribed but not yet live-coupled:
+3. intracellular K
+4. LV liquid volume
+5. myocardial blood flow
+6. myocardial O2 use
+7. anaerobic glucose use
+8. myocardial lactate use
+9. systemic lactate-pool concentration
+
+Relevant source modules already present:
+- `src/hummod_2013_kcell_provider.js`
+- `src/hummod_2013_left_heart_liquid_volume_provider.js`
+- `src/hummod_2013_left_heart_flow_candidate.js`
+- `src/hummod_2013_left_heart_metabolism_provider.js`
+- `src/hummod_2013_left_heart_fuel.js`
+- `src/hummod_2013_left_heart_lactate.js`
+- `src/hummod_2013_lactate_pool_provider.js`
+- `src/hummod_2013_myocardial_acid_base_runtime.js`
+- `src/hummod_2013_derived_phi_compensation_decompensation_candidate.js`
+
+Target live chain:
+
+```
+cardiopulmonary hemodynamics + blood chemistry
+ -> source myocardial flow / O2 use
+ -> source fuel and lactate state
+ -> myocardial CO2/SID/pHi
+ -> source pHi contractility pathway
+ -> candidate chamber mechanics
+```
+
+Do not substitute arterial pH for myocardial pHi.
+Do not use a direct PaO2-to-Emax or arterial-pH-to-Emax scalar.
+
+### Save discipline
+
+For v1.6:
+- update HANDOFF.md after each meaningful positive or negative integration test;
+- preserve rejected approaches and blockers;
+- do not change source equations merely to make the trajectory look familiar;
+- when a result is source-consistent and clinically close enough that normal
+  interpatient variability could explain the remainder, ask the physician
+  before modifying physiology.
