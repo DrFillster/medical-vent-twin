@@ -34,9 +34,9 @@ const PROVIDERS=Object.freeze({
     note:'source-aligned gas equation; upstream blood O2 capacity/temp/CO remain current live boundaries',
   }),
   initialLeftHeartMassG:Object.freeze({
-    status:STATUS.SOURCE_PRIMITIVE_NOT_LIVE,
-    provider:'hummod_left_heart_size_source_aligned.initializeLeftHeartSize',
-    note:'requires live Context-OtherMass/body-composition provider',
+    status:STATUS.DERIVABLE_PARALLEL,
+    provider:'hummod_2013_left_heart_mass_provider.initialLeftHeartMass2013',
+    note:'source-generation-consistent Context-OtherMass -> Sizing-OrganMass provider exists; requires explicit sex/index/age/plus-minus/stochasm context and is not canonical live state',
   }),
   pressureGradientMmHg:Object.freeze({
     status:STATUS.SOURCE_COMPLETE_LIVE,
@@ -59,9 +59,9 @@ const PROVIDERS=Object.freeze({
     note:'requires live myocardial mass plus thyroid, heat-metabolism and structure/function effects',
   }),
   viscosityConductanceEffect:Object.freeze({
-    status:STATUS.SOURCE_PRIMITIVE_NOT_LIVE,
-    provider:'2013 Viscosity HctOnVisc via hummod_2013_coronary_flow_provider_primitives',
-    note:'requires live source-owned hematocrit; blood-volume primitive exists but is not wired into live physician session',
+    status:STATUS.DERIVABLE_PARALLEL,
+    provider:'hummod_blood_oxygen_provider_candidate -> 2013 Viscosity HctOnVisc',
+    note:'parallel source-owned blood-volume/Hct provider now derives viscosity; explicit blood initialization required and not canonical live state',
   }),
   anesthesiaVascularConductance:Object.freeze({
     status:STATUS.SCENARIO_BOUNDARY,
@@ -84,9 +84,9 @@ const PROVIDERS=Object.freeze({
     note:'dynamic source-aligned gas state; upstream O2-capacity boundary is still synthetic in current reference case',
   }),
   o2MaxMlPerMl:Object.freeze({
-    status:STATUS.RUNTIME_BOUNDARY_DEPENDENT,
-    provider:'live gas boundary blood.o2MaxMlPerMl',
-    note:'currently explicit synthetic reference-case boundary; source HgbConc primitive exists but live Hct/CO coupling is incomplete',
+    status:STATUS.DERIVABLE_PARALLEL,
+    provider:'hummod_blood_oxygen_provider_candidate -> HgbConc.O2Max',
+    note:'parallel source-owned Hct/Hgb provider now derives O2Max; current live gas boundary remains synthetic until provider ownership is promoted',
   }),
   hgbP50:Object.freeze({
     status:STATUS.RUNTIME_BOUNDARY_DEPENDENT,
@@ -99,9 +99,9 @@ const PROVIDERS=Object.freeze({
     note:'same upstream boundary caveat as hgbP50',
   }),
   plasmaVolumeFraction:Object.freeze({
-    status:STATUS.SOURCE_PRIMITIVE_NOT_LIVE,
-    provider:'hummod_blood_volume_source_aligned snapshot.plasmaVolumeFraction',
-    note:'source-aligned blood-volume subset exists but is not wired into the live physician session',
+    status:STATUS.DERIVABLE_PARALLEL,
+    provider:'hummod_blood_oxygen_provider_candidate -> BloodVol.PVCrit',
+    note:'parallel source-owned blood-volume provider derives plasma fraction; explicit initialization required and not canonical live state',
   }),
 });
 
