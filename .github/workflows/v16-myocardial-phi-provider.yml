@@ -17,6 +17,8 @@ on:
       - 'ards-twin-v1.0/test/v16_hummod_2013_systemic_lactate_pool_runtime.test.js'
       - 'ards-twin-v1.0/src/hummod_2013_left_heart_liquid_volume_runtime.js'
       - 'ards-twin-v1.0/test/v16_hummod_2013_left_heart_liquid_volume_runtime.test.js'
+      - 'ards-twin-v1.0/src/v16_myocardial_upstream_runtime.js'
+      - 'ards-twin-v1.0/test/v16_myocardial_upstream_runtime.test.js'
 
 permissions:
   contents: read
@@ -45,3 +47,5 @@ jobs:
         run: node test/v16_hummod_2013_systemic_lactate_pool_runtime.test.js
       - name: Live HumMod 2013 left-heart liquid volume
         run: node test/v16_hummod_2013_left_heart_liquid_volume_runtime.test.js
+      - name: Myocardial upstream composition runtime
+        run: node test/v16_myocardial_upstream_runtime.test.js
