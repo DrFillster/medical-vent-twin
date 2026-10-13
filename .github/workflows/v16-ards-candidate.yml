@@ -37,6 +37,12 @@ on:
       - 'ards-twin-v1.0/src/clinical_twin_v16_ards_session.js'
       - 'ards-twin-v1.0/test/v16_clinical_twin_browser_session.test.js'
       - 'ards-twin-v1.0/test/v16_integrated_ards_cardiopulmonary_candidate.test.js'
+      - 'ards-twin-v1.0/scripts/build.js'
+      - 'ards-twin-v1.0/test/v16_physician_browser_ui_contract.test.js'
+      - 'ards-twin-v1.0/web/app.js'
+      - 'ards-twin-v1.0/web/index.html'
+      - 'ards-twin-v1.0/web/clinical-worker.js'
+      - 'ards-twin-v1.0/src/browser-entry.js'
 
 permissions:
   contents: read
@@ -83,3 +89,9 @@ jobs:
         run: node test/v16_physician_ards_candidate.test.js
       - name: v1.6 browser physician ARDS session
         run: node test/v16_clinical_twin_browser_session.test.js
+      - name: v1.6 physician browser UI contract
+        run: node test/v16_physician_browser_ui_contract.test.js
+      - name: Build v1.6 browser bundle
+        run: node scripts/build.js
+      - name: Verify v1.6 browser export in bundle
+        run: grep -q "createBerlinV16ArdsSession" web/engine.js
