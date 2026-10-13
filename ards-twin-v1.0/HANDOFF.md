@@ -679,3 +679,26 @@ Validation:
 - prior persistent pHi provider gate: PASS, workflow run `38330067273`.
 - latest chemistry + coronary-flow/O2 focused gate: workflow committed;
   latest run not yet registered at time of this checkpoint, so **result pending**.
+
+
+### v1.6 negative/repair checkpoint — myocardial source output gate
+
+Focused workflow run `38330175167`:
+- persistent nine-input pHi provider: PASS
+- live SID/HCO3 adapter: PASS
+- integrated myocardial source outputs: FAIL
+
+Failure:
+- implementation variable-name error:
+  `averageCardiacPumpPowerMmHgMlPerSec is not defined`
+- this occurred while passing the already-computed averaged pump power into the
+  Ursino/Magosso Eq. 46 myocardial O2-use function.
+- no source equation, parameter, gain, or ownership decision failed.
+
+Repair:
+- commit `42aa61eb79980b69fb63d8c42dfe97dd010ebf6d`
+- corrected the property binding to
+  `averageCardiacPumpPowerMmHgMlPerSec: averagePumpPowerMmHgMlPerSec`.
+- physiology unchanged.
+
+Rerun result pending at this checkpoint.
