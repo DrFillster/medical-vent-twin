@@ -1176,3 +1176,21 @@ Focused ARDS workflow `38332594818`: **SUCCESS**.
 Remaining pulmonary source boundaries:
 1. shunt/VQ state;
 2. Vent-compatible source coordinate for alveolar volume/pressure and pleural pressure.
+
+
+## v1.6 negative checkpoint — unified regional O2 integration gate
+
+Focused workflow `38333328696` completed **FAILURE** at the final integrated ARDS cardiopulmonary test.
+
+All upstream ARDS steps in the same workflow passed:
+- ARDS pulmonary gas candidate;
+- Karamolegkos source equations/A25;
+- Karamolegkos pulmonary vascular runtime;
+- Das human-ARDS regional perfusion;
+- Marshall HPV candidate;
+- Das-Marshall regional HPV perfusion;
+- regional ARDS O2-perfusion fixed point;
+- Vent regional alveolar ventilation adapter;
+- Vent regional ARDS oxygen bridge.
+
+Therefore the failure is currently classified as an **integration/composition failure**, not an upstream physiology failure. No source equation or physiologic parameter will be changed until the exact failing assertion/stack is inspected.
