@@ -744,3 +744,23 @@ Commits:
 
 No physiology was tuned and no blocked water/K state was replaced with a fixed
 normal value.
+
+
+### v1.6 validation checkpoint — five-of-nine composition green
+
+Focused workflow run `38330303818` completed **SUCCESS**.
+
+Validated together:
+- persistent nine-input myocardial acid-base provider;
+- live blood-SID / arterial-HCO3 adapter;
+- integrated coronary-flow + myocardial-O2 source outputs;
+- source-owned HumMod-2013 zero anaerobic myocardial glucose use;
+- composition contract with exactly four remaining unresolved live states.
+
+Current unresolved states:
+1. intracellular K;
+2. LV liquid volume;
+3. myocardial lactate use;
+4. systemic lactate-pool concentration.
+
+This is the current v1.6 recovery point for myocardial-pHi integration.
