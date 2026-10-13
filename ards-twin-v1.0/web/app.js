@@ -290,32 +290,62 @@
   }
 
   function syncClinicalProvider() {
-    const live = $('clinical-systemic-provider').value === 'live-reduced-hummod';
-    $('clinical-hummod-file-block').hidden = live;
-    $('clinical-hummod-file').disabled = live;
-    $('clinical-provider-status').textContent = live
-      ? 'LIVE REDUCED HUMMOD CORE · experimental · reference aspiration case + VC-AC only · not full HumMod · not clinically validated.'
-      : 'TRAJECTORY REPLAY · attach a canonical Vent trajectory or raw HumMod System.X series. Vent interventions do not alter replayed systemic values.';
-    $('clinical-coupling-note').textContent = live
-      ? 'Live reduced HumMod mode couples Vent recruitment/perfusion and mean airway pressure into source-aligned reduced gas, thorax, and circulation equations. Remaining engineering boundaries are explicit synthetic assumptions.'
-      : 'Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.';
+    const provider = $('clinical-systemic-provider').value;
+    const live = provider === 'live-reduced-hummod';
+    const v16 = provider === 'v16-integrated-ards';
+    const replay = provider === 'replay';
+    const needsHumModFile = replay;
+
+    $('clinical-hummod-file-block').hidden = !needsHumModFile;
+    $('clinical-hummod-file').disabled = !needsHumModFile;
+
+    const v16Block = $('clinical-v16-ards-boundaries');
+    if (v16Block) v16Block.hidden = !v16;
+    for (const id of ['clinical-anatomic-shunt','clinical-excess-lung-water']) {
+      const el = $(id);
+      if (!el) continue;
+      el.disabled = !v16;
+      el.required = v16;
+    }
+
+    if (v16) {
+      $('clinical-provider-status').textContent =
+        'v1.6 INTEGRATED ARDS CANDIDATE · persistent Vent + regional V/Q/HPV + pulmonary vascular + cardiovascular physiology · candidate only · not clinically validated.';
+      $('clinical-coupling-note').textContent =
+        'Vent owns mechanics. Regional oxygenation uses Vent ventilation with Das/Marshall V/Q-HPV; Karamolegkos owns candidate pulmonary vascular mechanics; Ursino/Magosso owns candidate cardiovascular/autonomic physiology. Shunt and lung water remain explicit case inputs.';
+    } else if (live) {
+      $('clinical-provider-status').textContent =
+        'LEGACY REDUCED HUMMOD CORE · research comparison · reference aspiration case + VC-AC only · not full HumMod · not clinically validated.';
+      $('clinical-coupling-note').textContent =
+        'Legacy reduced HumMod mode retains earlier synthetic thorax/circulation boundaries and is preserved for research comparison.';
+    } else {
+      $('clinical-provider-status').textContent =
+        'TRAJECTORY REPLAY · attach a canonical Vent trajectory or raw HumMod System.X series. Vent interventions do not alter replayed systemic values.';
+      $('clinical-coupling-note').textContent =
+        'Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.';
+    }
+
     const reference = 'berlin-moderate-moderate-aspiration';
     for (const option of Array.from($('clinical-case').options)) {
       option.disabled = live && option.value !== reference;
     }
     for (const option of Array.from($('clinical-mode').options)) {
-      option.disabled = live && option.value === 'PC_AC';
+      option.disabled = (live || v16) && option.value === 'PC_AC';
     }
-    if (live) {
-      if ($('clinical-case').value !== reference) {
-        $('clinical-case').value = reference;
-        renderClinicalCase(reference);
-      }
-      if ($('clinical-mode').value !== 'VC_AC') {
-        $('clinical-mode').value = 'VC_AC';
-        syncClinicalMode();
-      }
-      $('clinical-executable').textContent = 'Live preview';
+
+    if (live && $('clinical-case').value !== reference) {
+      $('clinical-case').value = reference;
+      renderClinicalCase(reference);
+    }
+    if ((live || v16) && $('clinical-mode').value !== 'VC_AC') {
+      $('clinical-mode').value = 'VC_AC';
+      syncClinicalMode();
+    }
+    if (v16) {
+      $('clinical-executable').textContent = 'v1.6 candidate';
+      $('clinical-executable').dataset.status = 'ready';
+    } else if (live) {
+      $('clinical-executable').textContent = 'Legacy preview';
       $('clinical-executable').dataset.status = 'ready';
     }
   }
