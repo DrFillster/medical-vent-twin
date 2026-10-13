@@ -1,6 +1,6 @@
 'use strict';
 
-importScripts('./engine.js?v=1.5.1-candidate-runtime');
+importScripts('./engine.js?v=1.6-ards-candidate');
 
 let session = null;
 
@@ -16,7 +16,9 @@ self.onmessage = ({ data }) => {
     if (type === 'initialize') {
       const payload = data.payload || {};
       const provider = data.provider || payload.systemicMode;
-      if (provider === 'live-reduced-hummod' || provider === 'live-core') {
+      if (provider === 'v1.6-ards-candidate') {
+        session = VENT.createV16PhysicianArdsBrowserSession(payload);
+      } else if (provider === 'live-reduced-hummod' || provider === 'live-core') {
         session = VENT.createBerlinLiveHumModSession(payload);
       } else if (provider === 'replay') {
         session = VENT.createBerlinClinicalTwinSession(payload);
