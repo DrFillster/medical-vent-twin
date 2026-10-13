@@ -28,6 +28,7 @@ const WORK_MOTION_CALS_PER_MIN=24;
 const WORK_HEAT_CALS_PER_MIN=87;
 const WORK_TOTAL_CALS_PER_MIN=111;
 const CAL_TO_O2_ML_PER_CAL=0.2093;
+const O2_TO_CAL_PER_ML=4.778;
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -97,5 +98,6 @@ module.exports=Object.freeze({
   WORK_HEAT_CALS_PER_MIN,
   WORK_TOTAL_CALS_PER_MIN,
   CAL_TO_O2_ML_PER_CAL,
+  O2_TO_CAL_PER_ML,
   leftHeartO2Demand2013,
 });
