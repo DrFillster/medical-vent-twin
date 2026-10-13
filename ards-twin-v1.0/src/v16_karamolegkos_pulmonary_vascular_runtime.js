@@ -85,10 +85,6 @@ function validateBoundary(b){
   finite(b.leftAtrialPressureMmHg,'leftAtrialPressureMmHg');
   nonNegative(b.shuntFraction,'shuntFraction');
   if(!(b.shuntFraction<1)) throw new Error('shuntFraction must be < 1');
-  positive(
-    b.capillaryResistanceMmHgSecPerMl,
-    'capillaryResistanceMmHgSecPerMl'
-  );
   return b;
 }
 
@@ -126,8 +122,7 @@ function createV16KaramolegkosPulmonaryVascularRuntime({
     const Qpc=K.pulmonaryCapillaryFlow({
       pulmonaryCapillaryPressureMmHg:Ppc,
       pulmonaryVenousPressureMmHg:Ppv,
-      capillaryResistanceMmHgSecPerMl:
-        b.capillaryResistanceMmHgSecPerMl,
+      shuntFraction:b.shuntFraction,
     });
     const Qpv=K.pulmonaryVenousFlow({
       pulmonaryVenousPressureMmHg:Ppv,
@@ -137,11 +132,14 @@ function createV16KaramolegkosPulmonaryVascularRuntime({
       alveolarVolumeL:b.alveolarVolumeL,
       shuntFraction:b.shuntFraction,
     });
+    const Rpc=K.pulmonaryCapillaryResistance({
+      shuntFraction:b.shuntFraction,
+    });
 
     return Object.freeze({
       Ppa,Ppal,Ppc,Ppv,
       Fpa:s.Fpa,
-      Qpal,Qps,Qpc,Qpv,Rpal,
+      Qpal,Qps,Qpc,Qpv,Rpal,Rpc,
       totalPeripheralFlowMlPerSec:Qpal+Qps,
       ventilatedPulmonaryBloodFlowMlPerSec:Qpal,
       totalPulmonaryBloodFlowMlPerSec:b.rvOutflowMlPerSec,
@@ -226,6 +224,7 @@ function createV16KaramolegkosPulmonaryVascularRuntime({
         totalPeripheral:a.totalPeripheralFlowMlPerSec,
       }),
       pulmonaryArteriolarResistanceMmHgSecPerMl:a.Rpal,
+      pulmonaryCapillaryResistanceMmHgSecPerMl:a.Rpc,
       pulmonaryPerfusionState:Object.freeze({
         sourceQualified:true,
         totalPulmonaryBloodFlowMlPerMin:
