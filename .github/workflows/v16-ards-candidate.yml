@@ -29,6 +29,8 @@ on:
       - 'ards-twin-v1.0/src/v16_reference_anchored_alveolar_volume_adapter.js'
       - 'ards-twin-v1.0/test/v16_reference_anchored_alveolar_volume_adapter.test.js'
       - 'ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js'
+      - 'ards-twin-v1.0/src/v16_physician_ards_candidate.js'
+      - 'ards-twin-v1.0/test/v16_physician_ards_candidate.test.js'
       - 'ards-twin-v1.0/test/v16_integrated_ards_cardiopulmonary_candidate.test.js'
 
 permissions:
@@ -70,3 +72,5 @@ jobs:
         run: node test/v16_reference_anchored_alveolar_volume_adapter.test.js
       - name: v1.6 integrated ARDS cardiopulmonary candidate
         run: node test/v16_integrated_ards_cardiopulmonary_candidate.test.js
+      - name: v1.6 persistent physician ARDS candidate
+        run: node test/v16_physician_ards_candidate.test.js
