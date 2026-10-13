@@ -87,11 +87,11 @@ jobs:
           grep -q "v1.6 integrated ARDS candidate" ards-twin-v1.0/web/v1.6-preview/index.html
           grep -q "createBerlinV16ArdsSession" ards-twin-v1.0/web/v1.6-preview/engine.js
           git status --porcelain --untracked-files=all | tee /tmp/status.txt
-          if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.6-preview/web/)' | grep -q .; then
+          if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.0/web/v1\.6-preview/)' | grep -q .; then
             echo "Refusing deployment: files outside isolated nested v1.6 preview changed."
             exit 1
           fi
-      - name: Commit preview to main
+      - name: Commit nested preview to served v1.5 branch
         id: commit
         env:
           SOURCE_SHA: ${{ github.sha }}
@@ -117,7 +117,7 @@ jobs:
       - name: Verify live v1.6 physician preview
         env:
           SOURCE_SHA: ${{ github.sha }}
-          BASE: https://hummod.defying-logic.com/ards-twin-v1.0/web/v1.6-preview
+          BASE: https://hummod.defying-logic.com/v1.6-preview
         run: |
           set -e
           mkdir -p smoke
