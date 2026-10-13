@@ -43,7 +43,6 @@ function pulmonaryMechanicsBoundary(){
     alveolarPressureMmHg:0,
     pleuralPressureMmHg:-3,
     shuntFraction:0.05,
-    capillaryResistanceMmHgSecPerMl:0.04,
     provenance:Object.freeze({
       fixture:'focused integration test only',
       canonical:false,
