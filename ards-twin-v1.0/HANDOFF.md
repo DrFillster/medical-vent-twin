@@ -1194,3 +1194,14 @@ All upstream ARDS steps in the same workflow passed:
 - Vent regional ARDS oxygen bridge.
 
 Therefore the failure is currently classified as an **integration/composition failure**, not an upstream physiology failure. No source equation or physiologic parameter will be changed until the exact failing assertion/stack is inspected.
+
+
+### v1.6 regional O2 integration failure classification
+
+Workflow `38333389670` reached the integrated ARDS test and the runtime executed. The only failing assertion was a string-match mismatch:
+- runtime authority text: `Vent + Das-Marshall regional VQ/HPV + HumMod blood-O2 candidate`;
+- test expected the literal substring `Das/Marshall regional VQ`.
+
+Classification: **test-fixture wording failure**, not physiology or integration failure.
+
+No physiology/source code will be changed for this failure. Only the authority-string assertion will be made semantically tolerant of the existing documented wording.
