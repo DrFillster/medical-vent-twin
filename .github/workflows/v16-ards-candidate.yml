@@ -13,6 +13,11 @@ on:
       - 'ards-twin-v1.0/test/v16_karamolegkos_pulmonary_vascular_runtime.test.js'
       - 'ards-twin-v1.0/src/v16_das_ards_regional_perfusion_candidate.js'
       - 'ards-twin-v1.0/test/v16_das_ards_regional_perfusion_candidate.test.js'
+      - 'ards-twin-v1.0/src/v16_marshall_hpv_candidate.js'
+      - 'ards-twin-v1.0/test/v16_marshall_hpv_candidate.test.js'
+      - 'ards-twin-v1.0/src/v16_das_marshall_regional_hpv_perfusion.js'
+      - 'ards-twin-v1.0/test/v16_das_marshall_regional_hpv_perfusion.test.js'
+      - 'ards-twin-v1.0/test/v16_das_ards_regional_perfusion_candidate.test.js'
       - 'ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js'
       - 'ards-twin-v1.0/test/v16_integrated_ards_cardiopulmonary_candidate.test.js'
 
@@ -39,5 +44,9 @@ jobs:
         run: node test/v16_karamolegkos_pulmonary_vascular_runtime.test.js
       - name: Das human-ARDS regional perfusion equations
         run: node test/v16_das_ards_regional_perfusion_candidate.test.js
+      - name: Marshall HPV candidate
+        run: node test/v16_marshall_hpv_candidate.test.js
+      - name: Das-Marshall regional HPV perfusion
+        run: node test/v16_das_marshall_regional_hpv_perfusion.test.js
       - name: v1.6 integrated ARDS cardiopulmonary candidate
         run: node test/v16_integrated_ards_cardiopulmonary_candidate.test.js
