@@ -948,3 +948,26 @@ New blood-state provider:
 No fixed hematocrit or plasma fraction is used as a live substitute.
 
 Focused glucose/FAPool gate and blood-volume-fraction gate have been committed; current results pending at this checkpoint.
+
+
+### v1.6 governing clinical scope correction — ARDS + sepsis + ventilation + pressors
+
+Physician direction: v1.6 is specifically an **ARDS/sepsis cardiopulmonary digital twin under mechanical ventilation and vasoactive support**. Do not drift into rebuilding general whole-body HumMod unless a subsystem is directly required to close a clinically important cardiopulmonary state.
+
+Priority clinical loop:
+1. Vent remains owner of airway mechanics, pressures, PEEP, recruitment, delivered VT and breath timing.
+2. Pulmonary/gas layer supplies PaO2/PaCO2 and pulmonary vascular consequences relevant to ARDS.
+3. Cardiovascular plant supplies LV/RV/systemic/pulmonary hemodynamics and regional perfusion.
+4. Sepsis layer must support vasoplegia/distributive physiology rather than treating SVR changes as arbitrary user scalars.
+5. Vasoactive drugs/pressors/inotropes must act through explicit receptor/efferent mechanisms where source-supported, not through direct MAP targets.
+6. Coronary perfusion + myocardial O2/metabolic state -> myocardial intracellular pH -> contractility/mechanics.
+7. Systemic perfusion/metabolic mismatch -> lactate dynamics when source-complete.
+
+Scope rule:
+- endocrine/metabolic modules such as insulin, glucose, fatty-acid, K, water, etc. are included only to the extent needed to close myocardial energetics/acid-base or another bedside-critical ARDS/sepsis state;
+- do **not** expand those systems into a general endocrine/metabolic simulator before the ARDS/sepsis/pressor candidate is physician-testable.
+
+Immediate reprioritization:
+- finish only the minimum source-complete myocardial-lactate/pHi dependencies;
+- then return to ARDS pulmonary vascular/RV coupling, septic vasoplegia, and pressor/inotrope integration;
+- physician validation should focus on trajectories under hypoxemia, hypercapnia/acidemia, increasing PEEP/airway pressure, distributive shock, norepinephrine/vasopressin/inotrope support, and eventual myocardial decompensation if produced by the equations.
