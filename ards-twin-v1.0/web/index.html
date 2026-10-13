@@ -63,7 +63,8 @@
 <p class="hint product-setup-note">Reference settings are prefilled for the synthetic teaching phenotype. They are simulation inputs, not treatment recommendations.</p>
 <details class="engineering-provider"><summary>Research mode · systemic data source</summary><label for="clinical-systemic-provider">Systemic physiology provider</label>
 <select id="clinical-systemic-provider" required>
-<option value="live-reduced-hummod">Live reduced HumMod ARDS core · experimental</option>
+<option value="v16-integrated-ards">v1.6 integrated ARDS candidate · physician evaluation</option>
+<option value="live-reduced-hummod">Legacy reduced HumMod ARDS core · research comparison</option>
 <option value="replay">HumMod trajectory replay</option>
 </select>
 <p id="clinical-provider-status" class="hint">Live mode couples Vent recruitment and airway pressure to a reduced, source-aligned HumMod cardiopulmonary core. It is not the full HumMod executable and is not clinically validated.</p></details>
@@ -72,6 +73,20 @@
 <input id="clinical-hummod-file" type="file" accept=".json,application/json">
 <div class="actions demo-actions"><button id="clinical-load-demo" type="button" class="secondary">Load synthetic demo inputs</button></div>
 <p id="clinical-hummod-status" class="hint">Attach a validated <code>vent-hummod-trajectory/v1</code> export, or load the clearly labeled synthetic demo dataset.</p>
+</div>
+
+<div id="clinical-v16-ards-boundaries">
+<div class="field-grid">
+<div>
+<label for="clinical-anatomic-shunt">Anatomical shunt <span>%</span></label>
+<input id="clinical-anatomic-shunt" type="number" min="0" max="99" step="1" value="35">
+</div>
+<div>
+<label for="clinical-excess-lung-water">Excess lung water <span>mL</span></label>
+<input id="clinical-excess-lung-water" type="number" min="0" step="10" value="0">
+</div>
+</div>
+<p class="hint"><strong>v1.6 case inputs:</strong> 35% shunt is prefilled only as the Karamolegkos/Dhainaut sedated-ARDS reference-study value; it is not inferred from Berlin severity. Excess lung water is explicit; 0 mL means no additional HumMod membrane-edema effect.</p>
 </div>
 
 <label for="clinical-mode">Ventilation mode</label>
