@@ -90,9 +90,11 @@
       "LAP",
       "PVR",
       "Vent settings",
-      "recruitment"
+      "recruitment",
+      "coronary flow",
+      "myocardial O2 use"
     ],
-    "next_task": "validate explicit end-to-end HR coupling and full active dependency gate in v1.6; then physician review of trajectories",
+    "next_task": "physician review of integrated HR/gas/hemodynamic trajectories while completing source-owned myocardial pHi inputs without activating unsourced contractility",
     "physician_browser_status": "green-ready-for-isolated-preview",
     "last_green_source_sha": "1e74762942893f51b304d8cc50f09f755647c241",
     "zero_pause_hold_status": "green",
@@ -110,7 +112,8 @@
       "oxygen_trajectory": "diagnostic trace added; interpretation pending physician review",
       "autonomics": "source-family HR path is explicitly coupled into the cardiovascular plant and included in the v1.6 focused dependency gate; severe-stress physiology remains physician-validation-open",
       "cardiopulmonary_mechanics": "pulmonary vascular/RV pressure coupling present; direct intrathoracic-pressure coupling into systemic cardiovascular plant remains incomplete",
-      "hr_coupling": "explicit integration contract added: gas/baroreceptor/pulmonary-stretch autonomics -> cardiac sympathetic/vagal effectors -> heart period -> cardiovascular plant HR; no new physiologic gain"
+      "hr_coupling": "explicit integration contract added: gas/baroreceptor/pulmonary-stretch autonomics -> cardiac sympathetic/vagal effectors -> heart period -> cardiovascular plant HR; no new physiologic gain",
+      "myocardial_source_state": "coronary flow and myocardial O2 use are live in the persistent v1.6 patient as diagnostic source state; intracellular pHi and contractility authority remain fail-closed"
     }
   },
   "myocardial_state": {

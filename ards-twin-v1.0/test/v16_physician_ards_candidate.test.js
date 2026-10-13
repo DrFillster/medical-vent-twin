@@ -96,6 +96,13 @@ test('physician candidate produces one persistent bedside ARDS state',()=>{
     s.pulmonaryReferenceState.referencePleuralPressureCmH2O,
     -5
   );
+  assert.equal(s.myocardial.status,'source-flow-and-o2-use-live');
+  assert(Number.isFinite(s.myocardial.coronaryBloodFlowMlPerMin));
+  assert(s.myocardial.coronaryBloodFlowMlPerMin>0);
+  assert(Number.isFinite(s.myocardial.myocardialO2UseMlPerMin));
+  assert(s.myocardial.myocardialO2UseMlPerMin>=0);
+  assert.equal(s.myocardial.intracellularPh,null);
+  assert.equal(s.myocardial.contractilityAuthority,'not-coupled-fail-closed');
 });
 
 test('PEEP changes preserve patient state and intervention history',()=>{

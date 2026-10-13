@@ -39,6 +39,7 @@ on:
       - 'ards-twin-v1.0/src/clinical_twin_v16_ards_session.js'
       - 'ards-twin-v1.0/test/v16_clinical_twin_browser_session.test.js'
       - 'ards-twin-v1.0/test/v16_integrated_ards_cardiopulmonary_candidate.test.js'
+      - 'ards-twin-v1.0/test/v16_integrated_myocardial_source_state.test.js'
       - 'ards-twin-v1.0/scripts/build.js'
       - 'ards-twin-v1.0/test/v16_physician_browser_ui_contract.test.js'
       - 'ards-twin-v1.0/web/app.js'
@@ -95,6 +96,7 @@ jobs:
           node test/v15_ursino_magosso_2000_local_o2_candidate.test.js
           node test/v15_ursino_magosso_2000_oxygen_metabolic_candidate.test.js
           node test/v15_integrated_cardiopulmonary_candidate.test.js
+          node test/v16_integrated_myocardial_source_state.test.js
       - name: v1.6 integrated ARDS cardiopulmonary candidate
         run: node test/v16_integrated_ards_cardiopulmonary_candidate.test.js
       - name: Vent zero-pause bedside hold regression

@@ -388,6 +388,17 @@ function createV16PhysicianArdsCandidate({
         anatomicalShuntFraction,
       }),
       hemodynamics:physicianHemodynamics(),
+      myocardial:Object.freeze({
+        coronaryBloodFlowMlPerMin:
+          lastIntegrated.myocardialSourceState?.coronaryBloodFlowMlPerMin??null,
+        myocardialO2UseMlPerMin:
+          lastIntegrated.myocardialSourceState?.myocardialO2UseMlPerMin??null,
+        intracellularPh:null,
+        contractilityAuthority:'not-coupled-fail-closed',
+        status:lastIntegrated.myocardialSourceState
+          ?'source-flow-and-o2-use-live'
+          :'awaiting-integrated-source-state',
+      }),
       pulmonary:Object.freeze({
         pulmonaryVascular:lastIntegrated.pulmonaryVascular??null,
         sourceCoordinate:
