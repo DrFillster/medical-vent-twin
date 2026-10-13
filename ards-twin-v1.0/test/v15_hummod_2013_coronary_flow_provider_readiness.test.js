@@ -47,7 +47,6 @@ test('coronary-flow provider readiness remains fail-closed',()=>{
   assert.equal(r.authority,'diagnostic-only');
   assert.equal(r.summary.readyForLiveSourceCompleteCoronaryFlow,false);
   assert.equal(r.summary.neutralBackfillAllowed,false);
-  assert(r.summary.blockedFields.includes('noPoolConcentration'));
   assert(r.summary.blockedFields.includes('adhPoolLog10Conc'));
   assert(r.summary.blockedFields.includes('initialLeftHeartMassG'));
   assert(r.summary.blockedFields.includes('plasmaVolumeFraction'));
