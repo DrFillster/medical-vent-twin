@@ -1452,3 +1452,23 @@ Current next action:
 - physician review should focus on trajectories under PEEP/VT/RR/FiO2 changes, regional oxygenation/VQ, PAP/PVR/RV load, HR/MAP/CO/SV/SVR, and explicit bedside holds;
 - do not resume sepsis/pressors until this ARDS candidate has been reviewed;
 - myocardial O2/pHi/contractility reconnection remains the next physiology work after ARDS physician review.
+
+
+## v1.6 deployment checkpoint — preview verifier failures classified
+
+Isolated preview workflow runs `38334852410` and `38335063248` failed in **deployment verification only** after the v1.6 browser session and physician UI contract had passed.
+
+No ARDS physiology test failed.
+
+Verifier failures:
+1. browser provenance link still pointed to `tree/v1.5` while the preview source branch is `v1.6`;
+2. deploy verifier conflated the browser cache-busting key `1.6-integrated-ards-candidate` with the generated engine build stamp, which is intentionally stamped from `package.json` engineering version `1.5.0`.
+
+Corrections:
+- physician page provenance now points to the `v1.6` source branch;
+- deploy verifier now treats these as separate contracts:
+  - source branch: `v1.6`;
+  - browser cache key: `1.6-integrated-ards-candidate`;
+  - generated engine build stamp: `package.json` version.
+
+These are deployment/browser metadata corrections only. No physiologic equation, parameter, state ownership, or candidate behavior changed.
