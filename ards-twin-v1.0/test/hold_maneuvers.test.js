@@ -106,6 +106,25 @@ test('inspiratory hold completes when VC has no configured inspiratory pause', (
     'hold must activate at the inspiration-to-expiration boundary');
 });
 
+test('zero-pause inspiratory hold requested during expiration waits for next end inspiration', () => {
+  const sim = makeStandardSimulation({ pause: 0 });
+
+  // Advance beyond the first breath into expiration before requesting the hold.
+  sim.runFor(2.0);
+  const requestedAt = sim.state.t;
+  sim.requestInspiratoryHold(0.1);
+  sim.runFor(2.5);
+
+  const m = sim.measurements.find(x => x.kind === ManeuverKind.INSPIRATORY_HOLD);
+  assert(m, 'expected zero-pause inspiratory hold after expiration-time request');
+  assert(m.startedAtSec > requestedAt,
+    'hold requested during expiration should wait for the next end-inspiratory boundary');
+  assert(Number.isFinite(m.plateauPressureCmH2O),
+    'plateau pressure must be finite');
+  assert(Math.abs(m.medianLateAirwayFlowLps) < 1e-8,
+    `expiration-time requested hold flow should be zero, got ${m.medianLateAirwayFlowLps}`);
+});
+
 test('expiratory hold waits until end expiration and measures total PEEP', () => {
   const sim = makeStandardSimulation();
   sim.requestExpiratoryHold(0.3);
