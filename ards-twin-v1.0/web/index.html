@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#101d2a">
 <meta name="description" content="Explore pressure, flow, volume, and recruitment with an inspectable three-compartment mechanical lung model.">
 <title>ARDS Clinical Twin · v1.5</title>
-<link rel="stylesheet" href="./styles.css?v=1.5.1-candidate-runtime">
-<script src="./engine.js?v=1.5.1-candidate-runtime" defer></script>
-<script src="./native-engine-config.js?v=1.5.1-candidate-runtime" defer></script>
-<script src="./native-engine-client.js?v=1.5.1-candidate-runtime" defer></script>
-<script src="./app.js?v=1.5.1-candidate-runtime" defer></script>
+<link rel="stylesheet" href="./styles.css?v=1.6-ards-candidate">
+<script src="./engine.js?v=1.6-ards-candidate" defer></script>
+<script src="./native-engine-config.js?v=1.6-ards-candidate" defer></script>
+<script src="./native-engine-client.js?v=1.6-ards-candidate" defer></script>
+<script src="./app.js?v=1.6-ards-candidate" defer></script>
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
@@ -67,7 +67,14 @@
 <option value="live-reduced-hummod">Legacy reduced HumMod ARDS core · research comparison</option>
 <option value="replay">HumMod trajectory replay</option>
 </select>
-<p id="clinical-provider-status" class="hint">Live mode couples Vent recruitment and airway pressure to a reduced, source-aligned HumMod cardiopulmonary core. It is not the full HumMod executable and is not clinically validated.</p></details>
+<p id="clinical-provider-status" class="hint">v1.6 integrates persistent Vent mechanics, regional ARDS V/Q/HPV oxygenation, pulmonary vascular/RV loading, and the candidate cardiovascular/autonomic plant. Candidate only; not clinically validated.</p></details>
+<div id="clinical-v16-boundaries">
+<div class="field-grid">
+<div><label for="clinical-v16-shunt">Anatomical shunt <span>fraction 0–1</span></label><input id="clinical-v16-shunt" type="number" min="0" max="0.99" step="0.001" required></div>
+<div><label for="clinical-v16-lung-water">Excess lung water <span>mL</span></label><input id="clinical-v16-lung-water" type="number" min="0" step="1" required></div>
+</div>
+<p class="hint"><strong>Explicit research case inputs:</strong> these values are not inferred from Berlin severity or recruitability. The pulmonary coordinate uses the published generic-reference FRC (2.25 L) and passive pleural-pressure reference; those reference coordinates are not patient-specific anatomy.</p>
+</div>
 <div id="clinical-hummod-file-block" hidden>
 <label for="clinical-hummod-file">HumMod trajectory JSON</label>
 <input id="clinical-hummod-file" type="file" accept=".json,application/json">
