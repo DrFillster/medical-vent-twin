@@ -5,6 +5,8 @@ const {
   OTHER_MASS_KG,
   AGE_ON_OTHER_MASS,
   LEFT_HEART_PERCENT,
+  LEFT_HEART_H2O_FRACT_MASS,
+  H2O_DENSITY_G_PER_ML,
   hermite,
   contextOtherMass2013,
   initialLeftHeartMass2013,
@@ -24,6 +26,8 @@ test('source constants and age curve are preserved',()=>{
   assert.deepEqual(OTHER_MASS_KG.male,[19,26,32,46]);
   assert.deepEqual(OTHER_MASS_KG.female,[15,20.8,28,36]);
   near(LEFT_HEART_PERCENT,1.1);
+  near(LEFT_HEART_H2O_FRACT_MASS,0.67);
+  near(H2O_DENSITY_G_PER_ML,1.0);
   near(hermite(AGE_ON_OTHER_MASS,18),1);
   near(hermite(AGE_ON_OTHER_MASS,70),1);
   near(hermite(AGE_ON_OTHER_MASS,9),0.4);
@@ -40,6 +44,8 @@ test('deterministic adult male normal context reproduces source algebra',()=>{
   near(s.contextOtherMass.massKg,26);
   near(s.baseMassG,26000);
   near(s.initialLeftHeartMassG,286);
+  near(s.initialLeftHeartLiquidVolumeMl,0.67*286);
+  near(s.initialLeftHeartSolidMassG,0.33*286);
   assert.equal(s.controlAuthority,false);
 });
 
