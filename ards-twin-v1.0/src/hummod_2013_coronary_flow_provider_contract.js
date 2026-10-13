@@ -54,9 +54,9 @@ const PROVIDERS=Object.freeze({
     note:'ADH storage/secretion/pool primitives exist; osmolality, pituitary neural drive and clearance providers are not live-coupled',
   }),
   o2NeedMlPerMin:Object.freeze({
-    status:STATUS.SOURCE_PRIMITIVE_NOT_LIVE,
-    provider:'hummod_myocardial_metabolism_source_aligned',
-    note:'requires live myocardial mass plus thyroid, heat-metabolism and structure/function effects',
+    status:STATUS.DERIVABLE_PARALLEL,
+    provider:'hummod_2013_left_heart_metabolism_provider.leftHeartO2Demand2013',
+    note:'source-generation-consistent demand provider exists; current LV mass, thyroid effect, heat-metabolism core and structural effect remain explicit upstream states and are not canonical live-owned',
   }),
   viscosityConductanceEffect:Object.freeze({
     status:STATUS.DERIVABLE_PARALLEL,
