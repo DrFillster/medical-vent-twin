@@ -764,3 +764,33 @@ Current unresolved states:
 4. systemic lactate-pool concentration.
 
 This is the current v1.6 recovery point for myocardial-pHi integration.
+
+
+### v1.6 resume checkpoint — continue from green five-of-nine state
+
+Physician direction: continue building v1.6 and save frequently to HANDOFF.md.
+
+Verified branch recovery point before new work:
+- v1.6 head at start of this pass: `d2254de48c11660c0b8ee58751c49d367699af34`;
+- prior focused five-of-nine myocardial-pHi composition gate is green;
+- do not repeat completed v1.6 work.
+
+Current unresolved myocardial-pHi inputs remain:
+1. intracellular K;
+2. LV liquid volume;
+3. myocardial lactate use;
+4. systemic lactate-pool concentration.
+
+Source dependency audit before coding:
+- intracellular K is not a free scalar: HumMod-2013 requires persistent KCell mass and live CellH2O volume, with KPool mass and delayed aldosterone driving K fluxes;
+- LV liquid volume is not a free scalar: it requires the source left-heart water scaling applied to live whole-body interstitial and cell-water compartments;
+- systemic lactate concentration is not a free scalar: the HumMod-2013 pool requires the complete tissue-outflow network plus IV/pump terms and ECFV;
+- myocardial lactate use is source-computable through LeftHeart-Fuel but depends on substrate/pool state, including systemic lactate concentration.
+
+Decision:
+- do not use fixed 140 mEq/L intracellular K;
+- do not freeze LV liquid volume at initial composition;
+- do not hold systemic lactate at its 1 mEq/L initialization;
+- build the missing source-owned upstream runtimes beneath these states.
+
+Next implementation: persistent HumMod-2013 KCell runtime, candidate-only and fail-closed on live KPool/cell-water inputs.
