@@ -32,6 +32,9 @@ const {
 const {
   createVentRegionalArdsOxygenState,
 }=require('./v16_vent_regional_ards_oxygen_bridge.js');
+const {
+  createVentRegionalArdsOxygenState,
+}=require('./v16_vent_regional_ards_oxygen_bridge.js');
 
 const SOURCE=Object.freeze({
   cardiovascular:'Ursino/Magosso source-family candidate',
@@ -208,7 +211,7 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
           'derived internally from Karamolegkos Appendix A25 and shunt fraction',
       }),
       coupling:Object.freeze({
-        order:'pulmonary-vascular -> gas -> cardiovascular',
+        order:'pulmonary-vascular -> regional-O2-target -> gas-delay/CO2 -> cardiovascular',
         method:'sequential-operator-splitting',
         physiologicGainAdded:false,
       }),
