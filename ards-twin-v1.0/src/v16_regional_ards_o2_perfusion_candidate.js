@@ -280,6 +280,13 @@ function solveRegionalArdsO2PerfusionFixedPoint({
       perfusion.regions[i].pulmonaryBloodFlowMlPerMin,
   }));
 
+  const mixedNonShuntCapillaryO2ContentMlPerMl=
+    regions.reduce(
+      (sum,r)=>sum+
+        (r.pulmonaryBloodFlowMlPerMin*r.capillaryO2ContentMlPerMl),
+      0
+    )/totalPulmonaryBloodFlowMlPerMin;
+
   return Object.freeze({
     schema:'v16-regional-ards-o2-perfusion-fixed-point/v1',
     authority:SOURCE.authority,
@@ -293,6 +300,7 @@ function solveRegionalArdsO2PerfusionFixedPoint({
     regions:Object.freeze(regions),
     totalOxygenTransferMlPerMin:
       regions.reduce((s,r)=>s+r.oxygenTransferMlPerMin,0),
+    mixedNonShuntCapillaryO2ContentMlPerMl,
     flowClosureMlPerMin:perfusion.flowClosureMlPerMin,
     numericalCoupling:Object.freeze({
       method:'fixed-point',
