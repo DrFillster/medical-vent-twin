@@ -6,7 +6,6 @@ const {
   LARGE_CONDUCTANCE_PER_G,
   SYMPS_ON_CONDUCTANCE,
   ADH_ON_CONDUCTANCE,
-  NO_ON_CONDUCTANCE,
   PO2_ON_AEROBIC_FRACTION,
   METABOLISM_ON_CONDUCTANCE,
   hermite,
@@ -29,7 +28,6 @@ const BASE={
   pressureGradientMmHg:80,
   alphaReceptorActivity:1,
   adhPoolLog10Conc:0.8,
-  noPoolConcentration:0.05,
   o2NeedMlPerMin:40,
   viscosityConductanceEffect:1,
   anesthesiaVascularConductance:1,
@@ -47,8 +45,6 @@ test('2012/2013 coronary conductance constants and curves are preserved',()=>{
   near(LARGE_CONDUCTANCE_PER_G,0.177508);
   near(hermite(SYMPS_ON_CONDUCTANCE,1),1);
   near(hermite(ADH_ON_CONDUCTANCE,0.8),1);
-  near(hermite(NO_ON_CONDUCTANCE,0.05),1);
-  near(hermite(NO_ON_CONDUCTANCE,0.20),1.5);
   near(hermite(PO2_ON_AEROBIC_FRACTION,2),0);
   near(hermite(PO2_ON_AEROBIC_FRACTION,10),1);
   near(hermite(METABOLISM_ON_CONDUCTANCE,30),1);
@@ -63,14 +59,9 @@ test('nominal coronary conductance scales with source initial left-heart mass',(
   assert(b.bloodFlowMlPerMin>a.bloodFlowMlPerMin);
 });
 
-test('NO remains an explicit coronary conductance input',()=>{
-  const low=solveLeftHeartFlow2013({...BASE,noPoolConcentration:0});
-  const normal=solveLeftHeartFlow2013({...BASE,noPoolConcentration:0.05});
-  const high=solveLeftHeartFlow2013({...BASE,noPoolConcentration:0.20});
-  assert(low.noEffect<normal.noEffect);
-  assert(high.noEffect>normal.noEffect);
-  assert(low.bloodFlowMlPerMin<normal.bloodFlowMlPerMin);
-  assert(high.bloodFlowMlPerMin>normal.bloodFlowMlPerMin);
+test('pre-2025 imported HumMod coronary equation excludes NO effect',()=>{
+  const s=solveLeftHeartFlow2013(BASE);
+  assert.equal(Object.prototype.hasOwnProperty.call(s,'noEffect'),false);
 });
 
 test('coronary pressure gradient is an explicit live-coupling coordinate',()=>{
