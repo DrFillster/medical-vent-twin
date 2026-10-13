@@ -61,34 +61,34 @@ jobs:
     outputs:
       preview_commit: ${{ steps.commit.outputs.sha }}
     steps:
-      - name: Checkout main deployment tree
+      - name: Checkout served v1.5 preview tree
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: v1.5
           fetch-depth: 0
       - name: Prepare isolated v1.6 physician preview
         run: |
-          rm -rf ards-twin-v1.6-preview/web
-          mkdir -p ards-twin-v1.6-preview/web
+          rm -rf ards-twin-v1.0/web/v1.6-preview
+          mkdir -p ards-twin-v1.0/web/v1.6-preview
       - name: Download validated web
         uses: actions/download-artifact@v4
         with:
           name: v16-physician-static-web
-          path: ards-twin-v1.6-preview/web
+          path: ards-twin-v1.0/web/v1.6-preview
       - name: Stamp source commit
-        run: printf '%s\n' "${GITHUB_SHA}" > ards-twin-v1.6-preview/web/DEPLOY_SOURCE_SHA.txt
+        run: printf '%s\n' "${GITHUB_SHA}" > ards-twin-v1.0/web/v1.6-preview/DEPLOY_SOURCE_SHA.txt
       - name: Verify deployment isolation
         run: |
-          test -f ards-twin-v1.6-preview/web/index.html
-          test -f ards-twin-v1.6-preview/web/engine.js
-          test -f ards-twin-v1.6-preview/web/app.js
-          test -f ards-twin-v1.6-preview/web/clinical-worker.js
-          test -f ards-twin-v1.6-preview/web/DEPLOY_SOURCE_SHA.txt
-          grep -q "v1.6 integrated ARDS candidate" ards-twin-v1.6-preview/web/index.html
-          grep -q "createBerlinV16ArdsSession" ards-twin-v1.6-preview/web/engine.js
+          test -f ards-twin-v1.0/web/v1.6-preview/index.html
+          test -f ards-twin-v1.0/web/v1.6-preview/engine.js
+          test -f ards-twin-v1.0/web/v1.6-preview/app.js
+          test -f ards-twin-v1.0/web/v1.6-preview/clinical-worker.js
+          test -f ards-twin-v1.0/web/v1.6-preview/DEPLOY_SOURCE_SHA.txt
+          grep -q "v1.6 integrated ARDS candidate" ards-twin-v1.0/web/v1.6-preview/index.html
+          grep -q "createBerlinV16ArdsSession" ards-twin-v1.0/web/v1.6-preview/engine.js
           git status --porcelain --untracked-files=all | tee /tmp/status.txt
           if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.6-preview/web/)' | grep -q .; then
-            echo "Refusing deployment: files outside isolated v1.6 preview changed."
+            echo "Refusing deployment: files outside isolated nested v1.6 preview changed."
             exit 1
           fi
       - name: Commit preview to main
@@ -98,12 +98,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ards-twin-v1.6-preview/web
+          git add ards-twin-v1.0/web/v1.6-preview
           if git diff --cached --quiet; then
             echo "No preview content change."
           else
             git commit -m "deploy(v1.6): physician preview ${SOURCE_SHA}"
-            git push origin HEAD:main
+            git push origin HEAD:v1.5
           fi
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -117,7 +117,7 @@ jobs:
       - name: Verify live v1.6 physician preview
         env:
           SOURCE_SHA: ${{ github.sha }}
-          BASE: https://hummod.defying-logic.com/ards-twin-v1.6-preview/web
+          BASE: https://hummod.defying-logic.com/ards-twin-v1.0/web/v1.6-preview
         run: |
           set -e
           mkdir -p smoke
