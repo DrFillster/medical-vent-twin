@@ -145,8 +145,7 @@ function createV16ArdsPulmonaryGasCandidate({
     });
   }
 
-  function step({dtSec}={}){
-    positive(dtSec,'dtSec');
+  function ensureRuntime(){
     const built=buildBoundary();
     if(runtime==null){
       runtime=createHumModArdsGasRuntime({
@@ -155,13 +154,16 @@ function createV16ArdsPulmonaryGasCandidate({
         boundary:built.boundary,
       });
     }
-    const gas=runtime.step({dtSec,boundary:built.boundary});
-    timeSec+=dtSec;
-    last=Object.freeze({
+    return built;
+  }
+
+  function composeSnapshot({gas,built,status='ready'}={}){
+    return Object.freeze({
       schema:'v16-ards-pulmonary-gas-candidate/v1',
       timeSec,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
+      status,
       gas,
       mechanics:Object.freeze({
         mode:built.vent.ventilator.mode,
@@ -182,6 +184,32 @@ function createV16ArdsPulmonaryGasCandidate({
         'static phenotype perfusionFraction x recruitment is not accepted as final pulmonary perfusion',
       provenance:SOURCE,
     });
+  }
+
+  function initialize(){
+    const built=ensureRuntime();
+    const gas=runtime.snapshot();
+    last=composeSnapshot({
+      gas,
+      built,
+      status:'initialized-no-time-advance',
+    });
+    return last;
+  }
+
+  function step({
+    dtSec,
+    arterialO2TargetOverride=null,
+  }={}){
+    positive(dtSec,'dtSec');
+    const built=ensureRuntime();
+    const gas=runtime.step({
+      dtSec,
+      boundary:built.boundary,
+      arterialO2TargetOverride,
+    });
+    timeSec+=dtSec;
+    last=composeSnapshot({gas,built,status:'ready'});
     return last;
   }
 
@@ -191,12 +219,12 @@ function createV16ArdsPulmonaryGasCandidate({
       timeSec,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
-      status:'awaiting-first-step',
+      status:'awaiting-initialization',
       provenance:SOURCE,
     });
   }
 
-  return Object.freeze({step,snapshot,source:SOURCE});
+  return Object.freeze({initialize,step,snapshot,source:SOURCE});
 }
 
 module.exports=Object.freeze({
