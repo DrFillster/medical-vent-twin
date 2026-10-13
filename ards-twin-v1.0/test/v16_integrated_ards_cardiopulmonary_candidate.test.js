@@ -97,13 +97,6 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
   const candidate=createV16IntegratedArdsCardiopulmonaryCandidate({
     simulation,
     dtSec:0.0005,
-    pulmonaryVascularInitialState:{
-      PpaTm:18,
-      Fpa:80,
-      PpalTm:13,
-      PpcTm:9,
-      PpvTm:10,
-    },
     pulmonaryCoordinateAdapter:coordinateAdapter,
     pulmonaryShuntFractionProvider:()=>Object.freeze({
       sourceQualified:true,
@@ -147,6 +140,11 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
   }
 
   assert(s.pulmonaryVascular.pulmonaryPerfusionState.sourceQualified);
+  assert(s.pulmonaryInitialization);
+  assert.equal(
+    s.pulmonaryInitialization.provenance.fittedParameterAdded,
+    false
+  );
   assert.equal(
     s.pulmonaryVascular.boundary.coordinateSnapshot.sourceQualified,
     true
