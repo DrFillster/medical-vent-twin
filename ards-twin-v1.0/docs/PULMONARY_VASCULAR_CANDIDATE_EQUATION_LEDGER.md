@@ -242,3 +242,32 @@ That bridge must be derived and documented before Eq. 3 is allowed to drive
 canonical PVR/PAP in the digital patient.
 
 This is intentional fail-closed behavior, not a missing convenience feature.
+
+
+## v1.6 source closure — post-capillary resistance and shunt branch
+
+Primary source: Karamolegkos N, Albanese A, Chbat NW. *Heart-Lung Interactions During Mechanical Ventilation*. IEEE OJEMB. 2021;2:324-341. DOI 10.1109/OJEMB.2021.3128629. Appendix A15, A20-A25.
+
+### Source equations now active
+
+At the nominal FRC, the paper defines:
+
+- **A20:** `R_pc = R_pal@FRCnom`
+- **A22:** `R_pp,total = 2 * (1 - sh) * R_pal@FRCnom`
+- therefore **A25:** `R_pc = R_pp,total / [2 * (1 - sh)]`
+
+The shunt branch does not require an explicit `R_ps` parameter in the runtime because the source replaces shunt flow with:
+
+- **A15:** `Q_ps = sh/(1-sh) * Q_pal`
+
+### v1.6 implementation consequence
+
+- `R_pc` is **source-derived**, not an external parameter.
+- `R_ps` is **not instantiated** as a separate runtime parameter.
+- `sh` remains an explicit case/source coordinate.
+- Normal physiology in the paper uses `sh = 1.7%`; ARDS validation scenarios may use different study-specific shunt values and must not inherit 1.7% automatically.
+
+Implementation:
+- `src/karamolegkos_pulmonary_circulation_candidate.js` now derives `R_pc` using A25.
+- `src/v16_karamolegkos_pulmonary_vascular_runtime.js` no longer accepts external capillary resistance.
+- focused source and integration tests gate this relationship.
