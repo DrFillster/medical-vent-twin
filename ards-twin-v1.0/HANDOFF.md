@@ -1370,3 +1370,36 @@ All upstream ARDS components passed in the same workflow, including:
 - passive Vent-Karamolegkos pressure-coordinate adapter.
 
 Classification at this checkpoint: **integrated default-path failure**, not an upstream source-equation failure. The exact stack/assertion is being inspected before any change. No physiology parameter or equation will be altered until the cause is classified.
+
+
+## v1.6 browser-exposure checkpoint — source session + UI wiring in progress
+
+Negative result preserved:
+- focused workflow `38334192522`: **FAILURE**;
+- all upstream ARDS component/source tests passed;
+- failure occurred when the persistent physician candidate was still using the superseded implicit pulmonary-coordinate contract;
+- exact error: `pulmonaryCoordinateAdapter.snapshot is required when no explicit pulmonaryMechanicsBoundaryProvider is supplied`;
+- this was an integration-contract mismatch after the live branch moved to the reference-anchored Vent volume + passive Albanese/Karamolegkos pressure-coordinate adapters, not a physiology-output mismatch.
+
+Current live architecture after correction:
+- `v16_physician_ards_candidate.js` constructs:
+  - reference-anchored absolute alveolar volume from synchronized Vent volume change;
+  - passive Albanese/Karamolegkos pleural/alveolar pressure coordinate;
+  - explicit source-qualified anatomical shunt case state;
+- the integrated runtime derives its split pulmonary vascular initialization from those synchronized source coordinates rather than requiring guessed `Ppal/Ppc` values.
+
+Browser work committed:
+- `src/clinical_twin_v16_ards_session.js` — v1.6 browser/session adapter;
+- `test/v16_clinical_twin_browser_session.test.js` — session contract;
+- `src/browser-entry.js` exports the v1.6 session;
+- `web/clinical-worker.js` routes provider `v16-integrated-ards`;
+- `web/index.html` exposes the v1.6 provider plus explicit anatomical-shunt and excess-lung-water inputs;
+- `web/app.js` makes v1.6 the physician quick-start provider while retaining legacy reduced-HumMod and replay as research modes;
+- `test/v16_physician_browser_ui_contract.test.js` gates provider/UI plumbing;
+- the focused ARDS workflow now also builds the browser bundle and verifies that `createBerlinV16ArdsSession` is exported.
+
+Reference-case browser inputs:
+- 35% anatomical shunt is labeled specifically as the Karamolegkos/Dhainaut sedated-ARDS validation value, not a Berlin-derived universal shunt;
+- excess lung water is visible and explicit; no clinically unvalidated HumMod sensitivity-sweep value is hidden as a default.
+
+At this checkpoint, workflow `38334499150` is still executing the persistent physician-candidate step. Do not call the browser candidate green until that run reaches the browser-session/build steps and completes successfully.
