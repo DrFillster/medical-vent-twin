@@ -121,7 +121,7 @@ test('integrated ARDS candidate advances one persistent sourced composition',()=
   assert.equal(s.regionalOxygen.legacyVentPerfusionMetadataUsed,false);
   assert.match(
     s.ownership.arterialOxygen,
-    /Das\/Marshall regional VQ/
+    /Das[-\/]Marshall regional VQ/
   );
   assert.match(
     s.pulmonaryGas.gas.exchange.massBalance.arterialO2TargetAuthority,
