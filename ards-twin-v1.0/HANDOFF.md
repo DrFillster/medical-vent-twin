@@ -1,3 +1,95 @@
+# CURRENT RECOVERY POINT — READ THIS FIRST
+
+**Active branch:** `v1.6`  
+**Last governance commit at this checkpoint:** `30dbd10479da7713f01249d2d4436de3f3333e27`  
+**Current milestone:** **Finish the physician-testable integrated ARDS candidate first.**
+
+## Current objective
+
+Assemble one persistent ARDS cardiopulmonary patient using the sourced modules already built.
+
+Immediate order:
+1. ARDS gas exchange and V/Q/shunt authority.
+2. Pulmonary vascular / RV-load coupling.
+3. Vent pressure/PEEP effects on the cardiovascular candidate.
+4. Myocardial O2/pHi/contractility reconnection.
+5. Physician validation candidate.
+6. Only then resume sepsis/vasoplegia and pressors.
+
+## Current architecture
+
+- **Vent** owns ventilator settings, airway mechanics, recruitment, pressures, holds, and waveforms.
+- **Ursino/Magosso source-family candidate** owns candidate cardiovascular/autonomic physiology.
+- **HumMod source-aligned gas equations** are the current ARDS gas-exchange candidate.
+- **HumMod-2013 myocardial source chain** provides the candidate intracellular pHi / contractility path.
+- Pulmonary vascular/RV coupling remains candidate work in progress.
+- Sepsis and pressors are intentionally deferred until ARDS is physician-testable.
+
+## Current ARDS build
+
+Newest ARDS composition:
+- `src/v16_ards_pulmonary_gas_candidate.js`
+- focused test: `test/v16_ards_pulmonary_gas_candidate.test.js`
+- focused workflow: `.github/workflows/v16-ards-candidate.yml`
+
+The ARDS composition is deliberately fail-closed:
+- static phenotype `perfusionFraction * recruitment` is **not** accepted as final V/Q/perfusion physiology;
+- `FRC + Vent.totalVolume` is **not** accepted as absolute alveolar volume;
+- pulmonary perfusion must come from a source-qualified provider.
+
+## Current myocardial state
+
+The pHi chain is substantially source-transcribed. Do **not** continue broad endocrine/metabolic reconstruction merely because a dependency exists.
+
+Completed or source-transcribed pieces include:
+- blood SID;
+- arterial HCO3-;
+- myocardial blood flow;
+- myocardial O2 use;
+- anaerobic glucose use;
+- KCell runtime;
+- LV liquid-volume runtime;
+- systemic lactate-pool runtime;
+- LeftHeart-Fuel live bridge;
+- glucose and fatty-acid pools;
+- plasma-fraction provider.
+
+These are preserved, but ARDS integration has priority.
+
+## Do not do now
+
+- no sepsis activation;
+- no pressor/inotrope activation;
+- no broad whole-body HumMod reconstruction;
+- no unnecessary endocrine expansion;
+- no UI polish unrelated to physician validation;
+- no invented gains or coordinate bridges;
+- no tuning merely to make outputs look clinically familiar.
+
+## Last important correction
+
+The project briefly regressed into solving every newly discovered upstream dependency. That is now explicitly prohibited by:
+- root `START_HERE.md`;
+- root `candidate-state.json`;
+- root `AGENTS.md`.
+
+A newly discovered dependency is not automatically the next task. First determine whether it is required to reach the current ARDS milestone.
+
+## Continuation rule
+
+Every new conversation/agent must begin with:
+
+1. live `v1.6` branch HEAD;
+2. root `START_HERE.md`;
+3. root `candidate-state.json`;
+4. this recovery block;
+5. the relevant equation/source ledger;
+6. only then the implementation/tests.
+
+If remembered context conflicts with repository state, repository state wins.
+
+---
+
 # HumMod / Vent v1.6 Handoff
 
 Date: 2026-10-11
