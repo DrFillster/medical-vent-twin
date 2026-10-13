@@ -26,6 +26,8 @@ on:
       - 'ards-twin-v1.0/test/v16_vent_regional_alveolar_ventilation_adapter.test.js'
       - 'ards-twin-v1.0/src/v16_vent_regional_ards_oxygen_bridge.js'
       - 'ards-twin-v1.0/test/v16_vent_regional_ards_oxygen_bridge.test.js'
+      - 'ards-twin-v1.0/src/v16_reference_anchored_alveolar_volume_adapter.js'
+      - 'ards-twin-v1.0/test/v16_reference_anchored_alveolar_volume_adapter.test.js'
       - 'ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js'
       - 'ards-twin-v1.0/test/v16_integrated_ards_cardiopulmonary_candidate.test.js'
 
@@ -64,5 +66,7 @@ jobs:
         run: node test/v16_vent_regional_alveolar_ventilation_adapter.test.js
       - name: Vent regional ARDS oxygen bridge
         run: node test/v16_vent_regional_ards_oxygen_bridge.test.js
+      - name: Reference-anchored absolute alveolar volume
+        run: node test/v16_reference_anchored_alveolar_volume_adapter.test.js
       - name: v1.6 integrated ARDS cardiopulmonary candidate
         run: node test/v16_integrated_ards_cardiopulmonary_candidate.test.js
