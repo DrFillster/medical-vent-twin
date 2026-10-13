@@ -248,6 +248,58 @@ function createV16PhysicianArdsCandidate({
     });
   }
 
+  function advanceUntilMeasurement(kind,previousCount,maxAdvanceSec=90){
+    positive(maxAdvanceSec,'maxAdvanceSec');
+    const start=simulation.state.t;
+    while(simulation.state.t-start<maxAdvanceSec){
+      step();
+      const count=simulation.measurements.filter(m=>m.kind===kind).length;
+      if(count>previousCount) return snapshot();
+    }
+    throw new Error(kind+' did not complete within maxAdvanceSec');
+  }
+
+  function requestInspiratoryHold(durationSec=0.5){
+    positive(durationSec,'durationSec');
+    const count=simulation.measurements
+      .filter(m=>m.kind==='INSPIRATORY_HOLD').length;
+    simulation.requestInspiratoryHold(durationSec);
+    return advanceUntilMeasurement('INSPIRATORY_HOLD',count,90);
+  }
+
+  function requestExpiratoryHold(durationSec=0.5){
+    positive(durationSec,'durationSec');
+    const count=simulation.measurements
+      .filter(m=>m.kind==='EXPIRATORY_HOLD').length;
+    simulation.requestExpiratoryHold(durationSec);
+    return advanceUntilMeasurement('EXPIRATORY_HOLD',count,90);
+  }
+
+  function performPassiveMechanicsMeasurement({
+    holdDurationSec=0.5,
+    maxAdvanceSecPerHold=90,
+  }={}){
+    positive(holdDurationSec,'holdDurationSec');
+    positive(maxAdvanceSecPerHold,'maxAdvanceSecPerHold');
+    const inspCount=simulation.measurements
+      .filter(m=>m.kind==='INSPIRATORY_HOLD').length;
+    simulation.requestInspiratoryHold(holdDurationSec);
+    advanceUntilMeasurement(
+      'INSPIRATORY_HOLD',
+      inspCount,
+      maxAdvanceSecPerHold
+    );
+
+    const expCount=simulation.measurements
+      .filter(m=>m.kind==='EXPIRATORY_HOLD').length;
+    simulation.requestExpiratoryHold(holdDurationSec);
+    return advanceUntilMeasurement(
+      'EXPIRATORY_HOLD',
+      expCount,
+      maxAdvanceSecPerHold
+    );
+  }
+
   function snapshot(){
     const regional=lastIntegrated.regionalOxygen;
     const regionalRows=regional?.status==='ready'
@@ -308,6 +360,9 @@ function createV16PhysicianArdsCandidate({
     snapshot,
     setPEEP,
     requestVentilatorSettings,
+    requestInspiratoryHold,
+    requestExpiratoryHold,
+    performPassiveMechanicsMeasurement,
     simulation,
     integrated,
     source:SOURCE,
