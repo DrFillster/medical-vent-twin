@@ -388,8 +388,28 @@ class Simulation {
       boundary = this.controller.step(this.state, dt, this.deliveredSinceBreathStart);
       tracePhase = this.controller.phase;
 
+      // A zero-pause VC breath can transition INSPIRATION -> EXPIRATION
+      // inside controller.step(). Maneuver activation is normally checked
+      // before the controller advances, so an inspiratory hold requested
+      // during inspiration would otherwise miss the end-inspiratory boundary.
+      //
+      // Detect that transition before mechanics are committed. If the pending
+      // inspiratory hold activates, restore the controller to its pre-step
+      // state so the ventilator cycle clock is frozen at end inspiration and
+      // apply the same zero-flow occlusion used by the ordinary hold path.
+      if (this.pendingManeuver && !this.activeManeuver &&
+          this._activatePendingManeuver()) {
+        restoreController();
+        boundary = makeBoundaryFlow({
+          flowLps: 0,
+          fio2: this.controller.settings.fio2,
+        });
+        tracePhase = this.activeManeuver.tracePhase;
+      }
+
       // 2. EXPIRATION phase override: PEEP pressure clamp.
-      if (this.controller.phase === BreathPhase.EXPIRATION) {
+      if (!this.activeManeuver &&
+          this.controller.phase === BreathPhase.EXPIRATION) {
         boundary = makeBoundaryPressure({
           pressureCmH2O: this.controller.settings.peep,
           fio2: this.controller.settings.fio2,
