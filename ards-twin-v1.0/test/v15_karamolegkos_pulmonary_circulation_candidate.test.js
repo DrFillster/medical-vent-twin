@@ -6,6 +6,7 @@ const {
   pulmonaryArteriolarResistance,
   pulmonaryShuntFlow,
   totalPeripheralFlow,
+  pulmonaryCapillaryResistance,
   pulmonaryCapillaryFlow,
   pulmonaryCapillaryVolume,
   dPulmonaryArteryTransmuralPressureDt,
@@ -83,15 +84,17 @@ test('A13 uses alveolar rather than pleural pressure as capillary external press
   assert(v2<v1,'higher alveolar pressure should reduce capillary transmural volume at fixed intravascular pressure');
 });
 
-test('A12 refuses to invent an unverified capillary resistance',()=>{
-  let threw=false;
-  try{
-    pulmonaryCapillaryFlow({
-      pulmonaryCapillaryPressureMmHg:10,
-      pulmonaryVenousPressureMmHg:7,
-    });
-  }catch(_){threw=true;}
-  assert(threw,'R_pc must be explicitly supplied until primary value is verified');
+test('A25 derives post-capillary resistance from Rpp,total and shunt',()=>{
+  const sh=0.017;
+  const rpc=pulmonaryCapillaryResistance({shuntFraction:sh});
+  const expected=PARAMETERS.RppTotalMmHgSecPerMl/(2*(1-sh));
+  assert(close(rpc,expected));
+  const q=pulmonaryCapillaryFlow({
+    pulmonaryCapillaryPressureMmHg:10,
+    pulmonaryVenousPressureMmHg:7,
+    shuntFraction:sh,
+  });
+  assert(close(q,3/rpc));
 });
 
 test('continuity derivatives are zero when source flows balance',()=>{
