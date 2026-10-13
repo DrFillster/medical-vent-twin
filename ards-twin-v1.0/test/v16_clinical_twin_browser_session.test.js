@@ -50,8 +50,18 @@ test('v1.6 browser session initializes to physician dashboard contract',()=>{
   assert.equal(s.pulmonary.anatomicalShuntFraction,0.35);
   assert.equal(s.engineeringBoundaries.anatomicalShunt.status,'explicit-case-input');
   assert.equal(
-    s.engineeringBoundaries.pulmonaryInitialState.provenance.sourceQualified,
+    s.engineeringBoundaries.pulmonaryReference
+      .absoluteAlveolarVolumeProvenance.sourceQualified,
     true
+  );
+  assert.equal(
+    s.engineeringBoundaries.pulmonaryReference
+      .pleuralPressureProvenance.sourceQualified,
+    true
+  );
+  assert(
+    s.engineeringBoundaries.pulmonaryReference.derivedSplitInitialization,
+    'integrated runtime must expose its source-derived split pulmonary initialization'
   );
 });
 
