@@ -920,3 +920,31 @@ The remaining live metabolic states required by the fuel bridge are explicit and
 No normal defaults are substituted for those states.
 
 Focused LeftHeart-Fuel bridge workflow committed; result pending at this checkpoint.
+
+
+### v1.6 checkpoint — substrate pools and plasma-fraction provider added
+
+Validated before this checkpoint:
+- live LeftHeart-Fuel bridge workflow run `38330892111`: **SUCCESS**.
+
+New source runtimes:
+- `src/hummod_2013_glucose_pool_runtime.js`
+  - persistent GlucosePool mass;
+  - concentration = Mass / ECFV.Vol;
+  - source gain/loss terms remain explicit and fail-closed.
+- `src/hummod_2013_fatty_acid_pool_runtime.js`
+  - persistent FAPool mass;
+  - concentration = Mass / ECFV.Vol;
+  - source gain/loss terms remain explicit and fail-closed.
+
+New blood-state provider:
+- `src/hummod_2013_blood_volume_fraction_provider.js`
+- preserves source equations:
+  `BloodVol.Vol = RBCVol.Vol + PlasmaVol.Vol`;
+  `Hct = RBCVol.Vol / BloodVol.Vol`;
+  `PVCrit = 1 - Hct`;
+- this is the intended live plasma-volume fraction for LeftHeart-Fuel plasma-flow derivation.
+
+No fixed hematocrit or plasma fraction is used as a live substitute.
+
+Focused glucose/FAPool gate and blood-volume-fraction gate have been committed; current results pending at this checkpoint.
