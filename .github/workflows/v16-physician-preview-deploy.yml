@@ -1,0 +1,138 @@
+name: v1.6 Physician Preview Deploy
+
+on:
+  push:
+    branches: [v1.6]
+    paths:
+      - '.github/workflows/v16-physician-preview-deploy.yml'
+
+concurrency:
+  group: v16-physician-preview-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ards-twin-v1.0/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build browser bundle
+        run: npm run build
+      - name: v1.6 browser session
+        run: node test/v16_clinical_twin_browser_session.test.js
+      - name: v1.6 physician UI contract
+        run: node test/v16_physician_browser_ui_contract.test.js
+      - name: Verify deployable web
+        run: npm run verify:deploy
+      - name: Verify integrated provider export
+        run: grep -q "createBerlinV16ArdsSession" web/engine.js
+      - name: Upload validated physician preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: v16-physician-static-web
+          path: ards-twin-v1.0/web/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-preview:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    outputs:
+      preview_commit: ${{ steps.commit.outputs.sha }}
+    steps:
+      - name: Checkout main deployment tree
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Prepare isolated v1.6 physician preview
+        run: |
+          rm -rf ards-twin-v1.6-preview/web
+          mkdir -p ards-twin-v1.6-preview/web
+      - name: Download validated web
+        uses: actions/download-artifact@v4
+        with:
+          name: v16-physician-static-web
+          path: ards-twin-v1.6-preview/web
+      - name: Stamp source commit
+        run: printf '%s\n' "${GITHUB_SHA}" > ards-twin-v1.6-preview/web/DEPLOY_SOURCE_SHA.txt
+      - name: Verify deployment isolation
+        run: |
+          test -f ards-twin-v1.6-preview/web/index.html
+          test -f ards-twin-v1.6-preview/web/engine.js
+          test -f ards-twin-v1.6-preview/web/app.js
+          test -f ards-twin-v1.6-preview/web/clinical-worker.js
+          test -f ards-twin-v1.6-preview/web/DEPLOY_SOURCE_SHA.txt
+          grep -q "v1.6 integrated ARDS candidate" ards-twin-v1.6-preview/web/index.html
+          grep -q "createBerlinV16ArdsSession" ards-twin-v1.6-preview/web/engine.js
+          git status --porcelain | tee /tmp/status.txt
+          if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.6-preview/web/)' | grep -q .; then
+            echo "Refusing deployment: files outside isolated v1.6 preview changed."
+            exit 1
+          fi
+      - name: Commit preview to main
+        id: commit
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ards-twin-v1.6-preview/web
+          if git diff --cached --quiet; then
+            echo "No preview content change."
+          else
+            git commit -m "deploy(v1.6): physician preview ${SOURCE_SHA}"
+            git push origin HEAD:main
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  live-smoke:
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - name: Verify live v1.6 physician preview
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          BASE: https://hummod.defying-logic.com/ards-twin-v1.6-preview/web
+        run: |
+          set -e
+          mkdir -p smoke
+          ok=0
+          for attempt in $(seq 1 20); do
+            index_code=$(curl -L -sS -o smoke/index.html -w '%{http_code}' --max-time 20 "$BASE/" || printf '000')
+            source_code=$(curl -L -sS -o smoke/source.txt -w '%{http_code}' --max-time 20 "$BASE/DEPLOY_SOURCE_SHA.txt" || printf '000')
+            live_sha=$(tr -d '\r\n' < smoke/source.txt 2>/dev/null || true)
+            if [ "$index_code" = "200" ] && [ "$source_code" = "200" ] && [ "$live_sha" = "$SOURCE_SHA" ] && grep -q "v1.6 integrated ARDS candidate" smoke/index.html; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+          if [ "$ok" != "1" ]; then
+            echo "v1.6 preview source marker or integrated-candidate UI did not become live."
+            exit 1
+          fi
+          for asset in app.js engine.js clinical-worker.js styles.css clinical-cases.json; do
+            code=$(curl -L -sS -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/$asset" || printf '000')
+            test "$code" = "200"
+          done
+          echo "Live v1.6 physician preview verified at source $SOURCE_SHA."
