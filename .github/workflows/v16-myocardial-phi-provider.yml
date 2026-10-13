@@ -25,6 +25,8 @@ on:
       - 'ards-twin-v1.0/test/v16_hummod_2013_glucose_pool_runtime.test.js'
       - 'ards-twin-v1.0/src/hummod_2013_fatty_acid_pool_runtime.js'
       - 'ards-twin-v1.0/test/v16_hummod_2013_fatty_acid_pool_runtime.test.js'
+      - 'ards-twin-v1.0/src/hummod_2013_blood_volume_fraction_provider.js'
+      - 'ards-twin-v1.0/test/v16_hummod_2013_blood_volume_fraction_provider.test.js'
 
 permissions:
   contents: read
@@ -61,3 +63,5 @@ jobs:
         run: node test/v16_hummod_2013_glucose_pool_runtime.test.js
       - name: Persistent HumMod 2013 FAPool
         run: node test/v16_hummod_2013_fatty_acid_pool_runtime.test.js
+      - name: HumMod 2013 blood-volume fractions
+        run: node test/v16_hummod_2013_blood_volume_fraction_provider.test.js
