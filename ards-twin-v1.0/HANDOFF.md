@@ -1472,3 +1472,24 @@ Corrections:
   - generated engine build stamp: `package.json` version.
 
 These are deployment/browser metadata corrections only. No physiologic equation, parameter, state ownership, or candidate behavior changed.
+
+
+## v1.6 deployment checkpoint — isolated preview guard corrected
+
+Preview workflow `38335162732`:
+- validation job: **SUCCESS**;
+- browser build/session/UI/deploy verifier/export provenance all passed;
+- deploy-preview job: **FAILURE before commit**;
+- live smoke: skipped.
+
+Classification: deployment isolation-guard implementation, not physiology or browser candidate failure.
+
+Exact cause:
+- this is the first creation of `ards-twin-v1.6-preview/` on `main`;
+- plain `git status --porcelain` collapsed the entire new directory to `?? ards-twin-v1.6-preview/`;
+- the allow-list permits only `ards-twin-v1.6-preview/web/*`, so the coarse directory entry was rejected even though all downloaded files were inside the intended isolated web path.
+
+Correction:
+- isolation check now uses `git status --porcelain --untracked-files=all`, forcing per-file paths before the same strict allow-list is evaluated.
+
+No file was committed to `main` by the failed run. Existing v1.5 preview remains untouched.
