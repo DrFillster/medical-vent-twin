@@ -1150,7 +1150,7 @@
       clinicalRecruitmentHistory = null;
       $('clinical-case').value = 'berlin-moderate-moderate-aspiration';
       renderClinicalCase($('clinical-case').value);
-      $('clinical-systemic-provider').value = 'live-reduced-hummod';
+      $('clinical-systemic-provider').value = 'v16-integrated-ards';
       $('clinical-mode').value = 'VC_AC';
       $('clinical-fio2').value = '0.60';
       $('clinical-peep').value = '8';
@@ -1161,6 +1161,8 @@
       $('clinical-flow').value = '0.70';
       $('clinical-vc-pause').value = '0.20';
       $('clinical-dt').value = '0.002';
+      $('clinical-anatomic-shunt').value = '35';
+      $('clinical-excess-lung-water').value = '0';
       syncClinicalMode();
       syncClinicalInitializationMode();
       syncClinicalProvider();
@@ -1180,10 +1182,12 @@
     });
     $('clinical-mode').addEventListener('change', () => {
       syncClinicalMode();
-      if ($('clinical-systemic-provider').value === 'live-reduced-hummod' &&
+      const provider = $('clinical-systemic-provider').value;
+      if ((provider === 'live-reduced-hummod' ||
+           provider === 'v16-integrated-ards') &&
           $('clinical-mode').value !== 'VC_AC') {
         $('clinical-provider-status').textContent =
-          'Live reduced HumMod currently supports VC-AC only. Choose VC-AC or switch to trajectory replay.';
+          'The selected live candidate currently supports VC-AC only. Choose VC-AC or switch to trajectory replay.';
       }
     });
     $('clinical-init-mode').addEventListener('change', () => {
@@ -1226,11 +1230,15 @@
         }
         if (provider === 'live-reduced-hummod') {
           if ($('clinical-case').value !== 'berlin-moderate-moderate-aspiration') {
-            throw new Error('Live reduced HumMod is currently limited to the moderate/intermediate aspiration reference case');
+            throw new Error('Legacy reduced HumMod is currently limited to the moderate/intermediate aspiration reference case');
           }
           if ($('clinical-mode').value !== 'VC_AC') {
-            throw new Error('Live reduced HumMod currently supports VC-AC only');
+            throw new Error('Legacy reduced HumMod currently supports VC-AC only');
           }
+        }
+        if (provider === 'v16-integrated-ards' &&
+            $('clinical-mode').value !== 'VC_AC') {
+          throw new Error('v1.6 integrated ARDS candidate currently supports VC-AC only');
         }
         const w = startClinicalWorker();
         const payload = {
@@ -1240,6 +1248,12 @@
         };
         if (provider === 'live-reduced-hummod') {
           payload.coupledEquilibrationSec = 600;
+        }
+        if (provider === 'v16-integrated-ards') {
+          payload.anatomicalShuntFraction =
+            clinicalNumber('clinical-anatomic-shunt') / 100;
+          payload.excessLungWaterMl =
+            clinicalNumber('clinical-excess-lung-water');
         }
         if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {
@@ -1259,9 +1273,12 @@
           provider,
           payload,
         });
-        $('clinical-session-status').textContent = provider === 'live-reduced-hummod'
-          ? 'Equilibrating Vent + systemic physiology before patient time zero…'
-          : 'Initializing Vent + HumMod replay session…';
+        $('clinical-session-status').textContent =
+          provider === 'v16-integrated-ards'
+            ? 'Initializing persistent v1.6 ARDS cardiopulmonary patient…'
+            : provider === 'live-reduced-hummod'
+              ? 'Equilibrating legacy reduced HumMod physiology before patient time zero…'
+              : 'Initializing Vent + HumMod replay session…';
       } catch (error) {
         showClinicalError(error.message);
       }
