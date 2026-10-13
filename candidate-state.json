@@ -55,17 +55,18 @@
   ],
   "current_ards_candidate": {
     "module": "ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js",
-    "status": "candidate-only-green-focused-gate",
-    "focused_workflow": ".github/workflows/v16-ards-candidate.yml",
-    "last_green_workflow_run": "38333451380",
+    "status": "candidate-only",
     "mechanics_owner": "Vent",
     "cardiovascular_owner": "Ursino/Magosso source-family candidate",
     "pulmonary_vascular_owner": "Karamolegkos source-family candidate",
-    "arterial_oxygen_owner": "Vent regional ventilation + Das/Marshall regional HPV/perfusion + Karamolegkos anatomical shunt + HumMod blood-O2/delay",
-    "carbon_dioxide_ph_owner": "HumMod source-aligned gas core",
-    "legacy_vent_perfusion_metadata_used": false,
-    "absolute_alveolar_volume_bridge_status": "still blocked pending source-validated Vent-compatible V_A/P_A/P_pl coordinate",
-    "synthetic_vq_shortcut_allowed": false
+    "regional_vq_owner": "Das 2015 + Marshall 1994 candidate",
+    "gas_equations": "HumMod source-aligned; regional arterial O2 target feeds persistent gas state",
+    "pulmonary_mechanics_coordinate": "Vent airway pressure -> Albanese 2016 A30-A36 coordinate runtime -> Karamolegkos V_A/P_A/P_pl",
+    "synthetic_vq_shortcut_allowed": false,
+    "absolute_alveolar_volume_bridge_status": "closed without Vent elastic-volume mapping; source coordinate runtime initializes at Karamolegkos FRC and evolves A36",
+    "remaining_ards_boundary": "anatomical shunt fraction must be explicit source/case state; do not infer from low VQ or recruitment",
+    "focused_workflow": ".github/workflows/v16-ards-candidate.yml",
+    "last_green_workflow": "38333520882"
   },
   "myocardial_state": {
     "strategy": "derive myocardial pHi from upstream source states; no manually supplied pHi",
