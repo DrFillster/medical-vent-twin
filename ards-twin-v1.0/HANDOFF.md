@@ -1427,3 +1427,28 @@ Regression:
 - `test/hold_maneuvers.test.js` now includes a VC case with `inspiratoryPause = 0`;
 - focused workflow `38334748816` reports **Vent zero-pause bedside hold regression: SUCCESS** at this checkpoint;
 - the same workflow is still executing the full persistent physician/browser candidate and must complete before physician preview deployment.
+
+
+## v1.6 milestone — physician browser ARDS candidate green
+
+Focused workflow `38334748816` at source commit `1e74762942893f51b304d8cc50f09f755647c241`: **SUCCESS**.
+
+The green gate includes:
+- all focused ARDS gas/pulmonary vascular/regional V/Q/HPV components;
+- reference-anchored absolute alveolar volume;
+- passive Vent/Karamolegkos pressure coordinate;
+- integrated cardiopulmonary candidate;
+- zero-pause bedside hold regression;
+- persistent physician ARDS candidate;
+- v1.6 browser physician session;
+- physician browser UI contract;
+- reproducible browser bundle build;
+- bundle export verification for `createBerlinV16ArdsSession`.
+
+This is the first source- and browser-gated physician-review ARDS candidate on v1.6.
+
+Current next action:
+- deploy one isolated **v1.6 physician preview** without replacing the existing v1.5 preview;
+- physician review should focus on trajectories under PEEP/VT/RR/FiO2 changes, regional oxygenation/VQ, PAP/PVR/RV load, HR/MAP/CO/SV/SVR, and explicit bedside holds;
+- do not resume sepsis/pressors until this ARDS candidate has been reviewed;
+- myocardial O2/pHi/contractility reconnection remains the next physiology work after ARDS physician review.
