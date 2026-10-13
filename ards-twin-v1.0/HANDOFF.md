@@ -638,5 +638,7 @@ Current upstream status:
 - systemic lactate-pool concentration: source pool provider exists; whole-body live coupling pending.
 
 Focused execution status at this checkpoint:
-- workflow committed;
-- execution result not yet claimed.
+- GitHub workflow run `38330067273`;
+- focused-provider job completed successfully;
+- nine-input myocardial acid-base provider test: **PASS**;
+- no full regression/deploy run was triggered.
