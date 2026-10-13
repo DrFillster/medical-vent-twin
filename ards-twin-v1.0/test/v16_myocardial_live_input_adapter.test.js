@@ -2,8 +2,9 @@
 
 const assert=require('node:assert/strict');
 const {
-  REQUIRED_SEVEN,
+  REQUIRED_EXTERNAL,
   resolveLiveChemistryFromGasSnapshot,
+  resolveIntegratedMyocardialSourceState,
   composeLiveMyocardialAcidBaseInputs,
 }=require('../src/v16_myocardial_live_input_adapter.js');
 
@@ -29,11 +30,27 @@ test('adapter reads SID and arterial bicarbonate from live gas snapshot',()=>{
   assert.equal(Object.prototype.hasOwnProperty.call(x,'arterialPh'),false);
 });
 
-test('adapter requires the remaining seven source-provider states',()=>{
-  assert.equal(REQUIRED_SEVEN.length,7);
+const cardiopulmonarySnapshot=Object.freeze({
+  cardiovascular:Object.freeze({
+    myocardialSourceState:Object.freeze({
+      coronaryBloodFlowMlPerMin:240,
+      myocardialO2UseMlPerMin:24,
+    }),
+  }),
+});
+
+test('adapter resolves integrated myocardial flow and O2 state',()=>{
+  const x=resolveIntegratedMyocardialSourceState(cardiopulmonarySnapshot);
+  assert.equal(x.myocardialBloodFlowMlPerMin,240);
+  assert.equal(x.myocardialO2UseMlPerMin,24);
+});
+
+test('adapter requires only the four unresolved external source states',()=>{
+  assert.equal(REQUIRED_EXTERNAL.length,4);
   assert.throws(
     ()=>composeLiveMyocardialAcidBaseInputs({
       gasSnapshot,
+      cardiopulmonarySnapshot,
       upstream:{intracellularPotassiumMeqPerMl:0.14},
     }),
     /missing live myocardial upstream states/
@@ -43,12 +60,10 @@ test('adapter requires the remaining seven source-provider states',()=>{
 test('adapter composes exactly nine myocardial upstream states',()=>{
   const x=composeLiveMyocardialAcidBaseInputs({
     gasSnapshot,
+    cardiopulmonarySnapshot,
     upstream:{
       intracellularPotassiumMeqPerMl:0.140,
       leftVentricleLiquidVolumeMl:100,
-      myocardialBloodFlowMlPerMin:250,
-      myocardialO2UseMlPerMin:25,
-      anaerobicGlucoseUseMgPerMin:0,
       myocardialLactateUseMgPerMin:0,
       systemicLactatePoolMeqPerMl:0.001,
     },
@@ -56,6 +71,9 @@ test('adapter composes exactly nine myocardial upstream states',()=>{
   assert.equal(Object.keys(x).length,9);
   assert.equal(x.bloodSidMolPerL,0.040);
   assert.equal(x.arterialHco3MolPerL,0.024);
+  assert.equal(x.myocardialBloodFlowMlPerMin,240);
+  assert.equal(x.myocardialO2UseMlPerMin,24);
+  assert.equal(x.anaerobicGlucoseUseMgPerMin,0);
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
