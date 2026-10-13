@@ -34,6 +34,8 @@ on:
       - 'ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js'
       - 'ards-twin-v1.0/src/v16_physician_ards_candidate.js'
       - 'ards-twin-v1.0/test/v16_physician_ards_candidate.test.js'
+      - 'ards-twin-v1.0/src/clinical_twin_v16_ards_session.js'
+      - 'ards-twin-v1.0/test/v16_clinical_twin_browser_session.test.js'
       - 'ards-twin-v1.0/test/v16_integrated_ards_cardiopulmonary_candidate.test.js'
 
 permissions:
@@ -79,3 +81,5 @@ jobs:
         run: node test/v16_integrated_ards_cardiopulmonary_candidate.test.js
       - name: v1.6 persistent physician ARDS candidate
         run: node test/v16_physician_ards_candidate.test.js
+      - name: v1.6 browser physician ARDS session
+        run: node test/v16_clinical_twin_browser_session.test.js
