@@ -21,9 +21,6 @@ const { getBerlinCase }=require('./berlin_case_catalog.js');
 const { makePatientParams }=require('./contracts.js');
 const { summarizeSimulationMeasurements }=require('./bedside_measurements.js');
 const {
-  deriveSourceSteadyPulmonarySeed,
-}=require('./v16_karamolegkos_pulmonary_vascular_runtime.js');
-const {
   createV16PhysicianArdsCandidate,
 }=require('./v16_physician_ards_candidate.js');
 
@@ -42,6 +39,20 @@ const V16_BROWSER_REFERENCE_BOUNDARIES=Object.freeze({
   environment:Object.freeze({
     barometricPressureMmHg:760,
     inspiredCo2Fraction:0,
+  }),
+  pulmonaryReference:Object.freeze({
+    absoluteAlveolarVolumeL:2.25,
+    referencePleuralPressureCmH2O:-5,
+    absoluteAlveolarVolumeProvenance:Object.freeze({
+      sourceQualified:true,
+      source:'Karamolegkos 2021 nominal FRC',
+      patientSpecific:false,
+    }),
+    pleuralPressureProvenance:Object.freeze({
+      sourceQualified:true,
+      source:'Albanese public CP-model respiratory reference state',
+      patientSpecific:false,
+    }),
   }),
   provenance:Object.freeze({
     role:'browser physician-evaluation reference boundaries',
@@ -139,25 +150,27 @@ function createBerlinV16ArdsSession({
     throw new Error('referenceBoundaries blood/metabolism/environment are required');
   }
 
-  const pulmonarySeed=deriveSourceSteadyPulmonarySeed({
-    shuntFraction:anatomicalShuntFraction,
-  });
-  const seedProvenance=Object.freeze({
-    ...pulmonarySeed.provenance,
-    sourceQualified:true,
-    caseShuntFraction:anatomicalShuntFraction,
-    caseShuntStatus:
-      'explicit case input; source equations used for split-pressure initialization',
-  });
-
   const candidate=createV16PhysicianArdsCandidate({
     patientParams:makePatientParams(clinicalCase.phenotype.mechanicsParams),
     initialRecruitmentState,
     ventilatorSettings:ventSettings,
     anatomicalShuntFraction,
+    anatomicalShuntProvenance:{
+      sourceQualified:true,
+      source:
+        'explicit case input; 35% browser reference is Karamolegkos/Dhainaut ARDS validation when selected',
+      caseValue:anatomicalShuntFraction,
+      berlinDerived:false,
+    },
+    referenceAbsoluteAlveolarVolumeL:
+      referenceBoundaries.pulmonaryReference.absoluteAlveolarVolumeL,
+    referenceAbsoluteAlveolarVolumeProvenance:
+      referenceBoundaries.pulmonaryReference.absoluteAlveolarVolumeProvenance,
+    referencePleuralPressureCmH2O:
+      referenceBoundaries.pulmonaryReference.referencePleuralPressureCmH2O,
+    referencePleuralPressureProvenance:
+      referenceBoundaries.pulmonaryReference.pleuralPressureProvenance,
     excessLungWaterMl,
-    pulmonaryVascularInitialState:pulmonarySeed.state,
-    pulmonaryVascularInitialStateProvenance:seedProvenance,
     blood:referenceBoundaries.blood,
     metabolism:referenceBoundaries.metabolism,
     environment:referenceBoundaries.environment,
@@ -316,9 +329,10 @@ function createBerlinV16ArdsSession({
           valueMl:excessLungWaterMl,
           status:'explicit-case-input',
         }),
-        pulmonaryInitialState:Object.freeze({
-          state:pulmonarySeed.state,
-          provenance:seedProvenance,
+        pulmonaryReference:Object.freeze({
+          ...referenceBoundaries.pulmonaryReference,
+          derivedSplitInitialization:
+            candidate.integrated.snapshot().pulmonaryInitialization??null,
         }),
       }),
       provenance:Object.freeze({
