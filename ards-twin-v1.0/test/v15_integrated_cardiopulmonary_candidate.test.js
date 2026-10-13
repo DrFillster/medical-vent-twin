@@ -48,7 +48,7 @@ test('PaO2 PaCO2 and Vent-delivered VT enter the same persistent candidate patie
   });
   c.runFor(10);
   challenged=c.snapshot();
-  assert.equal(challenged.timeSec,20.00000000000146);
+  assert(Math.abs(challenged.timeSec-20)<1e-6,'unexpected candidate time='+challenged.timeSec);
   assert.equal(challenged.inputs.pao2MmHg,50);
   assert.equal(challenged.inputs.paco2MmHg,60);
   assert.equal(challenged.inputs.deliveredTidalVolumeL,0.4);
