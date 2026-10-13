@@ -890,3 +890,33 @@ Current direct unresolved myocardial-pHi dependency at the composition boundary:
 - myocardial lactate use.
 
 The HumMod-2013 LeftHeart-Fuel equation for myocardial lactate use is already transcribed, but requires additional live metabolic/substrate inputs: insulin receptor binding, glucose pool concentration, fatty-acid pool concentration, plasma flow, myocardial lactate concentration, aerobic caloric use, total caloric use, and myocardial O2 use. These will be audited and wired source-first; no normal defaults will be substituted.
+
+
+### v1.6 checkpoint — live LeftHeart-Fuel bridge added
+
+A source-faithful live fuel bridge was added:
+- `src/v16_left_heart_fuel_live_bridge.js`
+- `test/v16_left_heart_fuel_live_bridge.test.js`
+
+Key architecture:
+- myocardial lactate use is no longer treated as an arbitrary free scalar when the source metabolic inputs are available;
+- the bridge uses the **previous myocardial lactate state** from the persistent myocardial acid-base/lactate runtime, current coronary flow and myocardial O2 use from the integrated cardiopulmonary candidate, and current systemic lactate concentration from the persistent LacPool runtime;
+- plasma flow is derived dimensionally from coronary blood flow × live plasma-volume fraction;
+- aerobic calories are derived from current myocardial O2 use using the HumMod-2013 `O2_TO_CAL` conversion;
+- total caloric demand is derived through the HumMod-2013 LeftHeart-Metabolism provider;
+- myocardial lactate use is then computed by the already-transcribed HumMod-2013 LeftHeart-Fuel equation.
+
+The remaining live metabolic states required by the fuel bridge are explicit and fail-closed:
+1. plasma-volume fraction;
+2. insulin receptor bound fraction;
+3. glucose-pool concentration;
+4. fatty-acid-pool concentration;
+5. current myocardial mass;
+6. initial myocardial mass;
+7. thyroid effect;
+8. heat-metabolism core effect;
+9. myocardial structure effect.
+
+No normal defaults are substituted for those states.
+
+Focused LeftHeart-Fuel bridge workflow committed; result pending at this checkpoint.
