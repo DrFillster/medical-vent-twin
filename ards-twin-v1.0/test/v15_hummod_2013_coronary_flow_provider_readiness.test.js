@@ -77,6 +77,7 @@ test('new LV-mass and blood providers are parallel-derivable, not live authority
   assert.equal(byName.plasmaVolumeFraction.status,STATUS.DERIVABLE_PARALLEL);
   assert.equal(byName.o2MaxMlPerMl.status,STATUS.DERIVABLE_PARALLEL);
   assert.equal(byName.vasculatureEffect.status,STATUS.DERIVABLE_PARALLEL);
+  assert.equal(byName.o2NeedMlPerMin.status,STATUS.DERIVABLE_PARALLEL);
   assert(r.summary.sourceCompleteLiveFields.includes('pressureGradientMmHg'));
 });
 
