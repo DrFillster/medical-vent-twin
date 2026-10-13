@@ -69,9 +69,9 @@ const PROVIDERS=Object.freeze({
     note:'must come from explicit anesthesia/intervention state; do not silently force neutral 1 for general live use',
   }),
   vasculatureEffect:Object.freeze({
-    status:STATUS.SOURCE_PRIMITIVE_NOT_LIVE,
-    provider:'LeftHeart-Vasculature.Effect',
-    note:'slow PO2-dependent vascular remodeling state not yet implemented in 2013 branch',
+    status:STATUS.DERIVABLE_PARALLEL,
+    provider:'hummod_2013_left_heart_vasculature_provider',
+    note:'source 30-day PO2-dependent adaptation state reproduced in parallel; depends on myocardial tissue PO2 and explicit heart-function-failed state, not canonical live authority',
   }),
   infarctionEffect:Object.freeze({
     status:STATUS.SCENARIO_BOUNDARY,
