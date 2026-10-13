@@ -7,6 +7,8 @@ on:
       - '.github/workflows/v16-ards-candidate.yml'
       - 'ards-twin-v1.0/src/v16_ards_pulmonary_gas_candidate.js'
       - 'ards-twin-v1.0/test/v16_ards_pulmonary_gas_candidate.test.js'
+      - 'ards-twin-v1.0/src/karamolegkos_pulmonary_circulation_candidate.js'
+      - 'ards-twin-v1.0/test/v15_karamolegkos_pulmonary_circulation_candidate.test.js'
       - 'ards-twin-v1.0/src/v16_karamolegkos_pulmonary_vascular_runtime.js'
       - 'ards-twin-v1.0/test/v16_karamolegkos_pulmonary_vascular_runtime.test.js'
       - 'ards-twin-v1.0/src/v16_integrated_ards_cardiopulmonary_candidate.js'
@@ -29,6 +31,8 @@ jobs:
           node-version: '22'
       - name: v1.6 ARDS pulmonary gas candidate
         run: node test/v16_ards_pulmonary_gas_candidate.test.js
+      - name: Karamolegkos source equations including Appendix A25
+        run: node test/v15_karamolegkos_pulmonary_circulation_candidate.test.js
       - name: v1.6 Karamolegkos pulmonary vascular runtime
         run: node test/v16_karamolegkos_pulmonary_vascular_runtime.test.js
       - name: v1.6 integrated ARDS cardiopulmonary candidate
