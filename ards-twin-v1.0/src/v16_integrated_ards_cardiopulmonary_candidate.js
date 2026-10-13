@@ -132,7 +132,21 @@ function createV16IntegratedArdsCardiopulmonaryCandidate({
 
   function step(){
     pulmonarySnapshot=pulmonary.step();
-    gasSnapshot=gas.step({dtSec});
+
+    const arterialO2TargetOverride=
+      regionalO2Snapshot?.status==='ready'
+        ?Object.freeze({
+          sourceQualified:true,
+          o2ContentMlPerMl:regionalO2Snapshot.arterialO2ContentMlPerMl,
+          authority:
+            'Vent + Das-Marshall regional VQ/HPV + HumMod blood-O2 candidate',
+        })
+        :null;
+
+    gasSnapshot=gas.step({
+      dtSec,
+      arterialO2TargetOverride,
+    });
 
     const arterial=gasSnapshot.gas.gases.arterial;
     regionalO2Snapshot=createVentRegionalArdsOxygenState({
