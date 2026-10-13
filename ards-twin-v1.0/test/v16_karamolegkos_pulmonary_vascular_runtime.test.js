@@ -3,6 +3,7 @@
 const assert=require('node:assert/strict');
 const {
   validateBoundary,
+  deriveSourceSteadyPulmonarySeed,
   createV16KaramolegkosPulmonaryVascularRuntime,
 }=require('../src/v16_karamolegkos_pulmonary_vascular_runtime.js');
 
@@ -31,6 +32,47 @@ test('boundary contract fails closed without source qualification',()=>{
     ...qualifiedBoundary(),
     sourceQualified:false,
   }),/source-qualified/);
+});
+
+test('source steady initializer exactly satisfies split pulmonary steady equations',()=>{
+  const seed=deriveSourceSteadyPulmonarySeed();
+  assert.equal(seed.provenance.sourceQualified,true);
+  const s=seed.state;
+  const b=seed.boundary;
+  const Ppa=s.PpaTm+b.pleuralPressureMmHg;
+  const Ppal=s.PpalTm+b.pleuralPressureMmHg;
+  const Ppc=s.PpcTm+b.alveolarPressureMmHg;
+  const Ppv=s.PpvTm+b.pleuralPressureMmHg;
+  const qPal=require('../src/karamolegkos_pulmonary_circulation_candidate.js')
+    .nonShuntArteriolarFlow({
+      pulmonaryArteriolarPressureMmHg:Ppal,
+      pulmonaryCapillaryPressureMmHg:Ppc,
+      alveolarVolumeL:b.alveolarVolumeL,
+      shuntFraction:b.shuntFraction,
+    });
+  const K=require('../src/karamolegkos_pulmonary_circulation_candidate.js');
+  const qPs=K.pulmonaryShuntFlow({
+    nonShuntArteriolarFlowMlPerSec:qPal,
+    shuntFraction:b.shuntFraction,
+  });
+  const qPc=K.pulmonaryCapillaryFlow({
+    pulmonaryCapillaryPressureMmHg:Ppc,
+    pulmonaryVenousPressureMmHg:Ppv,
+    shuntFraction:b.shuntFraction,
+  });
+  const qPv=K.pulmonaryVenousFlow({
+    pulmonaryVenousPressureMmHg:Ppv,
+    leftAtrialPressureMmHg:b.leftAtrialPressureMmHg,
+  });
+  const dF=K.dPulmonaryArterialFlowDt({
+    pulmonaryArteryPressureMmHg:Ppa,
+    pulmonaryArteriolarPressureMmHg:Ppal,
+    pulmonaryArterialFlowMlPerSec:s.Fpa,
+  });
+  assert(Math.abs(qPal+qPs-b.totalPulmonaryFlowMlPerSec)<1e-10);
+  assert(Math.abs(qPc-qPal)<1e-10);
+  assert(Math.abs(qPv-b.totalPulmonaryFlowMlPerSec)<1e-10);
+  assert(Math.abs(dF)<1e-8);
 });
 
 test('source-native pulmonary vascular runtime advances finite state',()=>{
