@@ -23,7 +23,7 @@ test('KCell mass follows source gain-minus-loss direction',()=>{
   const before=r.snapshot({cellWaterVolumeMl:20000});
   const after=r.step({
     dtSec:60,
-    kPoolMassMeq:60,
+    kPoolMassMeq:0,
     delayedAldosteroneEffect:1,
     cellWaterVolumeMl:20000,
   });
