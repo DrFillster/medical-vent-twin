@@ -8,6 +8,9 @@ const {
   sourceSizingFromReference,
 }=require('../src/hummod_2013_left_heart_pump_candidate.js');
 const {
+  initialLeftHeartComposition2013,
+}=require('../src/hummod_2013_left_heart_liquid_volume_provider.js');
+const {
   hgbConcentrationFromHematocrit,
 }=require('../src/hummod_hgb_concentration_source_aligned.js');
 const {
@@ -31,6 +34,10 @@ const lv=initialLeftHeartMass2013({
   ageYears:30,
   plusMinusPercent:0,
   stochasmPercent:0,
+});
+
+const lvComposition=initialLeftHeartComposition2013({
+  initialLeftHeartMassG:lv.initialLeftHeartMassG,
 });
 
 const pumpSizing=sourceSizingFromReference({
@@ -63,7 +70,7 @@ const c=createHumMod2013DerivedPhiCompensationDecompensationCandidate({
   ecfvMl:15000,
   sourceSizing:pumpSizing,
   initialLeftHeartMassG:lv.initialLeftHeartMassG,
-  initialLeftHeartLiquidVolumeMl:lv.initialLeftHeartLiquidVolumeMl,
+  initialLeftHeartLiquidVolumeMl:lvComposition.initialLiquidVolumeMl,
   initialArterialPh:PH,
 });
 
@@ -85,7 +92,7 @@ function inputs(po2){
     pericardialPressureMmHg:-4,
 
     myocardialMassG:lv.initialLeftHeartMassG,
-    myocardialLiquidVolumeMl:lv.initialLeftHeartLiquidVolumeMl,
+    myocardialLiquidVolumeMl:lvComposition.initialLiquidVolumeMl,
     intracellularPotassium:0.140,
     hematocritFraction:HCT,
     adhPoolLog10Conc:Math.log10(2),
@@ -180,7 +187,7 @@ console.log(JSON.stringify({
   authority:'diagnostic-only',
   canonicalControlAuthority:false,
   physiologyChanged:false,
-  sourceCoordinates:{
+  mechanismAuditCoordinates:{
     arterialPo2BaselineMmHg:94,
     arterialPo2HypoxiaMmHg:30,
     arterialPh:7.44,
@@ -201,7 +208,7 @@ console.log(JSON.stringify({
     pumpSourceCardiacOutputMlPerMin:5000,
     systemicArteryTotalVolumeMl:1000,
     note:
-      'These are mechanism-audit boundaries, not asserted 2013 default-patient values. Pump sizing remains a synthetic regression geometry.',
+      'All listed values are explicit mechanism-audit coordinates unless separately source-sized above; they are not asserted as a HumMod default patient. Pump sizing remains a synthetic regression geometry.',
   },
   heldSourceNeutralStates:{
     anesthesiaVascularConductance:1,
