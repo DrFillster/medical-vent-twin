@@ -1533,3 +1533,45 @@ After the local result is available, classify:
 2. directionality of gas exchange and hemodynamic response;
 3. physician plausibility;
 4. only then decide whether any source-model investigation is required.
+
+
+## v1.6 positive local checkpoint — physician ARDS candidate executes on Mac
+
+Physician-side local execution completed on branch `v1.6` with exit code **0**.
+
+Focused command:
+`npm run test:v16-physician-ards-candidate`
+
+Result:
+- **5 passed, 0 failed**;
+- persistent bedside ARDS patient state: PASS;
+- PEEP change preserves patient state and intervention history: PASS;
+- VT/RR/FiO2 changes apply at a breath boundary without reset: PASS;
+- bedside inspiratory hold advances the same patient and records plateau pressure: PASS;
+- candidate refuses to infer anatomical shunt: PASS;
+- report-only perturbation audit completed.
+
+Execution provenance:
+- local Mac execution;
+- complete output saved by physician at `~/Desktop/v16-physician-ards-candidate.txt`;
+- no deployment;
+- no browser tests;
+- no manual physiology edits;
+- no stash pops.
+
+Classification:
+- **technical execution gate: PASS**;
+- **persistent intervention/state-continuity gate: PASS**;
+- **clinical trajectory validation: NOT YET COMPLETE**.
+
+Do not promote to clinically validated based on test exit status alone.
+The next review must inspect the numerical perturbation trajectory from the saved audit:
+- PaO2 / PaCO2 / arterial pH;
+- regional alveolar PO2, HPV coefficient, and perfusion fraction;
+- HR / MAP / CO / SV / SVR;
+- PAP / RAP / LAP / PVR;
+- recruitment and passive hold measurements.
+
+Apply the physician-variability rule:
+- if direction and magnitude are clearly implausible, trace source equations/state ownership before changing anything;
+- if values are clinically close but uncertain, ask the physician before changing equations or parameters.
