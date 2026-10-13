@@ -1,0 +1,99 @@
+{
+  "schema": "vent-project-candidate-state/v1",
+  "version": "1.6",
+  "branch": "v1.6",
+  "recovery_point_sha": "3ec2ea2aad34ef27b24bf0d2ce7ac6ef23e5e724",
+  "live_head_rule": "Query the current v1.6 branch HEAD before modifications; recovery_point_sha is a checkpoint, not a live-head claim.",
+  "clinical_target": "persistent bedside ARDS/sepsis cardiopulmonary digital twin under mechanical ventilation and later vasoactive support",
+  "current_milestone": "finish physician-testable integrated ARDS candidate first",
+  "phase": "integrated-candidate-build",
+  "priority_order": [
+    "ards-gas-exchange-and-vq-shunt-authority",
+    "pulmonary-vascular-and-rv-load-coupling",
+    "vent-pressure-peep-to-cardiovascular-coupling",
+    "myocardial-o2-phi-contractility-reconnection",
+    "physician-ards-candidate",
+    "sepsis-vasoplegia",
+    "pressors-and-inotropes"
+  ],
+  "deferred_until_ards_candidate": [
+    "sepsis-vasoplegia-activation",
+    "pressor-drug-activation",
+    "broad-endocrine-expansion",
+    "general-whole-body-hummod-reconstruction",
+    "ui-polish-not-required-for-physician-validation"
+  ],
+  "owners": {
+    "ventilator_mechanics": "Vent",
+    "airway_pressures_recruitment_waveforms": "Vent",
+    "cardiovascular_plant": "Ursino/Magosso source-family candidate",
+    "autonomic_controller": "Ursino/Magosso + Magosso/Ursino source-family candidate",
+    "ards_gas_exchange": "HumMod source-aligned reduced gas equations, candidate-only",
+    "pulmonary_vascular_rv_load": "candidate in progress; no canonical owner yet",
+    "myocardial_acid_base": "HumMod-2013 source-derived candidate",
+    "myocardial_contractility": "HumMod-2013 source-derived candidate, integration in progress",
+    "sepsis": "deferred candidate",
+    "pressors": "deferred candidate"
+  },
+  "governing_principles": [
+    "HumMod is a donor/source/comparator, not the acceptance standard.",
+    "One canonical owner per physiologic variable.",
+    "Equation first: source, units, intended effect, then integration.",
+    "Do not invent gains or tune equations merely to force expected output.",
+    "Biologically plausible modest mismatch is a physician-review issue before it is a tuning issue.",
+    "Initialization differences are low priority unless they block reproducibility or materially alter behavior.",
+    "Save positive and negative test results to HANDOFF.md."
+  ],
+  "forbidden_shortcuts": [
+    "FRC + Vent.totalVolume used as absolute alveolar volume without validated transform",
+    "static perfusionFraction * recruitment used as final regional pulmonary perfusion/VQ",
+    "arterial pH substituted for myocardial intracellular pH",
+    "timer-based PEA/asystole",
+    "fixed arterial-pH death switch",
+    "direct MAP-targeting pressor logic instead of sourced effectors",
+    "unsourced gains to force HR/MAP/CO/PVR/contractility"
+  ],
+  "current_ards_candidate": {
+    "module": "ards-twin-v1.0/src/v16_ards_pulmonary_gas_candidate.js",
+    "status": "candidate-only",
+    "mechanics_owner": "Vent",
+    "gas_equations": "HumMod source-aligned",
+    "pulmonary_perfusion_contract": "source-qualified provider required; fail closed",
+    "synthetic_vq_shortcut_allowed": false,
+    "absolute_alveolar_volume_bridge_status": "blocked pending source-validated coordinate",
+    "focused_workflow": ".github/workflows/v16-ards-candidate.yml"
+  },
+  "myocardial_state": {
+    "strategy": "derive myocardial pHi from upstream source states; no manually supplied pHi",
+    "completed_or_transcribed": [
+      "blood SID",
+      "arterial HCO3",
+      "myocardial blood flow",
+      "myocardial O2 use",
+      "anaerobic glucose use",
+      "persistent KCell runtime",
+      "persistent LV liquid-volume runtime",
+      "persistent systemic lactate-pool runtime",
+      "LeftHeart-Fuel live bridge",
+      "glucose pool runtime",
+      "fatty-acid pool runtime",
+      "blood plasma-fraction provider"
+    ],
+    "scope_rule": "Do not continue broad metabolic/endocrine reconstruction until ARDS candidate is physician-testable unless a missing state is directly required for the ARDS myocardial path."
+  },
+  "required_startup_reads": [
+    "START_HERE.md",
+    "candidate-state.json",
+    "ards-twin-v1.0/HANDOFF.md current recovery block",
+    "relevant equation/source ledger",
+    "relevant implementation and focused tests"
+  ],
+  "required_precode_statement_fields": [
+    "current clinical objective",
+    "current architecture",
+    "immediate next task",
+    "deferred tasks",
+    "unresolved source boundary",
+    "focused test to run"
+  ]
+}
