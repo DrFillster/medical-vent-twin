@@ -603,3 +603,40 @@ For v1.6:
 - when a result is source-consistent and clinically close enough that normal
   interpatient variability could explain the remainder, ask the physician
   before modifying physiology.
+
+
+### v1.6 checkpoint — persistent myocardial pHi provider foundation
+
+Implemented:
+- `src/hummod_2013_live_myocardial_acid_base_provider.js`
+- `test/v16_live_myocardial_acid_base_provider.test.js`
+- `.github/workflows/v16-myocardial-phi-provider.yml`
+
+Commits:
+- `a76f0a745f7618fcf724b9b1f8d141b89f55135e` — persistent nine-input myocardial acid-base provider.
+- `de601a317b6c4c1b2a6ed17819c37af6de785251` — focused provider contract test.
+- `0522ca4f9d0db79c9f96d739675c6eb28acc0d34` — focused v1.6 validation workflow.
+
+Provider behavior:
+- owns myocardial lactate mass internally;
+- owns myocardial CO2/base mass internally;
+- derives myocardial intracellular pH from the source-transcribed
+  LeftHeart-Lactate + LeftHeart-CO2 + LeftHeart-Ph chain;
+- accepts the nine upstream live states agreed with the physician;
+- has no myocardial-pHi input field and does not substitute arterial pH;
+- remains candidate-only and has no canonical control authority.
+
+Current upstream status:
+- blood SID: live gas-core state available;
+- arterial HCO3-: live gas-core arterial state available;
+- intracellular K: source provider exists; live coupling pending;
+- LV liquid volume: source provider exists; live coupling pending;
+- myocardial blood flow: source provider exists; live coupling pending;
+- myocardial O2 use: source flow/metabolism chain exists; live coupling pending;
+- anaerobic glucose use: source fuel relationship exists; live coupling pending;
+- myocardial lactate use: source fuel relationship exists; live coupling pending;
+- systemic lactate-pool concentration: source pool provider exists; whole-body live coupling pending.
+
+Focused execution status at this checkpoint:
+- workflow committed;
+- execution result not yet claimed.
