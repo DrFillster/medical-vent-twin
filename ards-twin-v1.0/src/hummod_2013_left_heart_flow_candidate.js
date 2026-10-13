@@ -4,11 +4,11 @@
  * HumMod 2012/2013 left-heart coronary-flow candidate.
  *
  * Source equation:
- * nysuloem/HumMod-UTSC-CPG@51d369eb75669e150ef7c61e3ba8bcb1e068aecf
- * Structure/LeftHeart/LeftHeart-Flow.DES (revised 2012-02-19)
+ * nysuloem/HumMod-UTSC-CPG@93ee1b30b74a0f2e60a2c961bbf569b4c8237611
+ * Structure/LeftHeart/LeftHeart-Flow.DES (initial repository import; file header revised 2012-02-19)
  *
- * NOPool concentration remains an explicit input. This module does NOT import
- * the repository's later 2025 VascularEndothelium implementation.
+ * IMPORTANT: the initial imported file does NOT contain NOEffect. NO was added
+ * to LeftHeart-Flow in 2025, so it is intentionally excluded here.
  *
  * Numerical note: source declares an implicit PO2 equation with errorlim 0.17
  * mmHg. This JS candidate uses bounded bisection and exposes solver identity.
@@ -20,7 +20,7 @@ const {
 
 const SOURCE=Object.freeze({
   repository:'nysuloem/HumMod-UTSC-CPG',
-  revision:'51d369eb75669e150ef7c61e3ba8bcb1e068aecf',
+  revision:'93ee1b30b74a0f2e60a2c961bbf569b4c8237611',
   file:'Structure/LeftHeart/LeftHeart-Flow.DES',
   sourceRevisionDate:'2012-02-19',
   authority:'candidate-not-canonical',
@@ -73,14 +73,6 @@ const ADH_ON_CONDUCTANCE=Object.freeze([
   Object.freeze({x:0.8,y:1,slope:0}),
   Object.freeze({x:3,y:0.1,slope:0}),
 ]);
-const NO_ON_CONDUCTANCE=Object.freeze([
-  Object.freeze({x:0.00,y:0.80,slope:0}),
-  Object.freeze({x:0.05,y:1.00,slope:6.0}),
-  Object.freeze({x:0.10,y:1.25,slope:3.0}),
-  Object.freeze({x:0.15,y:1.40,slope:1.0}),
-  Object.freeze({x:0.20,y:1.50,slope:0}),
-  Object.freeze({x:1.00,y:1.50,slope:0}),
-]);
 const PO2_ON_AEROBIC_FRACTION=Object.freeze([
   Object.freeze({x:2,y:0,slope:0}),
   Object.freeze({x:10,y:1,slope:0}),
@@ -97,7 +89,6 @@ function stateAtPo2(po2,{
   pressureGradientMmHg,
   alphaReceptorActivity,
   adhPoolLog10Conc,
-  noPoolConcentration,
   o2NeedMlPerMin,
   viscosityConductanceEffect,
   anesthesiaVascularConductance,
@@ -115,7 +106,6 @@ function stateAtPo2(po2,{
   const largeVesselConductance=basicLarge*viscosityConductanceEffect;
   const sympsEffect=hermite(SYMPS_ON_CONDUCTANCE,alphaReceptorActivity);
   const adhEffect=hermite(ADH_ON_CONDUCTANCE,adhPoolLog10Conc);
-  const noEffect=hermite(NO_ON_CONDUCTANCE,noPoolConcentration);
   const metabolismEffect=hermite(METABOLISM_ON_CONDUCTANCE,o2NeedMlPerMin);
   const po2Effect=hermite(PO2_ON_CONDUCTANCE,po2);
   const smallVesselConductance=
@@ -123,7 +113,6 @@ function stateAtPo2(po2,{
     sympsEffect*
     po2Effect*
     adhEffect*
-    noEffect*
     metabolismEffect*
     viscosityConductanceEffect*
     anesthesiaVascularConductance*
@@ -154,7 +143,6 @@ function stateAtPo2(po2,{
     smallVesselConductance,
     sympsEffect,
     adhEffect,
-    noEffect,
     metabolismEffect,
     po2Effect,
     conductance,
@@ -175,7 +163,6 @@ function solveLeftHeartFlow2013({
   pressureGradientMmHg,
   alphaReceptorActivity,
   adhPoolLog10Conc,
-  noPoolConcentration,
   o2NeedMlPerMin,
   viscosityConductanceEffect,
   anesthesiaVascularConductance,
@@ -197,7 +184,6 @@ function solveLeftHeartFlow2013({
     ['pressureGradientMmHg',pressureGradientMmHg],
     ['alphaReceptorActivity',alphaReceptorActivity],
     ['adhPoolLog10Conc',adhPoolLog10Conc],
-    ['noPoolConcentration',noPoolConcentration],
     ['o2NeedMlPerMin',o2NeedMlPerMin],
     ['viscosityConductanceEffect',viscosityConductanceEffect],
     ['anesthesiaVascularConductance',anesthesiaVascularConductance],
@@ -227,7 +213,7 @@ function solveLeftHeartFlow2013({
   const args={
     initialLeftHeartMassG,largeMultiplier,smallMultiplier,
     pressureGradientMmHg,alphaReceptorActivity,adhPoolLog10Conc,
-    noPoolConcentration,o2NeedMlPerMin,viscosityConductanceEffect,
+    o2NeedMlPerMin,viscosityConductanceEffect,
     anesthesiaVascularConductance,vasculatureEffect,infarctionEffect,
     arterialO2ContentMlPerMl,o2MaxMlPerMl,hgbP50,hgbScaleForSat,
   };
@@ -277,7 +263,6 @@ module.exports=Object.freeze({
   SYMPS_ON_CONDUCTANCE,
   PO2_ON_CONDUCTANCE,
   ADH_ON_CONDUCTANCE,
-  NO_ON_CONDUCTANCE,
   PO2_ON_AEROBIC_FRACTION,
   METABOLISM_ON_CONDUCTANCE,
   hermite,
