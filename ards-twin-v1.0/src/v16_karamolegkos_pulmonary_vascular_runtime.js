@@ -197,6 +197,8 @@ function createV16KaramolegkosPulmonaryVascularRuntime({
     timeSec+=h;
 
     const a=algebraic(state,b);
+    positive(a.totalPeripheralFlowMlPerSec,'totalPeripheralFlowMlPerSec');
+    positive(a.ventilatedPulmonaryBloodFlowMlPerSec,'ventilatedPulmonaryBloodFlowMlPerSec');
     last=Object.freeze({
       schema:'v16-karamolegkos-pulmonary-vascular-runtime/v1',
       timeSec,
@@ -227,9 +229,9 @@ function createV16KaramolegkosPulmonaryVascularRuntime({
       pulmonaryPerfusionState:Object.freeze({
         sourceQualified:true,
         totalPulmonaryBloodFlowMlPerMin:
-          Math.max(0,a.totalPulmonaryBloodFlowMlPerSec*60),
+          a.totalPeripheralFlowMlPerSec*60,
         ventilatedPulmonaryBloodFlowMlPerMin:
-          Math.max(0,a.ventilatedPulmonaryBloodFlowMlPerSec*60),
+          a.ventilatedPulmonaryBloodFlowMlPerSec*60,
         shuntFraction:b.shuntFraction,
         provenance:Object.freeze({
           source:'Karamolegkos 2021 pulmonary vascular runtime',
@@ -242,7 +244,7 @@ function createV16KaramolegkosPulmonaryVascularRuntime({
         absoluteAlveolarVolume:'external-source-qualified-boundary',
         alveolarPressure:'external-source-qualified-boundary',
         pleuralPressure:'external-source-qualified-boundary',
-        rvOutflow:'external-cardiovascular-candidate-boundary',
+        rvOutflow:'external-cardiovascular-candidate-boundary (pulsatile inflow; not gas-flow export)',
         leftAtrialPressure:'external-cardiovascular-candidate-boundary',
       }),
       provenance:SOURCE,
