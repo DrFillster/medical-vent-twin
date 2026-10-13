@@ -9,6 +9,8 @@ on:
       - 'ards-twin-v1.0/test/v16_live_myocardial_acid_base_provider.test.js'
       - 'ards-twin-v1.0/src/v16_myocardial_live_input_adapter.js'
       - 'ards-twin-v1.0/test/v16_myocardial_live_input_adapter.test.js'
+      - 'ards-twin-v1.0/src/v15_integrated_cardiopulmonary_candidate.js'
+      - 'ards-twin-v1.0/test/v16_integrated_myocardial_source_state.test.js'
 
 permissions:
   contents: read
@@ -29,3 +31,5 @@ jobs:
         run: node test/v16_live_myocardial_acid_base_provider.test.js
       - name: Live myocardial chemistry adapter
         run: node test/v16_myocardial_live_input_adapter.test.js
+      - name: Integrated myocardial source outputs
+        run: node test/v16_integrated_myocardial_source_state.test.js
