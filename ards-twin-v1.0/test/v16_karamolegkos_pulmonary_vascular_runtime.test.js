@@ -20,7 +20,6 @@ const qualifiedBoundary=()=>Object.freeze({
   rvOutflowMlPerSec:80,
   leftAtrialPressureMmHg:5,
   shuntFraction:0.05,
-  capillaryResistanceMmHgSecPerMl:0.04,
   provenance:Object.freeze({
     fixture:'focused source-coordinate validation only',
     canonical:false,
@@ -57,6 +56,7 @@ test('source-native pulmonary vascular runtime advances finite state',()=>{
   assert(s.flowsMlPerSec.capillary>0);
   assert(s.flowsMlPerSec.pulmonaryVein>0);
   assert(s.pulmonaryArteriolarResistanceMmHgSecPerMl>0);
+  assert(s.pulmonaryCapillaryResistanceMmHgSecPerMl>0);
 });
 
 test('gas-perfusion export is sourced from pulmonary runtime state',()=>{
