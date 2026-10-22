@@ -396,3 +396,30 @@ Remaining physiology work:
 4. broader clinical scenario validation before any claim of clinical validity
 
 No claim of clinical validation is made.
+
+
+## v2.x scope decision — physician-approved
+Date: 2026-10-22
+
+In scope for the next development sequence:
+1. Pulmonary vascular / RV / PEEP coupling.
+2. Sepsis / distributive physiology.
+3. Oxygen-debt / metabolic-failure refinement.
+4. Terminal-state refinement.
+
+Out of scope:
+5. Renal / endocrine expansion.
+
+### Sequence
+- v2.1: pulmonary vascular / RV / PEEP coupling only.
+- v2.2: sepsis / distributive physiology.
+- v2.3: oxygen-debt / metabolic-failure refinement.
+- v2.4: terminal-state refinement and integrated extremis validation.
+
+### Guardrails
+- Keep the v2.0/v1.0 bedside UI and interaction model unchanged unless a physiology requirement forces a minimal display change.
+- Do not import later-version architecture wholesale.
+- Each stage must use published/source-traceable mechanisms or explicitly bounded surrogates.
+- No arbitrary MAP caps, HR targets, death timers, or unsourced gains.
+- Each stage must pass regression against all previously accepted scenarios before proceeding.
+- Renal/endocrine physiology is explicitly excluded from this project scope unless this decision is later reversed by the physician owner.
