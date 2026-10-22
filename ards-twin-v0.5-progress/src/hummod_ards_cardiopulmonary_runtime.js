@@ -2,7 +2,7 @@
 
 const { createVentToArdsCoreSnapshot } = require('./hummod_ards_core_coupling.js');
 const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adapter.js');
-const { createHumModArdsAutonomicController } = require('./hummod_ards_autonomic_controller.js');
+const { createV2SourceAutonomicController } = require('./v2_source_autonomic_controller.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -46,7 +46,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   let timeSec=0;
   let last=null;
   const decompensation = createHumModArdsDecompensationController();
-  const autonomic = createHumModArdsAutonomicController({
+  const autonomic = createV2SourceAutonomicController({
     baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
       heartRatePerMin: 75,
       systemicArterialConductanceMlPerMinPerMmHg: 60,
@@ -86,14 +86,21 @@ function createHumModArdsCardiopulmonaryRuntime({
     const control = autonomic.step({
       dtSec,
       meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
-      thoracicPressureMmHg,
+      tidalVolumeL:
+        simulation.controller && simulation.controller.settings
+          ? simulation.controller.settings.vt
+          : 0.5,
       arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
     const priorDecomp=decompensation.snapshot();
-    const effectiveContractility=
-      control.contractilityMultiplier *
+    const effectiveLeftContractility=
+      control.leftContractilityMultiplier *
+      control.acidoticContractilityMultiplier *
+      priorDecomp.myocardialContractilityMultiplier;
+    const effectiveRightContractility=
+      control.rightContractilityMultiplier *
       control.acidoticContractilityMultiplier *
       priorDecomp.myocardialContractilityMultiplier;
     const effectiveHeartRatePerMin =
@@ -101,8 +108,8 @@ function createHumModArdsCardiopulmonaryRuntime({
       priorDecomp.chronotropicReserveMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
-      leftContractilityMultiplier: effectiveContractility,
-      rightContractilityMultiplier: effectiveContractility,
+      leftContractilityMultiplier: effectiveLeftContractility,
+      rightContractilityMultiplier: effectiveRightContractility,
       systemicArterialConductanceMlPerMinPerMmHg:
         control.systemicArterialConductanceMlPerMinPerMmHg,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
@@ -127,6 +134,8 @@ function createHumModArdsCardiopulmonaryRuntime({
         decompensation:terminalDecomp,
         effectiveHeartRatePerMin:0,
         effectiveContractilityMultiplier:0,
+        effectiveLeftContractilityMultiplier:0,
+        effectiveRightContractilityMultiplier:0,
         gas:last && last.gas ? last.gas : gasRuntime.snapshot(),
         adapterDiagnostics:last && last.adapterDiagnostics
           ? last.adapterDiagnostics
@@ -181,7 +190,9 @@ function createHumModArdsCardiopulmonaryRuntime({
       autonomic:control,
       decompensation:decomp,
       effectiveHeartRatePerMin,
-      effectiveContractilityMultiplier:effectiveContractility,
+      effectiveContractilityMultiplier:effectiveLeftContractility,
+      effectiveLeftContractilityMultiplier:effectiveLeftContractility,
+      effectiveRightContractilityMultiplier:effectiveRightContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
     });
@@ -196,7 +207,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       provenance:Object.freeze({
         pulmonaryMechanics:'Vent',
         thorax:'explicit passive chest-wall phenotype',
-        circulation:'reduced source-aligned HumMod circulation with dynamic autonomic control',
+        circulation:'v1.0 reduced circulation with v2.0 Ursino/Magosso source-aligned autonomic control',
         gasExchange:'source-aligned HumMod reduced gas core',
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
