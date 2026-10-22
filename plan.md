@@ -278,3 +278,92 @@ The minimum-defensible replacement sequence should be:
 
 ### Chunk 1 conclusion
 The v1.0 architecture is a viable chassis. The main scientific weakness is not absence of all physiology; it is that the acute feedback controller contains several explicit engineering gains and lacks downstream failure physiology. The preferred strategy is therefore to replace those gains and add only the missing failure pathways, rather than importing the full v1.8/HumMod architecture.
+
+
+## Chunk 2 findings — cardiovascular control
+Status: AUDIT COMPLETE / REPLACEMENT DESIGN READY
+
+### Finding
+v1.0 already has the correct high-level control structure for a reduced bedside model: circulation -> MAP -> autonomic response -> HR/contractility/vascular tone -> circulation. The problem is that several links are represented by local engineering gains rather than a published physiologic controller.
+
+The current controller uses a fixed MAP operating target of 82 mmHg and explicit gains for pressure error, hypoxia, hypercapnia, HR, contractility, systemic conductance, venous unstressed volume, and pulmonary conductance. These are transparent, but they are not a defensible substitute for a published integrated baroreflex/chemoreflex model.
+
+### Replacement A — short-term arterial pressure control
+Preferred source family:
+- Ursino, "Modelling the interaction among several mechanisms in the short-term arterial pressure control" (2000).
+- Ursino, "A mathematical model of the carotid baroregulation in pulsating conditions" (1999).
+
+Design:
+- Retain the v1.0 six-compartment-style reduced circulation where practical.
+- Replace the fixed linear MAP-error controller with a reduced form of the published baroreceptor -> central integration -> sympathetic/vagal -> effector pathway.
+- Preserve the four clinically useful effectors: heart period/HR, systemic peripheral resistance, systemic venous unstressed volume, and contractility.
+- Use the published parameter set or a traceable reduction of it. Do not fit new gains to make the monitor look correct.
+
+Why:
+The Ursino model explicitly represents baroreceptors, sympathetic and vagal activity, and the same four effectors. It also reports satisfactory agreement with experimental behavior. fileciteturn1file10 fileciteturn1file12
+
+### Replacement B — hypoxic chemoreflex
+Preferred source:
+- Ursino & Magosso, acute cardiovascular response to isocapnic hypoxia (2000), including peripheral chemoreceptors, baroreceptors, lung stretch receptors, and CNS hypoxic response.
+- Magosso/Ursino integrated respiratory-control work for the chemoreflex pathway.
+
+Design:
+- Do not simply add a larger positive HR multiplier when PaO2 falls.
+- Represent the competing effects: peripheral chemoreceptor sympathetic activation, vagal effects, lung-stretch interaction, baroreflex interaction, and CNS hypoxic response where the selected domain supports it.
+- Keep the acute response time scale separate from longer disease progression.
+
+Important clinical implication:
+Acute hypoxia does not produce one universal monotonic HR/MAP response. The published model produces a biphasic response and identifies interaction among reflex mechanisms. Human experimental data also show hypoxia can increase HR, MAP, and sympathetic activity. fileciteturn1file0 fileciteturn1file1
+
+### Replacement C — hypercapnia/acidemia
+Current v1.0 has a Stengl experimental anchor. Keep that as a validation datum.
+
+Do not use the Stengl porcine challenge as a universal human equation. Instead:
+- use a published chemoreflex model for CO2;
+- retain a separate, explicitly bounded acidemia vascular effect;
+- validate the combined response against the available experimental domain.
+
+The existing v1.0 distinction between autonomic activation and direct hypercapnic-acidosis vasodilation is conceptually useful and should remain, but its engineering gains need provenance.
+
+### Replacement D — stroke volume / HR interaction
+Do not impose an independent HR-to-CO multiplier.
+
+The circulation already contains ventricular pump mechanics. The published baroreflex model specifically shows that cardiac output does not increase indefinitely with pacing because stroke volume can fall at higher rates. This is exactly the failure mode needed to prevent tachycardia from becoming an unlimited source of preserved MAP/CO. fileciteturn1file12
+
+Design:
+- allow HR to rise through autonomic control;
+- let ventricular filling and pump mechanics determine the resulting stroke volume;
+- permit high HR to reduce effective filling and therefore CO when appropriate.
+
+### Replacement E — systemic vascular response
+Replace the local conductance formula with a reduced published effector relationship.
+
+The model should permit:
+- baroreflex-mediated vasoconstriction during falling pressure;
+- vasodilation from relevant local/inflammatory mechanisms;
+- progressive failure of compensation when the underlying disease overwhelms the available reserve.
+
+This is central to the current MAP problem. A fixed target-MAP controller can preserve pressure mathematically even while the simulated patient should be entering circulatory failure.
+
+### What Chunk 2 does NOT justify
+- No arbitrary MAP ceiling.
+- No arbitrary MAP floor used to trigger death.
+- No forced HR target such as "make severe ARDS HR 130+" independent of physiology.
+- No copied HumMod endocrine/autonomic subsystem.
+- No claim that one published model predicts an individual patient's exact HR or MAP.
+
+### Chunk 2 replacement specification
+The minimum cardiovascular layer should therefore contain:
+1. Baroreceptor sensing.
+2. Central sympathetic/vagal integration.
+3. Chemoreceptor input from hypoxia and CO2.
+4. Four effectors: HR/heart period, contractility, systemic vascular resistance, venous unstressed volume.
+5. Existing ventricular pump mechanics.
+6. Existing circulation volume conservation.
+7. Pulmonary vascular load coupled to the respiratory state.
+8. A mechanism for loss of compensation under severe disease.
+
+The first five are directly supported by the Ursino model family; item 8 requires the separate disease/failure layers in later chunks.
+
+### Chunk 2 conclusion
+The cardiovascular gap is not "we need more cardiovascular equations." It is "the existing equations need to be replaced with a traceable reduced control model and connected to a failure pathway." This is substantially smaller than the v1.8 approach.
