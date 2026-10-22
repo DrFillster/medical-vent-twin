@@ -329,9 +329,22 @@ function createBerlinLiveHumModSession({
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
-        sympatheticTone: last.autonomic?.sympatheticTone ?? null,
-        parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
-        catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
+        // v2.0 uses source-model neural firing rates rather than the legacy
+        // dimensionless engineering "tone" variables. Keep sympatheticTone as
+        // a compatibility alias, but expose its units explicitly.
+        sympatheticTone:
+          last.autonomic?.autonomic?.fSpSpikesPerSec ?? null,
+        sympatheticMetricUnits: 'spikes/s',
+        peripheralSympatheticSpikesPerSec:
+          last.autonomic?.autonomic?.fSpSpikesPerSec ?? null,
+        venousSympatheticSpikesPerSec:
+          last.autonomic?.autonomic?.fSvSpikesPerSec ?? null,
+        cardiacSympatheticSpikesPerSec:
+          last.autonomic?.autonomic?.fShSpikesPerSec ?? null,
+        cardiacVagalSpikesPerSec:
+          last.autonomic?.autonomic?.fVSpikesPerSec ?? null,
+        parasympatheticTone: null,
+        catecholamineDrive: null,
       }),
       decompensation: decomp ? Object.freeze({
         stage: decomp.stage,
