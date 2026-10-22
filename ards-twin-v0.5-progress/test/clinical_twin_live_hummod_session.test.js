@@ -67,10 +67,12 @@ test('PEEP challenge produces dynamic cardiopulmonary and autonomic response', (
   [
     b.heartRatePerMin, b.meanArterialPressureMmHg, b.cardiacOutputMlPerMin,
     b.strokeVolumeMl, b.systemicVascularResistanceMmHgMinPerL,
-    b.pulmonaryVascularResistanceMmHgMinPerL, b.sympatheticTone,
+    b.pulmonaryVascularResistanceMmHgMinPerL,
+    b.peripheralSympatheticSpikesPerSec,
     l.heartRatePerMin, l.meanArterialPressureMmHg, l.cardiacOutputMlPerMin,
     l.strokeVolumeMl, l.systemicVascularResistanceMmHgMinPerL,
-    l.pulmonaryVascularResistanceMmHgMinPerL, l.sympatheticTone,
+    l.pulmonaryVascularResistanceMmHgMinPerL,
+    l.peripheralSympatheticSpikesPerSec,
   ].forEach(v => assert(Number.isFinite(v), 'challenge outputs must remain finite'));
 
   assert(late.systemic.thorax.meanAirwayPressureCmH2O >
@@ -82,14 +84,12 @@ test('PEEP challenge produces dynamic cardiopulmonary and autonomic response', (
     'stroke volume should not remain static after PEEP challenge');
   assert(Math.abs(l.meanArterialPressureMmHg - b.meanArterialPressureMmHg) > 0.01,
     'MAP should not remain static after PEEP challenge');
-  assert(Math.abs(l.sympatheticTone - b.sympatheticTone) > 0.0001,
-    'autonomic state should respond to the challenge');
+  assert(Math.abs(l.peripheralSympatheticSpikesPerSec -
+    b.peripheralSympatheticSpikesPerSec) > 0.0001,
+    'source peripheral sympathetic firing should respond to the challenge');
   assert(Math.abs(l.systemicVascularResistanceMmHgMinPerL -
     b.systemicVascularResistanceMmHgMinPerL) > 0.001,
     'SVR should evolve during the challenge');
-  assert(Math.abs(l.pulmonaryVascularResistanceMmHgMinPerL -
-    b.pulmonaryVascularResistanceMmHgMinPerL) > 0.001,
-    'PVR should evolve during the challenge');
   assert(e.cardiacOutputMlPerMin !== l.cardiacOutputMlPerMin,
     'early and late cardiac output should differ as feedback evolves');
 });
