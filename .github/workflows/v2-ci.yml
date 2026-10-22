@@ -1,0 +1,34 @@
+name: v2.0 CI
+
+on:
+  push:
+    branches: [v2.0]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v2-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build
+        run: npm run build
+      - name: Unit and regression tests
+        run: npm test
+      - name: Verify deployable web
+        run: npm run verify:deploy
+      - name: Upload browser build
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-browser-build
+          path: |
+            ards-twin-v0.5-progress/web/
+            ards-twin-v0.5-progress/TEST_RESULTS.json
