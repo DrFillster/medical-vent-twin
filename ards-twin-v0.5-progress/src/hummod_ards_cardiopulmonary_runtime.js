@@ -169,15 +169,20 @@ function createHumModArdsCardiopulmonaryRuntime({
     const effectiveHeartRatePerMin =
       control.heartRatePerMin *
       priorDecomp.chronotropicReserveMultiplier;
+    const sourceAutonomicSystemicConductance=
+      control.systemicArterialConductanceMlPerMinPerMmHg;
+    const appliedSystemicConductance=
+      sepsisDisease&&sepsisDisease.systemicResistanceRatio!=null
+        ?sourceAutonomicSystemicConductance/
+          sepsisDisease.systemicResistanceRatio
+        :sourceAutonomicSystemicConductance;
+
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveLeftContractility,
       rightContractilityMultiplier: effectiveRightContractility,
       systemicArterialConductanceMlPerMinPerMmHg:
-        sepsisDisease&&sepsisDisease.systemicResistanceRatio!=null
-          ?control.systemicArterialConductanceMlPerMinPerMmHg/
-            sepsisDisease.systemicResistanceRatio
-          :control.systemicArterialConductanceMlPerMinPerMmHg,
+        appliedSystemicConductance,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
       pulmonaryArterialConductanceMultiplier:
         pulmonaryControl.pulmonaryArterialConductanceMultiplier,
@@ -197,6 +202,14 @@ function createHumModArdsCardiopulmonaryRuntime({
         pericardialPressureMmHg,
         circulation:circ,
         autonomic:control,
+        systemicVascularControl:Object.freeze({
+          sourceAutonomicConductanceMlPerMinPerMmHg:
+            sourceAutonomicSystemicConductance,
+          appliedConductanceMlPerMinPerMmHg:
+            appliedSystemicConductance,
+          sepsisResistanceRatio:
+            sepsisDisease?sepsisDisease.systemicResistanceRatio:null,
+        }),
         pulmonaryVascular:pulmonaryControl,
         sepsisDisease,
         decompensation:terminalDecomp,
@@ -256,6 +269,14 @@ function createHumModArdsCardiopulmonaryRuntime({
       pericardialPressureMmHg,
       circulation:circ,
       autonomic:control,
+      systemicVascularControl:Object.freeze({
+        sourceAutonomicConductanceMlPerMinPerMmHg:
+          sourceAutonomicSystemicConductance,
+        appliedConductanceMlPerMinPerMmHg:
+          appliedSystemicConductance,
+        sepsisResistanceRatio:
+          sepsisDisease?sepsisDisease.systemicResistanceRatio:null,
+      }),
       pulmonaryVascular:pulmonaryControl,
       sepsisDisease,
       decompensation:decomp,
