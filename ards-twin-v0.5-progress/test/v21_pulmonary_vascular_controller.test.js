@@ -18,7 +18,7 @@ function stepMany(c,n,input){
 }
 
 test('baseline pulmonary vascular projection is finite and normalized',()=>{
-  const c=createV21PulmonaryVascularController({dtSec:0.002});
+  const c=createV21PulmonaryVascularController({dtSec:0.0005});
   const s=stepMany(c,20,{
     meanAirwayPressureCmH2O:8,
     arterialPo2MmHg:90,
@@ -36,7 +36,7 @@ test('baseline pulmonary vascular projection is finite and normalized',()=>{
 });
 
 test('higher airway pressure increases Karamolegkos mechanical pulmonary load',()=>{
-  const c=createV21PulmonaryVascularController({dtSec:0.002});
+  const c=createV21PulmonaryVascularController({dtSec:0.0005});
   const b=stepMany(c,30,{
     meanAirwayPressureCmH2O:8,
     arterialPo2MmHg:90,
@@ -58,7 +58,7 @@ test('higher airway pressure increases Karamolegkos mechanical pulmonary load',(
 });
 
 test('hypoxia plus hypercapnic acidemia increases total PVR load and lowers conductance',()=>{
-  const c=createV21PulmonaryVascularController({dtSec:0.002});
+  const c=createV21PulmonaryVascularController({dtSec:0.0005});
   const b=stepMany(c,30,{
     meanAirwayPressureCmH2O:8,
     arterialPo2MmHg:90,
