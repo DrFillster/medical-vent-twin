@@ -102,10 +102,30 @@ function createHumModArdsCardiopulmonaryRuntime({
     finite(thoracicPressureMmHg,'converted thoracic pressure');
     const pericardialPressureMmHg=thoracicPressureMmHg+pericardialTmpMmHg;
 
+    const sepsisDisease=sepsisState==null
+      ? null
+      : evaluateV22SepsisDiseaseLayer({
+          inflammationNStar:sepsisState.inflammationNStar,
+          antiInflammatoryMediatorCA:
+            sepsisState.antiInflammatoryMediatorCA==null
+              ?0
+              :sepsisState.antiInflammatoryMediatorCA,
+          sourceAr:sepsisState.sourceAr==null
+            ?null
+            :sepsisState.sourceAr,
+          capillaryExchange:sepsisState.capillaryExchange==null
+            ?null
+            :sepsisState.capillaryExchange,
+        });
+
     let circ=circulation.step({
       dtSec,
       thoracicPressureMmHg,
       pericardialPressureMmHg,
+      externalSystemicVolumeRateMlPerSec:
+        sepsisDisease&&sepsisDisease.capillaryExchange
+          ?sepsisDisease.capillaryExchange.bloodVolumeRateMlPerSec
+          :0,
     });
 
     const priorGasState = last && last.gas && last.gas.gases
@@ -133,15 +153,6 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg:priorGas ? Math.max(1,priorGas.pco2MmHg) : 40,
       arterialPh:priorGas ? priorGas.pH : 7.40,
     });
-    const sepsisDisease=sepsisState==null
-      ? null
-      : evaluateV22SepsisDiseaseLayer({
-          inflammationNStar:sepsisState.inflammationNStar,
-          antiInflammatoryMediatorCA:
-            sepsisState.antiInflammatoryMediatorCA==null
-              ? 0
-              : sepsisState.antiInflammatoryMediatorCA,
-        });
     const priorDecomp=decompensation.snapshot();
     const sepsisLeftPerformanceMultiplier=sepsisDisease
       ? sepsisDisease.leftMyocardialPerformanceMultiplier
@@ -163,7 +174,10 @@ function createHumModArdsCardiopulmonaryRuntime({
       leftContractilityMultiplier: effectiveLeftContractility,
       rightContractilityMultiplier: effectiveRightContractility,
       systemicArterialConductanceMlPerMinPerMmHg:
-        control.systemicArterialConductanceMlPerMinPerMmHg,
+        sepsisDisease&&sepsisDisease.systemicResistanceRatio!=null
+          ?control.systemicArterialConductanceMlPerMinPerMmHg/
+            sepsisDisease.systemicResistanceRatio
+          :control.systemicArterialConductanceMlPerMinPerMmHg,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
       pulmonaryArterialConductanceMultiplier:
         pulmonaryControl.pulmonaryArterialConductanceMultiplier,
