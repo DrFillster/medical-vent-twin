@@ -328,6 +328,10 @@ function createBerlinLiveHumModSession({
           circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
         pulmonaryVascularResistanceMmHgMinPerL:
           circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
+        systemicArterialConductanceMlPerMinPerMmHg:
+          circ.activeBoundaries?.systemicArterialConductanceMlPerMinPerMmHg ?? null,
+        systemicVenousVolumeMl:
+          circ.volumesMl?.systemicVeins ?? null,
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
@@ -361,6 +365,10 @@ function createBerlinLiveHumModSession({
               last.sepsisDisease.sourceStrokeVolumeMl,
             leftMyocardialPerformanceMultiplier:
               last.sepsisDisease.leftMyocardialPerformanceMultiplier,
+            systemicResistanceRatio:
+              last.sepsisDisease.systemicResistanceRatio,
+            capillaryExchange:
+              last.sepsisDisease.capillaryExchange,
             liveAuthority:last.sepsisDisease.liveAuthority,
             unresolved:last.sepsisDisease.unresolved,
           })
