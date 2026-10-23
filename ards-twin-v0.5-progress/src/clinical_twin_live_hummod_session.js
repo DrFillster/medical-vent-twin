@@ -137,6 +137,7 @@ function createBerlinLiveHumModSession({
   dt = 0.002,
   mechanicalWarmupSec = 30,
   nativeCalibrationTarget = null,
+  sepsisState = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -246,6 +247,7 @@ function createBerlinLiveHumModSession({
     environmentBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
+    sepsisState,
   });
 
   const sessionEvents = [];
@@ -441,6 +443,9 @@ function createBerlinLiveHumModSession({
       provenance: Object.freeze({
         pulmonary: 'Vent mechanistic engine',
         systemic: 'reduced source-aligned HumMod ARDS cardiopulmonary core',
+        sepsis: sepsisState == null
+          ? 'inactive'
+          : 'explicit Yamanaka inflammation-state boundary; not inferred from case label',
         clinicalCase: 'synthetic Berlin ARDS authored reference case',
         boundaryStatus: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.status,
       }),
