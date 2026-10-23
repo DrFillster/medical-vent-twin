@@ -6,6 +6,9 @@ const { createV2SourceAutonomicController } = require('./v2_source_autonomic_con
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
+const {
+  createV21PulmonaryVascularController,
+} = require('./v21_pulmonary_vascular_controller.js');
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -54,6 +57,9 @@ function createHumModArdsCardiopulmonaryRuntime({
       leftContractilityMultiplier: 1,
     },
   });
+  const pulmonaryVascular = createV21PulmonaryVascularController({
+    dtSec: 0.002,
+  });
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -80,9 +86,10 @@ function createHumModArdsCardiopulmonaryRuntime({
       pericardialPressureMmHg,
     });
 
-    const priorGas = last && last.gas && last.gas.gases
-      ? last.gas.gases.arterial
+    const priorGasState = last && last.gas && last.gas.gases
+      ? last.gas.gases
       : null;
+    const priorGas = priorGasState ? priorGasState.arterial : null;
     const control = autonomic.step({
       dtSec,
       meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
@@ -93,6 +100,16 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
+    });
+    const pulmonaryControl=pulmonaryVascular.step({
+      dtSec,
+      meanAirwayPressureCmH2O:meanPaw,
+      arterialPo2MmHg:priorGas ? Math.max(1,priorGas.po2MmHg) : 90,
+      mixedVenousPo2MmHg:priorGasState && priorGasState.venous
+        ? Math.max(1,priorGasState.venous.po2MmHg)
+        : 40,
+      arterialPco2MmHg:priorGas ? Math.max(1,priorGas.pco2MmHg) : 40,
+      arterialPh:priorGas ? priorGas.pH : 7.40,
     });
     const priorDecomp=decompensation.snapshot();
     const effectiveLeftContractility=
@@ -114,7 +131,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         control.systemicArterialConductanceMlPerMinPerMmHg,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
       pulmonaryArterialConductanceMultiplier:
-        control.pulmonaryArterialConductanceMultiplier,
+        pulmonaryControl.pulmonaryArterialConductanceMultiplier,
     });
     circ=circulation.snapshot();
 
@@ -131,6 +148,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         pericardialPressureMmHg,
         circulation:circ,
         autonomic:control,
+        pulmonaryVascular:pulmonaryControl,
         decompensation:terminalDecomp,
         effectiveHeartRatePerMin:0,
         effectiveContractilityMultiplier:0,
@@ -188,6 +206,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       pericardialPressureMmHg,
       circulation:circ,
       autonomic:control,
+      pulmonaryVascular:pulmonaryControl,
       decompensation:decomp,
       effectiveHeartRatePerMin,
       effectiveContractilityMultiplier:effectiveLeftContractility,
@@ -207,7 +226,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       provenance:Object.freeze({
         pulmonaryMechanics:'Vent',
         thorax:'explicit passive chest-wall phenotype',
-        circulation:'v1.0 reduced circulation with v2.0 Ursino/Magosso source-aligned autonomic control',
+        circulation:'v1.0 reduced circulation with v2.0 Ursino/Magosso systemic control and v2.1 source-backed pulmonary vascular load',
         gasExchange:'source-aligned HumMod reduced gas core',
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
