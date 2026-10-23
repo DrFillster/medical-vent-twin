@@ -53,8 +53,8 @@ test('sepsis layer refuses implied live authority for unresolved bridges',()=>{
   assert(s.liveAuthority.leftMyocardialPerformanceMultiplier===true);
   assert(s.liveAuthority.systemicVasodilation===false);
   assert(s.liveAuthority.capillaryLeakVolume===false);
-  assert(/source-traceable/.test(s.unresolved.systemicVasodilation));
-  assert(/No effective-volume loss gain/.test(s.unresolved.capillaryLeak));
+  assert(/source-family A_r state/.test(s.unresolved.systemicVasodilation));
+  assert(/source capillary\/interstitial\/oncotic pressures/.test(s.unresolved.capillaryLeak));
 });
 
 test('Yamanaka Eqs.4-6 preserve explicit blood-volume bookkeeping',()=>{
