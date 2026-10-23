@@ -101,12 +101,14 @@ function createV21PulmonaryVascularController({
   let last=null;
 
   function step({
+    dtSec:stepDtSec,
     meanAirwayPressureCmH2O,
     arterialPo2MmHg,
     mixedVenousPo2MmHg,
     arterialPco2MmHg,
     arterialPh,
   }={}){
+    positive(stepDtSec,'dtSec');
     finite(meanAirwayPressureCmH2O,'meanAirwayPressureCmH2O');
     positive(arterialPo2MmHg,'arterialPo2MmHg');
     positive(mixedVenousPo2MmHg,'mixedVenousPo2MmHg');
@@ -114,7 +116,7 @@ function createV21PulmonaryVascularController({
     finite(arterialPh,'arterialPh');
 
     airwayOpeningPressureCmH2O=meanAirwayPressureCmH2O;
-    const coord=coordinate.step();
+    const coord=coordinate.runFor(stepDtSec);
 
     const mechanicalResistance=K.pulmonaryArteriolarResistance({
       alveolarVolumeL:coord.alveolarVolumeL,
