@@ -163,6 +163,47 @@ test('explicit sepsis state applies only the authorized Yamanaka myocardial effe
     'authorized sepsis myocardial effect should reach the live circulation');
 });
 
+test('explicit Yamanaka source boundaries can drive vasodilation and capillary-volume loss without inferred proxies', () => {
+  const control = makeSession();
+  control.initialize();
+  const c0 = control.runFor(2);
+
+  const septic = makeSession({
+    sepsisState: {
+      inflammationNStar: 0.2,
+      antiInflammatoryMediatorCA: 0,
+      sourceAr: 50,
+      capillaryExchange: {
+        arterialCapillaryPressureMmHg: 45,
+        venousCapillaryPressureMmHg: 10,
+        interstitialPressureMmHg: 0,
+        plasmaOncoticPressureMmHg: 25,
+        interstitialOncoticPressureMmHg: 5,
+        infusionMlPerSec: 0,
+      },
+    },
+  });
+  septic.initialize();
+  const s0 = septic.runFor(2);
+  const beforeVolume = s0.systemic.hemodynamics.systemicVenousVolumeMl;
+  const s1 = septic.runFor(8);
+
+  assert(s1.systemic.sepsisDisease.liveAuthority.systemicVasodilation === true,
+    'explicit Yamanaka A_r boundary should authorize Eq.30 resistance effect');
+  assert(s1.systemic.sepsisDisease.liveAuthority.capillaryLeakVolume === true,
+    'explicit capillary/oncotic boundary should authorize Eqs.4-6 volume exchange');
+  assert(s1.systemic.sepsisDisease.systemicResistanceRatio > 0 &&
+    s1.systemic.sepsisDisease.systemicResistanceRatio < 1,
+    'Yamanaka vasodilation should reduce disease-only systemic resistance');
+  assert(s1.systemic.hemodynamics.systemicArterialConductanceMlPerMinPerMmHg >
+    c0.systemic.hemodynamics.systemicArterialConductanceMlPerMinPerMmHg,
+    'vasodilation should increase live systemic conductance');
+  assert(s1.systemic.sepsisDisease.capillaryExchange.bloodVolumeRateMlPerSec < 0,
+    'selected explicit source boundary should produce net vascular volume loss');
+  assert(s1.systemic.hemodynamics.systemicVenousVolumeMl < beforeVolume,
+    'net capillary filtration should reduce the reduced systemic vascular reservoir');
+});
+
 test('live core rejects PC-AC until its Vent adapter is implemented', () => {
   let threw = false;
   try {
