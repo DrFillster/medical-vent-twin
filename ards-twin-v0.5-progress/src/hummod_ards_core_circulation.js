@@ -266,10 +266,17 @@ function createHumModArdsCirculation({
     return Object.freeze({ ...activeBoundaries });
   }
 
-  function step({ dtSec, thoracicPressureMmHg, pericardialPressureMmHg } = {}) {
+  function step({
+    dtSec,
+    thoracicPressureMmHg,
+    pericardialPressureMmHg,
+    externalSystemicVolumeRateMlPerSec=0,
+  } = {}) {
     positive(dtSec, 'dtSec');
     finite(thoracicPressureMmHg, 'thoracicPressureMmHg');
     finite(pericardialPressureMmHg, 'pericardialPressureMmHg');
+    finite(externalSystemicVolumeRateMlPerSec,
+      'externalSystemicVolumeRateMlPerSec');
 
     const n = Math.max(1, Math.ceil(dtSec / maxSubstepSec));
     const hSec = dtSec / n;
@@ -280,6 +287,17 @@ function createHumModArdsCirculation({
       const d = derivative(e);
       for (const name of requiredVolumes) {
         volumes[name] += d[name] * hMin;
+      }
+
+      // v2.2 explicit disease-boundary exchange:
+      // net systemic capillary/interstitial exchange changes total vascular
+      // volume. In this reduced topology the exchange is applied at the
+      // systemic venous reservoir, downstream of the lumped systemic
+      // capillary bed. This is a topology-preserving reduction, not a claim
+      // that all physiologic extravasation occurs anatomically in veins.
+      volumes.systemicVeins += externalSystemicVolumeRateMlPerSec*hSec;
+
+      for (const name of requiredVolumes) {
         if (!(volumes[name] > 0) || !Number.isFinite(volumes[name])) {
           throw new Error('circulation volume became non-physical: ' + name);
         }
@@ -313,6 +331,8 @@ function createHumModArdsCirculation({
         status: 'reduced-order-source-aligned-circulation',
         detailedOrganCirculation:
           'lumped into explicit systemic conductance boundaries',
+        externalVolumeExchange:
+          'optional net systemic capillary/interstitial exchange applied to lumped systemic venous reservoir as reduced-topology boundary',
         clinicalValidation: false,
       }),
     });
