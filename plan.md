@@ -455,3 +455,16 @@ Current validation gate:
 4. hypercapnic acidemia increases the bounded PVR load
 5. full live-patient PEEP challenge remains finite and produces dynamic RV/PVR/CO effects
 6. all v2.0 accepted regressions remain passing
+
+
+## v2.1 gate result
+Status: PASSED
+
+Focused CI at commit 740c31832d8cca56a23f280f10ff2ca0ab870ddd:
+- build: pass
+- v2.0 source autonomic regression: pass
+- v2.1 pulmonary vascular regression: pass
+- live patient regression: pass
+- deployable web verification: pass
+
+v2.1 is therefore accepted as the pulmonary vascular / RV / PEEP layer for continued development. This does not imply clinical validation.
