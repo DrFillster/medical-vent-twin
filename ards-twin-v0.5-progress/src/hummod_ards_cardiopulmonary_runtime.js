@@ -58,7 +58,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     },
   });
   const pulmonaryVascular = createV21PulmonaryVascularController({
-    dtSec: 0.002,
+    dtSec: 0.0005,
   });
 
   function step({dtSec}={}){
