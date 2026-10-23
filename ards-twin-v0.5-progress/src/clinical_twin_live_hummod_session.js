@@ -348,6 +348,23 @@ function createBerlinLiveHumModSession({
         parasympatheticTone: null,
         catecholamineDrive: null,
       }),
+      sepsisDisease: last.sepsisDisease
+        ? Object.freeze({
+            inflammationNStar:last.sepsisDisease.inflammationNStar,
+            antiInflammatoryMediatorCA:
+              last.sepsisDisease.antiInflammatoryMediatorCA,
+            capillaryPermeabilityMlPerMmHgSec:
+              last.sepsisDisease.capillaryPermeabilityMlPerMmHgSec,
+            vasodilationDecrement:
+              last.sepsisDisease.vasodilationDecrement,
+            sourceStrokeVolumeMl:
+              last.sepsisDisease.sourceStrokeVolumeMl,
+            leftMyocardialPerformanceMultiplier:
+              last.sepsisDisease.leftMyocardialPerformanceMultiplier,
+            liveAuthority:last.sepsisDisease.liveAuthority,
+            unresolved:last.sepsisDisease.unresolved,
+          })
+        : null,
       decompensation: decomp ? Object.freeze({
         stage: decomp.stage,
         alive: decomp.alive,
