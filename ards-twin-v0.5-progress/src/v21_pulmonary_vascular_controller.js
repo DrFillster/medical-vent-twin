@@ -84,7 +84,7 @@ function hcaPvrRatio({arterialPh,arterialPco2MmHg}={}){
 }
 
 function createV21PulmonaryVascularController({
-  dtSec=0.002,
+  dtSec=0.0005,
   shuntFraction=0.017,
 }={}){
   positive(dtSec,'dtSec');
