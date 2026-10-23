@@ -135,6 +135,34 @@ test('prolonged profound hypoxemic hypercapnic failure decompensates instead of 
     'terminal state must no longer report a perfusing circulation');
 });
 
+test('explicit sepsis state applies only the authorized Yamanaka myocardial effect', () => {
+  const control = makeSession();
+  control.initialize();
+  const c = control.runFor(10);
+
+  const septic = makeSession({
+    sepsisState: {
+      inflammationNStar: 0.5,
+      antiInflammatoryMediatorCA: 0,
+    },
+  });
+  septic.initialize();
+  const s = septic.runFor(10);
+
+  assert(s.systemic.sepsisDisease,
+    'explicit sepsis state should be visible in the physician state');
+  assert(s.systemic.sepsisDisease.leftMyocardialPerformanceMultiplier < 1,
+    'Yamanaka Eq.31 should reduce source myocardial performance');
+  assert(s.systemic.sepsisDisease.liveAuthority.leftMyocardialPerformanceMultiplier === true);
+  assert(s.systemic.sepsisDisease.liveAuthority.systemicVasodilation === false,
+    'unresolved Eq.30 bridge must remain fail-closed');
+  assert(s.systemic.sepsisDisease.liveAuthority.capillaryLeakVolume === false,
+    'unresolved Eq.29 volume bridge must remain fail-closed');
+  assert(s.systemic.hemodynamics.contractilityMultiplier <
+    c.systemic.hemodynamics.contractilityMultiplier,
+    'authorized sepsis myocardial effect should reach the live circulation');
+});
+
 test('live core rejects PC-AC until its Vent adapter is implemented', () => {
   let threw = false;
   try {
