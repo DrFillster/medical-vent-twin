@@ -9,6 +9,9 @@ const {
 const {
   createV21PulmonaryVascularController,
 } = require('./v21_pulmonary_vascular_controller.js');
+const {
+  evaluateV22SepsisDiseaseLayer,
+} = require('./v22_sepsis_disease_layer.js');
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -36,6 +39,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   bloodBoundaries,
   environmentBoundaries,
   pericardialTmpMmHg=0,
+  sepsisState=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -45,6 +49,24 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('validated pressureAdapter.cmH2OToMmHg is required');
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
+  if(sepsisState!=null){
+    if(!sepsisState||typeof sepsisState!=='object'||Array.isArray(sepsisState)){
+      throw new Error('sepsisState must be an object or null');
+    }
+    finite(sepsisState.inflammationNStar,'sepsisState.inflammationNStar');
+    if(sepsisState.inflammationNStar<0){
+      throw new Error('sepsisState.inflammationNStar must be >= 0');
+    }
+    if(sepsisState.antiInflammatoryMediatorCA!=null){
+      finite(
+        sepsisState.antiInflammatoryMediatorCA,
+        'sepsisState.antiInflammatoryMediatorCA'
+      );
+      if(sepsisState.antiInflammatoryMediatorCA<0){
+        throw new Error('sepsisState.antiInflammatoryMediatorCA must be >= 0');
+      }
+    }
+  }
 
   let timeSec=0;
   let last=null;
@@ -111,10 +133,23 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg:priorGas ? Math.max(1,priorGas.pco2MmHg) : 40,
       arterialPh:priorGas ? priorGas.pH : 7.40,
     });
+    const sepsisDisease=sepsisState==null
+      ? null
+      : evaluateV22SepsisDiseaseLayer({
+          inflammationNStar:sepsisState.inflammationNStar,
+          antiInflammatoryMediatorCA:
+            sepsisState.antiInflammatoryMediatorCA==null
+              ? 0
+              : sepsisState.antiInflammatoryMediatorCA,
+        });
     const priorDecomp=decompensation.snapshot();
+    const sepsisLeftPerformanceMultiplier=sepsisDisease
+      ? sepsisDisease.leftMyocardialPerformanceMultiplier
+      : 1;
     const effectiveLeftContractility=
       control.leftContractilityMultiplier *
       control.acidoticContractilityMultiplier *
+      sepsisLeftPerformanceMultiplier *
       priorDecomp.myocardialContractilityMultiplier;
     const effectiveRightContractility=
       control.rightContractilityMultiplier *
@@ -149,6 +184,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         circulation:circ,
         autonomic:control,
         pulmonaryVascular:pulmonaryControl,
+        sepsisDisease,
         decompensation:terminalDecomp,
         effectiveHeartRatePerMin:0,
         effectiveContractilityMultiplier:0,
@@ -207,6 +243,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       circulation:circ,
       autonomic:control,
       pulmonaryVascular:pulmonaryControl,
+      sepsisDisease,
       decompensation:decomp,
       effectiveHeartRatePerMin,
       effectiveContractilityMultiplier:effectiveLeftContractility,
@@ -229,6 +266,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         circulation:'v1.0 reduced circulation with v2.0 Ursino/Magosso systemic control and v2.1 source-backed pulmonary vascular load',
         gasExchange:'source-aligned HumMod reduced gas core',
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
+        sepsis:'v2.2 Yamanaka Eq.31 LV performance active when explicit sepsisState is supplied; Eq.29/30 remain diagnostic pending source-safe bridges',
         pressureUnits:'caller-supplied validated adapter',
         clinicalValidation:false,
       }),
