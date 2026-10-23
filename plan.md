@@ -423,3 +423,35 @@ Out of scope:
 - No arbitrary MAP caps, HR targets, death timers, or unsourced gains.
 - Each stage must pass regression against all previously accepted scenarios before proceeding.
 - Renal/endocrine physiology is explicitly excluded from this project scope unless this decision is later reversed by the physician owner.
+
+
+## v2.1 implementation status — pulmonary vascular / RV / PEEP coupling
+Status: IN PROGRESS
+
+Implemented:
+- branch v2.1 from the accepted v2.0 baseline
+- source Karamolegkos 2021 pulmonary arteriolar resistance relation
+- source Albanese/Karamolegkos pulmonary pressure-volume coordinate translator
+- Marshall 1994 HPV response retained with explicit canine-species limitation
+- bounded Stengl hypercapnic-acidosis PVR anchor
+- reduced-order composition converts each mechanism to a dimensionless resistance ratio and projects total load into the existing v1.0 pulmonary conductance
+- v1.0 circulation therefore exposes the load to the existing right-ventricular pump; no separate forced RV output or MAP correction is added
+- focused v2.1 tests and CI added
+
+Explicit model assumption:
+The mechanical, HPV, and hypercapnic-acidosis resistance ratios are multiplied. This composition is a transparent reduced-order assumption, not a published combined equation. It must remain documented and bounded.
+
+Not added:
+- no arbitrary PVR gain
+- no forced RV failure threshold
+- no MAP cap
+- no change to bedside UI
+- no renal/endocrine physiology
+
+Current validation gate:
+1. pulmonary controller finite at baseline
+2. increased airway pressure increases the Karamolegkos mechanical pulmonary load
+3. hypoxia increases HPV load
+4. hypercapnic acidemia increases the bounded PVR load
+5. full live-patient PEEP challenge remains finite and produces dynamic RV/PVR/CO effects
+6. all v2.0 accepted regressions remain passing
