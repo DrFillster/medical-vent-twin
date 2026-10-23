@@ -468,3 +468,28 @@ Focused CI at commit 740c31832d8cca56a23f280f10ff2ca0ab870ddd:
 - deployable web verification: pass
 
 v2.1 is therefore accepted as the pulmonary vascular / RV / PEEP layer for continued development. This does not imply clinical validation.
+
+
+## v2.2 interim gate — source sepsis layer
+Status: PARTIAL PASS / LIVE BRIDGES INCOMPLETE
+
+Focused CI at commit 751ff281ccbd6fa916023742aa62e7928408e30f:
+- build: pass
+- v2.0 source autonomic regression: pass
+- v2.1 pulmonary vascular regression: pass
+- v2.2 Yamanaka source-layer tests: pass
+- live patient regression: pass
+- deployable web verification: pass
+
+Source-backed mechanisms now available:
+- Yamanaka Eq.29 inflammation -> capillary permeability
+- Yamanaka Eq.30 inflammation -> vasodilation signal
+- Yamanaka Eq.31 inflammation -> reduced left-heart performance
+- standard-patient parameters transcribed from Yamanaka Tables 6 and 7
+
+Live authority remains deliberately limited:
+- Eq.31 fractional myocardial effect can be projected as a dimensionless LV performance modifier.
+- Eq.30 is NOT yet allowed to alter systemic conductance because the exact source radius/resistance bridge must be preserved.
+- Eq.29 is NOT yet allowed to remove intravascular volume because the compact v2 chassis lacks the required interstitial/oncotic state.
+
+Do not call v2.2 complete until the two unresolved bridges above are solved or explicitly accepted as deferred.
