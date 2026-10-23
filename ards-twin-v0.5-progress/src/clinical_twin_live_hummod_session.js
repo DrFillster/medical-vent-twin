@@ -330,6 +330,9 @@ function createBerlinLiveHumModSession({
           circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
         systemicArterialConductanceMlPerMinPerMmHg:
           circ.activeBoundaries?.systemicArterialConductanceMlPerMinPerMmHg ?? null,
+        sourceAutonomicSystemicConductanceMlPerMinPerMmHg:
+          last.systemicVascularControl?.
+            sourceAutonomicConductanceMlPerMinPerMmHg ?? null,
         systemicVenousVolumeMl:
           circ.volumesMl?.systemicVeins ?? null,
         contractilityMultiplier:
