@@ -22,6 +22,10 @@ const {
   capillaryPermeabilityFromInflammation,
   vasodilationDecrementFromInflammation,
   strokeVolumeFromInflammation,
+  arterialCapillaryFiltration,
+  venousCapillaryReabsorption,
+  bloodVolumeRateFromCapillaryExchange,
+  systemicResistanceRatioFromYamanakaVasodilation,
 }=require('./v22_yamanaka_sepsis_equations.js');
 const {
   SOURCE:PARAMETER_SOURCE,
@@ -56,6 +60,8 @@ function nonNegative(v,label){
 function evaluateV22SepsisDiseaseLayer({
   inflammationNStar,
   antiInflammatoryMediatorCA=0,
+  sourceAr=null,
+  capillaryExchange=null,
 }={}){
   nonNegative(inflammationNStar,'inflammationNStar');
   nonNegative(antiInflammatoryMediatorCA,'antiInflammatoryMediatorCA');
@@ -85,6 +91,58 @@ function evaluateV22SepsisDiseaseLayer({
   const leftMyocardialPerformanceMultiplier=
     sourceStrokeVolumeMl/PARAMS.myocardial.normalStrokeVolumeMl;
 
+  let systemicResistanceRatio=null;
+  if(sourceAr!=null){
+    systemicResistanceRatio=systemicResistanceRatioFromYamanakaVasodilation({
+      sourceAr,
+      vasodilationDecrement,
+    });
+  }
+
+  let capillaryExchangeState=null;
+  if(capillaryExchange!=null){
+    if(!capillaryExchange||typeof capillaryExchange!=='object'||
+       Array.isArray(capillaryExchange)){
+      throw new Error('capillaryExchange must be an object or null');
+    }
+    const filtrationMlPerSec=arterialCapillaryFiltration({
+      permeabilityLa:capillaryPermeabilityMlPerMmHgSec,
+      arterialCapillaryPressureMmHg:
+        capillaryExchange.arterialCapillaryPressureMmHg,
+      interstitialPressureMmHg:
+        capillaryExchange.interstitialPressureMmHg,
+      plasmaOncoticPressureMmHg:
+        capillaryExchange.plasmaOncoticPressureMmHg,
+      interstitialOncoticPressureMmHg:
+        capillaryExchange.interstitialOncoticPressureMmHg,
+    });
+    const reabsorptionMlPerSec=venousCapillaryReabsorption({
+      permeabilityLv:PARAMS.permeability.lv,
+      venousCapillaryPressureMmHg:
+        capillaryExchange.venousCapillaryPressureMmHg,
+      interstitialPressureMmHg:
+        capillaryExchange.interstitialPressureMmHg,
+      plasmaOncoticPressureMmHg:
+        capillaryExchange.plasmaOncoticPressureMmHg,
+      interstitialOncoticPressureMmHg:
+        capillaryExchange.interstitialOncoticPressureMmHg,
+    });
+    const bloodVolumeRateMlPerSec=bloodVolumeRateFromCapillaryExchange({
+      arterialFiltrationMlPerSec:filtrationMlPerSec,
+      venousReabsorptionMlPerSec:reabsorptionMlPerSec,
+      infusionMlPerSec:
+        capillaryExchange.infusionMlPerSec==null
+          ?0
+          :capillaryExchange.infusionMlPerSec,
+    });
+    capillaryExchangeState=Object.freeze({
+      filtrationMlPerSec,
+      reabsorptionMlPerSec,
+      bloodVolumeRateMlPerSec,
+      sourceInputs:Object.freeze({...capillaryExchange}),
+    });
+  }
+
   return Object.freeze({
     inflammationNStar,
     antiInflammatoryMediatorCA,
@@ -94,16 +152,20 @@ function evaluateV22SepsisDiseaseLayer({
     vasodilationDecrement,
     sourceStrokeVolumeMl,
     leftMyocardialPerformanceMultiplier,
+    systemicResistanceRatio,
+    capillaryExchange:capillaryExchangeState,
     liveAuthority:Object.freeze({
       leftMyocardialPerformanceMultiplier:true,
-      systemicVasodilation:false,
-      capillaryLeakVolume:false,
+      systemicVasodilation:systemicResistanceRatio!=null,
+      capillaryLeakVolume:capillaryExchangeState!=null,
     }),
     unresolved:Object.freeze({
-      systemicVasodilation:
-        'Eq.30 source output is available, but the v2 compact circulation needs a source-traceable radius/resistance bridge before it may alter SVR.',
-      capillaryLeak:
-        'Eq.29 source permeability is available, but no interstitial-fluid compartment is present in the compact v2 circulation. No effective-volume loss gain is invented.',
+      systemicVasodilation:systemicResistanceRatio==null
+        ?'Eq.30 remains inactive unless the caller supplies the Yamanaka source-family A_r state. No Ursino-firing to Yamanaka-A_r mapping is invented.'
+        :null,
+      capillaryLeak:capillaryExchangeState==null
+        ?'Eq.29 remains inactive unless source capillary/interstitial/oncotic pressures are explicitly supplied. No pressure or oncotic proxy is invented.'
+        :null,
     }),
     provenance:SOURCE,
   });
