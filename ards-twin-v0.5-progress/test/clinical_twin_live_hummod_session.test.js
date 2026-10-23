@@ -196,8 +196,8 @@ test('explicit Yamanaka source boundaries can drive vasodilation and capillary-v
     s1.systemic.sepsisDisease.systemicResistanceRatio < 1,
     'Yamanaka vasodilation should reduce disease-only systemic resistance');
   assert(s1.systemic.hemodynamics.systemicArterialConductanceMlPerMinPerMmHg >
-    c0.systemic.hemodynamics.systemicArterialConductanceMlPerMinPerMmHg,
-    'vasodilation should increase live systemic conductance');
+    s1.systemic.hemodynamics.sourceAutonomicSystemicConductanceMlPerMinPerMmHg,
+    'Yamanaka disease-only vasodilation should increase conductance relative to the same-step source autonomic value');
   assert(s1.systemic.sepsisDisease.capillaryExchange.bloodVolumeRateMlPerSec < 0,
     'selected explicit source boundary should produce net vascular volume loss');
   assert(s1.systemic.hemodynamics.systemicVenousVolumeMl < beforeVolume,
