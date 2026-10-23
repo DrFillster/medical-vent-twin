@@ -155,7 +155,7 @@ function createV21PulmonaryVascularController({
       mechanicalResistanceRatio:mechanicalRatio,
       hpvResistanceRatio:hpvRatio,
       hypercapnicAcidosisResistanceRatio:acidemiaRatio,
-      coordinate,
+      coordinate:coord,
       hpv,
       inputs:Object.freeze({
         meanAirwayPressureCmH2O,
