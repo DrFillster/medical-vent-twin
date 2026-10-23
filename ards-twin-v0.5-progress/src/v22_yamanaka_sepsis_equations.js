@@ -124,6 +124,95 @@ function fatiguedSympatheticActivity(
     activityMin;
 }
 
+
+
+/**
+ * Yamanaka Eqs. 4-6 reduced fluid-exchange relations.
+ * Units follow the source:
+ * - permeability mL/mmHg/s
+ * - pressures mmHg
+ * - result mL/s
+ */
+function arterialCapillaryFiltration({
+  permeabilityLa,
+  arterialCapillaryPressureMmHg,
+  interstitialPressureMmHg,
+  plasmaOncoticPressureMmHg,
+  interstitialOncoticPressureMmHg,
+}={}){
+  nonNegative(permeabilityLa,'permeabilityLa');
+  for(const [k,v] of Object.entries({
+    arterialCapillaryPressureMmHg,
+    interstitialPressureMmHg,
+    plasmaOncoticPressureMmHg,
+    interstitialOncoticPressureMmHg,
+  })) finite(v,k);
+  return permeabilityLa*(
+    (arterialCapillaryPressureMmHg-interstitialPressureMmHg)-
+    (plasmaOncoticPressureMmHg-interstitialOncoticPressureMmHg)
+  );
+}
+
+function venousCapillaryReabsorption({
+  permeabilityLv,
+  venousCapillaryPressureMmHg,
+  interstitialPressureMmHg,
+  plasmaOncoticPressureMmHg,
+  interstitialOncoticPressureMmHg,
+}={}){
+  nonNegative(permeabilityLv,'permeabilityLv');
+  for(const [k,v] of Object.entries({
+    venousCapillaryPressureMmHg,
+    interstitialPressureMmHg,
+    plasmaOncoticPressureMmHg,
+    interstitialOncoticPressureMmHg,
+  })) finite(v,k);
+  return permeabilityLv*(
+    (interstitialPressureMmHg-venousCapillaryPressureMmHg)-
+    (interstitialOncoticPressureMmHg-plasmaOncoticPressureMmHg)
+  );
+}
+
+function bloodVolumeRateFromCapillaryExchange({
+  arterialFiltrationMlPerSec,
+  venousReabsorptionMlPerSec,
+  infusionMlPerSec=0,
+}={}){
+  finite(arterialFiltrationMlPerSec,'arterialFiltrationMlPerSec');
+  finite(venousReabsorptionMlPerSec,'venousReabsorptionMlPerSec');
+  finite(infusionMlPerSec,'infusionMlPerSec');
+  return -arterialFiltrationMlPerSec+
+    venousReabsorptionMlPerSec+
+    infusionMlPerSec;
+}
+
+/**
+ * Yamanaka Eqs. 9-10 and 30 disease-only resistance ratio.
+ *
+ * Source states R is inversely proportional to r^4, with
+ * K_r,cr = 1/A_r and r proportional to K_r,cr. Eq.30 applies
+ * A_r -> A_r - EX. Therefore, at the same underlying sympathetic
+ * state, the disease-only resistance ratio is:
+ *   R_sepsis/R_control = ((A_r - EX)/A_r)^4
+ *
+ * Caller must supply the source-family A_r state. This function refuses to
+ * invent an Ursino/Magosso-firing -> Yamanaka-A_r mapping.
+ */
+function systemicResistanceRatioFromYamanakaVasodilation({
+  sourceAr,
+  vasodilationDecrement,
+}={}){
+  positive(sourceAr,'sourceAr');
+  nonNegative(vasodilationDecrement,'vasodilationDecrement');
+  const septicAr=sourceAr-vasodilationDecrement;
+  if(!(septicAr>0)){
+    throw new Error(
+      'Yamanaka Eq.30 produced non-positive A_r; source-state mapping is outside the valid domain'
+    );
+  }
+  return Math.pow(septicAr/sourceAr,4);
+}
+
 module.exports=Object.freeze({
   SOURCE,
   hillActivation,
@@ -133,4 +222,8 @@ module.exports=Object.freeze({
   strokeVolumeFromInflammation,
   sympatheticFatigueDerivative,
   fatiguedSympatheticActivity,
+  arterialCapillaryFiltration,
+  venousCapillaryReabsorption,
+  bloodVolumeRateFromCapillaryExchange,
+  systemicResistanceRatioFromYamanakaVasodilation,
 });
