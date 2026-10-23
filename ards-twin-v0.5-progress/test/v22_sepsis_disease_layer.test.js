@@ -3,6 +3,12 @@
 const {
   evaluateV22SepsisDiseaseLayer,
 }=require('../src/v22_sepsis_disease_layer.js');
+const {
+  arterialCapillaryFiltration,
+  venousCapillaryReabsorption,
+  bloodVolumeRateFromCapillaryExchange,
+  systemicResistanceRatioFromYamanakaVasodilation,
+}=require('../src/v22_yamanaka_sepsis_equations.js');
 
 let passed=0,failed=0;
 function test(name,fn){
@@ -49,6 +55,48 @@ test('sepsis layer refuses implied live authority for unresolved bridges',()=>{
   assert(s.liveAuthority.capillaryLeakVolume===false);
   assert(/source-traceable/.test(s.unresolved.systemicVasodilation));
   assert(/No effective-volume loss gain/.test(s.unresolved.capillaryLeak));
+});
+
+test('Yamanaka Eqs.4-6 preserve explicit blood-volume bookkeeping',()=>{
+  const fa=arterialCapillaryFiltration({
+    permeabilityLa:0.01,
+    arterialCapillaryPressureMmHg:28,
+    interstitialPressureMmHg:0,
+    plasmaOncoticPressureMmHg:25,
+    interstitialOncoticPressureMmHg:5,
+  });
+  const rv=venousCapillaryReabsorption({
+    permeabilityLv:0.062,
+    venousCapillaryPressureMmHg:10,
+    interstitialPressureMmHg:0,
+    plasmaOncoticPressureMmHg:25,
+    interstitialOncoticPressureMmHg:5,
+  });
+  assert(Number.isFinite(fa)&&Number.isFinite(rv));
+  const dv=bloodVolumeRateFromCapillaryExchange({
+    arterialFiltrationMlPerSec:fa,
+    venousReabsorptionMlPerSec:rv,
+    infusionMlPerSec:0,
+  });
+  assert(Math.abs(dv-(-fa+rv))<1e-12,
+    'Eq.4 must be exactly -Fa+Rv+Qinf');
+});
+
+test('Yamanaka Eq.30 disease-only radius change lowers resistance in valid source domain',()=>{
+  const ratio=systemicResistanceRatioFromYamanakaVasodilation({
+    sourceAr:2,
+    vasodilationDecrement:0.2,
+  });
+  assert(ratio>0&&ratio<1,
+    'source vasodilation should reduce disease-only resistance ratio');
+  let threw=false;
+  try{
+    systemicResistanceRatioFromYamanakaVasodilation({
+      sourceAr:1,
+      vasodilationDecrement:1,
+    });
+  }catch(e){threw=/non-positive A_r/.test(e.message);}
+  assert(threw,'invalid source A_r domain must fail closed');
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
