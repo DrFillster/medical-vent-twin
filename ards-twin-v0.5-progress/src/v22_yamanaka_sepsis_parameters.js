@@ -38,6 +38,7 @@ const PARAMS=Object.freeze({
   permeability:Object.freeze({
     laMin:0.01,
     laMax:0.06,
+    lv:0.062,
     ec50La:0.22,
     slopeLa:1.0,
     units:'mL/mmHg/s',
