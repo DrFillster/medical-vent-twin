@@ -30,7 +30,12 @@ test('baseline pulmonary vascular projection is finite and normalized',()=>{
     s.pulmonaryArterialConductanceMultiplier,
     s.totalResistanceRatio,
     s.coordinate.alveolarVolumeL,
-  ].forEach(v=>assert(Number.isFinite(v),'expected finite value'));
+  ].forEach(v=>assert(Number.isFinite(v),
+    'expected finite value: '+JSON.stringify({
+      conductance:s.pulmonaryArterialConductanceMultiplier,
+      resistance:s.totalResistanceRatio,
+      alveolarVolumeL:s.coordinate&&s.coordinate.alveolarVolumeL,
+    })));
   assert(s.pulmonaryArterialConductanceMultiplier>0);
   assert(s.provenance.clinicalValidation===false);
 });
@@ -52,7 +57,8 @@ test('higher airway pressure increases Karamolegkos mechanical pulmonary load',(
     arterialPh:7.40,
   });
   assert(h.coordinate.alveolarVolumeL>b.coordinate.alveolarVolumeL,
-    'higher airway pressure should raise source-coordinate alveolar volume');
+    'higher airway pressure should raise source-coordinate alveolar volume: '+
+    JSON.stringify({baseline:b.coordinate.alveolarVolumeL,high:h.coordinate.alveolarVolumeL}));
   assert(h.mechanicalResistanceRatio>b.mechanicalResistanceRatio,
     'higher alveolar volume should increase Karamolegkos arteriolar resistance');
 });
