@@ -4,8 +4,8 @@ const { createVentToArdsCoreSnapshot } = require('./hummod_ards_core_coupling.js
 const { createLiveCoreBoundaryFromVent } = require('./hummod_ards_core_vent_adapter.js');
 const { createV2SourceAutonomicController } = require('./v2_source_autonomic_controller.js');
 const {
-  createHumModArdsDecompensationController,
-} = require('./hummod_ards_decompensation_controller.js');
+  createV24TerminalStateController,
+} = require('./v24_terminal_state_controller.js');
 const {
   createV21PulmonaryVascularController,
 } = require('./v21_pulmonary_vascular_controller.js');
@@ -73,7 +73,7 @@ function createHumModArdsCardiopulmonaryRuntime({
 
   let timeSec=0;
   let last=null;
-  const decompensation = createHumModArdsDecompensationController();
+  const terminalState = createV24TerminalStateController();
   const autonomic = createV2SourceAutonomicController({
     baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
       heartRatePerMin: 75,
@@ -94,7 +94,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     // criteria, the reduced core enters a terminal state. We preserve the last
     // physiologic snapshot for provenance rather than continuing to integrate
     // a circulation that is no longer physiologically meaningful.
-    if(decompensation.snapshot().cardiacArrest){
+    if(terminalState.snapshot().cardiacArrest){
       timeSec+=dtSec;
       return snapshot();
     }
@@ -157,22 +157,18 @@ function createHumModArdsCardiopulmonaryRuntime({
       arterialPco2MmHg:priorGas ? Math.max(1,priorGas.pco2MmHg) : 40,
       arterialPh:priorGas ? priorGas.pH : 7.40,
     });
-    const priorDecomp=decompensation.snapshot();
     const sepsisLeftPerformanceMultiplier=sepsisDisease
       ? sepsisDisease.leftMyocardialPerformanceMultiplier
       : 1;
     const effectiveLeftContractility=
       control.leftContractilityMultiplier *
       control.acidoticContractilityMultiplier *
-      sepsisLeftPerformanceMultiplier *
-      priorDecomp.myocardialContractilityMultiplier;
+      sepsisLeftPerformanceMultiplier;
     const effectiveRightContractility=
       control.rightContractilityMultiplier *
-      control.acidoticContractilityMultiplier *
-      priorDecomp.myocardialContractilityMultiplier;
+      control.acidoticContractilityMultiplier;
     const effectiveHeartRatePerMin =
-      control.heartRatePerMin *
-      priorDecomp.chronotropicReserveMultiplier;
+      control.heartRatePerMin;
     const sourceAutonomicSystemicConductance=
       control.systemicArterialConductanceMlPerMinPerMmHg;
     const appliedSystemicConductance=
@@ -194,9 +190,12 @@ function createHumModArdsCardiopulmonaryRuntime({
     circ=circulation.snapshot();
 
     if(circ.mechanicalPumpFailure){
-      const terminalDecomp=decompensation.forceArrest({
-        reason:'mechanical-pump-failure',
-        rhythm:'PEA',
+      const terminalDecomp=terminalState.step({
+        dtSec,
+        meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
+        cardiacOutputMlPerMin:0,
+        mechanicalPumpFailure:true,
+        oxygenDeficit:oxygenDeficitState.snapshot(),
       });
       timeSec+=dtSec;
       last=Object.freeze({
@@ -265,21 +264,12 @@ function createHumModArdsCardiopulmonaryRuntime({
         massBalance.deliveryToCriticalRatio,
     });
 
-    // v2.3 deliberately keeps the legacy collapse controller separate from
-    // the new oxygen-deficit bookkeeping. v2.4 owns terminal-state
-    // replacement; do not silently promote oxygen debt to a death threshold.
-    const decomp=decompensation.step({
+    const decomp=terminalState.step({
       dtSec,
       meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
-      mixedVenousO2SaturationFraction:gas.gases.venous.saturationFraction,
-      requestedTissueO2UseMlPerMin:
-        massBalance.requestedTissueO2UseMlPerMin,
-      oxygenSupplyDeficitMlPerMin:
-        massBalance.oxygenSupplyDeficitMlPerMin,
-      arterialPh: gas.gases.arterial.pH,
-      arterialPco2MmHg: gas.gases.arterial.pco2MmHg,
-      deliveryToCriticalRatio:
-        massBalance.deliveryToCriticalRatio,
+      cardiacOutputMlPerMin:circ.flowsMlPerMin.leftVentricular,
+      mechanicalPumpFailure:Boolean(circ.mechanicalPumpFailure),
+      oxygenDeficit,
     });
 
     timeSec+=dtSec;
@@ -323,7 +313,7 @@ function createHumModArdsCardiopulmonaryRuntime({
         circulation:'v1.0 reduced circulation with v2.0 Ursino/Magosso systemic control and v2.1 source-backed pulmonary vascular load',
         gasExchange:'source-aligned HumMod reduced gas core',
         oxygenDeficit:'v2.3 source-grounded unmet-aerobic-demand bookkeeping; no failure authority',
-        decompensation:'legacy collapse controller retained only for v2.3 regression continuity; replacement belongs to v2.4',
+        decompensation:'v2.4 physiology-triggered terminal-state controller; no elapsed-asphyxia or oxygen-debt death timer',
         sepsis:'v2.2 Yamanaka Eq.31 LV performance active when explicit sepsisState is supplied; Eq.29/30 remain diagnostic pending source-safe bridges',
         pressureUnits:'caller-supplied validated adapter',
         clinicalValidation:false,
