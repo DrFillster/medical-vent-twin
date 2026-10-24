@@ -361,7 +361,17 @@ function solveCo2Exchange({
     return endExpiredMlPerMin - expiredCo2MlPerMin;
   }
 
-  const high = alveolarVentilationStpdMlPerMin * 0.5;
+  // The previous reduced implementation capped the search at an alveolar
+  // CO2 increment of 0.5, which was an engineering numerical bound rather
+  // than a physiologic/source limit. Extreme hypoventilation can require a
+  // larger root and therefore failed before the terminal physiology could be
+  // evaluated. Search the full physically admissible gas-fraction domain
+  // instead. Keep a small margin below 1 to avoid an exact pure-CO2 endpoint.
+  const maxAdditionalAlveolarCo2Fraction =
+    Math.max(0, 1 - bronchiCo2Fraction - 1e-9);
+  const high =
+    alveolarVentilationStpdMlPerMin *
+    maxAdditionalAlveolarCo2Fraction;
   const expiredCo2MlPerMin = solveRootBisection({
     fn: residual,
     low: 0,
