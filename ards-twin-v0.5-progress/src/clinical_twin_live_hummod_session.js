@@ -335,6 +335,10 @@ function createBerlinLiveHumModSession({
             sourceAutonomicConductanceMlPerMinPerMmHg ?? null,
         systemicVenousVolumeMl:
           circ.volumesMl?.systemicVeins ?? null,
+        totalCirculatingVolumeMl:
+          circ.volumesMl
+            ? Object.values(circ.volumesMl).reduce((a,b)=>a+b,0)
+            : null,
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
