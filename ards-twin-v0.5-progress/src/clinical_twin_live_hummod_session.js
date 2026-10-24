@@ -409,21 +409,21 @@ function createBerlinLiveHumModSession({
         cardiacArrest: decomp.cardiacArrest,
         cardiacArrestReason: decomp.cardiacArrestReason,
         arrestRhythm: decomp.arrestRhythm,
-        oxygenDebtMl: decomp.oxygenDebtMl,
-        equivalentDebtMinutes: decomp.equivalentDebtMinutes,
-        metabolicFailureFraction: decomp.metabolicFailureFraction,
-        myocardialContractilityMultiplier:
-          decomp.myocardialContractilityMultiplier,
-        chronotropicReserveMultiplier:
-          decomp.chronotropicReserveMultiplier,
-        asphyxialReserveMultiplier:
-          decomp.asphyxialReserveMultiplier,
-        asphyxialEquivalentMinutes:
-          decomp.asphyxialEquivalentMinutes,
-        respiratoryAcidosisSeverity:
-          decomp.respiratoryAcidosisSeverity,
+        oxygenDebtMl:
+          last.oxygenDeficit?.cumulativeOxygenDeficitMl ?? null,
+        equivalentDebtMinutes:null,
+        metabolicFailureFraction:null,
+        myocardialContractilityMultiplier:null,
+        chronotropicReserveMultiplier:null,
+        asphyxialReserveMultiplier:null,
+        asphyxialEquivalentMinutes:null,
+        respiratoryAcidosisSeverity:null,
         lowMapBelow30Sec: decomp.lowMapBelow30Sec,
         lowMapBelow20Sec: decomp.lowMapBelow20Sec,
+        elapsedAsphyxiaTimerUsed:
+          decomp.elapsedAsphyxiaTimerUsed ?? false,
+        oxygenDebtDeathThresholdUsed:
+          decomp.oxygenDebtDeathThresholdUsed ?? false,
       }) : null,
       thorax: Object.freeze({
         meanAirwayPressureCmH2O: last.meanAirwayPressureCmH2O,
