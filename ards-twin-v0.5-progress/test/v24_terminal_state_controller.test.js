@@ -66,5 +66,33 @@ test('published sustained profound hypotension criteria trigger arrest',()=>{
   assert(s.cardiacArrestReason==='sustained-map-below-30');
 });
 
+test('asphyxial source envelope requires gas failure plus hemodynamic deterioration',()=>{
+  const t=createV24TerminalStateController();
+  let s=t.step({
+    dtSec:1,
+    meanArterialPressureMmHg:80,
+    cardiacOutputMlPerMin:5000,
+    heartRatePerMin:80,
+    arterialPh:7.4,
+    arterialPco2MmHg:40,
+    oxygenDeficit:{supplyDependent:false,cumulativeOxygenDeficitMl:0,cumulativeFractionalDeficitMin:0},
+  });
+  assert(s.cardiacArrest===false);
+
+  s=t.step({
+    dtSec:1,
+    meanArterialPressureMmHg:40,
+    cardiacOutputMlPerMin:700,
+    heartRatePerMin:40,
+    arterialPh:6.9,
+    arterialPco2MmHg:120,
+    oxygenDeficit:{supplyDependent:true,cumulativeOxygenDeficitMl:100,cumulativeFractionalDeficitMin:1},
+  });
+  assert(s.cardiacArrest===true);
+  assert(s.cardiacArrestReason==='asphyxial-hemodynamic-collapse-envelope');
+  assert(s.elapsedAsphyxiaTimerUsed===false);
+  assert(s.oxygenDebtDeathThresholdUsed===false);
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);
