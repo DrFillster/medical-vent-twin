@@ -1,0 +1,131 @@
+name: v2.4 Physician Preview Deploy
+
+on:
+  push:
+    branches: [v2.4]
+    paths:
+      - '.github/workflows/v24-physician-preview-deploy.yml'
+      - 'ards-twin-v0.5-progress/web/**'
+      - 'ards-twin-v0.5-progress/src/**'
+      - 'ards-twin-v0.5-progress/test/v2_**'
+      - 'ards-twin-v0.5-progress/test/clinical_twin_live_hummod_session.test.js'
+      - 'ards-twin-v0.5-progress/package.json'
+
+concurrency:
+  group: v24-physician-preview-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build browser bundle
+        run: npm run build
+      - name: v2.0 autonomic regression
+        run: node test/v2_source_autonomic_controller.test.js
+      - name: v2.1 pulmonary regression
+        run: node test/v21_pulmonary_vascular_controller.test.js
+      - name: v2.2 sepsis regression
+        run: node test/v22_sepsis_disease_layer.test.js
+      - name: v2.3 oxygen deficit regression
+        run: node test/v23_oxygen_deficit_state.test.js
+      - name: v2.4 terminal regression
+        run: node test/v24_terminal_state_controller.test.js
+      - name: Live patient regression
+        run: node test/clinical_twin_live_hummod_session.test.js
+      - name: Verify deployable web
+        run: npm run verify:deploy
+      - name: Verify v2.4 bundle
+        run: |
+          grep -q "createV24TerminalStateController" web/engine.js
+          grep -q "v2.4 preview" web/index.html
+      - name: Upload validated physician preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: v24-physician-static-web
+          path: ards-twin-v0.5-progress/web/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-preview:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout served preview tree
+        uses: actions/checkout@v4
+        with:
+          ref: v1.5
+          fetch-depth: 0
+      - name: Prepare isolated v2.4 physician preview
+        run: |
+          rm -rf ards-twin-v1.0/web/v2.4-preview
+          mkdir -p ards-twin-v1.0/web/v2.4-preview
+      - name: Download validated web
+        uses: actions/download-artifact@v4
+        with:
+          name: v24-physician-static-web
+          path: ards-twin-v1.0/web/v2.4-preview
+      - name: Stamp source commit
+        run: printf '%s\n' "${GITHUB_SHA}" > ards-twin-v1.0/web/v2.4-preview/DEPLOY_SOURCE_SHA.txt
+      - name: Verify deployment isolation
+        run: |
+          test -f ards-twin-v1.0/web/v2.4-preview/index.html
+          test -f ards-twin-v1.0/web/v2.4-preview/engine.js
+          grep -q "v2.4 preview" ards-twin-v1.0/web/v2.4-preview/index.html
+          grep -q "createV24TerminalStateController" ards-twin-v1.0/web/v2.4-preview/engine.js
+          git status --porcelain --untracked-files=all | tee /tmp/status.txt
+          if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.0/web/v2\.4-preview/)' | grep -q .; then
+            echo "Refusing deployment: files outside isolated v2.4 preview changed."
+            exit 1
+          fi
+      - name: Commit nested preview to served v1.5 branch
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ards-twin-v1.0/web/v2.4-preview
+          if ! git diff --cached --quiet; then
+            git commit -m "deploy(v2.4): physician preview ${SOURCE_SHA}"
+            git push origin HEAD:v1.5
+          fi
+
+  live-smoke:
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify live v2.4 physician preview
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          BASE: https://hummod.defying-logic.com/v2.4-preview
+        run: |
+          set -e
+          mkdir -p smoke
+          ok=0
+          for attempt in $(seq 1 20); do
+            index_code=$(curl -L -sS -o smoke/index.html -w '%{http_code}' --max-time 20 "$BASE/" || printf '000')
+            source_code=$(curl -L -sS -o smoke/source.txt -w '%{http_code}' --max-time 20 "$BASE/DEPLOY_SOURCE_SHA.txt" || printf '000')
+            live_sha=$(tr -d '\r\n' < smoke/source.txt 2>/dev/null || true)
+            echo "attempt=$attempt index_code=$index_code source_code=$source_code live_sha=${live_sha:-missing} expected_sha=$SOURCE_SHA"
+            if [ "$index_code" = "200" ] && [ "$source_code" = "200" ] && [ "$live_sha" = "$SOURCE_SHA" ] && grep -q "v2.4 preview" smoke/index.html; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+          test "$ok" = "1"
