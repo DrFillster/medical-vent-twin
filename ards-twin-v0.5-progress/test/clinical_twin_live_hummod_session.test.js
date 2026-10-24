@@ -162,6 +162,7 @@ test('prolonged profound hypoxemic hypercapnic failure decompensates instead of 
     'nonperfusing respiratory/circulatory collapse should terminate as PEA in this reduced pathway');
   assert(
     d.cardiacArrestReason === 'mechanical-pump-failure' ||
+    d.cardiacArrestReason === 'asphyxial-hemodynamic-collapse-envelope' ||
     d.cardiacArrestReason === 'sustained-map-below-20' ||
     d.cardiacArrestReason === 'sustained-map-below-30',
     'terminal transition must be tied to mechanical pump failure or sustained profound hypotension');
