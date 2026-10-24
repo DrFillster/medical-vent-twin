@@ -372,13 +372,25 @@ function solveCo2Exchange({
   const high =
     alveolarVentilationStpdMlPerMin *
     maxAdditionalAlveolarCo2Fraction;
-  const expiredCo2MlPerMin = solveRootBisection({
-    fn: residual,
-    low: 0,
-    high,
-    tolerance: 1e-6,
-    label: 'HumMod LungCO2 expired',
-  });
+  const lowResidual=residual(0);
+  const highResidual=residual(high);
+  let expiredCo2MlPerMin;
+  let solverBoundaryLimited=false;
+  if(lowResidual>=0 && highResidual>0){
+    expiredCo2MlPerMin=high;
+    solverBoundaryLimited=true;
+  }else if(lowResidual<0 && highResidual<=0){
+    expiredCo2MlPerMin=0;
+    solverBoundaryLimited=true;
+  }else{
+    expiredCo2MlPerMin = solveRootBisection({
+      fn: residual,
+      low: 0,
+      high,
+      tolerance: 1e-6,
+      label: 'HumMod LungCO2 expired',
+    });
+  }
 
   const alveolarCo2Fraction =
     bronchiCo2Fraction +
@@ -398,6 +410,11 @@ function solveCo2Exchange({
     capillaryHco3MolPerL,
     source: HUMMOD_GAS_EXCHANGE_SOURCE,
     sourceStructure: 'LungCO2.CalcExpired',
+    solverBoundaryLimited,
+    physicalBoundary:
+      solverBoundaryLimited
+        ? 'CO2 exchange constrained to the physically admissible alveolar gas-fraction boundary'
+        : null,
   });
 }
 
