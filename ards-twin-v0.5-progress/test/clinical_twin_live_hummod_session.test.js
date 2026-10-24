@@ -119,9 +119,24 @@ test('prolonged profound hypoxemic hypercapnic failure decompensates instead of 
   const h = s.systemic.hemodynamics;
   const d = s.systemic.decompensation;
 
-  assert(g.pao2MmHg < 30, 'extremis challenge should produce profound hypoxemia');
-  assert(g.paco2MmHg > 150, 'extremis challenge should produce severe hypercapnia');
-  assert(g.pH < 6.9, 'extremis challenge should produce profound acidemia');
+  assert(g.pao2MmHg < 30,
+    'extremis challenge should produce profound hypoxemia: '+JSON.stringify({
+      pao2:g.pao2MmHg,paco2:g.paco2MmHg,pH:g.pH,
+      map:h.meanArterialPressureMmHg,co:h.cardiacOutputMlPerMin,
+      arrest:d.cardiacArrest,reason:d.cardiacArrestReason
+    }));
+  assert(g.paco2MmHg > 150,
+    'extremis challenge should produce severe hypercapnia: '+JSON.stringify({
+      pao2:g.pao2MmHg,paco2:g.paco2MmHg,pH:g.pH,
+      map:h.meanArterialPressureMmHg,co:h.cardiacOutputMlPerMin,
+      arrest:d.cardiacArrest,reason:d.cardiacArrestReason
+    }));
+  assert(g.pH < 6.9,
+    'extremis challenge should produce profound acidemia: '+JSON.stringify({
+      pao2:g.pao2MmHg,paco2:g.paco2MmHg,pH:g.pH,
+      map:h.meanArterialPressureMmHg,co:h.cardiacOutputMlPerMin,
+      arrest:d.cardiacArrest,reason:d.cardiacArrestReason
+    }));
   assert(s.systemic.oxygenDeficit &&
     s.systemic.oxygenDeficit.cumulativeOxygenDeficitMl > 0,
     'extremis challenge should accumulate explicit oxygen deficit');
