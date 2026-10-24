@@ -95,6 +95,21 @@ test('CO2 exchange implicit solver converges and lowers capillary bicarbonate', 
   assert(out.capillaryHco3MolPerL < 0.0256);
 });
 
+test('CO2 solver remains finite during extreme hypoventilation', () => {
+  const out = solveCo2Exchange({
+    alveolarVentilationStpdMlPerMin: 250,
+    bronchiCo2Fraction: 0,
+    barometricPressureMmHg: 760,
+    ventilatedPulmonaryBloodFlowMlPerMin: 3000,
+    mixedVenousHco3MolPerL: 0.04,
+    sidMolPerL: 0.04,
+  });
+  assert(Number.isFinite(out.expiredCo2MlPerMin));
+  assert(Number.isFinite(out.pAlveolarCo2MmHg));
+  assert(out.alveolarCo2Fraction > 0 && out.alveolarCo2Fraction < 1,
+    'extreme hypoventilation must remain inside the physical gas-fraction domain');
+});
+
 test('CO2 shunt mixing respects ventilated and shunt endpoints', () => {
   near(mixCo2AcrossShunt({
     totalPulmonaryBloodFlowMlPerMin: 5000,
