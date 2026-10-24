@@ -380,6 +380,29 @@ function createBerlinLiveHumModSession({
             unresolved:last.sepsisDisease.unresolved,
           })
         : null,
+      oxygenDeficit: last.oxygenDeficit
+        ? Object.freeze({
+            oxygenSupplyDeficitMlPerMin:
+              last.oxygenDeficit.oxygenSupplyDeficitMlPerMin,
+            deficitFraction:last.oxygenDeficit.deficitFraction,
+            belowCriticalFraction:last.oxygenDeficit.belowCriticalFraction,
+            supplyDependent:last.oxygenDeficit.supplyDependent,
+            cumulativeOxygenDeficitMl:
+              last.oxygenDeficit.cumulativeOxygenDeficitMl,
+            cumulativeFractionalDeficitMin:
+              last.oxygenDeficit.cumulativeFractionalDeficitMin,
+            cumulativeBelowCriticalExposureMin:
+              last.oxygenDeficit.cumulativeBelowCriticalExposureMin,
+            timeBelowCriticalSec:
+              last.oxygenDeficit.timeBelowCriticalSec,
+            timeSupplyDependentSec:
+              last.oxygenDeficit.timeSupplyDependentSec,
+            failureAuthority:last.oxygenDeficit.failureAuthority,
+            arrestAuthority:last.oxygenDeficit.arrestAuthority,
+            contractilityAuthority:
+              last.oxygenDeficit.contractilityAuthority,
+          })
+        : null,
       decompensation: decomp ? Object.freeze({
         stage: decomp.stage,
         alive: decomp.alive,
