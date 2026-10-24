@@ -12,6 +12,9 @@ const {
 const {
   evaluateV22SepsisDiseaseLayer,
 } = require('./v22_sepsis_disease_layer.js');
+const {
+  createV23OxygenDeficitState,
+} = require('./v23_oxygen_deficit_state.js');
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -82,6 +85,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   const pulmonaryVascular = createV21PulmonaryVascularController({
     dtSec: 0.0005,
   });
+  const oxygenDeficitState = createV23OxygenDeficitState();
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
@@ -247,6 +251,23 @@ function createHumModArdsCardiopulmonaryRuntime({
     const massBalance=gas.exchange && gas.exchange.massBalance
       ? gas.exchange.massBalance
       : null;
+    const oxygenDeficit=oxygenDeficitState.step({
+      dtSec,
+      requestedTissueO2UseMlPerMin:
+        massBalance.requestedTissueO2UseMlPerMin,
+      actualTissueO2UseMlPerMin:
+        massBalance.actualTissueO2UseMlPerMin,
+      oxygenDeliveryMlPerMin:
+        massBalance.oxygenDeliveryMlPerMin,
+      criticalOxygenDeliveryMlPerMin:
+        massBalance.criticalOxygenDeliveryMlPerMin,
+      deliveryToCriticalRatio:
+        massBalance.deliveryToCriticalRatio,
+    });
+
+    // v2.3 deliberately keeps the legacy collapse controller separate from
+    // the new oxygen-deficit bookkeeping. v2.4 owns terminal-state
+    // replacement; do not silently promote oxygen debt to a death threshold.
     const decomp=decompensation.step({
       dtSec,
       meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
@@ -279,6 +300,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       }),
       pulmonaryVascular:pulmonaryControl,
       sepsisDisease,
+      oxygenDeficit,
       decompensation:decomp,
       effectiveHeartRatePerMin,
       effectiveContractilityMultiplier:effectiveLeftContractility,
@@ -300,7 +322,8 @@ function createHumModArdsCardiopulmonaryRuntime({
         thorax:'explicit passive chest-wall phenotype',
         circulation:'v1.0 reduced circulation with v2.0 Ursino/Magosso systemic control and v2.1 source-backed pulmonary vascular load',
         gasExchange:'source-aligned HumMod reduced gas core',
-        decompensation:'oxygen-debt-driven reduced shock/collapse controller',
+        oxygenDeficit:'v2.3 source-grounded unmet-aerobic-demand bookkeeping; no failure authority',
+        decompensation:'legacy collapse controller retained only for v2.3 regression continuity; replacement belongs to v2.4',
         sepsis:'v2.2 Yamanaka Eq.31 LV performance active when explicit sepsisState is supplied; Eq.29/30 remain diagnostic pending source-safe bridges',
         pressureUnits:'caller-supplied validated adapter',
         clinicalValidation:false,
