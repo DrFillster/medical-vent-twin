@@ -2,6 +2,8 @@
 
 const {
   createV2SourceAutonomicController,
+  severeHypercapniaContractilityMultiplier,
+  hypercapnicSystemicResistanceRatio,
 }=require('../src/v2_source_autonomic_controller.js');
 
 let passed=0,failed=0;
@@ -100,6 +102,28 @@ test('respiratory acidemia applies independently sourced negative inotropy',()=>
     'severe respiratory acidemia should reduce the direct inotropy multiplier');
   assert(s.acidoticContractilityMultiplier>=0.45-1e-9,
     'bounded source anchor must not extrapolate below the published challenge');
+});
+
+test('severe hypercapnia remains bounded by published myocardial anchors',()=>{
+  const normal=severeHypercapniaContractilityMultiplier(45);
+  const dog=severeHypercapniaContractilityMultiplier(92);
+  const severe=severeHypercapniaContractilityMultiplier(146);
+  const extreme=severeHypercapniaContractilityMultiplier(400);
+  assert(Math.abs(normal-1)<1e-12);
+  assert(dog<1&&dog>severe);
+  assert(Math.abs(severe-0.20)<1e-12);
+  assert(Math.abs(extreme-0.20)<1e-12,
+    'must not extrapolate beyond isolated-heart severe anchor');
+});
+
+test('hypercapnic systemic vasodilation is bounded at the swine anchor',()=>{
+  const normal=hypercapnicSystemicResistanceRatio(45);
+  const challenge=hypercapnicSystemicResistanceRatio(110);
+  const extreme=hypercapnicSystemicResistanceRatio(400);
+  assert(Math.abs(normal-1)<1e-12);
+  assert(challenge<1&&challenge>0);
+  assert(Math.abs(extreme-challenge)<1e-12,
+    'must not extrapolate SVR below the published hypercapnia anchor');
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
