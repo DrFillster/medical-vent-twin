@@ -185,7 +185,7 @@ test('explicit Yamanaka source boundaries can drive vasodilation and capillary-v
   });
   septic.initialize();
   const s0 = septic.runFor(2);
-  const beforeVolume = s0.systemic.hemodynamics.systemicVenousVolumeMl;
+  const beforeVolume = s0.systemic.hemodynamics.totalCirculatingVolumeMl;
   const s1 = septic.runFor(8);
 
   assert(s1.systemic.sepsisDisease.liveAuthority.systemicVasodilation === true,
@@ -200,8 +200,8 @@ test('explicit Yamanaka source boundaries can drive vasodilation and capillary-v
     'Yamanaka disease-only vasodilation should increase conductance relative to the same-step source autonomic value');
   assert(s1.systemic.sepsisDisease.capillaryExchange.bloodVolumeRateMlPerSec < 0,
     'selected explicit source boundary should produce net vascular volume loss');
-  assert(s1.systemic.hemodynamics.systemicVenousVolumeMl < beforeVolume,
-    'net capillary filtration should reduce the reduced systemic vascular reservoir');
+  assert(s1.systemic.hemodynamics.totalCirculatingVolumeMl < beforeVolume,
+    'net capillary filtration should reduce total circulating volume');
 });
 
 test('live core rejects PC-AC until its Vent adapter is implemented', () => {
