@@ -57,7 +57,30 @@ const RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR=Object.freeze({
   definitionPh:7.35,
   challengePh:7.10,
   challengeContractilityFraction:0.45,
-  citation:'Biais et al. Anesthesiology. 2012;117:1212-1222.',
+  citation:'Biais M et al. Anesthesiology. 2012;117:1212-1222. doi:10.1097/ALN.0b013e3182753264',
+});
+
+const SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS=Object.freeze({
+  normalPaco2MmHg:45,
+  dogPaco2MmHg:92,
+  dogEmaxFraction:9.2/11.4,
+  dogCitation:
+    'Walley KR et al. Circ Res. 1990. PMID 2118837: pH 7.09, PaCO2 92 mmHg, Emax 11.4 -> 9.2.',
+  isolatedHeartPaco2MmHg:146,
+  isolatedHeartPressureFraction:0.20,
+  isolatedHeartCitation:
+    'Reversible impairment of myocardial contractility due to hypercarbic acidosis in the isolated perfused rat heart. PMID 1899209: PCO2 36 -> 146 torr, LVSP and dP/dt fell to ~20% of control.',
+  projection:
+    'The isolated-heart 20% LVSP/dPdt endpoint is used as a bounded severe-hypercapnia whole-heart performance proxy; this is an explicit reduced-model assumption, not Emax equivalence.',
+});
+
+const HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR=Object.freeze({
+  normalPaco2MmHg:45,
+  challengePaco2MmHg:110,
+  baselineSvrDynSecCm5:1748,
+  challengeSvrDynSecCm5:1392,
+  citation:
+    'Sympathetic secretory response to hypercapnic acidosis in swine. PMID 2121704.',
 });
 
 function finite(v,label){
@@ -78,6 +101,36 @@ function nonNegative(v,label){
 }
 function clamp(v,lo,hi){
   return Math.max(lo,Math.min(hi,v));
+}
+
+function severeHypercapniaContractilityMultiplier(paco2MmHg){
+  nonNegative(paco2MmHg,'paco2MmHg');
+  const a=SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS;
+  if(paco2MmHg<=a.normalPaco2MmHg) return 1;
+  if(paco2MmHg<=a.dogPaco2MmHg){
+    const t=(paco2MmHg-a.normalPaco2MmHg)/
+      (a.dogPaco2MmHg-a.normalPaco2MmHg);
+    return 1+t*(a.dogEmaxFraction-1);
+  }
+  if(paco2MmHg>=a.isolatedHeartPaco2MmHg){
+    return a.isolatedHeartPressureFraction;
+  }
+  const t=(paco2MmHg-a.dogPaco2MmHg)/
+    (a.isolatedHeartPaco2MmHg-a.dogPaco2MmHg);
+  return a.dogEmaxFraction+
+    t*(a.isolatedHeartPressureFraction-a.dogEmaxFraction);
+}
+
+function hypercapnicSystemicResistanceRatio(paco2MmHg){
+  nonNegative(paco2MmHg,'paco2MmHg');
+  const a=HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR;
+  if(paco2MmHg<=a.normalPaco2MmHg) return 1;
+  const challengeRatio=
+    a.challengeSvrDynSecCm5/a.baselineSvrDynSecCm5;
+  if(paco2MmHg>=a.challengePaco2MmHg) return challengeRatio;
+  const t=(paco2MmHg-a.normalPaco2MmHg)/
+    (a.challengePaco2MmHg-a.normalPaco2MmHg);
+  return 1+t*(challengeRatio-1);
 }
 
 function respiratoryAcidosisContractilityMultiplier({
@@ -204,18 +257,35 @@ function createV2SourceAutonomicController({baseline}={}){
       positive(e.absolute.EmaxRv,'EmaxRv')/
       positive(referenceEffectors.EmaxRv,'reference EmaxRv');
 
-    const acidoticContractilityMultiplier=
+    const phBasedAcidoticContractilityMultiplier=
       respiratoryAcidosisContractilityMultiplier({
         arterialPh,
         arterialPco2MmHg,
       });
+    const co2BasedContractilityMultiplier=
+      severeHypercapniaContractilityMultiplier(arterialPco2MmHg);
+    const acidoticContractilityMultiplier=Math.min(
+      phBasedAcidoticContractilityMultiplier,
+      co2BasedContractilityMultiplier
+    );
+    const hypercapnicSvrRatio=
+      hypercapnicSystemicResistanceRatio(arterialPco2MmHg);
+    const systemicArterialConductanceAfterHypercapnia=
+      systemicArterialConductanceMlPerMinPerMmHg/
+      hypercapnicSvrRatio;
 
     last=Object.freeze({
       heartRatePerMin,
       leftContractilityMultiplier,
       rightContractilityMultiplier,
       acidoticContractilityMultiplier,
-      systemicArterialConductanceMlPerMinPerMmHg,
+      systemicArterialConductanceMlPerMinPerMmHg:
+        systemicArterialConductanceAfterHypercapnia,
+      sourceAutonomicSystemicArterialConductanceMlPerMinPerMmHg:
+        systemicArterialConductanceMlPerMinPerMmHg,
+      hypercapnicSystemicResistanceRatio:hypercapnicSvrRatio,
+      phBasedAcidoticContractilityMultiplier,
+      co2BasedContractilityMultiplier,
       systemicVenousV0Ml,
       pulmonaryArterialConductanceMultiplier:1,
       sourceSystemicResistanceRatio:systemicResistanceRatio,
@@ -270,6 +340,10 @@ function createV2SourceAutonomicController({baseline}={}){
 module.exports=Object.freeze({
   SOURCE,
   RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
+  SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS,
+  HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR,
   respiratoryAcidosisContractilityMultiplier,
+  severeHypercapniaContractilityMultiplier,
+  hypercapnicSystemicResistanceRatio,
   createV2SourceAutonomicController,
 });
