@@ -524,3 +524,41 @@ Focused CI at commit e34005539bff9ab8e03e60926b35b80ff420b4c3:
 v2.3 separates source-grounded oxygen-deficit bookkeeping from failure authority. Accumulated unmet aerobic demand is tracked, but no fixed oxygen-debt amount is promoted as a universal death, arrest, lactate, or contractility threshold.
 
 Next: v2.4 terminal-state refinement. The legacy 35-minute debt normalization and asphyxial elapsed-time arrest bridge are explicit replacement targets.
+
+
+## v2.4 final gate
+Status: PASSED
+
+Focused CI at commit 8e762a0edd33db8dbdeb155c076aaefafcd9ae8a:
+- build: pass
+- v2.0 autonomic regression: pass
+- v2.1 pulmonary vascular regression: pass
+- v2.2 sepsis regression: pass
+- v2.3 oxygen-deficit regression: pass
+- v2.4 terminal-state regression: pass
+- live patient/extremis regression: pass
+- deployable web verification: pass
+
+Terminal-state changes:
+- removed elapsed-asphyxia time as direct arrest authority
+- removed fixed oxygen-debt amount as direct arrest authority
+- retained mechanical pump failure -> PEA
+- retained sustained profound hypotension collapse criteria
+- added a source-anchored asphyxial hemodynamic-collapse envelope that requires simultaneous oxygen-supply failure, severe acid-base/gas abnormality, and deterioration of HR and MAP relative to the modeled patient baseline
+- terminal physiology is therefore state-dependent rather than a timer
+
+Additional v2.4 corrections:
+- severe hypercapnic myocardial depression is bounded by published experimental anchors and is not extrapolated beyond the source range
+- hypercapnic systemic vasodilation is bounded by the published swine challenge
+- the reduced LungCO2 solver no longer uses an arbitrary 0.5 gas-fraction search ceiling; extreme hypoventilation is bounded at the physically admissible alveolar gas-fraction limit instead of crashing
+
+Scope items 1-4 are now implemented:
+1. pulmonary vascular / RV / PEEP coupling — v2.1
+2. sepsis / distributive physiology — v2.2
+3. oxygen-deficit / metabolic-failure bookkeeping — v2.3
+4. terminal-state refinement — v2.4
+
+Renal/endocrine remains out of scope.
+
+Next gate:
+Integrated physician scenario validation of v2.4 before promotion to the HumMod preview.
