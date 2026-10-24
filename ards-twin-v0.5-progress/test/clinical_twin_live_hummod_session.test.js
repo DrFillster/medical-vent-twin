@@ -130,7 +130,19 @@ test('prolonged profound hypoxemic hypercapnic failure decompensates instead of 
   assert(d.oxygenDebtDeathThresholdUsed === false,
     'v2.4 must not convert oxygen debt directly into a death threshold');
   assert(d.cardiacArrest === true,
-    'profound respiratory failure should arrest only after the modeled perfusing circulation crosses an authorized failure criterion');
+    'profound respiratory failure should arrest only after the modeled perfusing circulation crosses an authorized failure criterion: '+
+    JSON.stringify({
+      map:h.meanArterialPressureMmHg,
+      co:h.cardiacOutputMlPerMin,
+      hr:h.heartRatePerMin,
+      sv:h.strokeVolumeMl,
+      pvr:h.pulmonaryVascularResistanceMmHgMinPerL,
+      lowMapBelow30Sec:d.lowMapBelow30Sec,
+      lowMapBelow20Sec:d.lowMapBelow20Sec,
+      stage:d.stage,
+      oxygenDeficit:s.systemic.oxygenDeficit,
+      gas:{pao2:g.pao2MmHg,paco2:g.paco2MmHg,pH:g.pH},
+    }));
   assert(d.arrestRhythm === 'PEA',
     'nonperfusing respiratory/circulatory collapse should terminate as PEA in this reduced pathway');
   assert(
