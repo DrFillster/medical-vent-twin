@@ -196,6 +196,9 @@ function createHumModArdsCardiopulmonaryRuntime({
         cardiacOutputMlPerMin:0,
         mechanicalPumpFailure:true,
         oxygenDeficit:oxygenDeficitState.snapshot(),
+        heartRatePerMin:control.heartRatePerMin,
+        arterialPh:priorGas ? priorGas.pH : null,
+        arterialPco2MmHg:priorGas ? priorGas.pco2MmHg : null,
       });
       timeSec+=dtSec;
       last=Object.freeze({
@@ -270,6 +273,9 @@ function createHumModArdsCardiopulmonaryRuntime({
       cardiacOutputMlPerMin:circ.flowsMlPerMin.leftVentricular,
       mechanicalPumpFailure:Boolean(circ.mechanicalPumpFailure),
       oxygenDeficit,
+      heartRatePerMin:effectiveHeartRatePerMin,
+      arterialPh:gas.gases.arterial.pH,
+      arterialPco2MmHg:gas.gases.arterial.pco2MmHg,
     });
 
     timeSec+=dtSec;
