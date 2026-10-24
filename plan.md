@@ -507,3 +507,20 @@ Focused CI at commit 2c07a0bbabf6c661ae5ff37754f3958a1991a2d6:
 - deployable web verification: pass
 
 v2.2 is accepted for continued development. This does not imply clinical validation.
+
+
+## v2.3 final gate
+Status: PASSED
+
+Focused CI at commit e34005539bff9ab8e03e60926b35b80ff420b4c3:
+- build: pass
+- v2.0 autonomic regression: pass
+- v2.1 pulmonary vascular regression: pass
+- v2.2 sepsis regression: pass
+- v2.3 oxygen-deficit bookkeeping: pass
+- live patient regression: pass
+- deployable web verification: pass
+
+v2.3 separates source-grounded oxygen-deficit bookkeeping from failure authority. Accumulated unmet aerobic demand is tracked, but no fixed oxygen-debt amount is promoted as a universal death, arrest, lactate, or contractility threshold.
+
+Next: v2.4 terminal-state refinement. The legacy 35-minute debt normalization and asphyxial elapsed-time arrest bridge are explicit replacement targets.
