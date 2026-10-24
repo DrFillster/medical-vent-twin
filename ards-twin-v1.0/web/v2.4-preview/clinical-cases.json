@@ -1,0 +1,728 @@
+{
+  "schema": "vent-clinical-case-manifest/v1",
+  "generatedFrom": "src/berlin_case_catalog.js + src/clinical_case_readiness.js",
+  "intendedUse": "education-and-research-simulation",
+  "note": "Synthetic cases. Cohort-calibrated targets are not individual patient truth.",
+  "cases": [
+    {
+      "id": "berlin-mild-low-focal-pneumonia",
+      "name": "Mild ARDS — focal pneumonia / low recruitability",
+      "synthetic": true,
+      "severity": "mild",
+      "recruitability": "low",
+      "narrative": "Synthetic focal-pneumonia teaching case with mild Berlin oxygenation impairment and low recruitability.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "mild",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "low",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_low_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 7,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 7,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    },
+    {
+      "id": "berlin-mild-moderate-aspiration",
+      "name": "Mild ARDS — aspiration / intermediate recruitability",
+      "synthetic": true,
+      "severity": "mild",
+      "recruitability": "moderate",
+      "narrative": "Synthetic aspiration teaching case with mild Berlin oxygenation impairment and intermediate recruitability.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "mild",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "moderate",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_moderate_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 7,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 7,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    },
+    {
+      "id": "berlin-mild-high-extrapulmonary",
+      "name": "Mild ARDS — extrapulmonary inflammation / high recruitability",
+      "synthetic": true,
+      "severity": "mild",
+      "recruitability": "high",
+      "narrative": "Synthetic extrapulmonary inflammatory teaching case with mild Berlin oxygenation impairment and high recruitability.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "mild",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "high",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_high_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 7,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 7,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    },
+    {
+      "id": "berlin-moderate-low-focal-pneumonia",
+      "name": "Moderate ARDS — focal pneumonia / low recruitability",
+      "synthetic": true,
+      "severity": "moderate",
+      "recruitability": "low",
+      "narrative": "Synthetic focal-pneumonia teaching case with moderate Berlin oxygenation impairment and low recruitability.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "moderate",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "low",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_low_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 8,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 6.8,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    },
+    {
+      "id": "berlin-moderate-moderate-aspiration",
+      "name": "Moderate ARDS — aspiration / intermediate recruitability",
+      "synthetic": true,
+      "severity": "moderate",
+      "recruitability": "moderate",
+      "narrative": "Synthetic aspiration teaching case with moderate Berlin oxygenation impairment and intermediate recruitability.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "moderate",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "moderate",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_moderate_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 8,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 6.8,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    },
+    {
+      "id": "berlin-moderate-high-sepsis",
+      "name": "Moderate ARDS — extrapulmonary sepsis / high recruitability",
+      "synthetic": true,
+      "severity": "moderate",
+      "recruitability": "high",
+      "narrative": "Synthetic extrapulmonary-sepsis teaching case with moderate Berlin oxygenation impairment and high recruitability.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "moderate",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "high",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_high_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 8,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 6.8,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    },
+    {
+      "id": "berlin-severe-low-focal-pneumonia",
+      "name": "Severe ARDS — focal pneumonia / low recruitability",
+      "synthetic": true,
+      "severity": "severe",
+      "recruitability": "low",
+      "narrative": "Synthetic severe Berlin ARDS teaching case designed to preserve the possibility of relatively recruitability-poor focal disease.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "severe",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "low",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_low_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 10,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 6.8,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    },
+    {
+      "id": "berlin-severe-moderate-aspiration",
+      "name": "Severe ARDS — aspiration / intermediate recruitability",
+      "synthetic": true,
+      "severity": "severe",
+      "recruitability": "moderate",
+      "narrative": "Synthetic severe Berlin ARDS teaching case with an intermediate recruitability construct.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "severe",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "moderate",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_moderate_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 10,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 6.8,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    },
+    {
+      "id": "berlin-severe-high-diffuse-inflammatory",
+      "name": "Severe ARDS — diffuse inflammatory / high recruitability",
+      "synthetic": true,
+      "severity": "severe",
+      "recruitability": "high",
+      "narrative": "Synthetic severe Berlin ARDS teaching case with a high-recruitability mechanical construct.",
+      "readiness": {
+        "executable": false,
+        "status": "authored-case-not-yet-executable",
+        "fields": {
+          "berlinSeverity": {
+            "status": "ready",
+            "value": "severe",
+            "source": "authored-case-definition",
+            "note": null
+          },
+          "recruitabilityPhenotype": {
+            "status": "ready",
+            "value": "high",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "mechanicsPreset": {
+            "status": "ready",
+            "value": "phenotype_high_recruitability",
+            "source": "Vent-mechanical-construct",
+            "note": null
+          },
+          "peepCmH2O": {
+            "status": "cohort-calibrated",
+            "value": 10,
+            "source": "published-cohort-envelope",
+            "note": "Cohort target, not patient-specific truth."
+          },
+          "tidalVolumeMlPerKgPbw": {
+            "status": "cohort-calibrated",
+            "value": 6.8,
+            "source": "published-cohort-envelope",
+            "note": "Requires validated PBW workflow before converting to absolute VT."
+          },
+          "tidalVolumeMl": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author-or-validated-PBW-workflow",
+            "note": null
+          },
+          "fio2Fraction": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "respiratoryRatePerMin": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "ventilatorMode": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "case-author",
+            "note": null
+          },
+          "initialRecruitmentState": {
+            "status": "required-explicit-input",
+            "value": null,
+            "source": "explicit-current-state-or-explicit-pressure-history",
+            "note": "Provide either a current recruitable fraction or vent-recruitment-history/v1; do not infer recruitment from Berlin severity."
+          },
+          "humModTrajectory": {
+            "status": "required-external-data",
+            "value": null,
+            "source": "validated-HumMod-export",
+            "note": "A real validated HumMod trajectory is required for HumMod-backed replay."
+          }
+        }
+      }
+    }
+  ]
+}
