@@ -122,15 +122,22 @@ test('prolonged profound hypoxemic hypercapnic failure decompensates instead of 
   assert(g.pao2MmHg < 30, 'extremis challenge should produce profound hypoxemia');
   assert(g.paco2MmHg > 150, 'extremis challenge should produce severe hypercapnia');
   assert(g.pH < 6.9, 'extremis challenge should produce profound acidemia');
-  assert(d && d.oxygenDebtMl > 0, 'extremis challenge should accumulate oxygen debt');
-  assert(d.myocardialContractilityMultiplier < 1,
-    'oxygen debt should depress myocardial reserve');
-  assert(d.asphyxialEquivalentMinutes > 0,
-    'combined oxygen deficit and respiratory acidosis should advance the asphyxial clock');
+  assert(s.systemic.oxygenDeficit &&
+    s.systemic.oxygenDeficit.cumulativeOxygenDeficitMl > 0,
+    'extremis challenge should accumulate explicit oxygen deficit');
+  assert(d.elapsedAsphyxiaTimerUsed === false,
+    'v2.4 must not use an elapsed asphyxia death timer');
+  assert(d.oxygenDebtDeathThresholdUsed === false,
+    'v2.4 must not convert oxygen debt directly into a death threshold');
   assert(d.cardiacArrest === true,
-    'after 20 min of this profound asphyxial challenge the reduced model should cross the collapse cliff');
+    'profound respiratory failure should arrest only after the modeled perfusing circulation crosses an authorized failure criterion');
   assert(d.arrestRhythm === 'PEA',
-    'respiratory/asphyxial collapse should terminate as PEA in this pathway');
+    'nonperfusing respiratory/circulatory collapse should terminate as PEA in this reduced pathway');
+  assert(
+    d.cardiacArrestReason === 'mechanical-pump-failure' ||
+    d.cardiacArrestReason === 'sustained-map-below-20' ||
+    d.cardiacArrestReason === 'sustained-map-below-30',
+    'terminal transition must be tied to mechanical pump failure or sustained profound hypotension');
   assert(h.heartRatePerMin === 0 && h.cardiacOutputMlPerMin === 0,
     'terminal state must no longer report a perfusing circulation');
 });
