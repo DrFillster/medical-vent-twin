@@ -38,6 +38,15 @@ const MAP30_SEC=10*60;
 const MAP20_MMHG=20;
 const MAP20_SEC=10;
 
+const ASPHYXIAL_COLLAPSE_ENVELOPE=Object.freeze({
+  arterialPh:7.03,
+  arterialPco2MmHg:93,
+  citation:
+    'DeBehnke DJ et al. Resuscitation. 1995;30:169-175. PMID 8560107. At loss of aortic fluctuation: pH 7.03 +/- 0.07, PaCO2 93 +/- 19 mmHg, with a tachycardia/hypertension -> bradycardia/hypotension trajectory.',
+  role:
+    'experimental asphyxial collapse envelope; not a universal patient death threshold',
+});
+
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)){
     throw new Error(label+' must be finite');
@@ -56,6 +65,8 @@ function createV24TerminalStateController(){
   let cardiacArrest=false;
   let cardiacArrestReason=null;
   let arrestRhythm=null;
+  let referenceHeartRatePerMin=null;
+  let referenceMapMmHg=null;
   let last=null;
 
   function step({
@@ -64,10 +75,35 @@ function createV24TerminalStateController(){
     cardiacOutputMlPerMin,
     mechanicalPumpFailure=false,
     oxygenDeficit=null,
+    heartRatePerMin=null,
+    arterialPh=null,
+    arterialPco2MmHg=null,
   }={}){
     positive(dtSec,'dtSec');
     finite(meanArterialPressureMmHg,'meanArterialPressureMmHg');
     finite(cardiacOutputMlPerMin,'cardiacOutputMlPerMin');
+    if(heartRatePerMin!=null) positive(heartRatePerMin,'heartRatePerMin');
+    if(arterialPh!=null) finite(arterialPh,'arterialPh');
+    if(arterialPco2MmHg!=null) positive(arterialPco2MmHg,'arterialPco2MmHg');
+
+    if(referenceMapMmHg==null && meanArterialPressureMmHg>0){
+      referenceMapMmHg=meanArterialPressureMmHg;
+    }
+    if(referenceHeartRatePerMin==null && heartRatePerMin!=null){
+      referenceHeartRatePerMin=heartRatePerMin;
+    }
+
+    const asphyxialEnvelopeReached=
+      oxygenDeficit&&oxygenDeficit.supplyDependent===true &&
+      arterialPh!=null &&
+      arterialPco2MmHg!=null &&
+      heartRatePerMin!=null &&
+      referenceHeartRatePerMin!=null &&
+      referenceMapMmHg!=null &&
+      arterialPh<=ASPHYXIAL_COLLAPSE_ENVELOPE.arterialPh &&
+      arterialPco2MmHg>=ASPHYXIAL_COLLAPSE_ENVELOPE.arterialPco2MmHg &&
+      heartRatePerMin<referenceHeartRatePerMin &&
+      meanArterialPressureMmHg<referenceMapMmHg;
 
     if(!cardiacArrest){
       lowMapBelow30Sec=meanArterialPressureMmHg<MAP30_MMHG
@@ -80,6 +116,10 @@ function createV24TerminalStateController(){
       if(mechanicalPumpFailure){
         cardiacArrest=true;
         cardiacArrestReason='mechanical-pump-failure';
+        arrestRhythm='PEA';
+      }else if(asphyxialEnvelopeReached){
+        cardiacArrest=true;
+        cardiacArrestReason='asphyxial-hemodynamic-collapse-envelope';
         arrestRhythm='PEA';
       }else if(lowMapBelow20Sec>=MAP20_SEC){
         cardiacArrest=true;
@@ -107,6 +147,12 @@ function createV24TerminalStateController(){
       meanArterialPressureMmHg,
       cardiacOutputMlPerMin,
       mechanicalPumpFailure:Boolean(mechanicalPumpFailure),
+      asphyxialEnvelopeReached,
+      referenceHeartRatePerMin,
+      referenceMapMmHg,
+      heartRatePerMin,
+      arterialPh,
+      arterialPco2MmHg,
       lowMapBelow30Sec,
       lowMapBelow20Sec,
       oxygenDeficit:oxygenDeficit?Object.freeze({
@@ -153,5 +199,6 @@ module.exports=Object.freeze({
   MAP30_SEC,
   MAP20_MMHG,
   MAP20_SEC,
+  ASPHYXIAL_COLLAPSE_ENVELOPE,
   createV24TerminalStateController,
 });
