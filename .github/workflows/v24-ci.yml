@@ -1,0 +1,37 @@
+name: v2.4 CI
+
+on:
+  push:
+    branches: [v2.4]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  v24-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build
+        run: npm run build
+      - name: v2.0 source autonomic regression
+        run: node test/v2_source_autonomic_controller.test.js
+      - name: v2.1 pulmonary vascular regression
+        run: node test/v21_pulmonary_vascular_controller.test.js
+      - name: v2.2 sepsis regression
+        run: node test/v22_sepsis_disease_layer.test.js
+      - name: v2.3 oxygen deficit regression
+        run: node test/v23_oxygen_deficit_state.test.js
+      - name: v2.4 terminal-state regression
+        run: node test/v24_terminal_state_controller.test.js
+      - name: Live patient regression
+        run: node test/clinical_twin_live_hummod_session.test.js
+      - name: Verify deployable web
+        run: npm run verify:deploy
