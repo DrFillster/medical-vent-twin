@@ -493,3 +493,17 @@ Live authority remains deliberately limited:
 - Eq.29 is NOT yet allowed to remove intravascular volume because the compact v2 chassis lacks the required interstitial/oncotic state.
 
 Do not call v2.2 complete until the two unresolved bridges above are solved or explicitly accepted as deferred.
+
+
+## v2.2 final gate
+Status: PASSED
+
+Focused CI at commit 2c07a0bbabf6c661ae5ff37754f3958a1991a2d6:
+- build: pass
+- v2.0 systemic/autonomic regression: pass
+- v2.1 pulmonary vascular regression: pass
+- v2.2 Yamanaka source equations: pass
+- live patient regression, including explicit myocardial depression, vasodilation, and capillary-volume exchange: pass
+- deployable web verification: pass
+
+v2.2 is accepted for continued development. This does not imply clinical validation.
