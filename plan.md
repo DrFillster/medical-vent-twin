@@ -742,3 +742,33 @@ Decision:
 - empirical PaCO2->HR floor is rejected as accepted physiology.
 - Albanese 2016 remains a negative/validation shadow result.
 - Lin 2012 steady-state equation is accepted as the leading existing-equation explanation but remains shadow-only until the complete dynamic parameter provenance is found.
+
+
+## v2.4 existing-equation HR source hunt — 2026-10-25 update
+Status: DYNAMIC LIN CUTOVER STILL BLOCKED / EMPIRICAL FLOOR REJECTED
+
+Additional source search:
+- Lin, Ngwompo & Tilley 2012 Eq.13 explicitly defines a central-compartment first-order filter with time constant tau_c.
+- The 2012 parameter table reports tau_aff=0.001 s, G_aff=1, and P_demand=90 mmHg, but no numerical tau_c.
+- Jinhuai Lin's 2007 University of Bath thesis likewise lists the afferent and central-compartment parameters without a numerical tau_c.
+- The 2006 precursor paper, "Development of a Cardiovascular Model with Baroreceptor Reflex" (ESM 2006, p.229), is indexed and confirms the same three-compartment baroreflex architecture, but no publicly accessible full text/source code with tau_c was found.
+- Searches using the distinctive published constants and notation did not recover an independent executable/source implementation containing tau_c.
+
+Scientific consequence:
+- The Lin steady-state equations remain usable exactly because all first-order filters/delays have unit DC gain.
+- A fully dynamic Lin implementation cannot be claimed source-faithful until tau_c is recovered.
+- Do NOT choose tau_c by fitting, borrow it from Ursino, set it to zero, or infer it from the desired HR response.
+- Do NOT promote the empirical PaCO2-to-HR floor as accepted physiology.
+
+Current best source-backed result:
+- Lin 2012 steady-state baro-chemoreflex equations remove the high-MAP bradycardic behavior without a target HR:
+  MAP 104 / normal gas -> HR 106.3/min
+  MAP 104 / PaO2 35 / PaCO2 110 -> HR 112.9/min.
+- This remains a shadow/diagnostic result pending a dynamic-authority decision.
+
+Next permissible options:
+A. recover the original Lin/Ngwompo/Tilley Simulink/source implementation or a source-authored tau_c;
+B. explicitly approve a quasi-steady Lin controller as a reduced-model approximation, with dynamicAuthority=false;
+C. retain the known-bad Ursino/Magosso live HR while Lin remains shadow-only.
+
+Option B must not be activated without physician-owner approval because applying the steady-state algebra at every simulation step is an explicit reduction, not the published complete dynamic model.
