@@ -44,6 +44,10 @@ const {
   createChannelizedEffectorCandidate,
 }=require('./ursino_magosso_channelized_effectors_candidate.js');
 
+const {
+  createLin2012HrProjectionShadow,
+}=require('./lin_2012_hr_projection_shadow.js');
+
 const SOURCE=Object.freeze({
   baroreceptor:'Ursino 1998, doi:10.1152/ajpheart.1998.275.5.H1733',
   hypoxia:'Ursino & Magosso 2000, doi:10.1152/ajpheart.2000.279.1.H149',
@@ -200,6 +204,9 @@ function createV2SourceAutonomicController({baseline}={}){
 
   const baroreceptor=createUrsinoBaroreceptorShadow();
   const gasAutonomic=createMagossoUrsinoGasAutonomicCandidate();
+  const linHrShadow=createLin2012HrProjectionShadow({
+    patientReferenceHeartRatePerMin:baseline.heartRatePerMin,
+  });
   let effectors=null;
   let pulmonaryStretchSpikesPerSec=null;
   let referenceEffectors=null;
@@ -275,6 +282,12 @@ function createV2SourceAutonomicController({baseline}={}){
     );
     const heartPeriodSec=60/heartRatePerMin;
 
+    const lin2012HrShadow=linHrShadow.evaluate({
+      meanArterialPressureMmHg,
+      arterialPo2MmHg,
+      arterialPco2MmHg,
+    });
+
     const systemicResistanceNow=
       positive(e.absolute.Rsp+e.absolute.Rep,'source systemic resistance');
     const systemicResistanceRef=
@@ -324,6 +337,7 @@ function createV2SourceAutonomicController({baseline}={}){
       sourceHeartRatePerMin,
       hypercapnicChronotropyRatio,
       hypercapnicRepresentativeFloorPerMin,
+      lin2012HrShadow,
       leftContractilityMultiplier,
       rightContractilityMultiplier,
       acidoticContractilityMultiplier,
