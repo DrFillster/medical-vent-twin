@@ -37,6 +37,8 @@ jobs:
         run: node test/v24_albanese_autonomic_diagnostic.js
       - name: v2.4 Lin 2012 baro-chemoreflex equations
         run: node test/v24_lin_2012_baro_chemoreflex_interaction.test.js
+      - name: v2.4 Lin 2012 steady-state HR candidate
+        run: node test/v24_lin_2012_steady_state_hr_candidate.test.js
       - name: Live patient regression
         run: node test/clinical_twin_live_hummod_session.test.js
       - name: Verify deployable web
