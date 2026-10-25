@@ -772,3 +772,71 @@ B. explicitly approve a quasi-steady Lin controller as a reduced-model approxima
 C. retain the known-bad Ursino/Magosso live HR while Lin remains shadow-only.
 
 Option B must not be activated without physician-owner approval because applying the steady-state algebra at every simulation step is an explicit reduction, not the published complete dynamic model.
+
+
+## v2.4 Lin-existing-equation HR experiment — 2026-10-25
+
+Goal:
+Replace the ad hoc PaCO2->minimum-HR interpolation with an existing published
+baro-chemoreflex/HR equation set.
+
+Candidate:
+Lin J, Ngwompo RF, Tilley DG. Proc Inst Mech Eng H. 2012;226:787-803.
+doi:10.1177/0954411912451823.
+
+Why this candidate:
+- human cardiopulmonary model
+- explicit baroreflex + chemoreflex interaction
+- published sympathetic/parasympathetic HR effector equations
+- validated under hypoxia and hypercapnia
+- reported predicted-vs-measured HR and MAP changes within 3%
+
+Current exact steady-state source transcription:
+- Eqs. 12-17: afferent/central/efferent baroreflex
+- Eqs. 18-28: nonlinear sympathetic/parasympathetic HR effector
+- Eqs. 30-31: peripheral chemoreflex baroreflex reset and central CO2
+  sympathetic-gain modulation
+- Tables A2/A3 parameters already transcribed where source-readable
+
+Result:
+At MAP 104 mmHg / PaO2 35 / PaCO2 110, the Lin steady-state model predicts
+HR 112.91/min versus 106.26/min at the same MAP with normal gases. Thus the
+published Lin model does NOT reproduce the inappropriate high-MAP
+bradycardia seen in the Ursino/Magosso branch.
+
+Patient operating-point shadow:
+HR_projected =
+  HR_patient_reference +
+  (HR_Lin_current - HR_Lin_reference)
+
+This is not a new dose-response equation or fitted gain. It is an explicit
+operating-point translation that preserves the source model's predicted
+delta-HR while retaining the authored patient's resting HR.
+
+For patient reference HR 75/min:
+- severe MAP 104 / PaO2 35 / PaCO2 110 -> projected HR 79.83/min
+- source Lin absolute HR at the same state -> 112.91/min
+- source delta from the declared reference state -> +4.83/min
+
+Interpretation:
+- Lin supplies the missing baro-chemoreflex reset mechanism and correctly
+  changes HR in the tachycardic direction at high MAP.
+- The small translated delta means source-delta projection alone is not yet
+  sufficient to justify the bedside magnitude expected in severe ARDS.
+- Do NOT activate either absolute Lin HR or the translated HR yet.
+- The current empirical hypercapnic HR floor remains untouched on accepted
+  v2.4 while this experimental branch is evaluated.
+
+Dynamic blocker:
+The complete source transient central-compartment parameterization is not yet
+fully verified. No missing tau_c or other dynamic term will be invented.
+Until that is resolved, Lin HR remains shadow-only.
+
+Branch:
+v2.4-lin-hr
+
+Promotion rule:
+No live cutover until exact source dynamics are recovered/verified and the
+published hypercapnia/hypoxia validation scenarios are reproduced sufficiently
+to establish that the implementation, not merely the response direction, is
+source-faithful.
