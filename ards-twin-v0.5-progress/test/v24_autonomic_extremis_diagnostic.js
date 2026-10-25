@@ -33,6 +33,50 @@ const challenge=run(c,120,{
   arterialPh:6.90,
 });
 
+const cNormalPressure=createV2SourceAutonomicController({
+  baseline:{
+    heartRatePerMin:75,
+    systemicArterialConductanceMlPerMinPerMmHg:60,
+    systemicVenousV0Ml:1700,
+  },
+});
+run(cNormalPressure,60,{
+  meanArterialPressureMmHg:82,
+  tidalVolumeL:0.42,
+  arterialPo2MmHg:90,
+  arterialPco2MmHg:40,
+  arterialPh:7.40,
+});
+const lowMapChallenge=run(cNormalPressure,120,{
+  meanArterialPressureMmHg:70,
+  tidalVolumeL:0.10,
+  arterialPo2MmHg:35,
+  arterialPco2MmHg:110,
+  arterialPh:6.90,
+});
+
+const cNormalVt=createV2SourceAutonomicController({
+  baseline:{
+    heartRatePerMin:75,
+    systemicArterialConductanceMlPerMinPerMmHg:60,
+    systemicVenousV0Ml:1700,
+  },
+});
+run(cNormalVt,60,{
+  meanArterialPressureMmHg:82,
+  tidalVolumeL:0.42,
+  arterialPo2MmHg:90,
+  arterialPco2MmHg:40,
+  arterialPh:7.40,
+});
+const normalVtChallenge=run(cNormalVt,120,{
+  meanArterialPressureMmHg:104,
+  tidalVolumeL:0.50,
+  arterialPo2MmHg:35,
+  arterialPco2MmHg:110,
+  arterialPh:6.90,
+});
+
 console.log(JSON.stringify({
   baseline:{
     hr:baseline.heartRatePerMin,
