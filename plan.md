@@ -562,3 +562,45 @@ Renal/endocrine remains out of scope.
 
 Next gate:
 Integrated physician scenario validation of v2.4 before promotion to the HumMod preview.
+
+
+## v2.4 HR/MAP physician finding — 2026-10-25
+Status: CORRECTED / CI PASS
+
+Physician observation:
+- severe hypoxemia/hypercapnia produced elevated MAP with inappropriately low HR.
+
+Autonomic diagnostic:
+- baseline: HR 73.3/min, fAb 16.1, fAc 4.0, fSh 7.0, fV 5.1 spikes/s.
+- severe challenge (MAP 104, PaO2 35, PaCO2 110, pH 6.90): source-model HR 48.9/min, fAb 35.8, fAc 21.2, fSh 60 (saturated), fV 13.1 spikes/s.
+- same gas state at MAP 70: source-model HR 73.9/min.
+- high MAP therefore drove strong baroreceptor/vagal braking despite maximal cardiac sympathetic firing. The defect was not absent sympathetic drive.
+
+Interpretation:
+- Ursino/Magosso can produce bradycardia during CO2 rise under artificial ventilation when the lung-stretch chronotropic mechanism is absent/weak; this is source-consistent within that model domain.
+- Extrapolation of that response into severe mechanically ventilated ARDS conflicted with clinical ARDS hypercapnia observations, where HR generally rises modestly with PaCO2 around 70-80 mmHg.
+- The correction therefore preserves the source neural calculation for diagnostics but adds a bounded representative chronotropic envelope anchored to published ARDS/hypercapnia data rather than an arbitrary target HR.
+
+Applied chronotropic anchors:
+- PaCO2 40: ratio 1.0.
+- PaCO2 80: HR ratio 95/89 from Weber et al. ARDS permissive-hypercapnia cohort.
+- PaCO2 110: HR ratio 154/117 from severe acute hypercapnic-acidosis swine data; explicitly species-limited.
+- no extrapolation beyond the severe anchor.
+- applied HR = max(source-model HR, baseline HR x bounded evidence ratio).
+
+At a baseline HR of 75/min and PaCO2 110, the applied representative floor is about 98.7/min; the underlying source-model HR remains visible (~48.9/min in the fixed high-MAP diagnostic). No "HR must be 130" rule was added.
+
+Terminal-state interaction:
+- forcing the HR floor exposed an old terminal assumption that required bradycardia for the asphyxial collapse envelope.
+- this was replaced with falling forward cardiac output plus falling MAP relative to the patient's own modeled baseline, combined with oxygen-supply failure and the source severe asphyxial gas/acid-base envelope.
+- this uses forward-flow deterioration as the reduced-circulation surrogate for the published loss of aortic fluctuations and does not use a fixed oxygen-debt or elapsed-time death threshold.
+
+Final focused CI at commit f6fa88141ac869b59b532977fa9c1562d7c3cc75:
+- v2.0 autonomic regression: pass
+- v2.1 pulmonary vascular regression: pass
+- v2.2 sepsis regression: pass
+- v2.3 oxygen-deficit regression: pass
+- v2.4 terminal-state regression: pass
+- autonomic extremis diagnostic: pass
+- live patient/extremis regression: pass
+- deployable web verification: pass
