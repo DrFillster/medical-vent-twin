@@ -692,3 +692,53 @@ Decision:
 - do NOT invent an alveolar-volume/PEEP -> autonomic stretch mapping and attribute it to Albanese.
 - retain the Albanese candidate as a source-fidelity diagnostic.
 - continue the Lin 2012 baro-chemoreflex/heart-rate controller as the current published replacement candidate because its severe-gas high-MAP result is directionally credible without a target-HR floor.
+
+
+## v2.4 existing-equation HR search — Albanese vs Lin
+Date: 2026-10-25
+
+### Albanese 2016 primary-source calibration
+Implemented in shadow:
+- src/albanese_2016_autonomic_candidate.js
+- test/v24_albanese_hr_shadow_diagnostic.js
+
+Primary-source Table-7 calibration was transcribed without fitting:
+- lung-stretch gain 11.76 spikes/L/s
+- W_b,sp -1.1375
+- W_pc,sp 1.716
+- W_sr,sp -0.3997
+- W_b,sv -1.0806
+- W_pc,sv 1.716
+- W_sr,sv -0.2907
+- W_b,sh -1.75
+
+Result:
+- baseline HR 62.8/min
+- MAP 104, PaO2 35, PaCO2 110, low VT 0.10 L: HR 48.5/min
+- same gas at MAP 70: HR 73.0/min
+- MAP 104, same gas, VT 0.50 L: HR 50.2/min
+
+Conclusion:
+The Albanese calibration does not solve the mechanically-ventilated high-MAP bradycardia. This is consistent with the model family's dependence on lung-stretch input and should not be promoted as the HR fix.
+
+### Lin 2012 source equation remains the strongest candidate
+Lin, Ngwompo & Tilley 2012 explicitly couples chemoreflex to baroreflex:
+- Eq.30 resets the baroreflex operating pressure as O2/CO2 change.
+- Eq.31 increases central sympathetic gain with hypercapnia.
+- Eqs.12-28 provide the baroreflex/efferent/HR algebra.
+
+The published steady-state implementation already demonstrates:
+- MAP 104 normal gas: HR 106.3/min
+- MAP 104, PaO2 35, PaCO2 110: HR 112.9/min
+with no fitted HR target or PaCO2-to-HR interpolation.
+
+Dynamic cutover remains blocked:
+- Eq.13 contains a central-compartment time constant tau_c.
+- The primary 2012 paper's Table A2 does not provide a numerical tau_c.
+- The paper states first-order-filter timing was sourced from an earlier reference, but no verified numerical tau_c has yet been recovered.
+- No value will be invented or borrowed from an unrelated baroreflex model.
+
+Decision:
+- empirical PaCO2->HR floor is rejected as accepted physiology.
+- Albanese 2016 remains a negative/validation shadow result.
+- Lin 2012 steady-state equation is accepted as the leading existing-equation explanation but remains shadow-only until the complete dynamic parameter provenance is found.
