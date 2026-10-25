@@ -10458,6 +10458,23 @@ const SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS=Object.freeze({
     'The isolated-heart 20% LVSP/dPdt endpoint is used as a bounded severe-hypercapnia whole-heart performance proxy; this is an explicit reduced-model assumption, not Emax equivalence.',
 });
 
+const ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS=Object.freeze({
+  baselinePaco2MmHg:40,
+  humanArdsPaco2MmHg:80,
+  humanArdsHrRatio:95/89,
+  humanCitation:
+    'Weber T et al. Am J Respir Crit Care Med. 2000;162:1361-1365. PMID 11029345. Unbuffered ARDS permissive hypercapnia target PaCO2 80 mmHg: HR 89 -> 95/min.',
+  humanCrossCheck:
+    'Mekontso Dessap A et al. Intensive Care Med. 2009;35:1850-1858. PMID 19652953. Severe ARDS: PaCO2 52 -> 71-75 mmHg; HR 108 -> 113-114/min.',
+  severePaco2MmHg:110,
+  severeHrRatio:154/117,
+  severeCitation:
+    'Brofman JD et al. J Appl Physiol. 1990;69:710-717. PMID 2121704. Acute hypercapnic acidosis in swine: HR 117 -> 154/min; PaCO2 reached 110 Torr.',
+  projection:
+    'Representative chronotropic floor: piecewise linear interpolation between published ratios; severe endpoint is species-limited and no extrapolation beyond PaCO2 110 mmHg.',
+  clinicalValidation:false,
+});
+
 const HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR=Object.freeze({
   normalPaco2MmHg:45,
   challengePaco2MmHg:110,
@@ -10515,6 +10532,24 @@ function hypercapnicSystemicResistanceRatio(paco2MmHg){
   const t=(paco2MmHg-a.normalPaco2MmHg)/
     (a.challengePaco2MmHg-a.normalPaco2MmHg);
   return 1+t*(challengeRatio-1);
+}
+
+function ardsHypercapnicChronotropyRatio(paco2MmHg){
+  nonNegative(paco2MmHg,'paco2MmHg');
+  const a=ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS;
+  if(paco2MmHg<=a.baselinePaco2MmHg) return 1;
+  if(paco2MmHg<=a.humanArdsPaco2MmHg){
+    const t=(paco2MmHg-a.baselinePaco2MmHg)/
+      (a.humanArdsPaco2MmHg-a.baselinePaco2MmHg);
+    return 1+t*(a.humanArdsHrRatio-1);
+  }
+  if(paco2MmHg>=a.severePaco2MmHg){
+    return a.severeHrRatio;
+  }
+  const t=(paco2MmHg-a.humanArdsPaco2MmHg)/
+    (a.severePaco2MmHg-a.humanArdsPaco2MmHg);
+  return a.humanArdsHrRatio+
+    t*(a.severeHrRatio-a.humanArdsHrRatio);
 }
 
 function respiratoryAcidosisContractilityMultiplier({
@@ -10611,8 +10646,18 @@ function createV2SourceAutonomicController({baseline}={}){
       referenceEffectors=Object.freeze({...e.absolute});
     }
 
-    const heartPeriodSec=positive(e.absolute.heartPeriodSec,'heartPeriodSec');
-    const heartRatePerMin=60/heartPeriodSec;
+    const sourceHeartPeriodSec=
+      positive(e.absolute.heartPeriodSec,'heartPeriodSec');
+    const sourceHeartRatePerMin=60/sourceHeartPeriodSec;
+    const hypercapnicChronotropyRatio=
+      ardsHypercapnicChronotropyRatio(arterialPco2MmHg);
+    const hypercapnicRepresentativeFloorPerMin=
+      baseline.heartRatePerMin*hypercapnicChronotropyRatio;
+    const heartRatePerMin=Math.max(
+      sourceHeartRatePerMin,
+      hypercapnicRepresentativeFloorPerMin
+    );
+    const heartPeriodSec=60/heartRatePerMin;
 
     const systemicResistanceNow=
       positive(e.absolute.Rsp+e.absolute.Rep,'source systemic resistance');
@@ -10660,6 +10705,9 @@ function createV2SourceAutonomicController({baseline}={}){
 
     last=Object.freeze({
       heartRatePerMin,
+      sourceHeartRatePerMin,
+      hypercapnicChronotropyRatio,
+      hypercapnicRepresentativeFloorPerMin,
       leftContractilityMultiplier,
       rightContractilityMultiplier,
       acidoticContractilityMultiplier,
@@ -10674,7 +10722,8 @@ function createV2SourceAutonomicController({baseline}={}){
       pulmonaryArterialConductanceMultiplier:1,
       sourceSystemicResistanceRatio:systemicResistanceRatio,
       sourceVenousV0Ratio:sourceVenousV0Now/sourceVenousV0Ref,
-      sourceHeartPeriodSec:heartPeriodSec,
+      sourceHeartPeriodSec,
+      appliedHeartPeriodSec:heartPeriodSec,
       afferents:Object.freeze({
         fAbSpikesPerSec:b.fAbSpikesPerSec,
         fAcSpikesPerSec:a.fAcSpikesPerSec,
@@ -10726,6 +10775,8 @@ module.exports=Object.freeze({
   RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
   SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS,
   HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR,
+  ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS,
+  ardsHypercapnicChronotropyRatio,
   respiratoryAcidosisContractilityMultiplier,
   severeHypercapniaContractilityMultiplier,
   hypercapnicSystemicResistanceRatio,
@@ -11711,7 +11762,7 @@ const ASPHYXIAL_COLLAPSE_ENVELOPE=Object.freeze({
   citation:
     'DeBehnke DJ et al. Resuscitation. 1995;30:169-175. PMID 8560107. At loss of aortic fluctuation: pH 7.03 +/- 0.07, PaCO2 93 +/- 19 mmHg, with a tachycardia/hypertension -> bradycardia/hypotension trajectory.',
   role:
-    'experimental asphyxial collapse envelope; not a universal patient death threshold',
+    'experimental asphyxial collapse envelope; v2.4 uses falling MAP plus falling forward cardiac output as the reduced-circulation surrogate for the reported loss of aortic fluctuations; not a universal patient death threshold',
 });
 
 function finite(v,label){
@@ -11734,6 +11785,7 @@ function createV24TerminalStateController(){
   let arrestRhythm=null;
   let referenceHeartRatePerMin=null;
   let referenceMapMmHg=null;
+  let referenceCardiacOutputMlPerMin=null;
   let last=null;
 
   function step({
@@ -11759,17 +11811,19 @@ function createV24TerminalStateController(){
     if(referenceHeartRatePerMin==null && heartRatePerMin!=null){
       referenceHeartRatePerMin=heartRatePerMin;
     }
+    if(referenceCardiacOutputMlPerMin==null && cardiacOutputMlPerMin>0){
+      referenceCardiacOutputMlPerMin=cardiacOutputMlPerMin;
+    }
 
     const asphyxialEnvelopeReached=
       oxygenDeficit&&oxygenDeficit.supplyDependent===true &&
       arterialPh!=null &&
       arterialPco2MmHg!=null &&
-      heartRatePerMin!=null &&
-      referenceHeartRatePerMin!=null &&
       referenceMapMmHg!=null &&
+      referenceCardiacOutputMlPerMin!=null &&
       arterialPh<=ASPHYXIAL_COLLAPSE_ENVELOPE.arterialPh &&
       arterialPco2MmHg>=ASPHYXIAL_COLLAPSE_ENVELOPE.arterialPco2MmHg &&
-      heartRatePerMin<referenceHeartRatePerMin &&
+      cardiacOutputMlPerMin<referenceCardiacOutputMlPerMin &&
       meanArterialPressureMmHg<referenceMapMmHg;
 
     if(!cardiacArrest){
@@ -11817,6 +11871,7 @@ function createV24TerminalStateController(){
       asphyxialEnvelopeReached,
       referenceHeartRatePerMin,
       referenceMapMmHg,
+      referenceCardiacOutputMlPerMin,
       heartRatePerMin,
       arterialPh,
       arterialPco2MmHg,
