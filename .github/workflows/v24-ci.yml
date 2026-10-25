@@ -33,6 +33,8 @@ jobs:
         run: node test/v24_terminal_state_controller.test.js
       - name: v2.4 autonomic extremis diagnostic
         run: node test/v24_autonomic_extremis_diagnostic.js
+      - name: Albanese 2016 autonomic diagnostic
+        run: node test/albanese_2016_autonomic_diagnostic.js
       - name: v2.4 Albanese HR shadow diagnostic
         run: node test/v24_albanese_hr_shadow_diagnostic.js
       - name: v2.4 Albanese autonomic diagnostic
