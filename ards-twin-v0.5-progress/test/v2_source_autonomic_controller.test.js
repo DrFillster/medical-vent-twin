@@ -4,6 +4,7 @@ const {
   createV2SourceAutonomicController,
   severeHypercapniaContractilityMultiplier,
   hypercapnicSystemicResistanceRatio,
+  ardsHypercapnicChronotropyRatio,
 }=require('../src/v2_source_autonomic_controller.js');
 
 let passed=0,failed=0;
@@ -124,6 +125,49 @@ test('hypercapnic systemic vasodilation is bounded at the swine anchor',()=>{
   assert(challenge<1&&challenge>0);
   assert(Math.abs(extreme-challenge)<1e-12,
     'must not extrapolate SVR below the published hypercapnia anchor');
+});
+
+test('ARDS hypercapnia chronotropy uses published bounded ratios',()=>{
+  const r40=ardsHypercapnicChronotropyRatio(40);
+  const r80=ardsHypercapnicChronotropyRatio(80);
+  const r110=ardsHypercapnicChronotropyRatio(110);
+  const r400=ardsHypercapnicChronotropyRatio(400);
+  assert(Math.abs(r40-1)<1e-12);
+  assert(Math.abs(r80-(95/89))<1e-12);
+  assert(Math.abs(r110-(154/117))<1e-12);
+  assert(Math.abs(r400-r110)<1e-12,
+    'severe chronotropic anchor must not extrapolate beyond PaCO2 110');
+});
+
+test('elevated MAP cannot drive HR below published hypercapnic representative floor',()=>{
+  const c=makeController();
+  let s;
+  for(let i=0;i<600;i++){
+    s=c.step({
+      dtSec:0.1,
+      meanArterialPressureMmHg:82,
+      tidalVolumeL:0.42,
+      arterialPo2MmHg:90,
+      arterialPco2MmHg:40,
+      arterialPh:7.40,
+    });
+  }
+  for(let i=0;i<1200;i++){
+    s=c.step({
+      dtSec:0.1,
+      meanArterialPressureMmHg:104,
+      tidalVolumeL:0.10,
+      arterialPo2MmHg:35,
+      arterialPco2MmHg:110,
+      arterialPh:6.90,
+    });
+  }
+  assert(s.sourceHeartRatePerMin<75,
+    'source Ursino/Magosso branch should demonstrate the diagnosed bradycardic pressure response');
+  assert(s.heartRatePerMin>=75*(154/117)-1e-9,
+    'applied HR must respect the bounded severe hypercapnic chronotropic anchor');
+  assert(s.heartRatePerMin>s.sourceHeartRatePerMin,
+    'published ARDS/severe-hypercapnia evidence should override the inappropriate bradycardic extrapolation');
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
