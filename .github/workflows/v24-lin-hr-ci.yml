@@ -1,0 +1,35 @@
+name: v2.4 Lin HR Experimental CI
+
+on:
+  push:
+    branches: [v2.4-lin-hr]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lin-hr:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build
+        run: npm run build
+      - name: Lin 2012 gas interaction
+        run: node test/v24_lin_2012_baro_chemoreflex_interaction.test.js
+      - name: Lin 2012 steady-state HR equations
+        run: node test/v24_lin_2012_steady_state_hr_candidate.test.js
+      - name: Lin 2012 patient operating-point shadow
+        run: node test/v24_lin_2012_hr_projection_shadow.test.js
+      - name: Existing v2.4 autonomic regression
+        run: node test/v2_source_autonomic_controller.test.js
+      - name: Existing v2.4 live patient regression
+        run: node test/clinical_twin_live_hummod_session.test.js
+      - name: Verify deployable web
+        run: npm run verify:deploy
