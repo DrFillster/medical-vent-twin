@@ -83,13 +83,15 @@ test('asphyxial source envelope requires gas failure plus hemodynamic deteriorat
     dtSec:1,
     meanArterialPressureMmHg:40,
     cardiacOutputMlPerMin:700,
-    heartRatePerMin:40,
+    heartRatePerMin:100,
     arterialPh:6.9,
     arterialPco2MmHg:120,
     oxygenDeficit:{supplyDependent:true,cumulativeOxygenDeficitMl:100,cumulativeFractionalDeficitMin:1},
   });
   assert(s.cardiacArrest===true);
   assert(s.cardiacArrestReason==='asphyxial-hemodynamic-collapse-envelope');
+  assert(s.referenceCardiacOutputMlPerMin===5000,
+    'source envelope should compare forward flow with the patient baseline rather than require bradycardia');
   assert(s.elapsedAsphyxiaTimerUsed===false);
   assert(s.oxygenDebtDeathThresholdUsed===false);
 });
