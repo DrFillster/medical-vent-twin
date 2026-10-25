@@ -25,6 +25,28 @@ test('published Lin steady-state controller is finite at baseline',()=>{
   assert(s.dynamicAuthority===false);
 });
 
+
+test('Lin baroreflex signs are source-consistent',()=>{
+  const low=evaluateLin2012SteadyState({
+    meanArterialPressureMmHg:70,
+    arterialPo2MmHg:90,
+    arterialPco2MmHg:40,
+  });
+  const high=evaluateLin2012SteadyState({
+    meanArterialPressureMmHg:110,
+    arterialPo2MmHg:90,
+    arterialPco2MmHg:40,
+  });
+  assert(high.pressureErrorMmHg>low.pressureErrorMmHg,
+    'Eq13 pressure error should increase with MAP at fixed demand pressure');
+  assert(high.sympatheticHz<low.sympatheticHz,
+    'higher MAP should reduce Lin sympathetic outflow');
+  assert(high.parasympatheticHz>low.parasympatheticHz,
+    'higher MAP should increase Lin parasympathetic outflow');
+  assert(high.heartRatePerMin<low.heartRatePerMin,
+    'higher MAP should reduce HR through the source baroreflex');
+});
+
 test('severe hypoxia/hypercapnia resets baroreflex operating point upward',()=>{
   const b=evaluateLin2012SteadyState({
     meanArterialPressureMmHg:104,
