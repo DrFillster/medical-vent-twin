@@ -44,7 +44,7 @@ const ASPHYXIAL_COLLAPSE_ENVELOPE=Object.freeze({
   citation:
     'DeBehnke DJ et al. Resuscitation. 1995;30:169-175. PMID 8560107. At loss of aortic fluctuation: pH 7.03 +/- 0.07, PaCO2 93 +/- 19 mmHg, with a tachycardia/hypertension -> bradycardia/hypotension trajectory.',
   role:
-    'experimental asphyxial collapse envelope; not a universal patient death threshold',
+    'experimental asphyxial collapse envelope; v2.4 uses falling MAP plus falling forward cardiac output as the reduced-circulation surrogate for the reported loss of aortic fluctuations; not a universal patient death threshold',
 });
 
 function finite(v,label){
@@ -67,6 +67,7 @@ function createV24TerminalStateController(){
   let arrestRhythm=null;
   let referenceHeartRatePerMin=null;
   let referenceMapMmHg=null;
+  let referenceCardiacOutputMlPerMin=null;
   let last=null;
 
   function step({
@@ -92,17 +93,19 @@ function createV24TerminalStateController(){
     if(referenceHeartRatePerMin==null && heartRatePerMin!=null){
       referenceHeartRatePerMin=heartRatePerMin;
     }
+    if(referenceCardiacOutputMlPerMin==null && cardiacOutputMlPerMin>0){
+      referenceCardiacOutputMlPerMin=cardiacOutputMlPerMin;
+    }
 
     const asphyxialEnvelopeReached=
       oxygenDeficit&&oxygenDeficit.supplyDependent===true &&
       arterialPh!=null &&
       arterialPco2MmHg!=null &&
-      heartRatePerMin!=null &&
-      referenceHeartRatePerMin!=null &&
       referenceMapMmHg!=null &&
+      referenceCardiacOutputMlPerMin!=null &&
       arterialPh<=ASPHYXIAL_COLLAPSE_ENVELOPE.arterialPh &&
       arterialPco2MmHg>=ASPHYXIAL_COLLAPSE_ENVELOPE.arterialPco2MmHg &&
-      heartRatePerMin<referenceHeartRatePerMin &&
+      cardiacOutputMlPerMin<referenceCardiacOutputMlPerMin &&
       meanArterialPressureMmHg<referenceMapMmHg;
 
     if(!cardiacArrest){
@@ -150,6 +153,7 @@ function createV24TerminalStateController(){
       asphyxialEnvelopeReached,
       referenceHeartRatePerMin,
       referenceMapMmHg,
+      referenceCardiacOutputMlPerMin,
       heartRatePerMin,
       arterialPh,
       arterialPco2MmHg,
