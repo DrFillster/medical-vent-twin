@@ -664,3 +664,31 @@ CI at commit 5814e83ce5611eac90d44d1b6d4cf98f69a83084 passed:
 
 Remaining blocker before live cutover:
 The full dynamic Lin controller must be ported without inventing tau_c or ambiguous source notation. Until then the Lin implementation remains diagnostic/shadow-only and the empirical HR floor must not be considered accepted physiology.
+
+
+## v2.4 Albanese lung-stretch source audit — 2026-10-25
+Status: SOURCE CORRECTION / NO PHYSIOLOGY CHANGE
+
+Primary-source verification:
+- Albanese et al. 2016 cardiovascular control explicitly uses tidal volume (V_T) as the input to the lung-stretch receptor pathway in Fig. 10.
+- The published modified lung-stretch gain is G_asr = 11.76 spikes/s/L.
+- The cardiovascular-control equations remain based on the Ursino/Magosso family; Albanese does not replace the autonomic lung-stretch stimulus with PEEP, mean airway pressure, end-expiratory lung volume, or absolute alveolar volume.
+- Therefore, replacing V_T with an FRC/PEEP/absolute-volume term and labeling it “Albanese” would be an unsupported model modification.
+
+Existing diagnostic:
+- the source-faithful Albanese Table-7 candidate has already been run with the existing heart-period effector.
+- baseline HR: ~62.8/min.
+- severe gas + MAP 104: ~48.5/min.
+- severe gas + MAP 70: ~73.0/min.
+- Albanese Table-7 calibration alone therefore does not remove the high-MAP severe-gas bradycardia.
+
+Mechanical-ventilation distinction:
+- Karamolegkos et al. 2021 adds PEEP/PPV heart-lung mechanics using alveolar volume, pleural pressure, pericardium, septal interaction, and pulmonary-vessel compression.
+- Those mechanical pathways are separate from the Albanese autonomic V_T -> lung-stretch afferent.
+- v2.1 already contains a source-coordinate pulmonary mechanics/vascular path for this role.
+
+Decision:
+- do NOT add an empirical PaCO2 -> HR floor as accepted physiology.
+- do NOT invent an alveolar-volume/PEEP -> autonomic stretch mapping and attribute it to Albanese.
+- retain the Albanese candidate as a source-fidelity diagnostic.
+- continue the Lin 2012 baro-chemoreflex/heart-rate controller as the current published replacement candidate because its severe-gas high-MAP result is directionally credible without a target-HR floor.
