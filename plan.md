@@ -604,3 +604,63 @@ Final focused CI at commit f6fa88141ac869b59b532977fa9c1562d7c3cc75:
 - autonomic extremis diagnostic: pass
 - live patient/extremis regression: pass
 - deployable web verification: pass
+
+
+## v2.4 HR replacement - Lin 2012 steady-state source-model result
+Date: 2026-10-25
+Status: PROMISING SOURCE MODEL / NOT YET LIVE
+
+The empirical PaCO2->minimum-HR interpolation is rejected as final physiology.
+
+A primary-source steady-state implementation of Lin, Ngwompo & Tilley 2012 Eqs. 12-31 was added:
+- src/lin_2012_steady_state_hr_candidate.js
+- test/v24_lin_2012_steady_state_hr_candidate.test.js
+
+No HR target, fitted gain, or PaCO2->HR interpolation is present.
+
+At steady state the dynamic filters/delays have unit DC gain, allowing the published static relationship to be tested without inventing the unlisted central-compartment tau_c.
+
+Key source mechanisms:
+- Eq. 30: hypoxia/hypercapnia reset the baroreflex operating pressure.
+- Eq. 31: hypercapnia increases sympathetic gain.
+- Eqs. 14-17: published SNA/PNA sigmoids.
+- Eqs. 18-28: published nonlinear sympathetic/vagal heart-rate effector.
+- Figure 3 supplies the inhibitory sign of the vagal branch.
+
+Fixed result:
+- normal gas, MAP 104: HR 106.3/min
+- severe gas (PaO2 35, PaCO2 110), MAP 104: HR 112.9/min
+- severe gas, MAP 70: HR 116.9/min
+
+MAP sweep (normal vs severe gas) produced:
+- MAP 60: 109.8 vs 118.0
+- MAP 70: 109.0 vs 116.9
+- MAP 80: 108.2 vs 115.8
+- MAP 90: 107.4 vs 114.6
+- MAP 100: 106.6 vs 113.4
+- MAP 104: 106.3 vs 112.9
+- MAP 110: 105.8 vs 112.2
+
+Thus the published Lin baro-chemoreflex interaction does NOT reproduce the inappropriate high-MAP bradycardia seen in the current Ursino/Magosso path.
+
+Mechanism at MAP 104:
+- normal demand pressure: 92.68 mmHg
+- severe-gas demand pressure: 119.88 mmHg
+- normal SNA: 2.93 Hz
+- severe-gas SNA: 5.33 Hz
+- normal PNA: 3.53 Hz
+- severe-gas PNA: 2.98 Hz
+
+Interpretation:
+Severe gas stress resets the operating point above the observed MAP and increases central sympathetic gain, so a MAP of 104 mmHg no longer falsely behaves as dominant hypertension requiring marked vagal braking.
+
+Gate:
+CI at commit 5814e83ce5611eac90d44d1b6d4cf98f69a83084 passed:
+- Lin Eq30/31 tests
+- Lin steady-state HR candidate tests
+- all prior v2.0-v2.4 regressions
+- live patient regression
+- deployable-web verification
+
+Remaining blocker before live cutover:
+The full dynamic Lin controller must be ported without inventing tau_c or ambiguous source notation. Until then the Lin implementation remains diagnostic/shadow-only and the empirical HR floor must not be considered accepted physiology.
