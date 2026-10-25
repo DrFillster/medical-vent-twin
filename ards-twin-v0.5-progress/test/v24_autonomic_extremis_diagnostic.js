@@ -94,5 +94,21 @@ console.log(JSON.stringify({
     fV:challenge.autonomic.fVSpikesPerSec,
     heartPeriod:challenge.sourceHeartPeriodSec,
     effectors:challenge.effectors,
+  },
+  lowMapSameGas:{
+    hr:lowMapChallenge.heartRatePerMin,
+    fAb:lowMapChallenge.afferents.fAbSpikesPerSec,
+    fAc:lowMapChallenge.afferents.fAcSpikesPerSec,
+    fSh:lowMapChallenge.autonomic.fShSpikesPerSec,
+    fV:lowMapChallenge.autonomic.fVSpikesPerSec,
+    heartPeriod:lowMapChallenge.sourceHeartPeriodSec,
+  },
+  normalVtSameGasHighMap:{
+    hr:normalVtChallenge.heartRatePerMin,
+    fAb:normalVtChallenge.afferents.fAbSpikesPerSec,
+    fAc:normalVtChallenge.afferents.fAcSpikesPerSec,
+    fSh:normalVtChallenge.autonomic.fShSpikesPerSec,
+    fV:normalVtChallenge.autonomic.fVSpikesPerSec,
+    heartPeriod:normalVtChallenge.sourceHeartPeriodSec,
   }
 },null,2));
