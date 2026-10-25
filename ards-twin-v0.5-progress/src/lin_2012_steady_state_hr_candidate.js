@@ -19,9 +19,14 @@
  * 18-28: nonlinear sympathetic/parasympathetic heart-rate effector
  * 30-31: peripheral baroreflex reset + central sympathetic-gain response
  *
- * Important sign convention:
- * Figure 3 shows the vagal branch entering the HR summation as inhibitory.
- * Therefore DeltaHR_v is negative for positive PNA.
+ * Important sign conventions:
+ * - Eq. 13 defines P_error = P_aff - filtered(P_demand). At steady state this
+ *   is P_aff - P_demand, not the reverse.
+ * - Eqs. 14 and 16 are implemented with the published sigmoid orientation:
+ *   (min + max*exp(P_error/k))/(1+exp(P_error/k)). With Table-A2 slopes,
+ *   increasing pressure error decreases SNA and increases PNA.
+ * - Figure 3 shows the vagal branch entering the HR summation as inhibitory.
+ *   Therefore DeltaHR_v is negative for positive PNA.
  *
  * Important parameter-ratio convention:
  * Eqs. 22, 24 and 27 are implemented as k0/G0. This is the dimensionally
@@ -117,7 +122,7 @@ function sympatheticOutflowBaseHz(pressureErrorMmHg){
     max:p.maxHz,min:p.minHz,slopeAtOperatingPoint:p.slopeAtOperatingPoint,
   });
   const e=Math.exp(pressureErrorMmHg/k);
-  return (p.maxHz+p.minHz*e)/(1+e);
+  return (p.minHz+p.maxHz*e)/(1+e);
 }
 
 function parasympatheticOutflowHz(pressureErrorMmHg){
@@ -127,7 +132,7 @@ function parasympatheticOutflowHz(pressureErrorMmHg){
     max:p.maxHz,min:p.minHz,slopeAtOperatingPoint:p.slopeAtOperatingPoint,
   });
   const e=Math.exp(pressureErrorMmHg/k);
-  return (p.maxHz+p.minHz*e)/(1+e);
+  return (p.minHz+p.maxHz*e)/(1+e);
 }
 
 function sympatheticHeartRateGainBpmPerHz(sympatheticHz){
@@ -166,8 +171,9 @@ function evaluateLin2012SteadyState({
   const demandPressureMmHg=
     P.central.baseDemandPressureMmHg+peripheralResetMmHg;
 
-  // Eq. 13 at steady state.
-  const pressureErrorMmHg=demandPressureMmHg-afferentPressureMmHg;
+  // Eq. 13 at steady state. The dynamic source filters P_demand before the
+  // subtraction; at DC the filter has unity gain.
+  const pressureErrorMmHg=afferentPressureMmHg-demandPressureMmHg;
 
   // Eqs. 14-17.
   const sympatheticBaseHz=sympatheticOutflowBaseHz(pressureErrorMmHg);
