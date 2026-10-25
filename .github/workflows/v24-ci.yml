@@ -31,6 +31,8 @@ jobs:
         run: node test/v23_oxygen_deficit_state.test.js
       - name: v2.4 terminal-state regression
         run: node test/v24_terminal_state_controller.test.js
+      - name: v2.4 autonomic extremis diagnostic
+        run: node test/v24_autonomic_extremis_diagnostic.js
       - name: Live patient regression
         run: node test/clinical_twin_live_hummod_session.test.js
       - name: Verify deployable web
