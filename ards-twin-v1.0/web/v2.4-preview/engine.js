@@ -10415,14 +10415,8 @@ const {
 }=require("src/ursino_baroreceptor_shadow.js");
 
 const {
-  P:O2_2000_P,
-  firstOrderExact,
-  pulmonaryStretchStatic,
-}=require("src/ursino_magosso_autonomic_shadow.js");
-
-const {
-  createMagossoUrsinoGasAutonomicCandidate,
-}=require("src/magosso_ursino_2001_gas_autonomic_candidate.js");
+  createAlbanese2016AutonomicCandidate,
+}=require("src/albanese_2016_autonomic_candidate.js");
 
 const {
   createChannelizedEffectorCandidate,
@@ -10432,9 +10426,11 @@ const SOURCE=Object.freeze({
   baroreceptor:'Ursino 1998, doi:10.1152/ajpheart.1998.275.5.H1733',
   hypoxia:'Ursino & Magosso 2000, doi:10.1152/ajpheart.2000.279.1.H149',
   co2:'Magosso & Ursino 2001, doi:10.1152/ajpheart.2001.281.5.H2036',
+  integratedCalibration:'Albanese et al. 2016, doi:10.1152/ajpheart.00230.2014, Table 7',
+  integratedValidation:'Cheng et al. 2016, doi:10.1152/ajpheart.00923.2014',
   projection:
     'dimensionless source-effector change projected onto v1.0 lumped circulation',
-  authority:'v2.0-source-aligned-reduced-controller',
+  authority:'v2.4-albanese-integrated-source-controller',
 });
 
 const RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR=Object.freeze({
@@ -10456,23 +10452,6 @@ const SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS=Object.freeze({
     'Reversible impairment of myocardial contractility due to hypercarbic acidosis in the isolated perfused rat heart. PMID 1899209: PCO2 36 -> 146 torr, LVSP and dP/dt fell to ~20% of control.',
   projection:
     'The isolated-heart 20% LVSP/dPdt endpoint is used as a bounded severe-hypercapnia whole-heart performance proxy; this is an explicit reduced-model assumption, not Emax equivalence.',
-});
-
-const ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS=Object.freeze({
-  baselinePaco2MmHg:40,
-  humanArdsPaco2MmHg:80,
-  humanArdsHrRatio:95/89,
-  humanCitation:
-    'Weber T et al. Am J Respir Crit Care Med. 2000;162:1361-1365. PMID 11029345. Unbuffered ARDS permissive hypercapnia target PaCO2 80 mmHg: HR 89 -> 95/min.',
-  humanCrossCheck:
-    'Mekontso Dessap A et al. Intensive Care Med. 2009;35:1850-1858. PMID 19652953. Severe ARDS: PaCO2 52 -> 71-75 mmHg; HR 108 -> 113-114/min.',
-  severePaco2MmHg:110,
-  severeHrRatio:154/117,
-  severeCitation:
-    'Brofman JD et al. J Appl Physiol. 1990;69:710-717. PMID 2121704. Acute hypercapnic acidosis in swine: HR 117 -> 154/min; PaCO2 reached 110 Torr.',
-  projection:
-    'Representative chronotropic floor: piecewise linear interpolation between published ratios; severe endpoint is species-limited and no extrapolation beyond PaCO2 110 mmHg.',
-  clinicalValidation:false,
 });
 
 const HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR=Object.freeze({
@@ -10534,24 +10513,6 @@ function hypercapnicSystemicResistanceRatio(paco2MmHg){
   return 1+t*(challengeRatio-1);
 }
 
-function ardsHypercapnicChronotropyRatio(paco2MmHg){
-  nonNegative(paco2MmHg,'paco2MmHg');
-  const a=ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS;
-  if(paco2MmHg<=a.baselinePaco2MmHg) return 1;
-  if(paco2MmHg<=a.humanArdsPaco2MmHg){
-    const t=(paco2MmHg-a.baselinePaco2MmHg)/
-      (a.humanArdsPaco2MmHg-a.baselinePaco2MmHg);
-    return 1+t*(a.humanArdsHrRatio-1);
-  }
-  if(paco2MmHg>=a.severePaco2MmHg){
-    return a.severeHrRatio;
-  }
-  const t=(paco2MmHg-a.humanArdsPaco2MmHg)/
-    (a.severePaco2MmHg-a.humanArdsPaco2MmHg);
-  return a.humanArdsHrRatio+
-    t*(a.severeHrRatio-a.humanArdsHrRatio);
-}
-
 function respiratoryAcidosisContractilityMultiplier({
   arterialPh,
   arterialPco2MmHg,
@@ -10583,9 +10544,8 @@ function createV2SourceAutonomicController({baseline}={}){
   positive(baselineVenousV0Ml,'baseline.systemicVenousV0Ml');
 
   const baroreceptor=createUrsinoBaroreceptorShadow();
-  const gasAutonomic=createMagossoUrsinoGasAutonomicCandidate();
+  const gasAutonomic=createAlbanese2016AutonomicCandidate();
   let effectors=null;
-  let pulmonaryStretchSpikesPerSec=null;
   let referenceEffectors=null;
   let last=null;
 
@@ -10609,20 +10569,12 @@ function createV2SourceAutonomicController({baseline}={}){
       arterialPressureMmHg:meanArterialPressureMmHg,
     });
 
-    const pulmonaryStretchTarget=pulmonaryStretchStatic(tidalVolumeL);
-    pulmonaryStretchSpikesPerSec=firstOrderExact(
-      pulmonaryStretchSpikesPerSec,
-      pulmonaryStretchTarget,
-      dtSec,
-      O2_2000_P.pulmonaryStretch.tauSec
-    );
-
     const a=gasAutonomic.step({
       dtSec,
       pao2MmHg:arterialPo2MmHg,
       paco2MmHg:arterialPco2MmHg,
       fAbSpikesPerSec:b.fAbSpikesPerSec,
-      fApSpikesPerSec:pulmonaryStretchSpikesPerSec,
+      tidalVolumeL,
     });
 
     if(effectors==null){
@@ -10649,15 +10601,8 @@ function createV2SourceAutonomicController({baseline}={}){
     const sourceHeartPeriodSec=
       positive(e.absolute.heartPeriodSec,'heartPeriodSec');
     const sourceHeartRatePerMin=60/sourceHeartPeriodSec;
-    const hypercapnicChronotropyRatio=
-      ardsHypercapnicChronotropyRatio(arterialPco2MmHg);
-    const hypercapnicRepresentativeFloorPerMin=
-      baseline.heartRatePerMin*hypercapnicChronotropyRatio;
-    const heartRatePerMin=Math.max(
-      sourceHeartRatePerMin,
-      hypercapnicRepresentativeFloorPerMin
-    );
-    const heartPeriodSec=60/heartRatePerMin;
+    const heartRatePerMin=sourceHeartRatePerMin;
+    const heartPeriodSec=sourceHeartPeriodSec;
 
     const systemicResistanceNow=
       positive(e.absolute.Rsp+e.absolute.Rep,'source systemic resistance');
@@ -10706,8 +10651,6 @@ function createV2SourceAutonomicController({baseline}={}){
     last=Object.freeze({
       heartRatePerMin,
       sourceHeartRatePerMin,
-      hypercapnicChronotropyRatio,
-      hypercapnicRepresentativeFloorPerMin,
       leftContractilityMultiplier,
       rightContractilityMultiplier,
       acidoticContractilityMultiplier,
@@ -10727,7 +10670,7 @@ function createV2SourceAutonomicController({baseline}={}){
       afferents:Object.freeze({
         fAbSpikesPerSec:b.fAbSpikesPerSec,
         fAcSpikesPerSec:a.fAcSpikesPerSec,
-        fApSpikesPerSec:pulmonaryStretchSpikesPerSec,
+        fApSpikesPerSec:a.fApSpikesPerSec,
       }),
       autonomic:Object.freeze({
         fSpSpikesPerSec:a.fSpSpikesPerSec,
@@ -10775,8 +10718,6 @@ module.exports=Object.freeze({
   RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
   SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS,
   HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR,
-  ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS,
-  ardsHypercapnicChronotropyRatio,
   respiratoryAcidosisContractilityMultiplier,
   severeHypercapniaContractilityMultiplier,
   hypercapnicSystemicResistanceRatio,
@@ -10887,6 +10828,429 @@ function createUrsinoBaroreceptorShadow(){
 }
 
 module.exports={SOURCE,P,baroreceptorStatic,createUrsinoBaroreceptorShadow};
+
+},
+"src/albanese_2016_autonomic_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Albanese/Cheng/Ursino/Chbat 2016 cardiovascular-control calibration.
+ *
+ * Primary source:
+ * Albanese A, Cheng L, Ursino M, Chbat NW.
+ * Am J Physiol Heart Circ Physiol. 2016;310:H899-H921.
+ * doi:10.1152/ajpheart.00230.2014
+ *
+ * Table 7 reports the cardiovascular-control parameters that the authors
+ * changed from Ursino/Magosso because the original parameterization did not
+ * reproduce observed HR and arterial-pressure responses to hypercapnia and
+ * hypoxia.
+ *
+ * This module transcribes only those published modifications and delegates
+ * the remaining source-family equations to the existing Magosso/Ursino
+ * implementation.
+ */
+
+const {
+  P:BASE_P,
+  peripheralChemoreceptorStatic,
+  cnsHypoxiaStatic,
+  firstOrderExact,
+}=require("src/magosso_ursino_2001_gas_autonomic_candidate.js");
+
+const {
+  vagalFiring,
+}=require("src/ursino_magosso_autonomic_shadow.js");
+
+const SOURCE=Object.freeze({
+  citation:
+    'Albanese A, Cheng L, Ursino M, Chbat NW. Am J Physiol Heart Circ Physiol. 2016;310:H899-H921.',
+  doi:'10.1152/ajpheart.00230.2014',
+  table:'Table 7',
+  validation:
+    'Cheng L et al. Am J Physiol Heart Circ Physiol. 2016;310:H922-H937. doi:10.1152/ajpheart.00923.2014',
+  authority:'primary-source-calibrated-cardiovascular-control-candidate',
+  clinicalValidation:false,
+});
+
+const P=Object.freeze({
+  lungStretch:Object.freeze({
+    gainSpikesPerSecPerL:11.76,
+    tauSec:2,
+  }),
+  sympathetic:Object.freeze({
+    ...BASE_P.sympathetic,
+    weights:Object.freeze({
+      p:Object.freeze({baro:-1.1375,chemo:1.716,pulmonary:-0.3997}),
+      v:Object.freeze({baro:-1.0806,chemo:1.716,pulmonary:-0.2907}),
+      h:Object.freeze({baro:-1.75,chemo:1,pulmonary:0}),
+    }),
+  }),
+  cns:BASE_P.cns,
+  chemoreceptor:BASE_P.chemoreceptor,
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+
+function sympatheticFiring({
+  channel,
+  fAbSpikesPerSec,
+  fAcSpikesPerSec,
+  fApSpikesPerSec,
+  thetaSpikesPerSec,
+}={}){
+  nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
+  nonNegative(fAcSpikesPerSec,'fAcSpikesPerSec');
+  nonNegative(fApSpikesPerSec,'fApSpikesPerSec');
+  finite(thetaSpikesPerSec,'thetaSpikesPerSec');
+  const w=P.sympathetic.weights[channel];
+  if(!w) throw new Error('unknown sympathetic channel: '+channel);
+  const exponent=P.sympathetic.kSec*(
+    w.baro*fAbSpikesPerSec+
+    w.chemo*fAcSpikesPerSec+
+    w.pulmonary*fApSpikesPerSec-
+    thetaSpikesPerSec
+  );
+  const raw=P.sympathetic.fInfinitySpikesPerSec+
+    (P.sympathetic.f0SpikesPerSec-P.sympathetic.fInfinitySpikesPerSec)*
+    Math.exp(exponent);
+  return Math.min(P.sympathetic.fMaxSpikesPerSec,raw);
+}
+
+function createAlbanese2016AutonomicCandidate(){
+  let fAc=null;
+  let fAp=null;
+  const o2={p:null,v:null,h:null};
+  const co2={p:null,v:null,h:null};
+  let state=null;
+
+  function step({
+    dtSec,pao2MmHg,paco2MmHg,fAbSpikesPerSec,tidalVolumeL,
+  }={}){
+    nonNegative(dtSec,'dtSec');
+    nonNegative(pao2MmHg,'pao2MmHg');
+    finite(paco2MmHg,'paco2MmHg');
+    nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
+    nonNegative(tidalVolumeL,'tidalVolumeL');
+
+    const phi=peripheralChemoreceptorStatic({pao2MmHg,paco2MmHg});
+    fAc=firstOrderExact(fAc,phi,dtSec,P.chemoreceptor.tauSec);
+
+    const stretchTarget=P.lungStretch.gainSpikesPerSecPerL*tidalVolumeL;
+    fAp=firstOrderExact(fAp,stretchTarget,dtSec,P.lungStretch.tauSec);
+
+    const theta={};
+    for(const channel of ['p','v','h']){
+      const cp=P.cns[channel];
+      o2[channel]=firstOrderExact(
+        o2[channel],cnsHypoxiaStatic(pao2MmHg,channel),dtSec,P.cns.tauO2Sec
+      );
+      const co2Target=cp.gCo2PerMmHgSec*(paco2MmHg-P.cns.paco2NormalMmHg);
+      co2[channel]=firstOrderExact(
+        co2[channel],co2Target,dtSec,P.cns.tauCo2Sec
+      );
+      theta[channel]=cp.thetaNormalSpikesPerSec-o2[channel]-co2[channel];
+    }
+
+    const common={fAbSpikesPerSec,fAcSpikesPerSec:fAc,fApSpikesPerSec:fAp};
+    const fSp=sympatheticFiring({...common,channel:'p',thetaSpikesPerSec:theta.p});
+    const fSv=sympatheticFiring({...common,channel:'v',thetaSpikesPerSec:theta.v});
+    const fSh=sympatheticFiring({...common,channel:'h',thetaSpikesPerSec:theta.h});
+
+    // Albanese retains the Ursino/Magosso vagal source-family equation;
+    // the changed Table-7 parameter is the lung-stretch afferent gain.
+    const fV=vagalFiring({
+      fAbSpikesPerSec,
+      fAcSpikesPerSec:fAc,
+      fApSpikesPerSec:fAp,
+    });
+
+    state=Object.freeze({
+      pao2MmHg,paco2MmHg,tidalVolumeL,
+      fAbSpikesPerSec,
+      fAcSpikesPerSec:fAc,
+      fApSpikesPerSec:fAp,
+      fSpSpikesPerSec:fSp,
+      fSvSpikesPerSec:fSv,
+      fShSpikesPerSec:fSh,
+      fVSpikesPerSec:fV,
+      thetaSp:theta.p,thetaSv:theta.v,thetaSh:theta.h,
+      provenance:SOURCE,
+    });
+    return state;
+  }
+
+  return Object.freeze({
+    kind:'albanese-2016-autonomic-candidate',
+    step,
+    snapshot:()=>state,
+    source:SOURCE,
+    parameters:P,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,P,sympatheticFiring,createAlbanese2016AutonomicCandidate,
+});
+
+},
+"src/magosso_ursino_2001_gas_autonomic_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Exact candidate transcription of Magosso & Ursino 2001 Eqs. 1-7.
+ * DOI: 10.1152/ajpheart.2001.281.5.H2036
+ *
+ * Candidate only. No control authority.
+ */
+
+const {
+  vagalFiring,
+}=require("src/ursino_magosso_autonomic_shadow.js");
+
+const SOURCE=Object.freeze({
+  citation:
+    'Magosso E, Ursino M. A mathematical model of CO2 effect on cardiovascular regulation. Am J Physiol Heart Circ Physiol. 2001;281:H2036-H2052.',
+  doi:'10.1152/ajpheart.2001.281.5.H2036',
+  pmid:'11668065',
+  equations:Object.freeze([1,2,3,4,5,6,7]),
+  authority:'candidate-not-canonical',
+});
+
+const P=Object.freeze({
+  chemoreceptor:Object.freeze({
+    fMaxSpikesPerSec:12.3,
+    fMinSpikesPerSec:0.835,
+    po2MidMmHg:45,
+    kO2MmHg:29.27,
+    kHigh:3,
+    co2Offset:1.4,
+    paco2NormalMmHg:40,
+    tauSec:2,
+  }),
+  sympathetic:Object.freeze({
+    fInfinitySpikesPerSec:2.10,
+    f0SpikesPerSec:16.11,
+    fMaxSpikesPerSec:60,
+    kSec:0.0675,
+    weights:Object.freeze({
+      p:Object.freeze({baro:-1,chemo:5,pulmonary:-0.34}),
+      v:Object.freeze({baro:-1,chemo:5,pulmonary:-0.34}),
+      h:Object.freeze({baro:-1,chemo:1,pulmonary:0}),
+    }),
+  }),
+  cns:Object.freeze({
+    tauO2Sec:30,
+    tauCo2Sec:20,
+    paco2NormalMmHg:40,
+    p:Object.freeze({
+      chiSpikesPerSec:6,
+      po2MidMmHg:30,
+      kMmHg:2,
+      gCo2PerMmHgSec:1.5,
+      thetaNormalSpikesPerSec:13.32,
+    }),
+    v:Object.freeze({
+      chiSpikesPerSec:6,
+      po2MidMmHg:30,
+      kMmHg:2,
+      gCo2PerMmHgSec:0,
+      thetaNormalSpikesPerSec:13.32,
+    }),
+    h:Object.freeze({
+      chiSpikesPerSec:53,
+      po2MidMmHg:45,
+      kMmHg:6,
+      gCo2PerMmHgSec:1,
+      thetaNormalSpikesPerSec:3.6,
+    }),
+  }),
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+function firstOrderExact(current,target,dtSec,tauSec){
+  finite(target,'target');
+  nonNegative(dtSec,'dtSec');
+  finite(tauSec,'tauSec');
+  if(!(tauSec>0)) throw new Error('tauSec must be > 0');
+  if(current==null) return target;
+  finite(current,'current');
+  if(dtSec===0) return current;
+  const d=Math.exp(-dtSec/tauSec);
+  return target+(current-target)*d;
+}
+
+// Primary Eq. 1 piecewise coefficient.
+// Boundary convention follows later published transcription: 40 <= PaO2 <= 80
+// uses the middle branch. Values themselves are unchanged from the 2001 paper.
+function co2InteractionK(pao2MmHg){
+  nonNegative(pao2MmHg,'pao2MmHg');
+  const kh=P.chemoreceptor.kHigh;
+  if(pao2MmHg>80) return kh;
+  if(pao2MmHg>=40) return kh-1.2*((pao2MmHg-80)/30);
+  return kh-1.6;
+}
+
+// Magosso & Ursino 2001 Eq. 1.
+function peripheralChemoreceptorStatic({pao2MmHg,paco2MmHg}={}){
+  nonNegative(pao2MmHg,'pao2MmHg');
+  finite(paco2MmHg,'paco2MmHg');
+  if(!(paco2MmHg>0)) throw new Error('paco2MmHg must be > 0');
+  const p=P.chemoreceptor;
+  const e=Math.exp((pao2MmHg-p.po2MidMmHg)/p.kO2MmHg);
+  const oxygenSigmoid=(p.fMaxSpikesPerSec+p.fMinSpikesPerSec*e)/(1+e);
+  const k=co2InteractionK(pao2MmHg);
+  return oxygenSigmoid*(k*Math.log(paco2MmHg/p.paco2NormalMmHg)+p.co2Offset);
+}
+
+// Eq. 4.
+function cnsHypoxiaStatic(pao2MmHg,channel){
+  nonNegative(pao2MmHg,'pao2MmHg');
+  const p=P.cns[channel];
+  if(!p) throw new Error('unknown CNS channel: '+channel);
+  return p.chiSpikesPerSec/
+    (1+Math.exp((pao2MmHg-p.po2MidMmHg)/p.kMmHg));
+}
+
+// Eq. 3.
+function sympatheticFiring({
+  channel,
+  fAbSpikesPerSec,
+  fAcSpikesPerSec,
+  fApSpikesPerSec,
+  thetaSpikesPerSec,
+}={}){
+  nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
+  nonNegative(fAcSpikesPerSec,'fAcSpikesPerSec');
+  nonNegative(fApSpikesPerSec,'fApSpikesPerSec');
+  finite(thetaSpikesPerSec,'thetaSpikesPerSec');
+  const w=P.sympathetic.weights[channel];
+  if(!w) throw new Error('unknown sympathetic channel: '+channel);
+  const exponent=P.sympathetic.kSec*(
+    w.baro*fAbSpikesPerSec+
+    w.chemo*fAcSpikesPerSec+
+    w.pulmonary*fApSpikesPerSec-
+    thetaSpikesPerSec
+  );
+  const raw=P.sympathetic.fInfinitySpikesPerSec+
+    (P.sympathetic.f0SpikesPerSec-P.sympathetic.fInfinitySpikesPerSec)*
+    Math.exp(exponent);
+  return Math.min(P.sympathetic.fMaxSpikesPerSec,raw);
+}
+
+function createMagossoUrsinoGasAutonomicCandidate(){
+  let fAc=null;
+  const o2={p:null,v:null,h:null};
+  const co2={p:null,v:null,h:null};
+  let state=Object.freeze({
+    authority:SOURCE.authority,
+    fAcSpikesPerSec:null,
+    thetaSp:null,thetaSv:null,thetaSh:null,
+    fSpSpikesPerSec:null,fSvSpikesPerSec:null,fShSpikesPerSec:null,
+    fVSpikesPerSec:null,
+    provenance:SOURCE,
+  });
+
+  function step({
+    dtSec,
+    pao2MmHg,
+    paco2MmHg,
+    fAbSpikesPerSec,
+    fApSpikesPerSec,
+  }={}){
+    nonNegative(dtSec,'dtSec');
+    nonNegative(pao2MmHg,'pao2MmHg');
+    finite(paco2MmHg,'paco2MmHg');
+    nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
+    nonNegative(fApSpikesPerSec,'fApSpikesPerSec');
+
+    const phi=peripheralChemoreceptorStatic({pao2MmHg,paco2MmHg});
+    fAc=firstOrderExact(fAc,phi,dtSec,P.chemoreceptor.tauSec);
+
+    const theta={};
+    for(const channel of ['p','v','h']){
+      const cp=P.cns[channel];
+      o2[channel]=firstOrderExact(
+        o2[channel],
+        cnsHypoxiaStatic(pao2MmHg,channel),
+        dtSec,
+        P.cns.tauO2Sec
+      );
+      const co2Target=cp.gCo2PerMmHgSec*
+        (paco2MmHg-P.cns.paco2NormalMmHg);
+      co2[channel]=firstOrderExact(
+        co2[channel],
+        co2Target,
+        dtSec,
+        P.cns.tauCo2Sec
+      );
+      // Eq. 7.
+      theta[channel]=cp.thetaNormalSpikesPerSec-o2[channel]-co2[channel];
+    }
+
+    const common={fAbSpikesPerSec,fAcSpikesPerSec:fAc,fApSpikesPerSec};
+    const fSp=sympatheticFiring({...common,channel:'p',thetaSpikesPerSec:theta.p});
+    const fSv=sympatheticFiring({...common,channel:'v',thetaSpikesPerSec:theta.v});
+    const fSh=sympatheticFiring({...common,channel:'h',thetaSpikesPerSec:theta.h});
+    // The 2001 extension adds CO2-aware f_ac and separated sympathetic
+    // channels. Cardiac vagal output retains the source 2000 Eq. 23 pathway:
+    // baroreceptor + chemoreceptor + pulmonary-stretch inputs, with no direct
+    // PaCO2-to-heart-rate term.
+    const fV=vagalFiring({
+      fAbSpikesPerSec,
+      fAcSpikesPerSec:fAc,
+      fApSpikesPerSec,
+    });
+
+    state=Object.freeze({
+      pao2MmHg,paco2MmHg,
+      fAbSpikesPerSec,fApSpikesPerSec,
+      staticChemoreceptorTargetSpikesPerSec:phi,
+      co2InteractionK:co2InteractionK(pao2MmHg),
+      fAcSpikesPerSec:fAc,
+      deltaThetaO2Sp:o2.p,
+      deltaThetaO2Sv:o2.v,
+      deltaThetaO2Sh:o2.h,
+      deltaThetaCo2Sp:co2.p,
+      deltaThetaCo2Sv:co2.v,
+      deltaThetaCo2Sh:co2.h,
+      thetaSp:theta.p,
+      thetaSv:theta.v,
+      thetaSh:theta.h,
+      fSpSpikesPerSec:fSp,
+      fSvSpikesPerSec:fSv,
+      fShSpikesPerSec:fSh,
+      fVSpikesPerSec:fV,
+      authority:SOURCE.authority,
+      provenance:SOURCE,
+    });
+    return state;
+  }
+
+  return Object.freeze({step,snapshot:()=>state,parameters:P,source:SOURCE});
+}
+
+module.exports=Object.freeze({
+  SOURCE,P,firstOrderExact,co2InteractionK,
+  peripheralChemoreceptorStatic,cnsHypoxiaStatic,sympatheticFiring,
+  createMagossoUrsinoGasAutonomicCandidate,
+});
 
 },
 "src/ursino_magosso_autonomic_shadow.js":function(module,exports,require){
@@ -11188,257 +11552,6 @@ module.exports = {
   vagalFiring,
   createUrsinoMagossoAutonomicShadow,
 };
-
-},
-"src/magosso_ursino_2001_gas_autonomic_candidate.js":function(module,exports,require){
-'use strict';
-
-/**
- * Exact candidate transcription of Magosso & Ursino 2001 Eqs. 1-7.
- * DOI: 10.1152/ajpheart.2001.281.5.H2036
- *
- * Candidate only. No control authority.
- */
-
-const {
-  vagalFiring,
-}=require("src/ursino_magosso_autonomic_shadow.js");
-
-const SOURCE=Object.freeze({
-  citation:
-    'Magosso E, Ursino M. A mathematical model of CO2 effect on cardiovascular regulation. Am J Physiol Heart Circ Physiol. 2001;281:H2036-H2052.',
-  doi:'10.1152/ajpheart.2001.281.5.H2036',
-  pmid:'11668065',
-  equations:Object.freeze([1,2,3,4,5,6,7]),
-  authority:'candidate-not-canonical',
-});
-
-const P=Object.freeze({
-  chemoreceptor:Object.freeze({
-    fMaxSpikesPerSec:12.3,
-    fMinSpikesPerSec:0.835,
-    po2MidMmHg:45,
-    kO2MmHg:29.27,
-    kHigh:3,
-    co2Offset:1.4,
-    paco2NormalMmHg:40,
-    tauSec:2,
-  }),
-  sympathetic:Object.freeze({
-    fInfinitySpikesPerSec:2.10,
-    f0SpikesPerSec:16.11,
-    fMaxSpikesPerSec:60,
-    kSec:0.0675,
-    weights:Object.freeze({
-      p:Object.freeze({baro:-1,chemo:5,pulmonary:-0.34}),
-      v:Object.freeze({baro:-1,chemo:5,pulmonary:-0.34}),
-      h:Object.freeze({baro:-1,chemo:1,pulmonary:0}),
-    }),
-  }),
-  cns:Object.freeze({
-    tauO2Sec:30,
-    tauCo2Sec:20,
-    paco2NormalMmHg:40,
-    p:Object.freeze({
-      chiSpikesPerSec:6,
-      po2MidMmHg:30,
-      kMmHg:2,
-      gCo2PerMmHgSec:1.5,
-      thetaNormalSpikesPerSec:13.32,
-    }),
-    v:Object.freeze({
-      chiSpikesPerSec:6,
-      po2MidMmHg:30,
-      kMmHg:2,
-      gCo2PerMmHgSec:0,
-      thetaNormalSpikesPerSec:13.32,
-    }),
-    h:Object.freeze({
-      chiSpikesPerSec:53,
-      po2MidMmHg:45,
-      kMmHg:6,
-      gCo2PerMmHgSec:1,
-      thetaNormalSpikesPerSec:3.6,
-    }),
-  }),
-});
-
-function finite(v,label){
-  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
-  return v;
-}
-function nonNegative(v,label){
-  finite(v,label);
-  if(v<0) throw new Error(label+' must be >= 0');
-  return v;
-}
-function firstOrderExact(current,target,dtSec,tauSec){
-  finite(target,'target');
-  nonNegative(dtSec,'dtSec');
-  finite(tauSec,'tauSec');
-  if(!(tauSec>0)) throw new Error('tauSec must be > 0');
-  if(current==null) return target;
-  finite(current,'current');
-  if(dtSec===0) return current;
-  const d=Math.exp(-dtSec/tauSec);
-  return target+(current-target)*d;
-}
-
-// Primary Eq. 1 piecewise coefficient.
-// Boundary convention follows later published transcription: 40 <= PaO2 <= 80
-// uses the middle branch. Values themselves are unchanged from the 2001 paper.
-function co2InteractionK(pao2MmHg){
-  nonNegative(pao2MmHg,'pao2MmHg');
-  const kh=P.chemoreceptor.kHigh;
-  if(pao2MmHg>80) return kh;
-  if(pao2MmHg>=40) return kh-1.2*((pao2MmHg-80)/30);
-  return kh-1.6;
-}
-
-// Magosso & Ursino 2001 Eq. 1.
-function peripheralChemoreceptorStatic({pao2MmHg,paco2MmHg}={}){
-  nonNegative(pao2MmHg,'pao2MmHg');
-  finite(paco2MmHg,'paco2MmHg');
-  if(!(paco2MmHg>0)) throw new Error('paco2MmHg must be > 0');
-  const p=P.chemoreceptor;
-  const e=Math.exp((pao2MmHg-p.po2MidMmHg)/p.kO2MmHg);
-  const oxygenSigmoid=(p.fMaxSpikesPerSec+p.fMinSpikesPerSec*e)/(1+e);
-  const k=co2InteractionK(pao2MmHg);
-  return oxygenSigmoid*(k*Math.log(paco2MmHg/p.paco2NormalMmHg)+p.co2Offset);
-}
-
-// Eq. 4.
-function cnsHypoxiaStatic(pao2MmHg,channel){
-  nonNegative(pao2MmHg,'pao2MmHg');
-  const p=P.cns[channel];
-  if(!p) throw new Error('unknown CNS channel: '+channel);
-  return p.chiSpikesPerSec/
-    (1+Math.exp((pao2MmHg-p.po2MidMmHg)/p.kMmHg));
-}
-
-// Eq. 3.
-function sympatheticFiring({
-  channel,
-  fAbSpikesPerSec,
-  fAcSpikesPerSec,
-  fApSpikesPerSec,
-  thetaSpikesPerSec,
-}={}){
-  nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
-  nonNegative(fAcSpikesPerSec,'fAcSpikesPerSec');
-  nonNegative(fApSpikesPerSec,'fApSpikesPerSec');
-  finite(thetaSpikesPerSec,'thetaSpikesPerSec');
-  const w=P.sympathetic.weights[channel];
-  if(!w) throw new Error('unknown sympathetic channel: '+channel);
-  const exponent=P.sympathetic.kSec*(
-    w.baro*fAbSpikesPerSec+
-    w.chemo*fAcSpikesPerSec+
-    w.pulmonary*fApSpikesPerSec-
-    thetaSpikesPerSec
-  );
-  const raw=P.sympathetic.fInfinitySpikesPerSec+
-    (P.sympathetic.f0SpikesPerSec-P.sympathetic.fInfinitySpikesPerSec)*
-    Math.exp(exponent);
-  return Math.min(P.sympathetic.fMaxSpikesPerSec,raw);
-}
-
-function createMagossoUrsinoGasAutonomicCandidate(){
-  let fAc=null;
-  const o2={p:null,v:null,h:null};
-  const co2={p:null,v:null,h:null};
-  let state=Object.freeze({
-    authority:SOURCE.authority,
-    fAcSpikesPerSec:null,
-    thetaSp:null,thetaSv:null,thetaSh:null,
-    fSpSpikesPerSec:null,fSvSpikesPerSec:null,fShSpikesPerSec:null,
-    fVSpikesPerSec:null,
-    provenance:SOURCE,
-  });
-
-  function step({
-    dtSec,
-    pao2MmHg,
-    paco2MmHg,
-    fAbSpikesPerSec,
-    fApSpikesPerSec,
-  }={}){
-    nonNegative(dtSec,'dtSec');
-    nonNegative(pao2MmHg,'pao2MmHg');
-    finite(paco2MmHg,'paco2MmHg');
-    nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
-    nonNegative(fApSpikesPerSec,'fApSpikesPerSec');
-
-    const phi=peripheralChemoreceptorStatic({pao2MmHg,paco2MmHg});
-    fAc=firstOrderExact(fAc,phi,dtSec,P.chemoreceptor.tauSec);
-
-    const theta={};
-    for(const channel of ['p','v','h']){
-      const cp=P.cns[channel];
-      o2[channel]=firstOrderExact(
-        o2[channel],
-        cnsHypoxiaStatic(pao2MmHg,channel),
-        dtSec,
-        P.cns.tauO2Sec
-      );
-      const co2Target=cp.gCo2PerMmHgSec*
-        (paco2MmHg-P.cns.paco2NormalMmHg);
-      co2[channel]=firstOrderExact(
-        co2[channel],
-        co2Target,
-        dtSec,
-        P.cns.tauCo2Sec
-      );
-      // Eq. 7.
-      theta[channel]=cp.thetaNormalSpikesPerSec-o2[channel]-co2[channel];
-    }
-
-    const common={fAbSpikesPerSec,fAcSpikesPerSec:fAc,fApSpikesPerSec};
-    const fSp=sympatheticFiring({...common,channel:'p',thetaSpikesPerSec:theta.p});
-    const fSv=sympatheticFiring({...common,channel:'v',thetaSpikesPerSec:theta.v});
-    const fSh=sympatheticFiring({...common,channel:'h',thetaSpikesPerSec:theta.h});
-    // The 2001 extension adds CO2-aware f_ac and separated sympathetic
-    // channels. Cardiac vagal output retains the source 2000 Eq. 23 pathway:
-    // baroreceptor + chemoreceptor + pulmonary-stretch inputs, with no direct
-    // PaCO2-to-heart-rate term.
-    const fV=vagalFiring({
-      fAbSpikesPerSec,
-      fAcSpikesPerSec:fAc,
-      fApSpikesPerSec,
-    });
-
-    state=Object.freeze({
-      pao2MmHg,paco2MmHg,
-      fAbSpikesPerSec,fApSpikesPerSec,
-      staticChemoreceptorTargetSpikesPerSec:phi,
-      co2InteractionK:co2InteractionK(pao2MmHg),
-      fAcSpikesPerSec:fAc,
-      deltaThetaO2Sp:o2.p,
-      deltaThetaO2Sv:o2.v,
-      deltaThetaO2Sh:o2.h,
-      deltaThetaCo2Sp:co2.p,
-      deltaThetaCo2Sv:co2.v,
-      deltaThetaCo2Sh:co2.h,
-      thetaSp:theta.p,
-      thetaSv:theta.v,
-      thetaSh:theta.h,
-      fSpSpikesPerSec:fSp,
-      fSvSpikesPerSec:fSv,
-      fShSpikesPerSec:fSh,
-      fVSpikesPerSec:fV,
-      authority:SOURCE.authority,
-      provenance:SOURCE,
-    });
-    return state;
-  }
-
-  return Object.freeze({step,snapshot:()=>state,parameters:P,source:SOURCE});
-}
-
-module.exports=Object.freeze({
-  SOURCE,P,firstOrderExact,co2InteractionK,
-  peripheralChemoreceptorStatic,cnsHypoxiaStatic,sympatheticFiring,
-  createMagossoUrsinoGasAutonomicCandidate,
-});
 
 },
 "src/ursino_magosso_channelized_effectors_candidate.js":function(module,exports,require){
