@@ -833,3 +833,47 @@ Do not promote Lin HR into the live patient until:
 
 The key design principle is now fixed:
 CHEMOREFLEX MUST RESET/MODULATE BAROREFLEX CONTROL. A static high-MAP baroreflex is not allowed to suppress the severe gas response by itself.
+
+
+## v2.4 HR source qualification gate — 2026-10-26
+Status: PASSED / LIVE CUTOVER STILL BLOCKED
+
+A machine-readable source qualification was added and made a mandatory v2.4 CI gate:
+- test/v24_hr_source_qualification.js
+
+It compares the physician defect using published-equation candidates only:
+- reference: MAP 82, PaO2 90, PaCO2 40, pH 7.40
+- severe: MAP 104, PaO2 35, PaCO2 110, pH 6.90, VT 0.10 L
+
+Observed qualification:
+- Albanese/Ursino reduced v2 path: reference HR 62.76 -> severe HR 48.48/min; FAILS the observed clinical direction despite cardiac sympathetic firing saturating at 60 spikes/s.
+- Lin 2012 steady-state source equations: reference absolute HR 108.08 -> severe absolute HR 112.91/min; PASS direction.
+- Patient operating-point projection with authored HR 75 gives severe projected HR 79.83/min, using the Lin source delta (+4.83/min) rather than an HR floor or PaCO2 interpolation.
+- At MAP 104, severe gas resets Lin demand pressure to 119.88 mmHg, raises SNA to 5.33 Hz, and lowers PNA to 2.98 Hz. Thus MAP 104 is no longer treated as simple hypertension requiring dominant vagal braking.
+
+MAP sweep confirms the Lin source interaction remains directionally correct across MAP 60-110:
+- severe-gas HR is higher than normal-gas HR at every tested MAP.
+
+CI run 40331606759 at commit 58b2d1825216097e9bfd94080f9ec57564316c1d:
+- published-equation HR source qualification: PASS
+- Albanese diagnostics: PASS
+- Lin Eq30/31: PASS
+- Lin steady-state HR: PASS
+- Lin operating-point shadow: PASS
+- all v2.0-v2.4 regressions: PASS
+- live patient regression: PASS
+- deployable web verification: PASS
+
+Dynamic-source search was repeated against:
+- Lin 2012 author manuscript/full-text mirrors,
+- University of Bath thesis,
+- 2006 precursor conference paper/index,
+- indexed searches for tau_c and the central-compartment notation.
+
+No source-authored numerical tau_c was recovered. The published Lin paper does define the first-order central-compartment filter in Eq.13 but does not expose a numerical tau_c in the accessible parameter table.
+
+Decision remains:
+- empirical PaCO2->HR floor: REJECTED.
+- partial Albanese transplant: negative comparator, not HR authority.
+- Lin 2012: leading existing-equation HR model.
+- live dynamic cutover: BLOCKED until tau_c is source-verified OR the physician owner explicitly approves a quasi-steady reduced Lin controller with dynamicAuthority=false.
