@@ -31,14 +31,8 @@ const {
 }=require('./ursino_baroreceptor_shadow.js');
 
 const {
-  P:O2_2000_P,
-  firstOrderExact,
-  pulmonaryStretchStatic,
-}=require('./ursino_magosso_autonomic_shadow.js');
-
-const {
-  createMagossoUrsinoGasAutonomicCandidate,
-}=require('./magosso_ursino_2001_gas_autonomic_candidate.js');
+  createAlbanese2016AutonomicCandidate,
+}=require('./albanese_2016_autonomic_candidate.js');
 
 const {
   createChannelizedEffectorCandidate,
@@ -48,9 +42,11 @@ const SOURCE=Object.freeze({
   baroreceptor:'Ursino 1998, doi:10.1152/ajpheart.1998.275.5.H1733',
   hypoxia:'Ursino & Magosso 2000, doi:10.1152/ajpheart.2000.279.1.H149',
   co2:'Magosso & Ursino 2001, doi:10.1152/ajpheart.2001.281.5.H2036',
+  integratedCalibration:'Albanese et al. 2016, doi:10.1152/ajpheart.00230.2014, Table 7',
+  integratedValidation:'Cheng et al. 2016, doi:10.1152/ajpheart.00923.2014',
   projection:
     'dimensionless source-effector change projected onto v1.0 lumped circulation',
-  authority:'v2.0-source-aligned-reduced-controller',
+  authority:'v2.4-albanese-integrated-source-controller',
 });
 
 const RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR=Object.freeze({
@@ -72,23 +68,6 @@ const SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS=Object.freeze({
     'Reversible impairment of myocardial contractility due to hypercarbic acidosis in the isolated perfused rat heart. PMID 1899209: PCO2 36 -> 146 torr, LVSP and dP/dt fell to ~20% of control.',
   projection:
     'The isolated-heart 20% LVSP/dPdt endpoint is used as a bounded severe-hypercapnia whole-heart performance proxy; this is an explicit reduced-model assumption, not Emax equivalence.',
-});
-
-const ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS=Object.freeze({
-  baselinePaco2MmHg:40,
-  humanArdsPaco2MmHg:80,
-  humanArdsHrRatio:95/89,
-  humanCitation:
-    'Weber T et al. Am J Respir Crit Care Med. 2000;162:1361-1365. PMID 11029345. Unbuffered ARDS permissive hypercapnia target PaCO2 80 mmHg: HR 89 -> 95/min.',
-  humanCrossCheck:
-    'Mekontso Dessap A et al. Intensive Care Med. 2009;35:1850-1858. PMID 19652953. Severe ARDS: PaCO2 52 -> 71-75 mmHg; HR 108 -> 113-114/min.',
-  severePaco2MmHg:110,
-  severeHrRatio:154/117,
-  severeCitation:
-    'Brofman JD et al. J Appl Physiol. 1990;69:710-717. PMID 2121704. Acute hypercapnic acidosis in swine: HR 117 -> 154/min; PaCO2 reached 110 Torr.',
-  projection:
-    'Representative chronotropic floor: piecewise linear interpolation between published ratios; severe endpoint is species-limited and no extrapolation beyond PaCO2 110 mmHg.',
-  clinicalValidation:false,
 });
 
 const HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR=Object.freeze({
@@ -150,24 +129,6 @@ function hypercapnicSystemicResistanceRatio(paco2MmHg){
   return 1+t*(challengeRatio-1);
 }
 
-function ardsHypercapnicChronotropyRatio(paco2MmHg){
-  nonNegative(paco2MmHg,'paco2MmHg');
-  const a=ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS;
-  if(paco2MmHg<=a.baselinePaco2MmHg) return 1;
-  if(paco2MmHg<=a.humanArdsPaco2MmHg){
-    const t=(paco2MmHg-a.baselinePaco2MmHg)/
-      (a.humanArdsPaco2MmHg-a.baselinePaco2MmHg);
-    return 1+t*(a.humanArdsHrRatio-1);
-  }
-  if(paco2MmHg>=a.severePaco2MmHg){
-    return a.severeHrRatio;
-  }
-  const t=(paco2MmHg-a.humanArdsPaco2MmHg)/
-    (a.severePaco2MmHg-a.humanArdsPaco2MmHg);
-  return a.humanArdsHrRatio+
-    t*(a.severeHrRatio-a.humanArdsHrRatio);
-}
-
 function respiratoryAcidosisContractilityMultiplier({
   arterialPh,
   arterialPco2MmHg,
@@ -199,9 +160,8 @@ function createV2SourceAutonomicController({baseline}={}){
   positive(baselineVenousV0Ml,'baseline.systemicVenousV0Ml');
 
   const baroreceptor=createUrsinoBaroreceptorShadow();
-  const gasAutonomic=createMagossoUrsinoGasAutonomicCandidate();
+  const gasAutonomic=createAlbanese2016AutonomicCandidate();
   let effectors=null;
-  let pulmonaryStretchSpikesPerSec=null;
   let referenceEffectors=null;
   let last=null;
 
@@ -225,20 +185,12 @@ function createV2SourceAutonomicController({baseline}={}){
       arterialPressureMmHg:meanArterialPressureMmHg,
     });
 
-    const pulmonaryStretchTarget=pulmonaryStretchStatic(tidalVolumeL);
-    pulmonaryStretchSpikesPerSec=firstOrderExact(
-      pulmonaryStretchSpikesPerSec,
-      pulmonaryStretchTarget,
-      dtSec,
-      O2_2000_P.pulmonaryStretch.tauSec
-    );
-
     const a=gasAutonomic.step({
       dtSec,
       pao2MmHg:arterialPo2MmHg,
       paco2MmHg:arterialPco2MmHg,
       fAbSpikesPerSec:b.fAbSpikesPerSec,
-      fApSpikesPerSec:pulmonaryStretchSpikesPerSec,
+      tidalVolumeL,
     });
 
     if(effectors==null){
@@ -265,15 +217,8 @@ function createV2SourceAutonomicController({baseline}={}){
     const sourceHeartPeriodSec=
       positive(e.absolute.heartPeriodSec,'heartPeriodSec');
     const sourceHeartRatePerMin=60/sourceHeartPeriodSec;
-    const hypercapnicChronotropyRatio=
-      ardsHypercapnicChronotropyRatio(arterialPco2MmHg);
-    const hypercapnicRepresentativeFloorPerMin=
-      baseline.heartRatePerMin*hypercapnicChronotropyRatio;
-    const heartRatePerMin=Math.max(
-      sourceHeartRatePerMin,
-      hypercapnicRepresentativeFloorPerMin
-    );
-    const heartPeriodSec=60/heartRatePerMin;
+    const heartRatePerMin=sourceHeartRatePerMin;
+    const heartPeriodSec=sourceHeartPeriodSec;
 
     const systemicResistanceNow=
       positive(e.absolute.Rsp+e.absolute.Rep,'source systemic resistance');
@@ -322,8 +267,6 @@ function createV2SourceAutonomicController({baseline}={}){
     last=Object.freeze({
       heartRatePerMin,
       sourceHeartRatePerMin,
-      hypercapnicChronotropyRatio,
-      hypercapnicRepresentativeFloorPerMin,
       leftContractilityMultiplier,
       rightContractilityMultiplier,
       acidoticContractilityMultiplier,
@@ -343,7 +286,7 @@ function createV2SourceAutonomicController({baseline}={}){
       afferents:Object.freeze({
         fAbSpikesPerSec:b.fAbSpikesPerSec,
         fAcSpikesPerSec:a.fAcSpikesPerSec,
-        fApSpikesPerSec:pulmonaryStretchSpikesPerSec,
+        fApSpikesPerSec:a.fApSpikesPerSec,
       }),
       autonomic:Object.freeze({
         fSpSpikesPerSec:a.fSpSpikesPerSec,
@@ -391,8 +334,6 @@ module.exports=Object.freeze({
   RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
   SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS,
   HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR,
-  ARDS_HYPERCAPNIC_CHRONOTROPY_ANCHORS,
-  ardsHypercapnicChronotropyRatio,
   respiratoryAcidosisContractilityMultiplier,
   severeHypercapniaContractilityMultiplier,
   hypercapnicSystemicResistanceRatio,
