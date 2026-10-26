@@ -4,8 +4,11 @@ const {
   createV2SourceAutonomicController,
   severeHypercapniaContractilityMultiplier,
   hypercapnicSystemicResistanceRatio,
-  ardsHypercapnicChronotropyRatio,
 }=require('../src/v2_source_autonomic_controller.js');
+
+const {
+  P:ALBANESE_P,
+}=require('../src/albanese_2016_autonomic_candidate.js');
 
 let passed=0,failed=0;
 function test(name,fn){
@@ -49,7 +52,7 @@ test('source-aligned controller returns finite projected v1.0 effectors',()=>{
     s.autonomic.fShSpikesPerSec,
     s.autonomic.fVSpikesPerSec,
   ].forEach(v=>assert(Number.isFinite(v),'expected finite source control output'));
-  assert(s.provenance.authority==='v2.0-source-aligned-reduced-controller');
+  assert(s.provenance.authority==='v2.4-albanese-integrated-source-controller');
 });
 
 test('hypoxemia changes source autonomic and cardiac outputs',()=>{
@@ -127,19 +130,17 @@ test('hypercapnic systemic vasodilation is bounded at the swine anchor',()=>{
     'must not extrapolate SVR below the published hypercapnia anchor');
 });
 
-test('ARDS hypercapnia chronotropy uses published bounded ratios',()=>{
-  const r40=ardsHypercapnicChronotropyRatio(40);
-  const r80=ardsHypercapnicChronotropyRatio(80);
-  const r110=ardsHypercapnicChronotropyRatio(110);
-  const r400=ardsHypercapnicChronotropyRatio(400);
-  assert(Math.abs(r40-1)<1e-12);
-  assert(Math.abs(r80-(95/89))<1e-12);
-  assert(Math.abs(r110-(154/117))<1e-12);
-  assert(Math.abs(r400-r110)<1e-12,
-    'severe chronotropic anchor must not extrapolate beyond PaCO2 110');
+test('Albanese 2016 Table 7 cardiovascular-control calibration is active',()=>{
+  assert(Math.abs(ALBANESE_P.lungStretch.gainSpikesPerSecPerL-11.76)<1e-12);
+  assert(Math.abs(ALBANESE_P.sympathetic.weights.p.baro-(-1.1375))<1e-12);
+  assert(Math.abs(ALBANESE_P.sympathetic.weights.p.chemo-1.716)<1e-12);
+  assert(Math.abs(ALBANESE_P.sympathetic.weights.p.pulmonary-(-0.3997))<1e-12);
+  assert(Math.abs(ALBANESE_P.sympathetic.weights.v.baro-(-1.0806))<1e-12);
+  assert(Math.abs(ALBANESE_P.sympathetic.weights.v.pulmonary-(-0.2907))<1e-12);
+  assert(Math.abs(ALBANESE_P.sympathetic.weights.h.baro-(-1.75))<1e-12);
 });
 
-test('elevated MAP cannot drive HR below published hypercapnic representative floor',()=>{
+test('controller applies published Albanese source heart period directly with no empirical HR floor',()=>{
   const c=makeController();
   let s;
   for(let i=0;i<600;i++){
@@ -162,12 +163,11 @@ test('elevated MAP cannot drive HR below published hypercapnic representative fl
       arterialPh:6.90,
     });
   }
-  assert(s.sourceHeartRatePerMin<75,
-    'source Ursino/Magosso branch should demonstrate the diagnosed bradycardic pressure response');
-  assert(s.heartRatePerMin>=75*(154/117)-1e-9,
-    'applied HR must respect the bounded severe hypercapnic chronotropic anchor');
-  assert(s.heartRatePerMin>s.sourceHeartRatePerMin,
-    'published ARDS/severe-hypercapnia evidence should override the inappropriate bradycardic extrapolation');
+  assert(Math.abs(s.heartRatePerMin-s.sourceHeartRatePerMin)<1e-12,
+    'applied HR must equal the integrated source-model HR; no empirical floor is permitted');
+  assert(Math.abs(s.appliedHeartPeriodSec-s.sourceHeartPeriodSec)<1e-12,
+    'applied heart period must be the source heart period');
+  assert(Number.isFinite(s.heartRatePerMin) && s.heartRatePerMin>0);
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
