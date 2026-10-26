@@ -772,3 +772,64 @@ B. explicitly approve a quasi-steady Lin controller as a reduced-model approxima
 C. retain the known-bad Ursino/Magosso live HR while Lin remains shadow-only.
 
 Option B must not be activated without physician-owner approval because applying the steady-state algebra at every simulation step is an explicit reduction, not the published complete dynamic model.
+
+
+## v2.4 HR ownership audit — existing published equations
+Status: LIN 2012 SHADOW ACCEPTED FOR FURTHER QUALIFICATION; NO LIVE AUTHORITY YET
+
+The physician rejected the interim PaCO2->HR interpolation because it was a locally constructed bridging equation. That empirical HR floor has been removed.
+
+### Albanese 2016 result
+The Albanese/Cheng/Ursino/Chbat Table-7 cardiovascular-control calibration was transplanted exactly for the parameters that differ from Ursino/Magosso. In the reduced v2 chassis it did NOT solve the observed defect:
+- baseline HR 62.76/min
+- MAP 104, PaO2 35, PaCO2 110, VT 0.10 L -> HR 48.48/min
+- same gas state at MAP 70 -> HR 72.98/min
+- approximate 7% CO2 challenge -> HR -3.87% versus baseline
+
+Therefore the partial Albanese transplant is not accepted as proof of the published integrated model behavior. Its published validation depended on the full integrated cardiopulmonary system, not just Table-7 parameter substitution.
+
+### Lin, Ngwompo & Tilley 2012
+Primary source:
+Lin J, Ngwompo RF, Tilley DG. Proc Inst Mech Eng H. 2012;226(10):787-803. doi:10.1177/0954411912451823.
+
+This model contains the specific missing interaction:
+- peripheral chemoreceptor changes the baroreflex operating point (Eq. 30)
+- central chemoreceptor increases sympathetic gain (Eq. 31)
+- published baroreflex / sympathetic / parasympathetic HR equations are Eqs. 12-28
+- parameters are from Tables A2-A3
+- published validation reports predicted-vs-measured changes in HR and MAP within 3% during hypoxia and hypercapnia; TPR fit during hypercapnia was weaker.
+
+Source-exact steady-state candidate already in repo:
+- lin_2012_baro_chemoreflex_interaction_candidate.js
+- lin_2012_steady_state_hr_candidate.js
+
+Key severe-gas effect at PaO2 35 / PaCO2 110:
+- Eq.30 baroreflex reset term: 2.68 -> 29.88 mmHg relative source terms
+- Eq.31 sympathetic-gain term: 21.882 -> 91.882%
+- across MAP 60-80, severe-gas steady-state HR remains higher than normal-gas HR; the high-MAP gas state does not reproduce the current Ursino/Magosso bradycardic direction.
+
+### Patient operating-point shadow
+Added:
+- lin_2012_hr_projection_shadow.js
+- v24_lin_2012_hr_projection_shadow.test.js
+
+Reduction:
+  HR_projected = HR_patient_reference + [HR_Lin(current) - HR_Lin(reference)]
+
+This preserves the published Lin model delta-HR while allowing the authored bedside patient baseline HR to differ from Lin's intrinsic operating point. It introduces no fitted gain, HR floor, or PaCO2 interpolation.
+
+Authority:
+- SHADOW ONLY
+- no live control authority
+- no dynamic authority yet
+
+### Promotion gate
+Do not promote Lin HR into the live patient until:
+1. the dynamic Lin Eqs. 12-28 and delays/time constants are transcribed line-by-line from the primary source;
+2. any parameter not explicitly available in the paper is left unresolved rather than guessed;
+3. baseline, moderate hypercapnia, hypoxia, high-MAP severe gas, and recovery scenarios are compared against the published validation behavior;
+4. the existing v2.1-v2.4 regressions remain passing;
+5. physician review accepts the HR/MAP trajectories.
+
+The key design principle is now fixed:
+CHEMOREFLEX MUST RESET/MODULATE BAROREFLEX CONTROL. A static high-MAP baroreflex is not allowed to suppress the severe gas response by itself.
