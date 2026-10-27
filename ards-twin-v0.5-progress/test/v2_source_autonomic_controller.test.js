@@ -178,7 +178,7 @@ test('Albanese 2016 Table 7 cardiovascular-control calibration is active',()=>{
   assert(Math.abs(ALBANESE_P.sympathetic.weights.h.baro-(-1.75))<1e-12);
 });
 
-test('controller applies published Albanese source heart period directly with no empirical HR floor',()=>{
+test('controller applies HumMod 2012/2013 SA-node chronotropy and keeps Albanese HR comparator-only',()=>{
   const c=makeController();
   let s;
   for(let i=0;i<600;i++){
@@ -201,11 +201,16 @@ test('controller applies published Albanese source heart period directly with no
       arterialPh:6.90,
     });
   }
-  assert(Math.abs(s.heartRatePerMin-s.sourceHeartRatePerMin)<1e-12,
-    'applied HR must equal the integrated source-model HR; no empirical floor is permitted');
-  assert(Math.abs(s.appliedHeartPeriodSec-s.sourceHeartPeriodSec)<1e-12,
-    'applied heart period must be the source heart period');
-  assert(Number.isFinite(s.heartRatePerMin) && s.heartRatePerMin>0);
+  assert(Math.abs(s.heartRatePerMin-s.hummod2013HeartRatePerMin)<1e-12,
+    'applied HR must equal HumMod 2012/2013 SA-node HR');
+  assert(Math.abs(s.albaneseComparatorHeartRatePerMin-s.sourceHeartRatePerMin)<1e-12,
+    'Albanese HR must remain comparator-only');
+  assert(Math.abs(s.appliedHeartPeriodSec-(60/s.heartRatePerMin))<1e-12,
+    'applied heart period must derive from the active HumMod SA-node HR');
+  assert(s.chronotropyOwner.includes('HumMod 2012/2013'));
+  assert(Number.isFinite(s.chronotropy.catecholamines.nePgPerMl));
+  assert(Number.isFinite(s.chronotropy.catecholamines.epiPgPerMl));
+  assert(Number.isFinite(s.chronotropy.catecholamines.beta1Effect));
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
