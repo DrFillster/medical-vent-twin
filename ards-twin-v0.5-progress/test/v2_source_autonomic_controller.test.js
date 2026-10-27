@@ -154,6 +154,20 @@ test('published vagal sigmoid approaches source asymptotes without additive f_v0
     'high-baroreceptor limit must approach f_vInfinity minus theta, not f_v0 + f_vInfinity');
 });
 
+test('Ursino/Magosso vagal sigmoid preserves published high-baroreceptor asymptote',()=>{
+  const {P:UM_P,vagalFiring}=require('../src/ursino_magosso_autonomic_shadow.js');
+  const fAc=0;
+  const fAp=0;
+  const high=vagalFiring({
+    fAbSpikesPerSec:1000,
+    fAcSpikesPerSec:fAc,
+    fApSpikesPerSec:fAp,
+  });
+  const expected=UM_P.vagal.fInfinitySpikesPerSec-UM_P.vagal.thetaSpikesPerSec;
+  assert(Math.abs(high-expected)<1e-6,
+    'high-baroreceptor vagal output must approach fInfinity - theta, not f0 + fInfinity - theta');
+});
+
 test('Albanese 2016 Table 7 cardiovascular-control calibration is active',()=>{
   assert(Math.abs(ALBANESE_P.lungStretch.gainSpikesPerSecPerL-11.76)<1e-12);
   assert(Math.abs(ALBANESE_P.sympathetic.weights.p.baro-(-1.1375))<1e-12);
