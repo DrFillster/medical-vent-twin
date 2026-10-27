@@ -10,6 +10,11 @@ const {
   P:ALBANESE_P,
 }=require('../src/albanese_2016_autonomic_candidate.js');
 
+const {
+  P:URSINO_AUTONOMIC_P,
+  vagalFiring,
+}=require('../src/ursino_magosso_autonomic_shadow.js');
+
 let passed=0,failed=0;
 function test(name,fn){
   try{fn();console.log('ok -',name);passed+=1;}
@@ -128,6 +133,25 @@ test('hypercapnic systemic vasodilation is bounded at the swine anchor',()=>{
   assert(challenge<1&&challenge>0);
   assert(Math.abs(extreme-challenge)<1e-12,
     'must not extrapolate SVR below the published hypercapnia anchor');
+});
+
+
+test('published vagal sigmoid approaches source asymptotes without additive f_v0 bias',()=>{
+  const p=URSINO_AUTONOMIC_P.vagal;
+  const low=vagalFiring({
+    fAbSpikesPerSec:-1000,
+    fAcSpikesPerSec:0,
+    fApSpikesPerSec:0,
+  });
+  const high=vagalFiring({
+    fAbSpikesPerSec:1000,
+    fAcSpikesPerSec:0,
+    fApSpikesPerSec:0,
+  });
+  assert(Math.abs(low-(p.f0SpikesPerSec-p.thetaSpikesPerSec))<1e-9,
+    'low-baroreceptor limit must approach f_v0 minus theta');
+  assert(Math.abs(high-(p.fInfinitySpikesPerSec-p.thetaSpikesPerSec))<1e-9,
+    'high-baroreceptor limit must approach f_vInfinity minus theta, not f_v0 + f_vInfinity');
 });
 
 test('Albanese 2016 Table 7 cardiovascular-control calibration is active',()=>{
