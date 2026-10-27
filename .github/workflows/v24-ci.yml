@@ -47,6 +47,8 @@ jobs:
         run: node test/v24_lin_2012_steady_state_hr_candidate.test.js
       - name: v2.4 Lin 2012 HR operating-point shadow
         run: node test/v24_lin_2012_hr_projection_shadow.test.js
+      - name: v2.4 HumMod 2013 sympathoadrenal SA-node shadow
+        run: node test/v24_hummod_2013_chemoreflex_sa_node_shadow.test.js
       - name: Live patient regression
         run: node test/clinical_twin_live_hummod_session.test.js
       - name: Verify deployable web
