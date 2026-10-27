@@ -38,6 +38,10 @@ const {
   createChannelizedEffectorCandidate,
 }=require('./ursino_magosso_channelized_effectors_candidate.js');
 
+const {
+  createHumMod2013ChemoreflexSaNodeCandidate,
+}=require('./hummod_2013_chemoreflex_sa_node_shadow.js');
+
 const SOURCE=Object.freeze({
   baroreceptor:'Ursino 1998, doi:10.1152/ajpheart.1998.275.5.H1733',
   hypoxia:'Ursino & Magosso 2000, doi:10.1152/ajpheart.2000.279.1.H149',
@@ -46,7 +50,13 @@ const SOURCE=Object.freeze({
   integratedValidation:'Cheng et al. 2016, doi:10.1152/ajpheart.00923.2014',
   projection:
     'dimensionless source-effector change projected onto v1.0 lumped circulation',
-  authority:'v2.4-albanese-integrated-source-controller',
+  chronotropy:
+    'HumMod 2012/2013 chemoreflex -> sympathoadrenal -> Beta1 -> SA-node',
+  chronotropyRevision:
+    'nysuloem/HumMod-UTSC-CPG@51d369eb75669e150ef7c61e3ba8bcb1e068aecf',
+  vascularControl:
+    'Albanese 2016 / Ursino-Magosso source-family effectors',
+  authority:'v2.4-active-hummod2013-chronotropy-albanese-vascular-candidate',
 });
 
 const RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR=Object.freeze({
@@ -161,6 +171,10 @@ function createV2SourceAutonomicController({baseline}={}){
 
   const baroreceptor=createUrsinoBaroreceptorShadow();
   const gasAutonomic=createAlbanese2016AutonomicCandidate();
+  const saNode=createHumMod2013ChemoreflexSaNodeCandidate({
+    ecfvMl:15000,
+    initialArterialPh:7.44,
+  });
   let effectors=null;
   let referenceEffectors=null;
   let last=null;
@@ -217,8 +231,15 @@ function createV2SourceAutonomicController({baseline}={}){
     const sourceHeartPeriodSec=
       positive(e.absolute.heartPeriodSec,'heartPeriodSec');
     const sourceHeartRatePerMin=60/sourceHeartPeriodSec;
-    const heartRatePerMin=sourceHeartRatePerMin;
-    const heartPeriodSec=sourceHeartPeriodSec;
+
+    const sa=saNode.step({
+      dtSec,
+      arterialPo2MmHg,
+      arterialPh,
+    });
+    const heartRatePerMin=
+      positive(sa.heartRatePerMin,'HumMod 2013 SA-node HR');
+    const heartPeriodSec=60/heartRatePerMin;
 
     const systemicResistanceNow=
       positive(e.absolute.Rsp+e.absolute.Rep,'source systemic resistance');
@@ -267,6 +288,18 @@ function createV2SourceAutonomicController({baseline}={}){
     last=Object.freeze({
       heartRatePerMin,
       sourceHeartRatePerMin,
+      hummod2013HeartRatePerMin:heartRatePerMin,
+      albaneseComparatorHeartRatePerMin:sourceHeartRatePerMin,
+      chronotropyOwner:
+        'HumMod 2012/2013 chemoreflex-sympathoadrenal-Beta1-SA-node',
+      chronotropy:Object.freeze({
+        chemoreceptor:sa.chemoreceptor,
+        chemoreceptorsCns:sa.chemoreceptorsCns,
+        sympathetic:sa.sympathetic,
+        ganglia:sa.ganglia,
+        catecholamines:sa.catecholamines,
+        saNode:sa.saNode,
+      }),
       leftContractilityMultiplier,
       rightContractilityMultiplier,
       acidoticContractilityMultiplier,
