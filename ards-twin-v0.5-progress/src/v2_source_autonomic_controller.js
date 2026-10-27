@@ -39,8 +39,8 @@ const {
 }=require('./ursino_magosso_channelized_effectors_candidate.js');
 
 const {
-  createHumMod2013ChemoreflexSaNodeCandidate,
-}=require('./hummod_2013_chemoreflex_sa_node_shadow.js');
+  createHumMod2013BaroChemoreflexSaNodeCandidate,
+}=require('./hummod_2013_baro_chemoreflex_sa_node_candidate.js');
 
 const SOURCE=Object.freeze({
   baroreceptor:'Ursino 1998, doi:10.1152/ajpheart.1998.275.5.H1733',
@@ -51,7 +51,7 @@ const SOURCE=Object.freeze({
   projection:
     'dimensionless source-effector change projected onto v1.0 lumped circulation',
   chronotropy:
-    'HumMod 2012/2013 chemoreflex -> sympathoadrenal -> Beta1 -> SA-node',
+    'HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> Beta1 -> SA-node',
   chronotropyRevision:
     'nysuloem/HumMod-UTSC-CPG@51d369eb75669e150ef7c61e3ba8bcb1e068aecf',
   vascularControl:
@@ -171,9 +171,10 @@ function createV2SourceAutonomicController({baseline}={}){
 
   const baroreceptor=createUrsinoBaroreceptorShadow();
   const gasAutonomic=createAlbanese2016AutonomicCandidate();
-  const saNode=createHumMod2013ChemoreflexSaNodeCandidate({
+  const saNode=createHumMod2013BaroChemoreflexSaNodeCandidate({
     ecfvMl:15000,
     initialArterialPh:7.44,
+    initialCarotidSinusPressureMmHg:87,
   });
   let effectors=null;
   let referenceEffectors=null;
@@ -236,6 +237,7 @@ function createV2SourceAutonomicController({baseline}={}){
       dtSec,
       arterialPo2MmHg,
       arterialPh,
+      carotidSinusPressureMmHg:meanArterialPressureMmHg,
     });
     const heartRatePerMin=
       positive(sa.heartRatePerMin,'HumMod 2013 SA-node HR');
@@ -291,8 +293,9 @@ function createV2SourceAutonomicController({baseline}={}){
       hummod2013HeartRatePerMin:heartRatePerMin,
       albaneseComparatorHeartRatePerMin:sourceHeartRatePerMin,
       chronotropyOwner:
-        'HumMod 2012/2013 chemoreflex-sympathoadrenal-Beta1-SA-node',
+        'HumMod 2012/2013 baroreflex-chemoreflex-sympathoadrenal-Beta1-SA-node',
       chronotropy:Object.freeze({
+        baroreflex:sa.baroreflex,
         chemoreceptor:sa.chemoreceptor,
         chemoreceptorsCns:sa.chemoreceptorsCns,
         sympathetic:sa.sympathetic,
