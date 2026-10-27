@@ -120,10 +120,6 @@ function createV24TerminalStateController(){
         cardiacArrest=true;
         cardiacArrestReason='mechanical-pump-failure';
         arrestRhythm='PEA';
-      }else if(asphyxialEnvelopeReached){
-        cardiacArrest=true;
-        cardiacArrestReason='asphyxial-hemodynamic-collapse-envelope';
-        arrestRhythm='PEA';
       }else if(lowMapBelow20Sec>=MAP20_SEC){
         cardiacArrest=true;
         cardiacArrestReason='sustained-map-below-20';
