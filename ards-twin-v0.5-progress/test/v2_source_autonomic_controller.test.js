@@ -57,7 +57,8 @@ test('source-aligned controller returns finite projected v1.0 effectors',()=>{
     s.autonomic.fShSpikesPerSec,
     s.autonomic.fVSpikesPerSec,
   ].forEach(v=>assert(Number.isFinite(v),'expected finite source control output'));
-  assert(s.provenance.authority==='v2.4-albanese-integrated-source-controller');
+  assert(s.provenance.authority===
+    'v2.4-active-hummod2013-chronotropy-albanese-vascular-candidate');
 });
 
 test('hypoxemia changes source autonomic and cardiac outputs',()=>{
