@@ -877,3 +877,80 @@ Decision remains:
 - partial Albanese transplant: negative comparator, not HR authority.
 - Lin 2012: leading existing-equation HR model.
 - live dynamic cutover: BLOCKED until tau_c is source-verified OR the physician owner explicitly approves a quasi-steady reduced Lin controller with dynamicAuthority=false.
+
+
+## v2.4 HR source-path audit — 2026-10-27
+Status: SOURCE TRANSCRIPTION FIXED / MECHANICAL-VENTILATION DOMAIN GAP REMAINS
+
+### Correction completed
+The Ursino/Magosso cardiac-vagal sigmoid had a transcription error. The published baroreceptor term is:
+
+`(f_v0 + f_vInfinity * exp(x)) / (1 + exp(x))`
+
+The v2.4 code had instead placed `f_v0` outside the denominator, causing the high-baroreceptor asymptote to approach `f_v0 + f_vInfinity` rather than `f_vInfinity`.
+
+Corrected on v2.4:
+- source commit: `42334999becdafc512844a793f31bc4125752acb`
+- regression commit: `c865259b24ef987ec7c43888d68e16c00b9eb05b`
+- regression gate explicitly verifies both published vagal asymptotes.
+
+CI on `c865259b24ef987ec7c43888d68e16c00b9eb05b`: PASS.
+
+### Severe-case result after correction
+The correction reduces excess vagal tone but does not solve the physician defect.
+
+Reference state:
+- MAP 82 mmHg
+- PaO2 90 mmHg
+- PaCO2 40 mmHg
+- VT 0.42 L
+- HR 67.22/min
+- fAb 16.07 spikes/s
+- fAc 4.01 spikes/s
+- fAp 4.94 spikes/s
+- fSh 4.26 spikes/s
+- fV 4.86 spikes/s
+
+Severe fixed-ventilation state:
+- MAP 104 mmHg
+- PaO2 35 mmHg
+- PaCO2 110 mmHg
+- pH 6.90
+- VT 0.10 L
+- HR 59.94/min
+- fAb 35.79 spikes/s
+- fAc 21.23 spikes/s
+- fAp 1.176 spikes/s
+- fSh 60 spikes/s (saturated)
+- fV 10.55 spikes/s
+
+Interpretation:
+- Cardiac sympathetic firing is already saturated; adding more neural sympathetic gain is not a defensible fix.
+- The remaining long heart period is dominated by the vagal branch.
+- Albanese/Ursino lung-stretch input remains VT-based. No source support was found for replacing it with PEEP or mean-airway-pressure input.
+- The Albanese 7% CO2 validation is a closed-loop respiratory experiment in which ventilation changes. It does not establish validity for fixed very-low-VT positive-pressure ventilation with severe gas derangement.
+
+### Additional structural reduction found
+The published Ursino baroreceptor is driven by pulsatile arterial pressure through a dynamic afferent filter. The reduced v2.4 circulation is non-pulsatile and supplies a single systemic arterial pressure state to the controller.
+
+Therefore:
+- v2.4 cannot reproduce the full published pulsatile baroreceptor input without changing the cardiovascular plant;
+- do not synthesize systolic/diastolic pressure or pulse pressure from MAP;
+- the current MAP-to-baroreceptor bridge remains a documented reduced-model limitation.
+
+### Sympathoadrenal hypothesis
+Hypercapnic acidosis can increase circulating catecholamines, and human epinephrine studies show concentration-dependent chronotropy. This is a plausible missing mechanism, but the available hypercapnia secretion data are largely animal data and do not currently support a clean human hypercapnia -> epinephrine -> heart-period transfer function.
+
+Decision:
+- do not add an adrenal HR floor;
+- do not combine cross-species anchor points into live authority;
+- a sympathoadrenal construct may be used only as a non-authoritative sensitivity/shadow model until a sufficiently direct source model is found.
+
+### Current HR decision
+Do not promote the empirical PaCO2 minimum-HR curve.
+Do not add PEEP to fAp.
+Do not add arbitrary sympathetic gain.
+Do not promote Lin 2012 merely because its steady-state direction is correct.
+
+Next source gate:
+Find a published mechanism that is valid for mechanically ventilated severe hypercapnia and can modify heart period through an explicit physiologic intermediate. If none is adequate, retain the Albanese path as non-authoritative outside its validated closed-loop respiratory domain and expose that model-boundary limitation rather than tuning to a desired HR.
