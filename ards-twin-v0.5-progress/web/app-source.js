@@ -127,9 +127,13 @@
   async function initializeClinicalPreview() {
     const select = $('clinical-case');
     try {
-      const response = await fetch('./clinical-cases.json?v=0.6', { cache: 'no-store' });
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      clinicalManifest = await response.json();
+      if (window.__VENT_CLINICAL_CASES__) {
+        clinicalManifest = window.__VENT_CLINICAL_CASES__;
+      } else {
+        const response = await fetch('./clinical-cases.json?v=0.6', { cache: 'no-store' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        clinicalManifest = await response.json();
+      }
       if (!clinicalManifest || !Array.isArray(clinicalManifest.cases) ||
           clinicalManifest.cases.length !== 9) {
         throw new Error('clinical case manifest is invalid');
