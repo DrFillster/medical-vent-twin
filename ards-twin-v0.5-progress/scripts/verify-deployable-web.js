@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const web=path.join(root,'web');
-const required=['index.html','styles.css','app.js','worker.js','clinical-worker.js','engine.js','clinical-cases.json'];
+const required=['index.html','styles.css','style.css','app.js','worker.js','clinical-worker.js','engine.js','clinical-cases.json'];
 const failures=[];
 for(const name of required){
   const p=path.join(web,name);
@@ -13,7 +13,7 @@ for(const name of required){
 }
 function read(name){return fs.readFileSync(path.join(web,name),'utf8');}
 if(failures.length===0){
-  const html=read('index.html'), app=read('app.js'), css=read('styles.css'), engine=read('engine.js'), clinicalWorker=read('clinical-worker.js');
+  const html=read('index.html'), app=read('app.js'), css=read('styles.css'), gatewayCss=read('style.css'), engine=read('engine.js'), clinicalWorker=read('clinical-worker.js');
   const checks=[
     [html.includes('id="clinical-quick-start"'),'quick-start control missing'],
     [html.includes('id="clinical-ph"'),'pH monitor missing'],
@@ -50,6 +50,15 @@ if(failures.length===0){
     [app.includes("performPassiveMechanics"),'passive mechanics path missing'],
     [css.includes('.legacy-lab{display:none!important}'),'legacy mechanics lab not hidden from product shell'],
     [engine.includes('createBerlinLiveHumModSession'),'generated engine does not contain live clinical session'],
+    [html.includes('href="/style.css"'),'HumMod-Lab gateway stylesheet path missing'],
+    [html.includes('src="/app.js"'),'HumMod-Lab gateway app path missing'],
+    [!html.includes('engine.js'),'index still depends on blocked /engine.js path'],
+    [!html.includes('app.js?'),'index still uses query-string app path blocked by gateway'],
+    [gatewayCss===css,'gateway /style.css is not byte-identical to v2.0 styles.css'],
+    [app.includes('__VENT_CLINICAL_WORKER_SOURCE__'),'clinical worker is not bundled into /app.js'],
+    [app.includes('__VENT_LEGACY_WORKER_SOURCE__'),'legacy worker is not bundled into /app.js'],
+    [!app.includes("new Worker('./clinical-worker.js"),'app still requests blocked clinical-worker path'],
+    [!app.includes("new Worker('./worker.js"),'app still requests blocked worker path'],
   ];
   for(const [ok,message] of checks) if(!ok) failures.push(message);
 }
