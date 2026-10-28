@@ -39,22 +39,44 @@ if (fs.existsSync(appSourcePath)) {
     .replace(/^['"]use strict['"];?\s*/,'')
     .replace(/importScripts\([^\n]+\);?\s*/,'');
 
-  const helper =
-`\nwindow.__VENT_CLINICAL_CASES__ = ${clinicalCases};\n` +
-`const __VENT_CLINICAL_WORKER_SOURCE__ = ${JSON.stringify(bundle + '\n' + clinicalWorker)};\n` +
-`const __VENT_LEGACY_WORKER_SOURCE__ = ${JSON.stringify(bundle + '\n' + legacyWorker)};\n` +
-`function __ventInlineWorker(source){\n` +
-`  const blob = new Blob([source], {type:'text/javascript'});\n` +
-`  return new Worker(URL.createObjectURL(blob));\n` +
-`}\n`;
+  const clinicalManifestFallback =
+`      if (window.__VENT_CLINICAL_CASES__) {\n` +
+`        clinicalManifest = window.__VENT_CLINICAL_CASES__;\n` +
+`      } else {\n` +
+`        const response = await fetch('./clinical-cases.json?v=0.6', { cache: 'no-store' });\n` +
+`        if (!response.ok) throw new Error('HTTP ' + response.status);\n` +
+`        clinicalManifest = await response.json();\n` +
+`      }`;
+  const clinicalManifestBundled =
+`      if (!window.__VENT_CLINICAL_CASES__) throw new Error('Bundled clinical case manifest is unavailable');\n` +
+`      clinicalManifest = window.__VENT_CLINICAL_CASES__;`;
 
   appSource = appSource
+    .replace(clinicalManifestFallback, clinicalManifestBundled)
     .replace("new Worker('./clinical-worker.js?v=0.6')",
-      "__ventInlineWorker(__VENT_CLINICAL_WORKER_SOURCE__)")
+      "new Worker('/app.js#clinical')")
     .replace("new Worker('./worker.js?v=0.4.5')",
-      "__ventInlineWorker(__VENT_LEGACY_WORKER_SOURCE__)");
+      "new Worker('/app.js#legacy')");
 
-  fs.writeFileSync(path.join(webDir, 'app.js'), bundle + helper + appSource);
+  const mainApp =
+`window.__VENT_CLINICAL_CASES__ = ${clinicalCases};\n` +
+bundle + '\n' + appSource;
+  const generatedApp =
+`/* Gateway-compatible dual-purpose /app.js. Worker fragments are client-side only,\n` +
+` * so the gateway still receives the exact allowed request path /app.js. */\n` +
+`if (typeof document === 'undefined') {\n` +
+`  if (self.location.hash === '#clinical') {\n` +
+bundle + '\n' + clinicalWorker + '\n' +
+`  } else if (self.location.hash === '#legacy') {\n` +
+bundle + '\n' + legacyWorker + '\n' +
+`  } else {\n` +
+`    throw new Error('Unknown /app.js worker mode');\n` +
+`  }\n` +
+`} else {\n` +
+mainApp + '\n' +
+`}\n`;
+
+  fs.writeFileSync(path.join(webDir, 'app.js'), generatedApp);
   fs.copyFileSync(path.join(webDir, 'styles.css'), path.join(webDir, 'style.css'));
   console.log('Built gateway-compatible web/app.js and web/style.css.');
 }
