@@ -31,6 +31,7 @@ const webDir = path.join(root, 'web');
 const appSourcePath = path.join(webDir, 'app-source.js');
 if (fs.existsSync(appSourcePath)) {
   let appSource = fs.readFileSync(appSourcePath, 'utf8');
+  const clinicalCases = fs.readFileSync(path.join(webDir, 'clinical-cases.json'), 'utf8');
   const clinicalWorker = fs.readFileSync(path.join(webDir, 'clinical-worker.js'), 'utf8')
     .replace(/^['"]use strict['"];?\s*/,'')
     .replace(/importScripts\([^\n]+\);?\s*/,'');
@@ -39,7 +40,8 @@ if (fs.existsSync(appSourcePath)) {
     .replace(/importScripts\([^\n]+\);?\s*/,'');
 
   const helper =
-`\nconst __VENT_CLINICAL_WORKER_SOURCE__ = ${JSON.stringify(bundle + '\n' + clinicalWorker)};\n` +
+`\nwindow.__VENT_CLINICAL_CASES__ = ${clinicalCases};\n` +
+`const __VENT_CLINICAL_WORKER_SOURCE__ = ${JSON.stringify(bundle + '\n' + clinicalWorker)};\n` +
 `const __VENT_LEGACY_WORKER_SOURCE__ = ${JSON.stringify(bundle + '\n' + legacyWorker)};\n` +
 `function __ventInlineWorker(source){\n` +
 `  const blob = new Blob([source], {type:'text/javascript'});\n` +
