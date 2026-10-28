@@ -53,3 +53,56 @@ jobs:
         run: node test/clinical_twin_live_hummod_session.test.js
       - name: Verify deployable web
         run: npm run verify:deploy
+
+  deploy-main:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout v2.4 source
+        uses: actions/checkout@v4
+        with:
+          ref: v2.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build current v2.4 browser bundle
+        working-directory: ards-twin-v0.5-progress
+        run: |
+          npm run build
+          npm run verify:deploy
+      - name: Stage generated main-site bundle
+        run: |
+          rm -rf /tmp/v24-main-web
+          mkdir -p /tmp/v24-main-web
+          find ards-twin-v0.5-progress/web -maxdepth 1 -type f -exec cp {} /tmp/v24-main-web/ \;
+          printf '%s\n' "$GITHUB_SHA" > /tmp/v24-main-web/DEPLOY_SOURCE_SHA.txt
+      - name: Checkout served v1.5 tree
+        uses: actions/checkout@v4
+        with:
+          ref: v1.5
+          fetch-depth: 0
+          clean: true
+      - name: Replace main served files only
+        run: |
+          mkdir -p ards-twin-v1.0/web
+          find ards-twin-v1.0/web -maxdepth 1 -type f -delete
+          cp /tmp/v24-main-web/* ards-twin-v1.0/web/
+          test -f ards-twin-v1.0/web/index.html
+          test -f ards-twin-v1.0/web/app.js
+          test -f ards-twin-v1.0/web/engine.js
+          grep -q 'id="clinical-simulation-rate"' ards-twin-v1.0/web/index.html
+          grep -q 'clinicalSimulationRate' ards-twin-v1.0/web/app.js
+          grep -q 'createV24TerminalStateController' ards-twin-v1.0/web/engine.js
+          git status --porcelain --untracked-files=all
+      - name: Commit main website promotion
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ards-twin-v1.0/web
+          if ! git diff --cached --quiet; then
+            git commit -m "deploy(main): v2.4 bedside UI + current physiology $SOURCE_SHA"
+            git push origin HEAD:v1.5
+          fi
