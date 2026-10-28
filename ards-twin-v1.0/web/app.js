@@ -7,16 +7,115 @@
   let clinicalWorker = null, clinicalHumModExport = null, clinicalRecruitmentHistory = null, clinicalSnapshot = null;
   let clinicalContinuousRun = false;
   let clinicalContinuousTimer = null;
+  let clinicalPlaybackSpeed = 1;
   let clinicalInterventions = [];
   let clinicalPhysiologyTrend = [];
   let clinicalLastAppliedVentilation = null;
+  let clinicalBuildSha = null;
   const CLINICAL_TREND_MAX_POINTS = 1800;
+
+  let nativeEngineClient = null;
+  let nativeEnginePollTimer = null;
+
+  function setNativeEngineStatus(text) {
+    const el = $('clinical-native-engine-status');
+    if (el) el.textContent = text;
+  }
+
+  async function initializeBuildIdentity() {
+    const el = $('clinical-build-sha');
+    try {
+      const response = await fetch('./DEPLOY_SOURCE_SHA.txt?cache=' + Date.now(), { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const sha = (await response.text()).trim();
+      if (!/^[0-9a-f]{40}$/i.test(sha)) throw new Error('invalid SHA marker');
+      clinicalBuildSha = sha;
+      if (el) el.textContent = 'Build source: ' + sha.slice(0, 12);
+    } catch (error) {
+      clinicalBuildSha = null;
+      if (el) el.textContent = 'Build source: unavailable';
+    }
+  }
+
+  function requirePhysicianCandidateSnapshot(snapshot) {
+    if (snapshot?.sessionSchema !== 'berlin-clinical-twin-live-hummod-session/v1') return;
+    const candidate = snapshot?.systemic?.physicianComparison?.candidateModel;
+    const hummod2013 =
+      snapshot?.systemic?.physicianComparison?.hummod2013Compensation;
+    const required = [
+      'heartRatePerMin',
+      'meanArterialPressureMmHg',
+      'cardiacOutputMlPerMin',
+      'strokeVolumeMl',
+      'systemicPeripheralResistanceMmHgMinPerL',
+    ];
+    if (!candidate) {
+      throw new Error('Physician validation candidate missing from live runtime snapshot. Reload the current build before testing.');
+    }
+    for (const key of required) {
+      if (typeof candidate[key] !== 'number' || !Number.isFinite(candidate[key])) {
+        throw new Error('Physician validation candidate has invalid ' + key + '. Reload the current build before testing.');
+      }
+    }
+    if (!hummod2013 ||
+        typeof hummod2013.heartRatePerMin !== 'number' ||
+        !Number.isFinite(hummod2013.heartRatePerMin)) {
+      throw new Error(
+        'HumMod 2013 compensation comparison missing or invalid. Reload the current build before testing.'
+      );
+    }
+  }
+
+  async function pollNativeEngineBoundary() {
+    if (!nativeEngineClient) return;
+    try {
+      await nativeEngineClient.health();
+      const state = await nativeEngineClient.state();
+      const status = nativeEngineClient.connectionStatus();
+      if (state.status !== 'boundary-only') {
+        setNativeEngineStatus('Connected · read-only shadow');
+      } else {
+        setNativeEngineStatus(
+          status.stale ? 'Stale · read-only boundary' : 'Connected · boundary only'
+        );
+      }
+    } catch (error) {
+      setNativeEngineStatus('Unavailable');
+    }
+  }
+
+  function initializeNativeEngineBoundary() {
+    const baseUrl =
+      typeof window !== 'undefined'
+        ? String(window.MEDICAL_TWIN_NATIVE_ENGINE_URL || '').trim()
+        : '';
+    if (!baseUrl) {
+      setNativeEngineStatus('Not configured');
+      return;
+    }
+    if (!window.NativeEngineClient ||
+        typeof window.NativeEngineClient.createNativeEngineClient !== 'function') {
+      setNativeEngineStatus('Client unavailable');
+      return;
+    }
+
+    nativeEngineClient = window.NativeEngineClient.createNativeEngineClient({
+      baseUrl,
+      staleAfterMs: 5000,
+    });
+    setNativeEngineStatus('Connecting...');
+    pollNativeEngineBoundary();
+    nativeEnginePollTimer = setInterval(pollNativeEngineBoundary, 3000);
+  }
+
   const SYNTHETIC_DEMO_HUMMOD = Object.freeze({
     schema: 'vent-hummod-trajectory/v1',
     trajectoryId: 'synthetic-demo-fixture-not-real-hummod',
     source: Object.freeze({
-      repository: 'riliescu/hummod-standalone',
-      revision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+      repository: 'HumMod/hummod-standalone',
+      revision: null,
+      mirrorRepository: 'riliescu/hummod-standalone',
+      mirrorRevision: '8dab57e05631f779bf5020fe0dd51874d8ae98c1',
       exporterVersion: 'synthetic-demo-fixture/1',
     }),
     symbols: Object.freeze([
@@ -127,7 +226,7 @@
   async function initializeClinicalPreview() {
     const select = $('clinical-case');
     try {
-      const response = await fetch('./clinical-cases.json?v=0.6', { cache: 'no-store' });
+      const response = await fetch('./clinical-cases.json?v=1.0.0', { cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       clinicalManifest = await response.json();
       if (!clinicalManifest || !Array.isArray(clinicalManifest.cases) ||
@@ -191,32 +290,62 @@
   }
 
   function syncClinicalProvider() {
-    const live = $('clinical-systemic-provider').value === 'live-reduced-hummod';
-    $('clinical-hummod-file-block').hidden = live;
-    $('clinical-hummod-file').disabled = live;
-    $('clinical-provider-status').textContent = live
-      ? 'LIVE REDUCED HUMMOD CORE · experimental · reference aspiration case + VC-AC only · not full HumMod · not clinically validated.'
-      : 'TRAJECTORY REPLAY · attach a canonical Vent trajectory or raw HumMod System.X series. Vent interventions do not alter replayed systemic values.';
-    $('clinical-coupling-note').textContent = live
-      ? 'Live reduced HumMod mode couples Vent recruitment/perfusion and mean airway pressure into source-aligned reduced gas, thorax, and circulation equations. Remaining engineering boundaries are explicit synthetic assumptions.'
-      : 'Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.';
+    const provider = $('clinical-systemic-provider').value;
+    const live = provider === 'live-reduced-hummod';
+    const v16 = provider === 'v16-integrated-ards';
+    const replay = provider === 'replay';
+    const needsHumModFile = replay;
+
+    $('clinical-hummod-file-block').hidden = !needsHumModFile;
+    $('clinical-hummod-file').disabled = !needsHumModFile;
+
+    const v16Block = $('clinical-v16-ards-boundaries');
+    if (v16Block) v16Block.hidden = !v16;
+    for (const id of ['clinical-anatomic-shunt','clinical-excess-lung-water']) {
+      const el = $(id);
+      if (!el) continue;
+      el.disabled = !v16;
+      el.required = v16;
+    }
+
+    if (v16) {
+      $('clinical-provider-status').textContent =
+        'v1.6 INTEGRATED ARDS CANDIDATE · persistent Vent + regional V/Q/HPV + pulmonary vascular + cardiovascular physiology · candidate only · not clinically validated.';
+      $('clinical-coupling-note').textContent =
+        'Vent owns mechanics. Regional oxygenation uses Vent ventilation with Das/Marshall V/Q-HPV; Karamolegkos owns candidate pulmonary vascular mechanics; Ursino/Magosso owns candidate cardiovascular/autonomic physiology. Shunt and lung water remain explicit case inputs.';
+    } else if (live) {
+      $('clinical-provider-status').textContent =
+        'LEGACY REDUCED HUMMOD CORE · research comparison · reference aspiration case + VC-AC only · not full HumMod · not clinically validated.';
+      $('clinical-coupling-note').textContent =
+        'Legacy reduced HumMod mode retains earlier synthetic thorax/circulation boundaries and is preserved for research comparison.';
+    } else {
+      $('clinical-provider-status').textContent =
+        'TRAJECTORY REPLAY · attach a canonical Vent trajectory or raw HumMod System.X series. Vent interventions do not alter replayed systemic values.';
+      $('clinical-coupling-note').textContent =
+        'Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.';
+    }
+
     const reference = 'berlin-moderate-moderate-aspiration';
     for (const option of Array.from($('clinical-case').options)) {
       option.disabled = live && option.value !== reference;
     }
     for (const option of Array.from($('clinical-mode').options)) {
-      option.disabled = live && option.value === 'PC_AC';
+      option.disabled = (live || v16) && option.value === 'PC_AC';
     }
-    if (live) {
-      if ($('clinical-case').value !== reference) {
-        $('clinical-case').value = reference;
-        renderClinicalCase(reference);
-      }
-      if ($('clinical-mode').value !== 'VC_AC') {
-        $('clinical-mode').value = 'VC_AC';
-        syncClinicalMode();
-      }
-      $('clinical-executable').textContent = 'Live preview';
+
+    if (live && $('clinical-case').value !== reference) {
+      $('clinical-case').value = reference;
+      renderClinicalCase(reference);
+    }
+    if ((live || v16) && $('clinical-mode').value !== 'VC_AC') {
+      $('clinical-mode').value = 'VC_AC';
+      syncClinicalMode();
+    }
+    if (v16) {
+      $('clinical-executable').textContent = 'v1.6 candidate';
+      $('clinical-executable').dataset.status = 'ready';
+    } else if (live) {
+      $('clinical-executable').textContent = 'Legacy preview';
       $('clinical-executable').dataset.status = 'ready';
     }
   }
@@ -382,6 +511,25 @@
       pao2: Number(snapshot?.systemic?.gasExchange?.pao2MmHg),
       paco2: Number(snapshot?.systemic?.gasExchange?.paco2MmHg),
       map: Number(snapshot?.systemic?.hemodynamics?.meanArterialPressureMmHg),
+      heartRate: Number(snapshot?.systemic?.hemodynamics?.heartRatePerMin),
+      cardiacOutputLMin: Number(snapshot?.systemic?.hemodynamics?.cardiacOutputMlPerMin) / 1000,
+      strokeVolume: Number(snapshot?.systemic?.hemodynamics?.strokeVolumeMl),
+      svr: Number(snapshot?.systemic?.hemodynamics?.systemicVascularResistanceMmHgMinPerL),
+      pvr: Number(snapshot?.systemic?.hemodynamics?.pulmonaryVascularResistanceMmHgMinPerL),
+      rap: Number(snapshot?.systemic?.hemodynamics?.rightAtrialPressureMmHg),
+      pap: Number(snapshot?.systemic?.hemodynamics?.pulmonaryArteryPressureMmHg),
+      sao2Percent: Number(snapshot?.systemic?.gasExchange?.sao2Fraction) * 100,
+      sourceHeartRate: Number(snapshot?.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin),
+      shadowHeartRate: Number(snapshot?.systemic?.physicianComparison?.publishedModelInterim?.heartRatePerMin),
+      empiricalHrOverlay: Number(snapshot?.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin),
+      brainPo2: Number(snapshot?.systemic?.hemodynamics?.brainTissuePo2MmHg),
+      brainFunction: Number(snapshot?.systemic?.hemodynamics?.brainFunctionEffect),
+      sympatheticHz: Number(snapshot?.systemic?.hemodynamics?.sympatheticFiringHz),
+      vagalHz: Number(snapshot?.systemic?.hemodynamics?.vagalFiringHz),
+      shadowFsh: Number(snapshot?.systemic?.autonomicShadow?.fShSpikesPerSec),
+      shadowFv: Number(snapshot?.systemic?.autonomicShadow?.fVSpikesPerSec),
+      globalDo2: Number(snapshot?.systemic?.gasExchange?.convectiveOxygenDeliveryMlPerMin),
+      oxygenDebt: Number(snapshot?.systemic?.decompensation?.oxygenDebtMl),
       pH: Number(snapshot?.systemic?.gasExchange?.pH),
     };
     if (!Number.isFinite(point.timeSec)) return;
@@ -450,6 +598,25 @@
     drawClinicalTrend('clinical-pao2-trend', 'pao2', 0);
     drawClinicalTrend('clinical-paco2-trend', 'paco2', 0);
     drawClinicalTrend('clinical-map-trend', 'map', 0);
+    drawClinicalTrend('clinical-hr-trend', 'heartRate', 0);
+    drawClinicalTrend('clinical-co-trend', 'cardiacOutputLMin', 2);
+    drawClinicalTrend('clinical-sv-trend', 'strokeVolume', 0);
+    drawClinicalTrend('clinical-svr-trend', 'svr', 0);
+    drawClinicalTrend('clinical-pvr-trend', 'pvr', 2);
+    drawClinicalTrend('clinical-rap-trend', 'rap', 1);
+    drawClinicalTrend('clinical-pap-trend', 'pap', 1);
+    drawClinicalTrend('clinical-sao2-trend', 'sao2Percent', 0);
+    drawClinicalTrend('clinical-source-hr-trend', 'sourceHeartRate', 0);
+    drawClinicalTrend('clinical-shadow-hr-trend', 'shadowHeartRate', 0);
+    drawClinicalTrend('clinical-hr-overlay-trend', 'empiricalHrOverlay', 0);
+    drawClinicalTrend('clinical-brain-po2-trend', 'brainPo2', 1);
+    drawClinicalTrend('clinical-brain-function-trend', 'brainFunction', 2);
+    drawClinicalTrend('clinical-symps-trend', 'sympatheticHz', 2);
+    drawClinicalTrend('clinical-vagus-trend', 'vagalHz', 2);
+    drawClinicalTrend('clinical-shadow-fsh-trend', 'shadowFsh', 2);
+    drawClinicalTrend('clinical-shadow-fv-trend', 'shadowFv', 2);
+    drawClinicalTrend('clinical-do2-trend', 'globalDo2', 0);
+    drawClinicalTrend('clinical-o2-debt-trend', 'oxygenDebt', 0);
     drawClinicalTrend('clinical-ph-trend', 'pH', 2);
   }
 
@@ -525,16 +692,41 @@
 
   function renderClinicalSnapshot(snapshot) {
     clinicalSnapshot = snapshot;
+    const decomp = snapshot.systemic?.decompensation || {};
+    const arrestBanner = $('clinical-arrest-banner');
+    if (arrestBanner) {
+      const arrested = Boolean(decomp.cardiacArrest);
+      arrestBanner.hidden = !arrested;
+      if (arrested) {
+        const rhythm = decomp.arrestRhythm || 'ARREST';
+        arrestBanner.dataset.rhythm = rhythm;
+        $('clinical-arrest-title').textContent = 'CARDIAC ARREST';
+        $('clinical-arrest-rhythm').textContent = rhythm;
+        const reason = decomp.cardiacArrestReason || 'terminal circulatory failure';
+        $('clinical-arrest-detail').textContent =
+          'Patient time ' + formatClinicalClock(snapshot.timeSec) + ' · ' + reason;
+      } else {
+        arrestBanner.removeAttribute('data-rhythm');
+      }
+    }
     captureClinicalPhysiologyTrend(snapshot);
     $('clinical-live').hidden = false;
     $('clinical-time').textContent = displayClinicalValue(snapshot.timeSec);
     $('clinical-current-mode').textContent = snapshot.ventilator?.mode || '—';
-    $('clinical-current-peep').textContent = displayClinicalValue(snapshot.ventilator?.peepCmH2O);
+    const peepValue = snapshot.ventilator?.peepCmH2O;
+    const peepTile = $('clinical-pressure-peep');
+    if (peepTile) peepTile.textContent = displayClinicalValue(peepValue);
+    const legacyPeepTile = $('clinical-current-peep');
+    if (legacyPeepTile) legacyPeepTile.textContent = displayClinicalValue(peepValue);
     $('clinical-current-fio2').textContent = typeof snapshot.ventilator?.fio2 === 'number'
       ? snapshot.ventilator.fio2.toFixed(2) : '—';
     $('clinical-current-rr').textContent = displayClinicalValue(snapshot.ventilator?.rrPerMin ?? snapshot.ventilator?.rr);
     $('clinical-current-vt').textContent = typeof snapshot.ventilator?.vtL === 'number'
       ? Math.round(snapshot.ventilator.vtL * 1000) : '—';
+    const clinicalSao2 = snapshot.systemic?.gasExchange?.sao2Fraction;
+    $('clinical-sao2').textContent = typeof clinicalSao2 === 'number' && Number.isFinite(clinicalSao2)
+      ? String(Math.round(clinicalSao2 * 100))
+      : '—';
     $('clinical-pao2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.pao2MmHg);
     $('clinical-paco2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.paco2MmHg);
     const clinicalPh = snapshot.systemic?.gasExchange?.pH;
@@ -547,6 +739,14 @@
       : '—';
     $('clinical-pvo2').textContent = displayClinicalInteger(snapshot.systemic?.gasExchange?.pvo2MmHg);
     $('clinical-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.heartRatePerMin);
+    $('clinical-source-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin);
+    $('clinical-hr-overlay').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin ?? 0);
+    const brainPo2 = snapshot.systemic?.hemodynamics?.brainTissuePo2MmHg;
+    $('clinical-brain-po2').textContent = typeof brainPo2 === 'number' && Number.isFinite(brainPo2)
+      ? brainPo2.toFixed(1) : '—';
+    const brainFunction = snapshot.systemic?.hemodynamics?.brainFunctionEffect;
+    $('clinical-brain-function').textContent = typeof brainFunction === 'number' && Number.isFinite(brainFunction)
+      ? brainFunction.toFixed(2) : '—';
     $('clinical-map').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.meanArterialPressureMmHg);
     const cardiacOutputMlPerMin = snapshot.systemic?.hemodynamics?.cardiacOutputMlPerMin;
     $('clinical-co').textContent = typeof cardiacOutputMlPerMin === 'number' && Number.isFinite(cardiacOutputMlPerMin)
@@ -555,29 +755,142 @@
     const hemo = snapshot.systemic?.hemodynamics || {};
     $('clinical-sv').textContent = displayClinicalInteger(hemo.strokeVolumeMl);
     $('clinical-svr').textContent = displayClinicalInteger(hemo.systemicVascularResistanceMmHgMinPerL);
+    $('clinical-rap').textContent = typeof hemo.rightAtrialPressureMmHg === 'number' &&
+      Number.isFinite(hemo.rightAtrialPressureMmHg)
+      ? hemo.rightAtrialPressureMmHg.toFixed(1)
+      : '—';
+    $('clinical-pap').textContent = typeof hemo.pulmonaryArteryPressureMmHg === 'number' &&
+      Number.isFinite(hemo.pulmonaryArteryPressureMmHg)
+      ? hemo.pulmonaryArteryPressureMmHg.toFixed(1)
+      : '—';
     $('clinical-pvr').textContent = typeof hemo.pulmonaryVascularResistanceMmHgMinPerL === 'number' &&
       Number.isFinite(hemo.pulmonaryVascularResistanceMmHgMinPerL)
       ? hemo.pulmonaryVascularResistanceMmHgMinPerL.toFixed(2)
       : '—';
-    $('clinical-sympathetic').textContent = typeof hemo.sympatheticTone === 'number'
-      ? hemo.sympatheticTone.toFixed(2) : '—';
-    $('clinical-catecholamine').textContent = typeof hemo.catecholamineDrive === 'number'
-      ? hemo.catecholamineDrive.toFixed(2) : '—';
+    const circulationMode = hemo.systemicOutflowMode || 'conductance';
+    $('clinical-circulation-mode').textContent =
+      circulationMode === 'explicit-organ-network'
+        ? 'Explicit HumMod organ flow'
+        : circulationMode === 'Ursino-Magosso-source-family-candidate'
+          ? 'Ursino/Magosso candidate'
+          : 'Reduced conductance';
+    $('clinical-sympathetic-hz').textContent =
+      typeof hemo.sympatheticFiringHz === 'number' && Number.isFinite(hemo.sympatheticFiringHz)
+        ? hemo.sympatheticFiringHz.toFixed(2) : '—';
+    $('clinical-vagal-hz').textContent =
+      typeof hemo.vagalFiringHz === 'number' && Number.isFinite(hemo.vagalFiringHz)
+        ? hemo.vagalFiringHz.toFixed(2) : '—';
+    $('clinical-sa-beta').textContent =
+      typeof hemo.saBetaReceptorActivity === 'number' && Number.isFinite(hemo.saBetaReceptorActivity)
+        ? hemo.saBetaReceptorActivity.toFixed(2) : '—';
+    const catecholamines = hemo.catecholamines || {};
+    $('clinical-ne').textContent =
+      typeof catecholamines.nePgPerMl === 'number' && Number.isFinite(catecholamines.nePgPerMl)
+        ? Math.round(catecholamines.nePgPerMl) : '—';
+    $('clinical-epi').textContent =
+      typeof catecholamines.epiPgPerMl === 'number' && Number.isFinite(catecholamines.epiPgPerMl)
+        ? Math.round(catecholamines.epiPgPerMl) : '—';
+
+    const shadow = snapshot.systemic?.autonomicShadow || {};
+    const gasx = snapshot.systemic?.gasExchange || {};
+    const setShadow = (id, value, digits = 2) => {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = typeof value === 'number' && Number.isFinite(value)
+        ? value.toFixed(digits)
+        : '—';
+    };
+    setShadow('clinical-shadow-fab', shadow.fAbSpikesPerSec);
+    setShadow('clinical-shadow-fac', shadow.fAcSpikesPerSec);
+    setShadow('clinical-shadow-fap', shadow.fApSpikesPerSec);
+    setShadow('clinical-shadow-theta-sp', shadow.thetaSpSpikesPerSec);
+    setShadow('clinical-shadow-theta-sh', shadow.thetaShSpikesPerSec);
+    setShadow('clinical-shadow-fsp', shadow.fSpSpikesPerSec);
+    setShadow('clinical-shadow-fsh', shadow.fShSpikesPerSec);
+    setShadow('clinical-shadow-fv', shadow.fVSpikesPerSec);
+    setShadow('clinical-shadow-rsp',
+      shadow.downstreamEffectors?.regionalResistance?.splanchnic?.value, 3);
+    setShadow('clinical-shadow-emax-lv',
+      shadow.downstreamEffectors?.ventricularElastance?.left?.value, 3);
+    setShadow('clinical-global-do2', gasx.convectiveOxygenDeliveryMlPerMin, 0);
+    setShadow('clinical-global-oer', gasx.globalExtractionRatio, 3);
+    setShadow('clinical-o2-deficit', gasx.oxygenSupplyDeficitMlPerMin, 1);
+    setShadow('clinical-o2-debt', decomp.oxygenDebtMl, 1);
+
+    const comparison = snapshot.systemic?.physicianComparison || {};
+    const liveComparison = comparison.liveHumMod || {};
+    const candidateComparison = comparison.candidateModel || {};
+    const hummod2013Comparison = comparison.hummod2013Compensation || {};
+    const shadowComparison = comparison.publishedModelInterim || {};
+    setShadow('clinical-compare-live-hr', liveComparison.heartRatePerMin, 0);
+    setShadow('clinical-compare-shadow-hr', candidateComparison.heartRatePerMin, 0);
+    setShadow('clinical-compare-live-map', liveComparison.meanArterialPressureMmHg, 0);
+    setShadow('clinical-compare-shadow-map',
+      candidateComparison.meanArterialPressureMmHg, 0);
+    setShadow('clinical-compare-live-co',
+      typeof liveComparison.cardiacOutputMlPerMin === 'number'
+        ? liveComparison.cardiacOutputMlPerMin / 1000
+        : null, 2);
+    setShadow('clinical-compare-shadow-co',
+      typeof candidateComparison.cardiacOutputMlPerMin === 'number'
+        ? candidateComparison.cardiacOutputMlPerMin / 1000
+        : null, 2);
+    setShadow('clinical-compare-live-sv', liveComparison.strokeVolumeMl, 0);
+    setShadow('clinical-compare-shadow-sv', candidateComparison.strokeVolumeMl, 0);
+    setShadow('clinical-compare-live-svr',
+      liveComparison.systemicVascularResistanceMmHgMinPerL, 0);
+    setShadow('clinical-compare-shadow-svr',
+      candidateComparison.systemicPeripheralResistanceMmHgMinPerL, 0);
+    setShadow('clinical-compare-hm2013-hr',
+      hummod2013Comparison.heartRatePerMin, 0);
+    setShadow('clinical-compare-hm2013-chemo',
+      hummod2013Comparison.chemoreceptorFiringRate, 2);
+    setShadow('clinical-compare-hm2013-cns',
+      hummod2013Comparison.chemoCnsEffect, 2);
+    setShadow('clinical-compare-hm2013-cardiac-symps',
+      hummod2013Comparison.cardiacSympatheticHz, 2);
+    setShadow('clinical-compare-hm2013-adrenal-symps',
+      hummod2013Comparison.adrenalSympatheticHz, 2);
+    setShadow('clinical-compare-hm2013-general-symps',
+      hummod2013Comparison.generalSympatheticHz, 2);
+    setShadow('clinical-compare-hm2013-ne',
+      hummod2013Comparison.norepinephrinePgPerMl, 0);
+    setShadow('clinical-compare-hm2013-epi',
+      hummod2013Comparison.epinephrinePgPerMl, 0);
+    setShadow('clinical-compare-hm2013-beta1',
+      hummod2013Comparison.beta1Effect, 2);
+    const myocardialStatus = $('clinical-compare-myocardial-status');
+    if (myocardialStatus && shadowComparison.myocardialContractilityStatus) {
+      myocardialStatus.textContent = shadowComparison.myocardialContractilityStatus;
+    }
+    const comparisonStatus = $('clinical-compare-status');
+    if (comparisonStatus) {
+      const limitations = Array.isArray(candidateComparison.knownLimitations)
+        ? candidateComparison.knownLimitations.join(' ')
+        : '';
+      comparisonStatus.textContent = candidateComparison.status
+        ? candidateComparison.status + (limitations ? ' Known limitations: ' + limitations : '')
+        : 'Candidate model unavailable.';
+    }
+    $('clinical-ppeak').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.peakPressureCmH2O);
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
-    $('clinical-total-peep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.totalPeepCmH2O);
-    $('clinical-autopeep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.intrinsicPeepCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
     const clinicalWaveform = snapshot.pulmonary?.recentWaveform || [];
     drawClinicalTrace('clinical-pressure-chart', clinicalWaveform, 'pressureCmH2O');
     drawClinicalTrace('clinical-flow-chart', clinicalWaveform, 'flowLps');
     drawClinicalTrace('clinical-volume-chart', clinicalWaveform, 'volumeL');
     renderClinicalPhysiologyTrends();
-    $('clinical-session-status').textContent =
-      'Patient active · ' +
-      (snapshot.ventilatorChangePending ? 'ventilator change pending next breath boundary' : 'settings applied') +
-      (snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
-        ? ' · dynamic cardiopulmonary simulation'
-        : ' · fixed systemic trajectory replay');
+    const decompStatus = snapshot.systemic?.decompensation;
+    $('clinical-session-status').textContent = decompStatus?.cardiacArrest
+      ? 'CARDIAC ARREST · ' + (decompStatus.arrestRhythm || 'ARREST') +
+        (decompStatus.cardiacArrestReason ? ' · ' + decompStatus.cardiacArrestReason : '')
+      : 'Patient active · ' +
+        (snapshot.ventilatorChangePending ? 'ventilator change pending next breath boundary' : 'settings applied') +
+        (snapshot.coupling.mode === 'v1.6-integrated-ards-candidate'
+          ? ' · v1.6 integrated ARDS candidate'
+          : snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
+            ? ' · legacy dynamic cardiopulmonary simulation'
+            : ' · fixed systemic trajectory replay');
     // The legacy 'new PEEP' draft input was removed in the bedside UX rev.
     // Sync any matching element only if it still exists; otherwise leave
     // the form inputs the user is editing untouched.
@@ -599,11 +912,32 @@
   function scheduleClinicalContinuousStep() {
     if (!clinicalContinuousRun || !clinicalWorker) return;
     if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
+    const delayMs = 1000 / clinicalPlaybackSpeed;
     clinicalContinuousTimer = setTimeout(() => {
       clinicalContinuousTimer = null;
       if (!clinicalContinuousRun || !clinicalWorker) return;
+      // Speed changes wall-clock pacing only. Every worker request still
+      // advances exactly one simulated patient second with the existing
+      // physiologic timestep and equations unchanged.
       clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
-    }, 1000);
+    }, delayMs);
+  }
+
+  function setClinicalPlaybackSpeed(value) {
+    const speed = Number(value);
+    const allowed = [0.25, 0.5, 1, 2, 5, 10];
+    if (!allowed.includes(speed)) throw new Error('Unsupported simulation speed');
+    clinicalPlaybackSpeed = speed;
+    const label = speed + '×';
+    const indicator = $('clinical-speed-indicator');
+    if (indicator) indicator.textContent = label;
+    if (clinicalContinuousRun) {
+      if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
+      clinicalContinuousTimer = null;
+      $('clinical-session-status').textContent =
+        'Patient running continuously at ' + label + ' real time…';
+      scheduleClinicalContinuousStep();
+    }
   }
 
   function stopClinicalContinuousRun() {
@@ -664,7 +998,7 @@
     clinicalPhysiologyTrend = [];
     renderClinicalInterventions();
     renderClinicalPhysiologyTrends();
-    clinicalWorker = new Worker('./clinical-worker.js?v=0.6');
+    clinicalWorker = new Worker('./clinical-worker.js?v=1.6-integrated-ards-candidate');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
@@ -675,14 +1009,35 @@
         return;
       }
       if (data.type === 'initialized') {
+        try {
+          requirePhysicianCandidateSnapshot(data.snapshot);
+        } catch (error) {
+          stopClinicalContinuousRun();
+          showClinicalError(error.message);
+          $('clinical-initialize').disabled = false;
+          return;
+        }
         $('clinical-session-error').hidden = true;
         $('clinical-initialize').disabled = true;
         $('clinical-run-continuous').disabled = false;
         $('clinical-pause-continuous').disabled = true;
         renderClinicalSnapshot(data.snapshot);
+        const setupPanel = $('clinical-session-panel');
+        if (setupPanel) setupPanel.open = true;
+        const livePanel = $('clinical-live');
+        if (livePanel && typeof livePanel.scrollIntoView === 'function') {
+          livePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         return;
       }
       if (data.type === 'snapshot') {
+        try {
+          requirePhysicianCandidateSnapshot(data.snapshot);
+        } catch (error) {
+          stopClinicalContinuousRun();
+          showClinicalError(error.message);
+          return;
+        }
         $('clinical-session-error').hidden = true;
         renderClinicalSnapshot(data.snapshot);
         if (data.action === 'requestInspiratoryHold' || data.action === 'requestExpiratoryHold' ||
@@ -799,7 +1154,7 @@
       clinicalRecruitmentHistory = null;
       $('clinical-case').value = 'berlin-moderate-moderate-aspiration';
       renderClinicalCase($('clinical-case').value);
-      $('clinical-systemic-provider').value = 'live-reduced-hummod';
+      $('clinical-systemic-provider').value = 'v16-integrated-ards';
       $('clinical-mode').value = 'VC_AC';
       $('clinical-fio2').value = '0.60';
       $('clinical-peep').value = '8';
@@ -810,6 +1165,8 @@
       $('clinical-flow').value = '0.70';
       $('clinical-vc-pause').value = '0.20';
       $('clinical-dt').value = '0.002';
+      $('clinical-anatomic-shunt').value = '35';
+      $('clinical-excess-lung-water').value = '0';
       syncClinicalMode();
       syncClinicalInitializationMode();
       syncClinicalProvider();
@@ -829,10 +1186,12 @@
     });
     $('clinical-mode').addEventListener('change', () => {
       syncClinicalMode();
-      if ($('clinical-systemic-provider').value === 'live-reduced-hummod' &&
+      const provider = $('clinical-systemic-provider').value;
+      if ((provider === 'live-reduced-hummod' ||
+           provider === 'v16-integrated-ards') &&
           $('clinical-mode').value !== 'VC_AC') {
         $('clinical-provider-status').textContent =
-          'Live reduced HumMod currently supports VC-AC only. Choose VC-AC or switch to trajectory replay.';
+          'The selected live candidate currently supports VC-AC only. Choose VC-AC or switch to trajectory replay.';
       }
     });
     $('clinical-init-mode').addEventListener('change', () => {
@@ -875,11 +1234,15 @@
         }
         if (provider === 'live-reduced-hummod') {
           if ($('clinical-case').value !== 'berlin-moderate-moderate-aspiration') {
-            throw new Error('Live reduced HumMod is currently limited to the moderate/intermediate aspiration reference case');
+            throw new Error('Legacy reduced HumMod is currently limited to the moderate/intermediate aspiration reference case');
           }
           if ($('clinical-mode').value !== 'VC_AC') {
-            throw new Error('Live reduced HumMod currently supports VC-AC only');
+            throw new Error('Legacy reduced HumMod currently supports VC-AC only');
           }
+        }
+        if (provider === 'v16-integrated-ards' &&
+            $('clinical-mode').value !== 'VC_AC') {
+          throw new Error('v1.6 integrated ARDS candidate currently supports VC-AC only');
         }
         const w = startClinicalWorker();
         const payload = {
@@ -887,6 +1250,15 @@
           ventilation: clinicalVentilationPayload(),
           dt: clinicalNumber('clinical-dt'),
         };
+        if (provider === 'live-reduced-hummod') {
+          payload.coupledEquilibrationSec = 600;
+        }
+        if (provider === 'v16-integrated-ards') {
+          payload.anatomicalShuntFraction =
+            clinicalNumber('clinical-anatomic-shunt') / 100;
+          payload.excessLungWaterMl =
+            clinicalNumber('clinical-excess-lung-water');
+        }
         if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {
           if (!clinicalRecruitmentHistory) {
@@ -905,9 +1277,12 @@
           provider,
           payload,
         });
-        $('clinical-session-status').textContent = provider === 'live-reduced-hummod'
-          ? 'Initializing Vent + live reduced HumMod cardiopulmonary session…'
-          : 'Initializing Vent + HumMod replay session…';
+        $('clinical-session-status').textContent =
+          provider === 'v16-integrated-ards'
+            ? 'Initializing persistent v1.6 ARDS cardiopulmonary patient…'
+            : provider === 'live-reduced-hummod'
+              ? 'Equilibrating legacy reduced HumMod physiology before patient time zero…'
+              : 'Initializing Vent + HumMod replay session…';
       } catch (error) {
         showClinicalError(error.message);
       }
@@ -928,7 +1303,8 @@
         clinicalContinuousRun = true;
         $('clinical-run-continuous').disabled = true;
         $('clinical-pause-continuous').disabled = false;
-        $('clinical-session-status').textContent = 'Patient running continuously at 1× real time…';
+        $('clinical-session-status').textContent =
+          'Patient running continuously at ' + clinicalPlaybackSpeed + '× real time…';
         scheduleClinicalContinuousStep();
       } catch (error) { showClinicalError(error.message); }
     });
@@ -936,6 +1312,15 @@
     $('clinical-pause-continuous').addEventListener('click', () => {
       stopClinicalContinuousRun();
       $('clinical-session-status').textContent = 'Patient paused · state preserved.';
+    });
+
+    $('clinical-speed').addEventListener('change', () => {
+      try {
+        setClinicalPlaybackSpeed($('clinical-speed').value);
+      } catch (error) {
+        $('clinical-speed').value = String(clinicalPlaybackSpeed);
+        showClinicalError(error.message);
+      }
     });
 
     $('clinical-set-peep')?.addEventListener('click', () => {
@@ -994,8 +1379,10 @@
         if (!window.VENT || typeof VENT.createClinicalSessionRecord !== 'function') {
           throw new Error('Clinical session export is unavailable in this browser build');
         }
+        requirePhysicianCandidateSnapshot(clinicalSnapshot);
         const baseRecord = VENT.createClinicalSessionRecord(clinicalSnapshot);
         const record = { ...baseRecord };
+        record.browserBuildSha = clinicalBuildSha;
         record.physiologyTrend = clinicalPhysiologyTrend.map(point => ({ ...point }));
         record.interventions = clinicalInterventions.map(event => ({
           timeSec: event.timeSec,
@@ -1191,5 +1578,7 @@
   window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (latest) chartNames.forEach(name => drawChart(name, latest.waveform)); }, 150); });
   initializeClinicalPreview();
   initializeClinicalSessionUi();
+  initializeNativeEngineBoundary();
+  initializeBuildIdentity();
   syncControls();
 })();
