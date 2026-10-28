@@ -44472,13 +44472,18 @@ return require('src/browser-entry.js');
     }
   }
 
+  function clinicalSimulationRate() {
+    const rate = Number($('clinical-simulation-rate')?.value || 1);
+    return rate === 10 ? 10 : 1;
+  }
+
   function scheduleClinicalContinuousStep() {
     if (!clinicalContinuousRun || !clinicalWorker) return;
     if (clinicalContinuousTimer != null) clearTimeout(clinicalContinuousTimer);
     clinicalContinuousTimer = setTimeout(() => {
       clinicalContinuousTimer = null;
       if (!clinicalContinuousRun || !clinicalWorker) return;
-      clinicalWorker.postMessage({ type: 'runFor', seconds: 1 });
+      clinicalWorker.postMessage({ type: 'runFor', seconds: clinicalSimulationRate() });
     }, 1000);
   }
 
@@ -44804,9 +44809,21 @@ return require('src/browser-entry.js');
         clinicalContinuousRun = true;
         $('clinical-run-continuous').disabled = true;
         $('clinical-pause-continuous').disabled = false;
-        $('clinical-session-status').textContent = 'Patient running continuously at 1× real time…';
+        const rate = clinicalSimulationRate();
+        $('clinical-session-status').textContent =
+          rate === 10 ? 'Patient running continuously at 10× accelerated time…'
+                      : 'Patient running continuously at 1× real time…';
         scheduleClinicalContinuousStep();
       } catch (error) { showClinicalError(error.message); }
+    });
+
+    $('clinical-simulation-rate')?.addEventListener('change', () => {
+      if (!clinicalContinuousRun) return;
+      const rate = clinicalSimulationRate();
+      $('clinical-session-status').textContent =
+        rate === 10 ? 'Patient running continuously at 10× accelerated time…'
+                    : 'Patient running continuously at 1× real time…';
+      scheduleClinicalContinuousStep();
     });
 
     $('clinical-pause-continuous').addEventListener('click', () => {
