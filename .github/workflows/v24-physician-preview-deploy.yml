@@ -10,6 +10,8 @@ on:
       - 'ards-twin-v0.5-progress/test/v2_**'
       - 'ards-twin-v0.5-progress/test/clinical_twin_live_hummod_session.test.js'
       - 'ards-twin-v0.5-progress/package.json'
+      - 'ards-twin-v0.5-progress/scripts/build.js'
+      - 'ards-twin-v0.5-progress/scripts/verify-deployable-web.js'
 
 concurrency:
   group: v24-physician-preview-deploy
