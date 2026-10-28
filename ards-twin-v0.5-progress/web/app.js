@@ -529,9 +529,7 @@
     $('clinical-live').hidden = false;
     $('clinical-time').textContent = displayClinicalValue(snapshot.timeSec);
     $('clinical-current-mode').textContent = snapshot.ventilator?.mode || '—';
-    const currentPeepEl = $('clinical-current-peep') || $('clinical-pressure-peep');
-    if (currentPeepEl) currentPeepEl.textContent =
-      displayClinicalValue(snapshot.ventilator?.peepCmH2O);
+    $('clinical-current-peep').textContent = displayClinicalValue(snapshot.ventilator?.peepCmH2O);
     $('clinical-current-fio2').textContent = typeof snapshot.ventilator?.fio2 === 'number'
       ? snapshot.ventilator.fio2.toFixed(2) : '—';
     $('clinical-current-rr').textContent = displayClinicalValue(snapshot.ventilator?.rrPerMin ?? snapshot.ventilator?.rr);
@@ -561,19 +559,13 @@
       Number.isFinite(hemo.pulmonaryVascularResistanceMmHgMinPerL)
       ? hemo.pulmonaryVascularResistanceMmHgMinPerL.toFixed(2)
       : '—';
-    const sympatheticEl = $('clinical-sympathetic');
-    if (sympatheticEl) sympatheticEl.textContent =
-      typeof hemo.sympatheticTone === 'number' ? hemo.sympatheticTone.toFixed(2) : '—';
-    const catecholamineEl = $('clinical-catecholamine');
-    if (catecholamineEl) catecholamineEl.textContent =
-      typeof hemo.catecholamineDrive === 'number' ? hemo.catecholamineDrive.toFixed(2) : '—';
+    $('clinical-sympathetic').textContent = typeof hemo.sympatheticTone === 'number'
+      ? hemo.sympatheticTone.toFixed(2) : '—';
+    $('clinical-catecholamine').textContent = typeof hemo.catecholamineDrive === 'number'
+      ? hemo.catecholamineDrive.toFixed(2) : '—';
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
-    const totalPeepEl = $('clinical-total-peep');
-    if (totalPeepEl) totalPeepEl.textContent =
-      displayClinicalValue(snapshot.pulmonary?.measurements?.totalPeepCmH2O);
-    const autoPeepEl = $('clinical-autopeep');
-    if (autoPeepEl) autoPeepEl.textContent =
-      displayClinicalValue(snapshot.pulmonary?.measurements?.intrinsicPeepCmH2O);
+    $('clinical-total-peep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.totalPeepCmH2O);
+    $('clinical-autopeep').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.intrinsicPeepCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
     const clinicalWaveform = snapshot.pulmonary?.recentWaveform || [];
     drawClinicalTrace('clinical-pressure-chart', clinicalWaveform, 'pressureCmH2O');
