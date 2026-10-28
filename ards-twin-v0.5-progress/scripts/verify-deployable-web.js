@@ -59,6 +59,8 @@ if(failures.length===0){
     [app.includes('__VENT_LEGACY_WORKER_SOURCE__'),'legacy worker is not bundled into /app.js'],
     [!app.includes("new Worker('./clinical-worker.js"),'app still requests blocked clinical-worker path'],
     [!app.includes("new Worker('./worker.js"),'app still requests blocked worker path'],
+    [app.includes('window.__VENT_CLINICAL_CASES__'),'clinical case manifest is not bundled into /app.js'],
+    [!app.includes("fetch('./clinical-cases.json"),'app still depends on blocked clinical-cases.json path'],
   ];
   for(const [ok,message] of checks) if(!ok) failures.push(message);
 }
