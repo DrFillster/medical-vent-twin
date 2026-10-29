@@ -23,4 +23,3 @@ jobs:
       # This workflow has no deployment job or repository write permission.
       - name: Verify frozen UI, physiology provenance and runtime contract
         run: node ards-twin-v0.5-progress/scripts/verify-integration.cjs
-

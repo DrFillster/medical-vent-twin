@@ -72,4 +72,3 @@ check('frozen UI required comparison contract', () => {
 });
 console.log('Integration failures: ' + failed);
 process.exitCode = failed ? 1 : 0;
-
