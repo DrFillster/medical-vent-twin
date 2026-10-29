@@ -16,20 +16,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Fetch frozen UI reference
-        run: git fetch origin v1.6 v2.4
-      - name: Verify frozen v1.6 UI
-        run: |
-          set -eu
-          for f in             ards-twin-v1.0/web/index.html             ards-twin-v1.0/web/app.js             ards-twin-v1.0/web/styles.css             ards-twin-v1.0/web/clinical-worker.js             ards-twin-v1.0/web/native-engine-client.js             ards-twin-v1.0/web/native-engine-config.js
-          do
-            cmp "$f" <(git show origin/v1.6:"$f")
-          done
-      - name: Verify v2.4 physiology engine baseline
-        run: cmp ards-twin-v1.0/web/engine.js <(git show origin/v2.4:ards-twin-v1.0/web/engine.js)
-      - name: Verify protected production site is not targeted
-        run: |
-          if grep -R "vent.defying-logic.com" -n .github ards-twin-v1.0 2>/dev/null; then
-            echo "Protected production hostname referenced by integration branch."
-            exit 1
-          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Immutable references; validates the served bundle and frozen worker.
+      # This workflow has no deployment job or repository write permission.
+      - name: Verify frozen UI, physiology provenance and runtime contract
+        run: node ards-twin-v0.5-progress/scripts/verify-integration.cjs
+

@@ -6190,6 +6190,9 @@ const {
   solveOxygenExchange,
   solveCo2Exchange,
 } = require("src/hummod_ards_core_gas_exchange.js");
+const {
+  evaluateOxygenSupplyCliff,
+} = require("src/hummod_ards_oxygen_supply_cliff.js");
 
 const HUMMOD_GAS_DELAY_K_PER_MIN = 5.0;
 
@@ -6537,17 +6540,28 @@ function createHumModArdsGasRuntime({
       scaleForSat: venousHgbForExtraction.scaleForSat,
     });
     const requestedTissueO2UseMlPerMin = m.tissueO2UseMlPerMin;
-    const maxAerobicO2UseMlPerMin = Math.max(
+    const physicalMaxAerobicO2UseMlPerMin = Math.max(
       0,
       co * Math.max(
         0,
         state.arterialO2ContentMlPerMl - criticalVenousO2ContentMlPerMl));
-    const actualTissueO2UseMlPerMin = Math.min(
+
+    // The extraction ceiling is not constant. Canine oxygen-transport data
+    // show that severe hypercapnia moves DO2crit upward and lowers the
+    // extraction ratio available at the critical point. The reduced core uses
+    // that documented relationship as a bounded modifier of extraction
+    // reserve, while retaining the venous-PO2 physical limit independently.
+    const oxygenSupply = evaluateOxygenSupplyCliff({
+      cardiacOutputMlPerMin: co,
+      arterialO2ContentMlPerMl: state.arterialO2ContentMlPerMl,
       requestedTissueO2UseMlPerMin,
-      maxAerobicO2UseMlPerMin);
-    const oxygenSupplyDeficitMlPerMin = Math.max(
-      0,
-      requestedTissueO2UseMlPerMin - actualTissueO2UseMlPerMin);
+      arterialPco2MmHg: currentGases.arterial.pco2MmHg,
+      physicalMaxAerobicO2UseMlPerMin,
+    });
+    const actualTissueO2UseMlPerMin =
+      oxygenSupply.actualTissueO2UseMlPerMin;
+    const oxygenSupplyDeficitMlPerMin =
+      oxygenSupply.oxygenSupplyDeficitMlPerMin;
     const venousO2Target = Math.max(
       criticalVenousO2ContentMlPerMl,
       state.arterialO2ContentMlPerMl -
@@ -6612,6 +6626,15 @@ function createHumModArdsGasRuntime({
         requestedTissueO2UseMlPerMin,
         actualTissueO2UseMlPerMin,
         oxygenSupplyDeficitMlPerMin,
+        oxygenDeliveryMlPerMin: oxygenSupply.oxygenDeliveryMlPerMin,
+        criticalOxygenDeliveryMlPerMin:
+          oxygenSupply.criticalOxygenDeliveryMlPerMin,
+        deliveryToCriticalRatio: oxygenSupply.deliveryToCriticalRatio,
+        deliveryToDemandRatio: oxygenSupply.deliveryToDemandRatio,
+        criticalExtractionRatio: oxygenSupply.criticalExtractionRatio,
+        actualExtractionRatio: oxygenSupply.actualExtractionRatio,
+        supplyDependent: oxygenSupply.supplyDependent,
+        oxygenReserveFraction: oxygenSupply.reserveFraction,
         criticalVenousPo2MmHg: CRITICAL_VENOUS_PO2_MMHG,
         criticalVenousO2ContentMlPerMl,
         lungO2UptakeMlPerMin: oxygen.uptakeMlPerMin,
@@ -7455,14 +7478,36 @@ function solveCo2Exchange({
     return endExpiredMlPerMin - expiredCo2MlPerMin;
   }
 
-  const high = alveolarVentilationStpdMlPerMin * 0.5;
-  const expiredCo2MlPerMin = solveRootBisection({
-    fn: residual,
-    low: 0,
-    high,
-    tolerance: 1e-6,
-    label: 'HumMod LungCO2 expired',
-  });
+  // The previous reduced implementation capped the search at an alveolar
+  // CO2 increment of 0.5, which was an engineering numerical bound rather
+  // than a physiologic/source limit. Extreme hypoventilation can require a
+  // larger root and therefore failed before the terminal physiology could be
+  // evaluated. Search the full physically admissible gas-fraction domain
+  // instead. Keep a small margin below 1 to avoid an exact pure-CO2 endpoint.
+  const maxAdditionalAlveolarCo2Fraction =
+    Math.max(0, 1 - bronchiCo2Fraction - 1e-9);
+  const high =
+    alveolarVentilationStpdMlPerMin *
+    maxAdditionalAlveolarCo2Fraction;
+  const lowResidual=residual(0);
+  const highResidual=residual(high);
+  let expiredCo2MlPerMin;
+  let solverBoundaryLimited=false;
+  if(lowResidual>=0 && highResidual>0){
+    expiredCo2MlPerMin=high;
+    solverBoundaryLimited=true;
+  }else if(lowResidual<0 && highResidual<=0){
+    expiredCo2MlPerMin=0;
+    solverBoundaryLimited=true;
+  }else{
+    expiredCo2MlPerMin = solveRootBisection({
+      fn: residual,
+      low: 0,
+      high,
+      tolerance: 1e-6,
+      label: 'HumMod LungCO2 expired',
+    });
+  }
 
   const alveolarCo2Fraction =
     bronchiCo2Fraction +
@@ -7482,6 +7527,11 @@ function solveCo2Exchange({
     capillaryHco3MolPerL,
     source: HUMMOD_GAS_EXCHANGE_SOURCE,
     sourceStructure: 'LungCO2.CalcExpired',
+    solverBoundaryLimited,
+    physicalBoundary:
+      solverBoundaryLimited
+        ? 'CO2 exchange constrained to the physically admissible alveolar gas-fraction boundary'
+        : null,
   });
 }
 
@@ -7525,6 +7575,155 @@ module.exports = {
   mixOxygenAcrossShunt,
   solveCo2Exchange,
   mixCo2AcrossShunt,
+};
+
+},
+"src/hummod_ards_oxygen_supply_cliff.js":function(module,exports,require){
+'use strict';
+
+// Oxygen delivery / demand "cliff" for the reduced ARDS browser core.
+//
+// The governing physiology is the biphasic DO2-VO2 relationship:
+// above a critical oxygen delivery (DO2crit), VO2 is demand determined;
+// below DO2crit, VO2 becomes supply dependent.
+//
+// Hypercapnia modifies the extraction reserve. Ward (Anesthesiology 1996)
+// reported in mechanically ventilated dogs:
+//   normocapnia: DO2crit 7.8 +/- 1.5 mL/kg/min, critical extraction 0.72 +/- 0.04
+//   moderate HCA (PaCO2 72 +/- 3): no significant change
+//   severe HCA (PaCO2 118 +/- 4): DO2crit 12.5 +/- 1.8,
+//                                  critical extraction 0.54 +/- 0.035
+//
+// The reduced model therefore preserves normal extraction through the
+// moderate-hypercapnia anchor and linearly interpolates the documented loss
+// of extraction reserve from PaCO2 72 to 118 mmHg. It is bounded beyond the
+// severe anchor; no unsupported extrapolation is used.
+//
+// This module is an evidence-anchored reduced-order relation, not a verbatim
+// HumMod equation and not a validated clinical decision rule.
+
+const OXYGEN_SUPPLY_CLIFF_ANCHOR = Object.freeze({
+  normocapnicCriticalExtractionRatio: 0.72,
+  moderateHypercapniaPaco2MmHg: 72,
+  severeHypercapniaPaco2MmHg: 118,
+  severeHypercapniaCriticalExtractionRatio: 0.54,
+  citation:
+    'Ward ME. Anesthesiology. 1996;85:817-822. doi:10.1097/00000542-199610000-00017',
+});
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be finite');
+  }
+  return v;
+}
+function positive(v, label) {
+  finite(v, label);
+  if (!(v > 0)) throw new Error(label + ' must be > 0');
+  return v;
+}
+function nonNegative(v, label) {
+  finite(v, label);
+  if (v < 0) throw new Error(label + ' must be >= 0');
+  return v;
+}
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function criticalExtractionRatioForPaco2(paco2MmHg) {
+  nonNegative(paco2MmHg, 'paco2MmHg');
+  const a = OXYGEN_SUPPLY_CLIFF_ANCHOR;
+  if (paco2MmHg <= a.moderateHypercapniaPaco2MmHg) {
+    return a.normocapnicCriticalExtractionRatio;
+  }
+  if (paco2MmHg >= a.severeHypercapniaPaco2MmHg) {
+    return a.severeHypercapniaCriticalExtractionRatio;
+  }
+  const t = (paco2MmHg - a.moderateHypercapniaPaco2MmHg) /
+    (a.severeHypercapniaPaco2MmHg - a.moderateHypercapniaPaco2MmHg);
+  return a.normocapnicCriticalExtractionRatio +
+    t * (a.severeHypercapniaCriticalExtractionRatio -
+      a.normocapnicCriticalExtractionRatio);
+}
+
+function evaluateOxygenSupplyCliff({
+  cardiacOutputMlPerMin,
+  arterialO2ContentMlPerMl,
+  requestedTissueO2UseMlPerMin,
+  arterialPco2MmHg,
+  physicalMaxAerobicO2UseMlPerMin,
+} = {}) {
+  positive(cardiacOutputMlPerMin, 'cardiacOutputMlPerMin');
+  nonNegative(arterialO2ContentMlPerMl, 'arterialO2ContentMlPerMl');
+  nonNegative(requestedTissueO2UseMlPerMin,
+    'requestedTissueO2UseMlPerMin');
+  nonNegative(arterialPco2MmHg, 'arterialPco2MmHg');
+  nonNegative(physicalMaxAerobicO2UseMlPerMin,
+    'physicalMaxAerobicO2UseMlPerMin');
+
+  const oxygenDeliveryMlPerMin =
+    cardiacOutputMlPerMin * arterialO2ContentMlPerMl;
+  const criticalExtractionRatio =
+    criticalExtractionRatioForPaco2(arterialPco2MmHg);
+
+  const criticalOxygenDeliveryMlPerMin =
+    requestedTissueO2UseMlPerMin > 0
+      ? requestedTissueO2UseMlPerMin / criticalExtractionRatio
+      : 0;
+
+  const extractionLimitedMaxAerobicO2UseMlPerMin =
+    oxygenDeliveryMlPerMin * criticalExtractionRatio;
+
+  const maxAerobicO2UseMlPerMin = Math.min(
+    physicalMaxAerobicO2UseMlPerMin,
+    extractionLimitedMaxAerobicO2UseMlPerMin);
+
+  const actualTissueO2UseMlPerMin = Math.min(
+    requestedTissueO2UseMlPerMin,
+    maxAerobicO2UseMlPerMin);
+
+  const oxygenSupplyDeficitMlPerMin = Math.max(
+    0,
+    requestedTissueO2UseMlPerMin - actualTissueO2UseMlPerMin);
+
+  const deliveryToCriticalRatio = criticalOxygenDeliveryMlPerMin > 0
+    ? oxygenDeliveryMlPerMin / criticalOxygenDeliveryMlPerMin
+    : Infinity;
+
+  const deliveryToDemandRatio = requestedTissueO2UseMlPerMin > 0
+    ? oxygenDeliveryMlPerMin / requestedTissueO2UseMlPerMin
+    : Infinity;
+
+  const actualExtractionRatio = oxygenDeliveryMlPerMin > 0
+    ? actualTissueO2UseMlPerMin / oxygenDeliveryMlPerMin
+    : 0;
+
+  return Object.freeze({
+    oxygenDeliveryMlPerMin,
+    requestedTissueO2UseMlPerMin,
+    actualTissueO2UseMlPerMin,
+    oxygenSupplyDeficitMlPerMin,
+    criticalExtractionRatio,
+    actualExtractionRatio,
+    criticalOxygenDeliveryMlPerMin,
+    deliveryToCriticalRatio,
+    deliveryToDemandRatio,
+    extractionLimitedMaxAerobicO2UseMlPerMin,
+    physicalMaxAerobicO2UseMlPerMin,
+    maxAerobicO2UseMlPerMin,
+    supplyDependent:
+      oxygenSupplyDeficitMlPerMin > Math.max(1e-9,
+        requestedTissueO2UseMlPerMin * 1e-9),
+    reserveFraction: clamp(deliveryToCriticalRatio - 1, 0, 1),
+    provenance: OXYGEN_SUPPLY_CLIFF_ANCHOR,
+  });
+}
+
+module.exports = {
+  OXYGEN_SUPPLY_CLIFF_ANCHOR,
+  criticalExtractionRatioForPaco2,
+  evaluateOxygenSupplyCliff,
 };
 
 },
@@ -8511,6 +8710,7 @@ function createBerlinLiveHumModSession({
   dt = 0.002,
   mechanicalWarmupSec = 30,
   nativeCalibrationTarget = null,
+  sepsisState = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -8620,6 +8820,7 @@ function createBerlinLiveHumModSession({
     environmentBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
+    sepsisState,
   });
 
   const sessionEvents = [];
@@ -8655,6 +8856,8 @@ function createBerlinLiveHumModSession({
     }
     const circ = last.circulation;
     const gas = last.gas;
+    const decomp = last.decompensation || null;
+    const arrested = Boolean(decomp && decomp.cardiacArrest);
     return Object.freeze({
       source: 'reduced-source-aligned-HumMod-ARDS-core',
       status: 'live-coupled-experimental',
@@ -8671,26 +8874,130 @@ function createBerlinLiveHumModSession({
           gas.exchange?.massBalance?.actualTissueO2UseMlPerMin ?? null,
         oxygenSupplyDeficitMlPerMin:
           gas.exchange?.massBalance?.oxygenSupplyDeficitMlPerMin ?? null,
+        oxygenDeliveryMlPerMin:
+          gas.exchange?.massBalance?.oxygenDeliveryMlPerMin ?? null,
+        criticalOxygenDeliveryMlPerMin:
+          gas.exchange?.massBalance?.criticalOxygenDeliveryMlPerMin ?? null,
+        deliveryToCriticalRatio:
+          gas.exchange?.massBalance?.deliveryToCriticalRatio ?? null,
+        criticalExtractionRatio:
+          gas.exchange?.massBalance?.criticalExtractionRatio ?? null,
+        actualExtractionRatio:
+          gas.exchange?.massBalance?.actualExtractionRatio ?? null,
+        supplyDependent:
+          gas.exchange?.massBalance?.supplyDependent ?? null,
       }),
       hemodynamics: Object.freeze({
-        heartRatePerMin:
-          circ.activeBoundaries?.heartRatePerMin ??
-          effectiveCirculationBoundaries.heartRatePerMin,
+        heartRatePerMin: arrested
+          ? 0
+          : (circ.activeBoundaries?.heartRatePerMin ??
+            effectiveCirculationBoundaries.heartRatePerMin),
         meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
         rightAtrialPressureMmHg: circ.pressures.rightAtrialMmHg,
         pulmonaryArteryPressureMmHg: circ.pressures.pulmonaryArteryMmHg,
-        cardiacOutputMlPerMin: circ.flowsMlPerMin.leftVentricular,
-        strokeVolumeMl: circ.leftVentricle?.strokeVolumeMl ?? null,
+        cardiacOutputMlPerMin: arrested ? 0 : circ.flowsMlPerMin.leftVentricular,
+        strokeVolumeMl: arrested ? 0 : (circ.leftVentricle?.strokeVolumeMl ?? null),
         systemicVascularResistanceMmHgMinPerL:
           circ.derivedResistance?.systemicVascularResistanceMmHgMinPerL ?? null,
         pulmonaryVascularResistanceMmHgMinPerL:
           circ.derivedResistance?.pulmonaryVascularResistanceMmHgMinPerL ?? null,
+        systemicArterialConductanceMlPerMinPerMmHg:
+          circ.activeBoundaries?.systemicArterialConductanceMlPerMinPerMmHg ?? null,
+        sourceAutonomicSystemicConductanceMlPerMinPerMmHg:
+          last.systemicVascularControl?.
+            sourceAutonomicConductanceMlPerMinPerMmHg ?? null,
+        systemicVenousVolumeMl:
+          circ.volumesMl?.systemicVeins ?? null,
+        totalCirculatingVolumeMl:
+          circ.volumesMl
+            ? Object.values(circ.volumesMl).reduce((a,b)=>a+b,0)
+            : null,
         contractilityMultiplier:
+          last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
-        sympatheticTone: last.autonomic?.sympatheticTone ?? null,
-        parasympatheticTone: last.autonomic?.parasympatheticTone ?? null,
-        catecholamineDrive: last.autonomic?.catecholamineDrive ?? null,
+        // v2.0 uses source-model neural firing rates rather than the legacy
+        // dimensionless engineering "tone" variables. Keep sympatheticTone as
+        // a compatibility alias, but expose its units explicitly.
+        sympatheticTone:
+          last.autonomic?.autonomic?.fSpSpikesPerSec ?? null,
+        sympatheticMetricUnits: 'spikes/s',
+        peripheralSympatheticSpikesPerSec:
+          last.autonomic?.autonomic?.fSpSpikesPerSec ?? null,
+        venousSympatheticSpikesPerSec:
+          last.autonomic?.autonomic?.fSvSpikesPerSec ?? null,
+        cardiacSympatheticSpikesPerSec:
+          last.autonomic?.autonomic?.fShSpikesPerSec ?? null,
+        cardiacVagalSpikesPerSec:
+          last.autonomic?.autonomic?.fVSpikesPerSec ?? null,
+        parasympatheticTone: null,
+        catecholamineDrive: null,
       }),
+      sepsisDisease: last.sepsisDisease
+        ? Object.freeze({
+            inflammationNStar:last.sepsisDisease.inflammationNStar,
+            antiInflammatoryMediatorCA:
+              last.sepsisDisease.antiInflammatoryMediatorCA,
+            capillaryPermeabilityMlPerMmHgSec:
+              last.sepsisDisease.capillaryPermeabilityMlPerMmHgSec,
+            vasodilationDecrement:
+              last.sepsisDisease.vasodilationDecrement,
+            sourceStrokeVolumeMl:
+              last.sepsisDisease.sourceStrokeVolumeMl,
+            leftMyocardialPerformanceMultiplier:
+              last.sepsisDisease.leftMyocardialPerformanceMultiplier,
+            systemicResistanceRatio:
+              last.sepsisDisease.systemicResistanceRatio,
+            capillaryExchange:
+              last.sepsisDisease.capillaryExchange,
+            liveAuthority:last.sepsisDisease.liveAuthority,
+            unresolved:last.sepsisDisease.unresolved,
+          })
+        : null,
+      oxygenDeficit: last.oxygenDeficit
+        ? Object.freeze({
+            oxygenSupplyDeficitMlPerMin:
+              last.oxygenDeficit.oxygenSupplyDeficitMlPerMin,
+            deficitFraction:last.oxygenDeficit.deficitFraction,
+            belowCriticalFraction:last.oxygenDeficit.belowCriticalFraction,
+            supplyDependent:last.oxygenDeficit.supplyDependent,
+            cumulativeOxygenDeficitMl:
+              last.oxygenDeficit.cumulativeOxygenDeficitMl,
+            cumulativeFractionalDeficitMin:
+              last.oxygenDeficit.cumulativeFractionalDeficitMin,
+            cumulativeBelowCriticalExposureMin:
+              last.oxygenDeficit.cumulativeBelowCriticalExposureMin,
+            timeBelowCriticalSec:
+              last.oxygenDeficit.timeBelowCriticalSec,
+            timeSupplyDependentSec:
+              last.oxygenDeficit.timeSupplyDependentSec,
+            failureAuthority:last.oxygenDeficit.failureAuthority,
+            arrestAuthority:last.oxygenDeficit.arrestAuthority,
+            contractilityAuthority:
+              last.oxygenDeficit.contractilityAuthority,
+          })
+        : null,
+      decompensation: decomp ? Object.freeze({
+        stage: decomp.stage,
+        alive: decomp.alive,
+        cardiacArrest: decomp.cardiacArrest,
+        cardiacArrestReason: decomp.cardiacArrestReason,
+        arrestRhythm: decomp.arrestRhythm,
+        oxygenDebtMl:
+          last.oxygenDeficit?.cumulativeOxygenDeficitMl ?? null,
+        equivalentDebtMinutes:null,
+        metabolicFailureFraction:null,
+        myocardialContractilityMultiplier:null,
+        chronotropicReserveMultiplier:null,
+        asphyxialReserveMultiplier:null,
+        asphyxialEquivalentMinutes:null,
+        respiratoryAcidosisSeverity:null,
+        lowMapBelow30Sec: decomp.lowMapBelow30Sec,
+        lowMapBelow20Sec: decomp.lowMapBelow20Sec,
+        elapsedAsphyxiaTimerUsed:
+          decomp.elapsedAsphyxiaTimerUsed ?? false,
+        oxygenDebtDeathThresholdUsed:
+          decomp.oxygenDebtDeathThresholdUsed ?? false,
+      }) : null,
       thorax: Object.freeze({
         meanAirwayPressureCmH2O: last.meanAirwayPressureCmH2O,
         pleuralPressureCmH2O: last.thorax.pleuralPressureCmH2O,
@@ -8764,6 +9071,9 @@ function createBerlinLiveHumModSession({
       provenance: Object.freeze({
         pulmonary: 'Vent mechanistic engine',
         systemic: 'reduced source-aligned HumMod ARDS cardiopulmonary core',
+        sepsis: sepsisState == null
+          ? 'inactive'
+          : 'explicit Yamanaka inflammation-state boundary; not inferred from case label',
         clinicalCase: 'synthetic Berlin ARDS authored reference case',
         boundaryStatus: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.status,
       }),
@@ -9227,9 +9537,34 @@ function createHumModArdsCirculation({
       stiffnessMultiplier: activeBoundaries.leftStiffnessMultiplier || 1,
     });
 
-    if (rightPump.bloodFlowMlPerMin < 0 || leftPump.bloodFlowMlPerMin < 0) {
-      throw new Error('ventricular source algebra produced negative forward flow');
+    // The pinned HumMod pumping algebra is StrokeVolume = EDV - ESV and
+    // does not clamp the equation when extreme failure drives ESV above EDV.
+    // In the reduced browser core, a negative raw stroke volume is treated as
+    // entry into a nonphysical pump domain and therefore mechanical pump
+    // failure. Preserve the raw source result, but expose zero forward flow so
+    // the coupled terminal controller can convert this state to PEA rather
+    // than crashing or propagating negative cardiac output.
+    function terminalSafePump(pump) {
+      if (pump.bloodFlowMlPerMin >= 0) {
+        return Object.freeze({
+          ...pump,
+          rawStrokeVolumeMl: pump.strokeVolumeMl,
+          rawBloodFlowMlPerMin: pump.bloodFlowMlPerMin,
+          mechanicalPumpFailure: false,
+        });
+      }
+      return Object.freeze({
+        ...pump,
+        rawStrokeVolumeMl: pump.strokeVolumeMl,
+        rawBloodFlowMlPerMin: pump.bloodFlowMlPerMin,
+        strokeVolumeMl: 0,
+        bloodFlowMlPerMin: 0,
+        ejectionFraction: 0,
+        mechanicalPumpFailure: true,
+      });
     }
+    const safeRightPump = terminalSafePump(rightPump);
+    const safeLeftPump = terminalSafePump(leftPump);
 
     return {
       pressures: {
@@ -9242,16 +9577,18 @@ function createHumModArdsCirculation({
         leftAtrialMmHg: p.la.pressureMmHg,
       },
       flowsMlPerMin: {
-        leftVentricular: leftPump.bloodFlowMlPerMin,
+        leftVentricular: safeLeftPump.bloodFlowMlPerMin,
         systemicOutflow,
         venousReturn,
-        rightVentricular: rightPump.bloodFlowMlPerMin,
+        rightVentricular: safeRightPump.bloodFlowMlPerMin,
         pulmonaryArterialOutflow,
         pulmonaryCapillaryOutflow,
         pulmonaryVenousOutflow,
       },
-      rightVentricle: rightPump,
-      leftVentricle: leftPump,
+      rightVentricle: safeRightPump,
+      leftVentricle: safeLeftPump,
+      mechanicalPumpFailure:
+        safeRightPump.mechanicalPumpFailure || safeLeftPump.mechanicalPumpFailure,
     };
   }
 
@@ -9288,10 +9625,17 @@ function createHumModArdsCirculation({
     return Object.freeze({ ...activeBoundaries });
   }
 
-  function step({ dtSec, thoracicPressureMmHg, pericardialPressureMmHg } = {}) {
+  function step({
+    dtSec,
+    thoracicPressureMmHg,
+    pericardialPressureMmHg,
+    externalSystemicVolumeRateMlPerSec=0,
+  } = {}) {
     positive(dtSec, 'dtSec');
     finite(thoracicPressureMmHg, 'thoracicPressureMmHg');
     finite(pericardialPressureMmHg, 'pericardialPressureMmHg');
+    finite(externalSystemicVolumeRateMlPerSec,
+      'externalSystemicVolumeRateMlPerSec');
 
     const n = Math.max(1, Math.ceil(dtSec / maxSubstepSec));
     const hSec = dtSec / n;
@@ -9302,6 +9646,17 @@ function createHumModArdsCirculation({
       const d = derivative(e);
       for (const name of requiredVolumes) {
         volumes[name] += d[name] * hMin;
+      }
+
+      // v2.2 explicit disease-boundary exchange:
+      // net systemic capillary/interstitial exchange changes total vascular
+      // volume. In this reduced topology the exchange is applied at the
+      // systemic venous reservoir, downstream of the lumped systemic
+      // capillary bed. This is a topology-preserving reduction, not a claim
+      // that all physiologic extravasation occurs anatomically in veins.
+      volumes.systemicVeins += externalSystemicVolumeRateMlPerSec*hSec;
+
+      for (const name of requiredVolumes) {
         if (!(volumes[name] > 0) || !Number.isFinite(volumes[name])) {
           throw new Error('circulation volume became non-physical: ' + name);
         }
@@ -9335,6 +9690,8 @@ function createHumModArdsCirculation({
         status: 'reduced-order-source-aligned-circulation',
         detailedOrganCirculation:
           'lumped into explicit systemic conductance boundaries',
+        externalVolumeExchange:
+          'optional net systemic capillary/interstitial exchange applied to lumped systemic venous reservoir as reduced-topology boundary',
         clinicalValidation: false,
       }),
     });
@@ -9351,7 +9708,19 @@ module.exports = { createHumModArdsCirculation };
 
 const { createVentToArdsCoreSnapshot } = require("src/hummod_ards_core_coupling.js");
 const { createLiveCoreBoundaryFromVent } = require("src/hummod_ards_core_vent_adapter.js");
-const { createHumModArdsAutonomicController } = require("src/hummod_ards_autonomic_controller.js");
+const { createV2SourceAutonomicController } = require("src/v2_source_autonomic_controller.js");
+const {
+  createV24TerminalStateController,
+} = require("src/v24_terminal_state_controller.js");
+const {
+  createV21PulmonaryVascularController,
+} = require("src/v21_pulmonary_vascular_controller.js");
+const {
+  evaluateV22SepsisDiseaseLayer,
+} = require("src/v22_sepsis_disease_layer.js");
+const {
+  createV23OxygenDeficitState,
+} = require("src/v23_oxygen_deficit_state.js");
 
 function finite(v,label){
   if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
@@ -9379,6 +9748,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   bloodBoundaries,
   environmentBoundaries,
   pericardialTmpMmHg=0,
+  sepsisState=null,
 }={}){
   if(!simulation||!thorax||!circulation||!gasRuntime){
     throw new Error('simulation, thorax, circulation, and gasRuntime are required');
@@ -9388,10 +9758,29 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('validated pressureAdapter.cmH2OToMmHg is required');
   }
   finite(pericardialTmpMmHg,'pericardialTmpMmHg');
+  if(sepsisState!=null){
+    if(!sepsisState||typeof sepsisState!=='object'||Array.isArray(sepsisState)){
+      throw new Error('sepsisState must be an object or null');
+    }
+    finite(sepsisState.inflammationNStar,'sepsisState.inflammationNStar');
+    if(sepsisState.inflammationNStar<0){
+      throw new Error('sepsisState.inflammationNStar must be >= 0');
+    }
+    if(sepsisState.antiInflammatoryMediatorCA!=null){
+      finite(
+        sepsisState.antiInflammatoryMediatorCA,
+        'sepsisState.antiInflammatoryMediatorCA'
+      );
+      if(sepsisState.antiInflammatoryMediatorCA<0){
+        throw new Error('sepsisState.antiInflammatoryMediatorCA must be >= 0');
+      }
+    }
+  }
 
   let timeSec=0;
   let last=null;
-  const autonomic = createHumModArdsAutonomicController({
+  const terminalState = createV24TerminalStateController();
+  const autonomic = createV2SourceAutonomicController({
     baseline: circulation.snapshot().activeBoundaries || systemicBoundaries.circulation || {
       heartRatePerMin: 75,
       systemicArterialConductanceMlPerMinPerMmHg: 60,
@@ -9399,9 +9788,22 @@ function createHumModArdsCardiopulmonaryRuntime({
       leftContractilityMultiplier: 1,
     },
   });
+  const pulmonaryVascular = createV21PulmonaryVascularController({
+    dtSec: 0.0005,
+  });
+  const oxygenDeficitState = createV23OxygenDeficitState();
 
   function step({dtSec}={}){
     positive(dtSec,'dtSec');
+
+    // Once cardiovascular collapse has met the explicit experimental arrest
+    // criteria, the reduced core enters a terminal state. We preserve the last
+    // physiologic snapshot for provenance rather than continuing to integrate
+    // a circulation that is no longer physiologically meaningful.
+    if(terminalState.snapshot().cardiacArrest){
+      timeSec+=dtSec;
+      return snapshot();
+    }
 
     const meanPaw=meanAirwayPressureCmH2O(simulation);
     const thoraxState=thorax.atStaticAirwayPressure(meanPaw);
@@ -9410,34 +9812,130 @@ function createHumModArdsCardiopulmonaryRuntime({
     finite(thoracicPressureMmHg,'converted thoracic pressure');
     const pericardialPressureMmHg=thoracicPressureMmHg+pericardialTmpMmHg;
 
+    const sepsisDisease=sepsisState==null
+      ? null
+      : evaluateV22SepsisDiseaseLayer({
+          inflammationNStar:sepsisState.inflammationNStar,
+          antiInflammatoryMediatorCA:
+            sepsisState.antiInflammatoryMediatorCA==null
+              ?0
+              :sepsisState.antiInflammatoryMediatorCA,
+          sourceAr:sepsisState.sourceAr==null
+            ?null
+            :sepsisState.sourceAr,
+          capillaryExchange:sepsisState.capillaryExchange==null
+            ?null
+            :sepsisState.capillaryExchange,
+        });
+
     let circ=circulation.step({
       dtSec,
       thoracicPressureMmHg,
       pericardialPressureMmHg,
+      externalSystemicVolumeRateMlPerSec:
+        sepsisDisease&&sepsisDisease.capillaryExchange
+          ?sepsisDisease.capillaryExchange.bloodVolumeRateMlPerSec
+          :0,
     });
 
-    const priorGas = last && last.gas && last.gas.gases
-      ? last.gas.gases.arterial
+    const priorGasState = last && last.gas && last.gas.gases
+      ? last.gas.gases
       : null;
+    const priorGas = priorGasState ? priorGasState.arterial : null;
     const control = autonomic.step({
       dtSec,
       meanArterialPressureMmHg: circ.pressures.systemicArterialMmHg,
-      thoracicPressureMmHg,
+      tidalVolumeL:
+        simulation.controller && simulation.controller.settings
+          ? simulation.controller.settings.vt
+          : 0.5,
       arterialPo2MmHg: priorGas ? priorGas.po2MmHg : 90,
       arterialPco2MmHg: priorGas ? priorGas.pco2MmHg : 40,
       arterialPh: priorGas ? priorGas.pH : 7.40,
     });
+    const pulmonaryControl=pulmonaryVascular.step({
+      dtSec,
+      meanAirwayPressureCmH2O:meanPaw,
+      arterialPo2MmHg:priorGas ? Math.max(1,priorGas.po2MmHg) : 90,
+      mixedVenousPo2MmHg:priorGasState && priorGasState.venous
+        ? Math.max(1,priorGasState.venous.po2MmHg)
+        : 40,
+      arterialPco2MmHg:priorGas ? Math.max(1,priorGas.pco2MmHg) : 40,
+      arterialPh:priorGas ? priorGas.pH : 7.40,
+    });
+    const sepsisLeftPerformanceMultiplier=sepsisDisease
+      ? sepsisDisease.leftMyocardialPerformanceMultiplier
+      : 1;
+    const effectiveLeftContractility=
+      control.leftContractilityMultiplier *
+      control.acidoticContractilityMultiplier *
+      sepsisLeftPerformanceMultiplier;
+    const effectiveRightContractility=
+      control.rightContractilityMultiplier *
+      control.acidoticContractilityMultiplier;
+    const effectiveHeartRatePerMin =
+      control.heartRatePerMin;
+    const sourceAutonomicSystemicConductance=
+      control.systemicArterialConductanceMlPerMinPerMmHg;
+    const appliedSystemicConductance=
+      sepsisDisease&&sepsisDisease.systemicResistanceRatio!=null
+        ?sourceAutonomicSystemicConductance/
+          sepsisDisease.systemicResistanceRatio
+        :sourceAutonomicSystemicConductance;
+
     circulation.setBoundaries({
-      heartRatePerMin: control.heartRatePerMin,
-      leftContractilityMultiplier: control.contractilityMultiplier,
-      rightContractilityMultiplier: control.contractilityMultiplier,
+      heartRatePerMin: effectiveHeartRatePerMin,
+      leftContractilityMultiplier: effectiveLeftContractility,
+      rightContractilityMultiplier: effectiveRightContractility,
       systemicArterialConductanceMlPerMinPerMmHg:
-        control.systemicArterialConductanceMlPerMinPerMmHg,
+        appliedSystemicConductance,
       systemicVenousV0Ml: control.systemicVenousV0Ml,
       pulmonaryArterialConductanceMultiplier:
-        control.pulmonaryArterialConductanceMultiplier,
+        pulmonaryControl.pulmonaryArterialConductanceMultiplier,
     });
     circ=circulation.snapshot();
+
+    if(circ.mechanicalPumpFailure){
+      const terminalDecomp=terminalState.step({
+        dtSec,
+        meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
+        cardiacOutputMlPerMin:0,
+        mechanicalPumpFailure:true,
+        oxygenDeficit:oxygenDeficitState.snapshot(),
+        heartRatePerMin:control.heartRatePerMin,
+        arterialPh:priorGas ? priorGas.pH : null,
+        arterialPco2MmHg:priorGas ? priorGas.pco2MmHg : null,
+      });
+      timeSec+=dtSec;
+      last=Object.freeze({
+        meanAirwayPressureCmH2O:meanPaw,
+        thorax:thoraxState,
+        thoracicPressureMmHg,
+        pericardialPressureMmHg,
+        circulation:circ,
+        autonomic:control,
+        systemicVascularControl:Object.freeze({
+          sourceAutonomicConductanceMlPerMinPerMmHg:
+            sourceAutonomicSystemicConductance,
+          appliedConductanceMlPerMinPerMmHg:
+            appliedSystemicConductance,
+          sepsisResistanceRatio:
+            sepsisDisease?sepsisDisease.systemicResistanceRatio:null,
+        }),
+        pulmonaryVascular:pulmonaryControl,
+        sepsisDisease,
+        decompensation:terminalDecomp,
+        effectiveHeartRatePerMin:0,
+        effectiveContractilityMultiplier:0,
+        effectiveLeftContractilityMultiplier:0,
+        effectiveRightContractilityMultiplier:0,
+        gas:last && last.gas ? last.gas : gasRuntime.snapshot(),
+        adapterDiagnostics:last && last.adapterDiagnostics
+          ? last.adapterDiagnostics
+          : null,
+      });
+      return snapshot();
+    }
 
     const cardiacOutputMlPerMin=circ.flowsMlPerMin.leftVentricular;
     positive(cardiacOutputMlPerMin,'left ventricular cardiac output');
@@ -9458,6 +9956,34 @@ function createHumModArdsCardiopulmonaryRuntime({
       boundary:adapted.boundary,
     });
 
+    const massBalance=gas.exchange && gas.exchange.massBalance
+      ? gas.exchange.massBalance
+      : null;
+    const oxygenDeficit=oxygenDeficitState.step({
+      dtSec,
+      requestedTissueO2UseMlPerMin:
+        massBalance.requestedTissueO2UseMlPerMin,
+      actualTissueO2UseMlPerMin:
+        massBalance.actualTissueO2UseMlPerMin,
+      oxygenDeliveryMlPerMin:
+        massBalance.oxygenDeliveryMlPerMin,
+      criticalOxygenDeliveryMlPerMin:
+        massBalance.criticalOxygenDeliveryMlPerMin,
+      deliveryToCriticalRatio:
+        massBalance.deliveryToCriticalRatio,
+    });
+
+    const decomp=terminalState.step({
+      dtSec,
+      meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
+      cardiacOutputMlPerMin:circ.flowsMlPerMin.leftVentricular,
+      mechanicalPumpFailure:Boolean(circ.mechanicalPumpFailure),
+      oxygenDeficit,
+      heartRatePerMin:effectiveHeartRatePerMin,
+      arterialPh:gas.gases.arterial.pH,
+      arterialPco2MmHg:gas.gases.arterial.pco2MmHg,
+    });
+
     timeSec+=dtSec;
     last=Object.freeze({
       meanAirwayPressureCmH2O:meanPaw,
@@ -9466,6 +9992,22 @@ function createHumModArdsCardiopulmonaryRuntime({
       pericardialPressureMmHg,
       circulation:circ,
       autonomic:control,
+      systemicVascularControl:Object.freeze({
+        sourceAutonomicConductanceMlPerMinPerMmHg:
+          sourceAutonomicSystemicConductance,
+        appliedConductanceMlPerMinPerMmHg:
+          appliedSystemicConductance,
+        sepsisResistanceRatio:
+          sepsisDisease?sepsisDisease.systemicResistanceRatio:null,
+      }),
+      pulmonaryVascular:pulmonaryControl,
+      sepsisDisease,
+      oxygenDeficit,
+      decompensation:decomp,
+      effectiveHeartRatePerMin,
+      effectiveContractilityMultiplier:effectiveLeftContractility,
+      effectiveLeftContractilityMultiplier:effectiveLeftContractility,
+      effectiveRightContractilityMultiplier:effectiveRightContractility,
       gas,
       adapterDiagnostics:adapted.diagnostics,
     });
@@ -9480,8 +10022,11 @@ function createHumModArdsCardiopulmonaryRuntime({
       provenance:Object.freeze({
         pulmonaryMechanics:'Vent',
         thorax:'explicit passive chest-wall phenotype',
-        circulation:'reduced source-aligned HumMod circulation with dynamic autonomic control',
+        circulation:'v1.0 reduced circulation with v2.0 Ursino/Magosso systemic control and v2.1 source-backed pulmonary vascular load',
         gasExchange:'source-aligned HumMod reduced gas core',
+        oxygenDeficit:'v2.3 source-grounded unmet-aerobic-demand bookkeeping; no failure authority',
+        decompensation:'v2.4 physiology-triggered terminal-state controller; no elapsed-asphyxia or oxygen-debt death timer',
+        sepsis:'v2.2 Yamanaka Eq.31 LV performance active when explicit sepsisState is supplied; Eq.29/30 remain diagnostic pending source-safe bridges',
         pressureUnits:'caller-supplied validated adapter',
         clinicalValidation:false,
       }),
@@ -9836,238 +10381,3586 @@ module.exports = {
 };
 
 },
-"src/hummod_ards_autonomic_controller.js":function(module,exports,require){
+"src/v2_source_autonomic_controller.js":function(module,exports,require){
 'use strict';
 
-// Reduced dynamic autonomic/hemodynamic controller for the browser ARDS core.
-// This is a transparent engineering control layer inspired by HumMod control
-// architecture; it is not a verbatim HumMod subsystem and is not clinically
-// validated.
+/**
+ * v2.0 source-aligned autonomic adapter.
+ *
+ * Purpose:
+ * Replace the locally tuned v1.0 MAP-error / HR / SVR / venous-volume gains
+ * with published baroreflex, O2/CO2 chemoreflex, and effector equations while
+ * preserving the compact v1.0 circulation and bedside UI.
+ *
+ * Primary source family:
+ * - Ursino 1998: baroreceptor and cardiovascular effector equations.
+ * - Ursino & Magosso 2000: hypoxia, pulmonary stretch, channelized autonomics.
+ * - Magosso & Ursino 2001: O2-CO2 interaction and separated sympathetic channels.
+ *
+ * Model reduction:
+ * Published absolute effector outputs are projected onto the existing v1.0
+ * lumped circulation by dimensionless change from the source-model operating
+ * point captured on the first step. No fitted physiologic gain is introduced:
+ *   contractility multiplier = Emax / Emax_reference
+ *   lumped systemic resistance multiplier = (Rsp+Rep)/(Rsp+Rep)_reference
+ *   systemic conductance = baseline conductance / resistance multiplier
+ *   venous V0 = baseline V0 * (Vusv+Vuev)/(Vusv+Vuev)_reference
+ *
+ * Pulmonary vascular control is deliberately NOT invented here. PVR-specific
+ * hypoxia/airway-pressure physiology remains a separate v2.0 work item.
+ */
 
-function finite(v, label) {
-  if (typeof v !== 'number' || !Number.isFinite(v)) throw new Error(label + ' must be finite');
-  return v;
-}
-function positive(v, label) {
-  finite(v, label); if (!(v > 0)) throw new Error(label + ' must be > 0'); return v;
-}
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-function lag(current, target, dtSec, tauSec) {
-  return current + (target - current) * (1 - Math.exp(-dtSec / tauSec));
-}
+const {
+  createUrsinoBaroreceptorShadow,
+}=require("src/ursino_baroreceptor_shadow.js");
 
-// Calibration anchor for the reduced hypercapnic-acidosis response.
-// Stengl et al., Critical Care 2013, Table 2 (porcine, mechanically ventilated):
-// hypercapnic acidosis pH 7.10; HR 99 -> 200/min; SVR 1412 -> 1068
-// dyn*s/cm^5; PVR 259 -> 356 dyn*s/cm^5.
-// The browser model uses this as a transparent challenge anchor, not as a
-// claim of a universal human dose-response relationship.
-const HYPERCAPNIC_ACIDOSIS_ANCHOR = Object.freeze({
-  definitionPaco2MmHg: 45,
-  definitionPh: 7.35,
-  challengePh: 7.10,
-  heartRateBaselinePerMin: 99,
-  heartRateChallengePerMin: 200,
-  svrBaseline: 1412,
-  svrChallenge: 1068,
-  pvrBaseline: 259,
-  pvrChallenge: 356,
-  citation: 'Stengl et al. Crit Care. 2013;17:R303.',
+const {
+  createAlbanese2016AutonomicCandidate,
+}=require("src/albanese_2016_autonomic_candidate.js");
+
+const {
+  createChannelizedEffectorCandidate,
+}=require("src/ursino_magosso_channelized_effectors_candidate.js");
+
+const {
+  createHumMod2013BaroChemoreflexSaNodeCandidate,
+}=require("src/hummod_2013_baro_chemoreflex_sa_node_candidate.js");
+
+const SOURCE=Object.freeze({
+  baroreceptor:'Ursino 1998, doi:10.1152/ajpheart.1998.275.5.H1733',
+  hypoxia:'Ursino & Magosso 2000, doi:10.1152/ajpheart.2000.279.1.H149',
+  co2:'Magosso & Ursino 2001, doi:10.1152/ajpheart.2001.281.5.H2036',
+  integratedCalibration:'Albanese et al. 2016, doi:10.1152/ajpheart.00230.2014, Table 7',
+  integratedValidation:'Cheng et al. 2016, doi:10.1152/ajpheart.00923.2014',
+  projection:
+    'dimensionless source-effector change projected onto v1.0 lumped circulation',
+  chronotropy:
+    'HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> Beta1 -> SA-node',
+  chronotropyRevision:
+    'nysuloem/HumMod-UTSC-CPG@51d369eb75669e150ef7c61e3ba8bcb1e068aecf',
+  vascularControl:
+    'Albanese 2016 / Ursino-Magosso source-family effectors',
+  authority:'v2.4-active-hummod2013-chronotropy-albanese-vascular-candidate',
 });
 
-function hypercapnicAcidosisSeverity({ arterialPh, arterialPco2MmHg }) {
-  finite(arterialPh, 'arterialPh');
-  finite(arterialPco2MmHg, 'arterialPco2MmHg');
-  if (arterialPco2MmHg <= HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPaco2MmHg ||
-      arterialPh >= HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPh) return 0;
-  return clamp(
-    (HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPh - arterialPh) /
-      (HYPERCAPNIC_ACIDOSIS_ANCHOR.definitionPh -
-       HYPERCAPNIC_ACIDOSIS_ANCHOR.challengePh),
-    0, 1);
+const RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR=Object.freeze({
+  definitionPh:7.35,
+  challengePh:7.10,
+  challengeContractilityFraction:0.45,
+  citation:'Biais M et al. Anesthesiology. 2012;117:1212-1222. doi:10.1097/ALN.0b013e3182753264',
+});
+
+const SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS=Object.freeze({
+  normalPaco2MmHg:45,
+  dogPaco2MmHg:92,
+  dogEmaxFraction:9.2/11.4,
+  dogCitation:
+    'Walley KR et al. Circ Res. 1990. PMID 2118837: pH 7.09, PaCO2 92 mmHg, Emax 11.4 -> 9.2.',
+  isolatedHeartPaco2MmHg:146,
+  isolatedHeartPressureFraction:0.20,
+  isolatedHeartCitation:
+    'Reversible impairment of myocardial contractility due to hypercarbic acidosis in the isolated perfused rat heart. PMID 1899209: PCO2 36 -> 146 torr, LVSP and dP/dt fell to ~20% of control.',
+  projection:
+    'The isolated-heart 20% LVSP/dPdt endpoint is used as a bounded severe-hypercapnia whole-heart performance proxy; this is an explicit reduced-model assumption, not Emax equivalence.',
+});
+
+const HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR=Object.freeze({
+  normalPaco2MmHg:45,
+  challengePaco2MmHg:110,
+  baselineSvrDynSecCm5:1748,
+  challengeSvrDynSecCm5:1392,
+  citation:
+    'Sympathetic secretory response to hypercapnic acidosis in swine. PMID 2121704.',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+function clamp(v,lo,hi){
+  return Math.max(lo,Math.min(hi,v));
 }
 
-function createHumModArdsAutonomicController({
-  baseline,
-  targetMapMmHg = 82,
-  baroreflexGain = 0.035,
-  autonomicTauSec = 5,
-  vascularTauSec = 8,
-  cardiacTauSec = 4,
-} = {}) {
-  if (!baseline) throw new Error('baseline boundaries are required');
-  positive(baseline.heartRatePerMin, 'baseline.heartRatePerMin');
-  positive(baseline.systemicArterialConductanceMlPerMinPerMmHg,
-    'baseline.systemicArterialConductanceMlPerMinPerMmHg');
-  positive(baseline.systemicVenousConductanceMlPerMinPerMmHg,
-    'baseline.systemicVenousConductanceMlPerMinPerMmHg');
-  positive(targetMapMmHg, 'targetMapMmHg');
+function severeHypercapniaContractilityMultiplier(paco2MmHg){
+  nonNegative(paco2MmHg,'paco2MmHg');
+  const a=SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS;
+  if(paco2MmHg<=a.normalPaco2MmHg) return 1;
+  if(paco2MmHg<=a.dogPaco2MmHg){
+    const t=(paco2MmHg-a.normalPaco2MmHg)/
+      (a.dogPaco2MmHg-a.normalPaco2MmHg);
+    return 1+t*(a.dogEmaxFraction-1);
+  }
+  if(paco2MmHg>=a.isolatedHeartPaco2MmHg){
+    return a.isolatedHeartPressureFraction;
+  }
+  const t=(paco2MmHg-a.dogPaco2MmHg)/
+    (a.isolatedHeartPaco2MmHg-a.dogPaco2MmHg);
+  return a.dogEmaxFraction+
+    t*(a.isolatedHeartPressureFraction-a.dogEmaxFraction);
+}
 
-  const baseVenousV0Ml = baseline.systemicVenousV0Ml == null
-    ? 1700
-    : baseline.systemicVenousV0Ml;
+function hypercapnicSystemicResistanceRatio(paco2MmHg){
+  nonNegative(paco2MmHg,'paco2MmHg');
+  const a=HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR;
+  if(paco2MmHg<=a.normalPaco2MmHg) return 1;
+  const challengeRatio=
+    a.challengeSvrDynSecCm5/a.baselineSvrDynSecCm5;
+  if(paco2MmHg>=a.challengePaco2MmHg) return challengeRatio;
+  const t=(paco2MmHg-a.normalPaco2MmHg)/
+    (a.challengePaco2MmHg-a.normalPaco2MmHg);
+  return 1+t*(challengeRatio-1);
+}
 
-  let sympatheticTone = 0.25;
-  let parasympatheticTone = 0.45;
-  let catecholamineDrive = 0.25;
-  let heartRatePerMin = baseline.heartRatePerMin;
-  let contractility = baseline.leftContractilityMultiplier || 1;
-  let arterialConductance =
-    baseline.systemicArterialConductanceMlPerMinPerMmHg;
-  let venousV0Ml = baseVenousV0Ml;
-  let pulmonaryConductanceMultiplier = 1;
-  let last = null;
+function respiratoryAcidosisContractilityMultiplier({
+  arterialPh,
+  arterialPco2MmHg,
+}={}){
+  finite(arterialPh,'arterialPh');
+  nonNegative(arterialPco2MmHg,'arterialPco2MmHg');
+  if(arterialPco2MmHg<=45||
+     arterialPh>=RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR.definitionPh){
+    return 1;
+  }
+  const a=RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR;
+  const severity=clamp(
+    (a.definitionPh-arterialPh)/(a.definitionPh-a.challengePh),
+    0,1
+  );
+  return 1-severity*(1-a.challengeContractilityFraction);
+}
+
+function createV2SourceAutonomicController({baseline}={}){
+  if(!baseline) throw new Error('baseline boundaries are required');
+  positive(baseline.heartRatePerMin,'baseline.heartRatePerMin');
+  positive(
+    baseline.systemicArterialConductanceMlPerMinPerMmHg,
+    'baseline.systemicArterialConductanceMlPerMinPerMmHg'
+  );
+
+  const baselineVenousV0Ml=
+    baseline.systemicVenousV0Ml==null?1700:baseline.systemicVenousV0Ml;
+  positive(baselineVenousV0Ml,'baseline.systemicVenousV0Ml');
+
+  const baroreceptor=createUrsinoBaroreceptorShadow();
+  const gasAutonomic=createAlbanese2016AutonomicCandidate();
+  const saNode=createHumMod2013BaroChemoreflexSaNodeCandidate({
+    ecfvMl:15000,
+    initialArterialPh:7.44,
+    initialCarotidSinusPressureMmHg:87,
+  });
+  let effectors=null;
+  let referenceEffectors=null;
+  let last=null;
 
   function step({
     dtSec,
     meanArterialPressureMmHg,
-    thoracicPressureMmHg = 0,
-    arterialPo2MmHg = 90,
-    arterialPco2MmHg = 40,
-    arterialPh = 7.40,
-  } = {}) {
-    positive(dtSec, 'dtSec');
-    finite(meanArterialPressureMmHg, 'meanArterialPressureMmHg');
+    tidalVolumeL,
+    arterialPo2MmHg=90,
+    arterialPco2MmHg=40,
+    arterialPh=7.40,
+  }={}){
+    positive(dtSec,'dtSec');
+    finite(meanArterialPressureMmHg,'meanArterialPressureMmHg');
+    nonNegative(tidalVolumeL,'tidalVolumeL');
+    nonNegative(arterialPo2MmHg,'arterialPo2MmHg');
+    positive(arterialPco2MmHg,'arterialPco2MmHg');
+    finite(arterialPh,'arterialPh');
 
-    // Low arterial pressure unloads baroreceptors and increases sympathetic
-    // drive. Severe hypoxemia/hypercapnia add a modest chemoreflex component.
-    const pressureError = targetMapMmHg - meanArterialPressureMmHg;
-    const hypoxicDrive = clamp((70 - arterialPo2MmHg) / 45, 0, 1);
-    const hypercapnicDrive = clamp((arterialPco2MmHg - 45) / 35, 0, 1);
-    const hcaSeverity = hypercapnicAcidosisSeverity({
-      arterialPh,
-      arterialPco2MmHg,
+    const b=baroreceptor.step({
+      dtSec,
+      arterialPressureMmHg:meanArterialPressureMmHg,
     });
-    const reflexTarget = clamp(
-      0.25 + baroreflexGain * pressureError +
-      0.18 * hypoxicDrive + 0.10 * hypercapnicDrive,
-      0, 1);
 
-    sympatheticTone = lag(sympatheticTone, reflexTarget, dtSec, autonomicTauSec);
-    parasympatheticTone = lag(
-      parasympatheticTone,
-      clamp(0.62 - 0.55 * sympatheticTone, 0.05, 0.75),
-      dtSec, autonomicTauSec);
-    catecholamineDrive = lag(
-      catecholamineDrive,
-      sympatheticTone,
-      dtSec, cardiacTauSec);
+    const a=gasAutonomic.step({
+      dtSec,
+      pao2MmHg:arterialPo2MmHg,
+      paco2MmHg:arterialPco2MmHg,
+      fAbSpikesPerSec:b.fAbSpikesPerSec,
+      tidalVolumeL,
+    });
 
-    // Chronotropy and inotropy are separated from vascular tone so the model
-    // can express reflex tachycardia, increased contractility, or predominantly
-    // vasoconstrictor compensation.
-    const reflexHrTarget =
-      baseline.heartRatePerMin + 55 * sympatheticTone - 22 * parasympatheticTone;
-    const empiricalHcaHrRatio =
-      HYPERCAPNIC_ACIDOSIS_ANCHOR.heartRateChallengePerMin /
-      HYPERCAPNIC_ACIDOSIS_ANCHOR.heartRateBaselinePerMin;
-    const empiricalHcaHrTarget = baseline.heartRatePerMin *
-      (1 + hcaSeverity * (empiricalHcaHrRatio - 1));
-    const hrTarget = clamp(
-      Math.max(reflexHrTarget, empiricalHcaHrTarget),
-      45, 200);
-    heartRatePerMin = lag(heartRatePerMin, hrTarget, dtSec, cardiacTauSec);
+    if(effectors==null){
+      effectors=createChannelizedEffectorCandidate({
+        initialFSpSpikesPerSec:a.fSpSpikesPerSec,
+        initialFSvSpikesPerSec:a.fSvSpikesPerSec,
+        initialFShSpikesPerSec:a.fShSpikesPerSec,
+        initialFVSpikesPerSec:a.fVSpikesPerSec,
+      });
+    }
 
-    const contractilityTarget = clamp(
-      (baseline.leftContractilityMultiplier || 1) *
-      (0.88 + 0.72 * catecholamineDrive),
-      0.7, 1.8);
-    contractility = lag(contractility, contractilityTarget, dtSec, cardiacTauSec);
+    const e=effectors.step({
+      dtSec,
+      fSpSpikesPerSec:a.fSpSpikesPerSec,
+      fSvSpikesPerSec:a.fSvSpikesPerSec,
+      fShSpikesPerSec:a.fShSpikesPerSec,
+      fVSpikesPerSec:a.fVSpikesPerSec,
+    });
 
-    // Alpha-mediated constriction and direct hypercapnic-acidosis vasodilation
-    // are represented as competing effects. The latter is anchored to the
-    // published HCA challenge above, in which SVR fell despite catecholaminergic
-    // activation. Interpolation is explicit and bounded between normal and the
-    // challenge state; it is not extrapolated beyond pH 7.10.
-    const reflexArterialConductanceTarget =
-      baseline.systemicArterialConductanceMlPerMinPerMmHg /
-      (0.86 + 1.45 * sympatheticTone);
-    const empiricalHcaConductanceRatio =
-      HYPERCAPNIC_ACIDOSIS_ANCHOR.svrBaseline /
-      HYPERCAPNIC_ACIDOSIS_ANCHOR.svrChallenge;
-    const empiricalHcaConductanceTarget =
-      baseline.systemicArterialConductanceMlPerMinPerMmHg *
-      (1 + hcaSeverity * (empiricalHcaConductanceRatio - 1));
-    const arterialConductanceTarget = hcaSeverity > 0
-      ? Math.max(reflexArterialConductanceTarget, empiricalHcaConductanceTarget)
-      : reflexArterialConductanceTarget;
-    arterialConductance = lag(
-      arterialConductance,
-      arterialConductanceTarget,
-      dtSec, vascularTauSec);
+    if(referenceEffectors==null){
+      referenceEffectors=Object.freeze({...e.absolute});
+    }
 
-    // Venoconstriction recruits unstressed volume by lowering effective V0.
-    const venousV0Target = baseVenousV0Ml * (1 - 0.14 * sympatheticTone);
-    venousV0Ml = lag(venousV0Ml, venousV0Target, dtSec, vascularTauSec);
+    const sourceHeartPeriodSec=
+      positive(e.absolute.heartPeriodSec,'heartPeriodSec');
+    const sourceHeartRatePerMin=60/sourceHeartPeriodSec;
 
-    // Positive intrathoracic pressure and hypoxemia remain independent
-    // pulmonary loads. Hypercapnic acidemia adds an empirical resistance
-    // multiplier anchored to the same Stengl challenge. Because resistance and
-    // conductance are reciprocal, the HCA term lowers conductance.
-    const pulmonaryLoad =
-      0.018 * Math.max(0, thoracicPressureMmHg) + 0.28 * hypoxicDrive;
-    const pressureHypoxiaConductance = 1 / (1 + pulmonaryLoad);
-    const empiricalHcaPvrRatio = 1 + hcaSeverity * (
-      HYPERCAPNIC_ACIDOSIS_ANCHOR.pvrChallenge /
-      HYPERCAPNIC_ACIDOSIS_ANCHOR.pvrBaseline - 1);
-    const hcaPulmonaryConductance = 1 / empiricalHcaPvrRatio;
-    const pulmonaryTarget = clamp(
-      pressureHypoxiaConductance * hcaPulmonaryConductance,
-      0.45, 1.15);
-    pulmonaryConductanceMultiplier = lag(
-      pulmonaryConductanceMultiplier,
-      pulmonaryTarget,
-      dtSec, vascularTauSec);
-
-    last = Object.freeze({
-      targetMapMmHg,
-      pressureErrorMmHg: pressureError,
-      sympatheticTone,
-      parasympatheticTone,
-      catecholamineDrive,
-      hypoxicDrive,
-      hypercapnicDrive,
-      hypercapnicAcidosisSeverity: hcaSeverity,
+    const sa=saNode.step({
+      dtSec,
+      arterialPo2MmHg,
       arterialPh,
+      carotidSinusPressureMmHg:meanArterialPressureMmHg,
+    });
+    const heartRatePerMin=
+      positive(sa.heartRatePerMin,'HumMod 2013 SA-node HR');
+    const heartPeriodSec=60/heartRatePerMin;
+
+    const systemicResistanceNow=
+      positive(e.absolute.Rsp+e.absolute.Rep,'source systemic resistance');
+    const systemicResistanceRef=
+      positive(referenceEffectors.Rsp+referenceEffectors.Rep,
+        'source reference systemic resistance');
+    const systemicResistanceRatio=
+      systemicResistanceNow/systemicResistanceRef;
+
+    const systemicArterialConductanceMlPerMinPerMmHg=
+      baseline.systemicArterialConductanceMlPerMinPerMmHg/
+      systemicResistanceRatio;
+
+    const sourceVenousV0Now=
+      positive(e.absolute.Vusv+e.absolute.Vuev,'source venous V0');
+    const sourceVenousV0Ref=
+      positive(referenceEffectors.Vusv+referenceEffectors.Vuev,
+        'source reference venous V0');
+    const systemicVenousV0Ml=
+      baselineVenousV0Ml*(sourceVenousV0Now/sourceVenousV0Ref);
+
+    const leftContractilityMultiplier=
+      positive(e.absolute.EmaxLv,'EmaxLv')/
+      positive(referenceEffectors.EmaxLv,'reference EmaxLv');
+    const rightContractilityMultiplier=
+      positive(e.absolute.EmaxRv,'EmaxRv')/
+      positive(referenceEffectors.EmaxRv,'reference EmaxRv');
+
+    const phBasedAcidoticContractilityMultiplier=
+      respiratoryAcidosisContractilityMultiplier({
+        arterialPh,
+        arterialPco2MmHg,
+      });
+    const co2BasedContractilityMultiplier=
+      severeHypercapniaContractilityMultiplier(arterialPco2MmHg);
+    const acidoticContractilityMultiplier=Math.min(
+      phBasedAcidoticContractilityMultiplier,
+      co2BasedContractilityMultiplier
+    );
+    const hypercapnicSvrRatio=
+      hypercapnicSystemicResistanceRatio(arterialPco2MmHg);
+    const systemicArterialConductanceAfterHypercapnia=
+      systemicArterialConductanceMlPerMinPerMmHg/
+      hypercapnicSvrRatio;
+
+    last=Object.freeze({
       heartRatePerMin,
-      contractilityMultiplier: contractility,
-      systemicArterialConductanceMlPerMinPerMmHg: arterialConductance,
-      systemicVenousV0Ml: venousV0Ml,
-      pulmonaryArterialConductanceMultiplier: pulmonaryConductanceMultiplier,
+      sourceHeartRatePerMin,
+      hummod2013HeartRatePerMin:heartRatePerMin,
+      albaneseComparatorHeartRatePerMin:sourceHeartRatePerMin,
+      chronotropyOwner:
+        'HumMod 2012/2013 baroreflex-chemoreflex-sympathoadrenal-Beta1-SA-node',
+      chronotropy:Object.freeze({
+        baroreflex:sa.baroreflex,
+        chemoreceptor:sa.chemoreceptor,
+        chemoreceptorsCns:sa.chemoreceptorsCns,
+        sympathetic:sa.sympathetic,
+        ganglia:sa.ganglia,
+        catecholamines:sa.catecholamines,
+        saNode:sa.saNode,
+      }),
+      leftContractilityMultiplier,
+      rightContractilityMultiplier,
+      acidoticContractilityMultiplier,
+      systemicArterialConductanceMlPerMinPerMmHg:
+        systemicArterialConductanceAfterHypercapnia,
+      sourceAutonomicSystemicArterialConductanceMlPerMinPerMmHg:
+        systemicArterialConductanceMlPerMinPerMmHg,
+      hypercapnicSystemicResistanceRatio:hypercapnicSvrRatio,
+      phBasedAcidoticContractilityMultiplier,
+      co2BasedContractilityMultiplier,
+      systemicVenousV0Ml,
+      pulmonaryArterialConductanceMultiplier:1,
+      sourceSystemicResistanceRatio:systemicResistanceRatio,
+      sourceVenousV0Ratio:sourceVenousV0Now/sourceVenousV0Ref,
+      sourceHeartPeriodSec,
+      appliedHeartPeriodSec:heartPeriodSec,
+      afferents:Object.freeze({
+        fAbSpikesPerSec:b.fAbSpikesPerSec,
+        fAcSpikesPerSec:a.fAcSpikesPerSec,
+        fApSpikesPerSec:a.fApSpikesPerSec,
+      }),
+      autonomic:Object.freeze({
+        fSpSpikesPerSec:a.fSpSpikesPerSec,
+        fSvSpikesPerSec:a.fSvSpikesPerSec,
+        fShSpikesPerSec:a.fShSpikesPerSec,
+        fVSpikesPerSec:a.fVSpikesPerSec,
+      }),
+      effectors:e.absolute,
+      referenceEffectors,
+      arterialPh,
+      arterialPo2MmHg,
+      arterialPco2MmHg,
+      meanArterialPressureMmHg,
+      tidalVolumeL,
+      provenance:SOURCE,
     });
     return snapshot();
   }
 
-  function snapshot() {
-    return Object.freeze({
-      schema: 'hummod-ards-autonomic-controller/v1',
-      ...(last || {
-        targetMapMmHg,
-        sympatheticTone,
-        parasympatheticTone,
-        catecholamineDrive,
-        heartRatePerMin,
-        contractilityMultiplier: contractility,
-        systemicArterialConductanceMlPerMinPerMmHg: arterialConductance,
-        systemicVenousV0Ml: venousV0Ml,
-        pulmonaryArterialConductanceMultiplier: pulmonaryConductanceMultiplier,
-      }),
-      provenance: Object.freeze({
-        status: 'reduced-dynamic-engineering-control-layer',
-        clinicalValidation: false,
-        hypercapnicAcidosisAnchor: HYPERCAPNIC_ACIDOSIS_ANCHOR,
-      }),
+  function snapshot(){
+    return Object.freeze(last||{
+      heartRatePerMin:baseline.heartRatePerMin,
+      leftContractilityMultiplier:1,
+      rightContractilityMultiplier:1,
+      acidoticContractilityMultiplier:1,
+      systemicArterialConductanceMlPerMinPerMmHg:
+        baseline.systemicArterialConductanceMlPerMinPerMmHg,
+      systemicVenousV0Ml:baselineVenousV0Ml,
+      pulmonaryArterialConductanceMultiplier:1,
+      provenance:SOURCE,
+      status:'initialized-not-stepped',
     });
   }
 
-  return Object.freeze({ kind: 'hummod-ards-autonomic-controller', step, snapshot });
+  return Object.freeze({
+    kind:'v2-source-autonomic-controller',
+    step,
+    snapshot,
+    source:SOURCE,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  RESPIRATORY_ACIDOSIS_INOTROPY_ANCHOR,
+  SEVERE_HYPERCAPNIA_INOTROPY_ANCHORS,
+  HYPERCAPNIC_SYSTEMIC_VASODILATION_ANCHOR,
+  respiratoryAcidosisContractilityMultiplier,
+  severeHypercapniaContractilityMultiplier,
+  hypercapnicSystemicResistanceRatio,
+  createV2SourceAutonomicController,
+});
+
+},
+"src/ursino_baroreceptor_shadow.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Ursino 1998 carotid/sinoaortic baroreceptor afferent shadow.
+ *
+ * Physiologic source:
+ * Ursino M. Interaction between carotid baroregulation and the pulsating heart:
+ * a mathematical model. Am J Physiol Heart Circ Physiol. 1998;275:H1733-H1747.
+ * doi:10.1152/ajpheart.1998.275.5.H1733.
+ *
+ * Parameter transcription cross-check:
+ * PLOS Comput Biol. 2024;20:e1012377, Table 2, explicitly states that all
+ * baroreflex values are taken from Ursino 1998 and uses arterial pressure as
+ * a surrogate for carotid sinus pressure.
+ *
+ * Shadow only. No output has physiologic authority.
+ */
+
+const SOURCE=Object.freeze({
+  primary:'Ursino M. Am J Physiol Heart Circ Physiol. 1998;275:H1733-H1747.',
+  doi:'10.1152/ajpheart.1998.275.5.H1733',
+  surrogateCrossCheck:'PLOS Comput Biol. 2024;20:e1012377',
+  status:'published-equation-shadow-only',
+});
+
+const P=Object.freeze({
+  pressureMidMmHg:92,
+  fMinSpikesPerSec:2.52,
+  fMaxSpikesPerSec:47.78,
+  kMmHg:11.758,
+  tauPoleSec:2.076,
+  tauZeroSec:6.37,
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){ finite(v,label); if(v<0) throw new Error(label+' must be >= 0'); return v; }
+
+function baroreceptorStatic(filteredPressureMmHg){
+  finite(filteredPressureMmHg,'filteredPressureMmHg');
+  const e=Math.exp((filteredPressureMmHg-P.pressureMidMmHg)/P.kMmHg);
+  return (P.fMinSpikesPerSec+P.fMaxSpikesPerSec*e)/(1+e);
+}
+
+function createUrsinoBaroreceptorShadow(){
+  let filteredPressureMmHg=null;
+  let previousPressureMmHg=null;
+  let state=Object.freeze({
+    arterialPressureMmHg:null,
+    filteredPressureMmHg:null,
+    pressureDerivativeMmHgPerSec:null,
+    fAbSpikesPerSec:null,
+    authority:'shadow-diagnostic-only',
+    pressureMapping:'systemic arterial pressure used as published-surrogate for carotid sinus pressure',
+    provenance:SOURCE,
+  });
+
+  function step({
+    dtSec,
+    arterialPressureMmHg,
+    arterialPressureRateMmHgPerSec=null,
+  }={}){
+    nonNegative(dtSec,'dtSec');
+    finite(arterialPressureMmHg,'arterialPressureMmHg');
+    if(arterialPressureRateMmHgPerSec!=null){
+      finite(arterialPressureRateMmHgPerSec,
+        'arterialPressureRateMmHgPerSec');
+    }
+    const derivative=arterialPressureRateMmHgPerSec!=null
+      ? arterialPressureRateMmHgPerSec
+      : previousPressureMmHg==null || dtSec===0
+        ? 0
+        : (arterialPressureMmHg-previousPressureMmHg)/dtSec;
+    const target=arterialPressureMmHg+P.tauZeroSec*derivative;
+    if(filteredPressureMmHg==null){
+      filteredPressureMmHg=arterialPressureMmHg;
+    }else if(dtSec>0){
+      const decay=Math.exp(-dtSec/P.tauPoleSec);
+      filteredPressureMmHg=target+(filteredPressureMmHg-target)*decay;
+    }
+    previousPressureMmHg=arterialPressureMmHg;
+    state=Object.freeze({
+      arterialPressureMmHg,
+      filteredPressureMmHg,
+      pressureDerivativeMmHgPerSec:derivative,
+      pressureDerivativeSource:arterialPressureRateMmHgPerSec!=null
+        ?'plant-source-derivative'
+        :'backward-difference-fallback',
+      fAbSpikesPerSec:baroreceptorStatic(filteredPressureMmHg),
+      authority:'shadow-diagnostic-only',
+      pressureMapping:'systemic arterial pressure used as published-surrogate for carotid sinus pressure',
+      provenance:SOURCE,
+    });
+    return state;
+  }
+
+  return Object.freeze({step,snapshot:()=>state,parameters:P,source:SOURCE});
+}
+
+module.exports={SOURCE,P,baroreceptorStatic,createUrsinoBaroreceptorShadow};
+
+},
+"src/albanese_2016_autonomic_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Albanese/Cheng/Ursino/Chbat 2016 cardiovascular-control calibration.
+ *
+ * Primary source:
+ * Albanese A, Cheng L, Ursino M, Chbat NW.
+ * Am J Physiol Heart Circ Physiol. 2016;310:H899-H921.
+ * doi:10.1152/ajpheart.00230.2014
+ *
+ * Table 7 reports the cardiovascular-control parameters that the authors
+ * changed from Ursino/Magosso because the original parameterization did not
+ * reproduce observed HR and arterial-pressure responses to hypercapnia and
+ * hypoxia.
+ *
+ * This module transcribes only those published modifications and delegates
+ * the remaining source-family equations to the existing Magosso/Ursino
+ * implementation.
+ */
+
+const {
+  P:BASE_P,
+  peripheralChemoreceptorStatic,
+  cnsHypoxiaStatic,
+  firstOrderExact,
+}=require("src/magosso_ursino_2001_gas_autonomic_candidate.js");
+
+const {
+  vagalFiring,
+}=require("src/ursino_magosso_autonomic_shadow.js");
+
+const SOURCE=Object.freeze({
+  citation:
+    'Albanese A, Cheng L, Ursino M, Chbat NW. Am J Physiol Heart Circ Physiol. 2016;310:H899-H921.',
+  doi:'10.1152/ajpheart.00230.2014',
+  table:'Table 7',
+  validation:
+    'Cheng L et al. Am J Physiol Heart Circ Physiol. 2016;310:H922-H937. doi:10.1152/ajpheart.00923.2014',
+  authority:'primary-source-calibrated-cardiovascular-control-candidate',
+  clinicalValidation:false,
+});
+
+const P=Object.freeze({
+  lungStretch:Object.freeze({
+    gainSpikesPerSecPerL:11.76,
+    tauSec:2,
+  }),
+  sympathetic:Object.freeze({
+    ...BASE_P.sympathetic,
+    weights:Object.freeze({
+      p:Object.freeze({baro:-1.1375,chemo:1.716,pulmonary:-0.3997}),
+      v:Object.freeze({baro:-1.0806,chemo:1.716,pulmonary:-0.2907}),
+      h:Object.freeze({baro:-1.75,chemo:1,pulmonary:0}),
+    }),
+  }),
+  cns:BASE_P.cns,
+  chemoreceptor:BASE_P.chemoreceptor,
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+
+function sympatheticFiring({
+  channel,
+  fAbSpikesPerSec,
+  fAcSpikesPerSec,
+  fApSpikesPerSec,
+  thetaSpikesPerSec,
+}={}){
+  nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
+  nonNegative(fAcSpikesPerSec,'fAcSpikesPerSec');
+  nonNegative(fApSpikesPerSec,'fApSpikesPerSec');
+  finite(thetaSpikesPerSec,'thetaSpikesPerSec');
+  const w=P.sympathetic.weights[channel];
+  if(!w) throw new Error('unknown sympathetic channel: '+channel);
+  const exponent=P.sympathetic.kSec*(
+    w.baro*fAbSpikesPerSec+
+    w.chemo*fAcSpikesPerSec+
+    w.pulmonary*fApSpikesPerSec-
+    thetaSpikesPerSec
+  );
+  const raw=P.sympathetic.fInfinitySpikesPerSec+
+    (P.sympathetic.f0SpikesPerSec-P.sympathetic.fInfinitySpikesPerSec)*
+    Math.exp(exponent);
+  return Math.min(P.sympathetic.fMaxSpikesPerSec,raw);
+}
+
+function createAlbanese2016AutonomicCandidate(){
+  let fAc=null;
+  let fAp=null;
+  const o2={p:null,v:null,h:null};
+  const co2={p:null,v:null,h:null};
+  let state=null;
+
+  function step({
+    dtSec,pao2MmHg,paco2MmHg,fAbSpikesPerSec,tidalVolumeL,
+  }={}){
+    nonNegative(dtSec,'dtSec');
+    nonNegative(pao2MmHg,'pao2MmHg');
+    finite(paco2MmHg,'paco2MmHg');
+    nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
+    nonNegative(tidalVolumeL,'tidalVolumeL');
+
+    const phi=peripheralChemoreceptorStatic({pao2MmHg,paco2MmHg});
+    fAc=firstOrderExact(fAc,phi,dtSec,P.chemoreceptor.tauSec);
+
+    const stretchTarget=P.lungStretch.gainSpikesPerSecPerL*tidalVolumeL;
+    fAp=firstOrderExact(fAp,stretchTarget,dtSec,P.lungStretch.tauSec);
+
+    const theta={};
+    for(const channel of ['p','v','h']){
+      const cp=P.cns[channel];
+      o2[channel]=firstOrderExact(
+        o2[channel],cnsHypoxiaStatic(pao2MmHg,channel),dtSec,P.cns.tauO2Sec
+      );
+      const co2Target=cp.gCo2PerMmHgSec*(paco2MmHg-P.cns.paco2NormalMmHg);
+      co2[channel]=firstOrderExact(
+        co2[channel],co2Target,dtSec,P.cns.tauCo2Sec
+      );
+      theta[channel]=cp.thetaNormalSpikesPerSec-o2[channel]-co2[channel];
+    }
+
+    const common={fAbSpikesPerSec,fAcSpikesPerSec:fAc,fApSpikesPerSec:fAp};
+    const fSp=sympatheticFiring({...common,channel:'p',thetaSpikesPerSec:theta.p});
+    const fSv=sympatheticFiring({...common,channel:'v',thetaSpikesPerSec:theta.v});
+    const fSh=sympatheticFiring({...common,channel:'h',thetaSpikesPerSec:theta.h});
+
+    // Albanese retains the Ursino/Magosso vagal source-family equation;
+    // the changed Table-7 parameter is the lung-stretch afferent gain.
+    const fV=vagalFiring({
+      fAbSpikesPerSec,
+      fAcSpikesPerSec:fAc,
+      fApSpikesPerSec:fAp,
+    });
+
+    state=Object.freeze({
+      pao2MmHg,paco2MmHg,tidalVolumeL,
+      fAbSpikesPerSec,
+      fAcSpikesPerSec:fAc,
+      fApSpikesPerSec:fAp,
+      fSpSpikesPerSec:fSp,
+      fSvSpikesPerSec:fSv,
+      fShSpikesPerSec:fSh,
+      fVSpikesPerSec:fV,
+      thetaSp:theta.p,thetaSv:theta.v,thetaSh:theta.h,
+      provenance:SOURCE,
+    });
+    return state;
+  }
+
+  return Object.freeze({
+    kind:'albanese-2016-autonomic-candidate',
+    step,
+    snapshot:()=>state,
+    source:SOURCE,
+    parameters:P,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,P,sympatheticFiring,createAlbanese2016AutonomicCandidate,
+});
+
+},
+"src/magosso_ursino_2001_gas_autonomic_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Exact candidate transcription of Magosso & Ursino 2001 Eqs. 1-7.
+ * DOI: 10.1152/ajpheart.2001.281.5.H2036
+ *
+ * Candidate only. No control authority.
+ */
+
+const {
+  vagalFiring,
+}=require("src/ursino_magosso_autonomic_shadow.js");
+
+const SOURCE=Object.freeze({
+  citation:
+    'Magosso E, Ursino M. A mathematical model of CO2 effect on cardiovascular regulation. Am J Physiol Heart Circ Physiol. 2001;281:H2036-H2052.',
+  doi:'10.1152/ajpheart.2001.281.5.H2036',
+  pmid:'11668065',
+  equations:Object.freeze([1,2,3,4,5,6,7]),
+  authority:'candidate-not-canonical',
+});
+
+const P=Object.freeze({
+  chemoreceptor:Object.freeze({
+    fMaxSpikesPerSec:12.3,
+    fMinSpikesPerSec:0.835,
+    po2MidMmHg:45,
+    kO2MmHg:29.27,
+    kHigh:3,
+    co2Offset:1.4,
+    paco2NormalMmHg:40,
+    tauSec:2,
+  }),
+  sympathetic:Object.freeze({
+    fInfinitySpikesPerSec:2.10,
+    f0SpikesPerSec:16.11,
+    fMaxSpikesPerSec:60,
+    kSec:0.0675,
+    weights:Object.freeze({
+      p:Object.freeze({baro:-1,chemo:5,pulmonary:-0.34}),
+      v:Object.freeze({baro:-1,chemo:5,pulmonary:-0.34}),
+      h:Object.freeze({baro:-1,chemo:1,pulmonary:0}),
+    }),
+  }),
+  cns:Object.freeze({
+    tauO2Sec:30,
+    tauCo2Sec:20,
+    paco2NormalMmHg:40,
+    p:Object.freeze({
+      chiSpikesPerSec:6,
+      po2MidMmHg:30,
+      kMmHg:2,
+      gCo2PerMmHgSec:1.5,
+      thetaNormalSpikesPerSec:13.32,
+    }),
+    v:Object.freeze({
+      chiSpikesPerSec:6,
+      po2MidMmHg:30,
+      kMmHg:2,
+      gCo2PerMmHgSec:0,
+      thetaNormalSpikesPerSec:13.32,
+    }),
+    h:Object.freeze({
+      chiSpikesPerSec:53,
+      po2MidMmHg:45,
+      kMmHg:6,
+      gCo2PerMmHgSec:1,
+      thetaNormalSpikesPerSec:3.6,
+    }),
+  }),
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+function firstOrderExact(current,target,dtSec,tauSec){
+  finite(target,'target');
+  nonNegative(dtSec,'dtSec');
+  finite(tauSec,'tauSec');
+  if(!(tauSec>0)) throw new Error('tauSec must be > 0');
+  if(current==null) return target;
+  finite(current,'current');
+  if(dtSec===0) return current;
+  const d=Math.exp(-dtSec/tauSec);
+  return target+(current-target)*d;
+}
+
+// Primary Eq. 1 piecewise coefficient.
+// Boundary convention follows later published transcription: 40 <= PaO2 <= 80
+// uses the middle branch. Values themselves are unchanged from the 2001 paper.
+function co2InteractionK(pao2MmHg){
+  nonNegative(pao2MmHg,'pao2MmHg');
+  const kh=P.chemoreceptor.kHigh;
+  if(pao2MmHg>80) return kh;
+  if(pao2MmHg>=40) return kh-1.2*((pao2MmHg-80)/30);
+  return kh-1.6;
+}
+
+// Magosso & Ursino 2001 Eq. 1.
+function peripheralChemoreceptorStatic({pao2MmHg,paco2MmHg}={}){
+  nonNegative(pao2MmHg,'pao2MmHg');
+  finite(paco2MmHg,'paco2MmHg');
+  if(!(paco2MmHg>0)) throw new Error('paco2MmHg must be > 0');
+  const p=P.chemoreceptor;
+  const e=Math.exp((pao2MmHg-p.po2MidMmHg)/p.kO2MmHg);
+  const oxygenSigmoid=(p.fMaxSpikesPerSec+p.fMinSpikesPerSec*e)/(1+e);
+  const k=co2InteractionK(pao2MmHg);
+  return oxygenSigmoid*(k*Math.log(paco2MmHg/p.paco2NormalMmHg)+p.co2Offset);
+}
+
+// Eq. 4.
+function cnsHypoxiaStatic(pao2MmHg,channel){
+  nonNegative(pao2MmHg,'pao2MmHg');
+  const p=P.cns[channel];
+  if(!p) throw new Error('unknown CNS channel: '+channel);
+  return p.chiSpikesPerSec/
+    (1+Math.exp((pao2MmHg-p.po2MidMmHg)/p.kMmHg));
+}
+
+// Eq. 3.
+function sympatheticFiring({
+  channel,
+  fAbSpikesPerSec,
+  fAcSpikesPerSec,
+  fApSpikesPerSec,
+  thetaSpikesPerSec,
+}={}){
+  nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
+  nonNegative(fAcSpikesPerSec,'fAcSpikesPerSec');
+  nonNegative(fApSpikesPerSec,'fApSpikesPerSec');
+  finite(thetaSpikesPerSec,'thetaSpikesPerSec');
+  const w=P.sympathetic.weights[channel];
+  if(!w) throw new Error('unknown sympathetic channel: '+channel);
+  const exponent=P.sympathetic.kSec*(
+    w.baro*fAbSpikesPerSec+
+    w.chemo*fAcSpikesPerSec+
+    w.pulmonary*fApSpikesPerSec-
+    thetaSpikesPerSec
+  );
+  const raw=P.sympathetic.fInfinitySpikesPerSec+
+    (P.sympathetic.f0SpikesPerSec-P.sympathetic.fInfinitySpikesPerSec)*
+    Math.exp(exponent);
+  return Math.min(P.sympathetic.fMaxSpikesPerSec,raw);
+}
+
+function createMagossoUrsinoGasAutonomicCandidate(){
+  let fAc=null;
+  const o2={p:null,v:null,h:null};
+  const co2={p:null,v:null,h:null};
+  let state=Object.freeze({
+    authority:SOURCE.authority,
+    fAcSpikesPerSec:null,
+    thetaSp:null,thetaSv:null,thetaSh:null,
+    fSpSpikesPerSec:null,fSvSpikesPerSec:null,fShSpikesPerSec:null,
+    fVSpikesPerSec:null,
+    provenance:SOURCE,
+  });
+
+  function step({
+    dtSec,
+    pao2MmHg,
+    paco2MmHg,
+    fAbSpikesPerSec,
+    fApSpikesPerSec,
+  }={}){
+    nonNegative(dtSec,'dtSec');
+    nonNegative(pao2MmHg,'pao2MmHg');
+    finite(paco2MmHg,'paco2MmHg');
+    nonNegative(fAbSpikesPerSec,'fAbSpikesPerSec');
+    nonNegative(fApSpikesPerSec,'fApSpikesPerSec');
+
+    const phi=peripheralChemoreceptorStatic({pao2MmHg,paco2MmHg});
+    fAc=firstOrderExact(fAc,phi,dtSec,P.chemoreceptor.tauSec);
+
+    const theta={};
+    for(const channel of ['p','v','h']){
+      const cp=P.cns[channel];
+      o2[channel]=firstOrderExact(
+        o2[channel],
+        cnsHypoxiaStatic(pao2MmHg,channel),
+        dtSec,
+        P.cns.tauO2Sec
+      );
+      const co2Target=cp.gCo2PerMmHgSec*
+        (paco2MmHg-P.cns.paco2NormalMmHg);
+      co2[channel]=firstOrderExact(
+        co2[channel],
+        co2Target,
+        dtSec,
+        P.cns.tauCo2Sec
+      );
+      // Eq. 7.
+      theta[channel]=cp.thetaNormalSpikesPerSec-o2[channel]-co2[channel];
+    }
+
+    const common={fAbSpikesPerSec,fAcSpikesPerSec:fAc,fApSpikesPerSec};
+    const fSp=sympatheticFiring({...common,channel:'p',thetaSpikesPerSec:theta.p});
+    const fSv=sympatheticFiring({...common,channel:'v',thetaSpikesPerSec:theta.v});
+    const fSh=sympatheticFiring({...common,channel:'h',thetaSpikesPerSec:theta.h});
+    // The 2001 extension adds CO2-aware f_ac and separated sympathetic
+    // channels. Cardiac vagal output retains the source 2000 Eq. 23 pathway:
+    // baroreceptor + chemoreceptor + pulmonary-stretch inputs, with no direct
+    // PaCO2-to-heart-rate term.
+    const fV=vagalFiring({
+      fAbSpikesPerSec,
+      fAcSpikesPerSec:fAc,
+      fApSpikesPerSec,
+    });
+
+    state=Object.freeze({
+      pao2MmHg,paco2MmHg,
+      fAbSpikesPerSec,fApSpikesPerSec,
+      staticChemoreceptorTargetSpikesPerSec:phi,
+      co2InteractionK:co2InteractionK(pao2MmHg),
+      fAcSpikesPerSec:fAc,
+      deltaThetaO2Sp:o2.p,
+      deltaThetaO2Sv:o2.v,
+      deltaThetaO2Sh:o2.h,
+      deltaThetaCo2Sp:co2.p,
+      deltaThetaCo2Sv:co2.v,
+      deltaThetaCo2Sh:co2.h,
+      thetaSp:theta.p,
+      thetaSv:theta.v,
+      thetaSh:theta.h,
+      fSpSpikesPerSec:fSp,
+      fSvSpikesPerSec:fSv,
+      fShSpikesPerSec:fSh,
+      fVSpikesPerSec:fV,
+      authority:SOURCE.authority,
+      provenance:SOURCE,
+    });
+    return state;
+  }
+
+  return Object.freeze({step,snapshot:()=>state,parameters:P,source:SOURCE});
+}
+
+module.exports=Object.freeze({
+  SOURCE,P,firstOrderExact,co2InteractionK,
+  peripheralChemoreceptorStatic,cnsHypoxiaStatic,sympatheticFiring,
+  createMagossoUrsinoGasAutonomicCandidate,
+});
+
+},
+"src/ursino_magosso_autonomic_shadow.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Ursino-Magosso autonomic controller shadow implementation.
+ *
+ * IMPORTANT:
+ * - Diagnostic/shadow only. It MUST NOT directly modify HumMod/Vent physiology.
+ * - Every physiologic parameter below is transcribed from published sources.
+ * - No HumMod Baroreflex.NA -> Ursino f_ab conversion is assumed.
+ *
+ * Primary source:
+ * Ursino M, Magosso E. Acute cardiovascular response to isocapnic hypoxia.
+ * I. A mathematical model. Am J Physiol Heart Circ Physiol.
+ * 2000;279:H149-H165. doi:10.1152/ajpheart.2000.279.1.H149.
+ *
+ * Equation ledger:
+ * docs/URSINO_MAGOSSO_EQUATION_LEDGER.md
+ */
+
+const SOURCE = Object.freeze({
+  citation:
+    'Ursino M, Magosso E. Am J Physiol Heart Circ Physiol. 2000;279:H149-H165.',
+  doi: '10.1152/ajpheart.2000.279.1.H149',
+  pmid: '10899052',
+  status: 'exact-primary-source-transcription-shadow-only',
+});
+
+const P = Object.freeze({
+  peripheralChemoreceptor: Object.freeze({
+    fMinSpikesPerSec: 1.16,
+    fMaxSpikesPerSec: 17.07,
+    pO2MidMmHg: 45,
+    kMmHg: 29.27,
+    tauSec: 2,
+  }),
+  pulmonaryStretch: Object.freeze({
+    gainSpikesPerSecPerL: 23.29,
+    tauSec: 2,
+  }),
+  sympathetic: Object.freeze({
+    fInfinitySpikesPerSec: 2.1,
+    f0SpikesPerSec: 16.11,
+    fMaxSpikesPerSec: 60,
+    kSec: 0.0675,
+    weights: Object.freeze({
+      sp: Object.freeze({ baro: 1, chemo: 5, pulmonary: 0.34 }),
+      sh: Object.freeze({ baro: 1, chemo: 1, pulmonary: 0 }),
+    }),
+  }),
+  vagal: Object.freeze({
+    f0SpikesPerSec: 3.2,
+    fInfinitySpikesPerSec: 6.3,
+    baroMidSpikesPerSec: 25,
+    kSpikesPerSec: 7.06,
+    chemoWeight: 0.2,
+    pulmonaryWeight: 0.103,
+    thetaSpikesPerSec: -0.68,
+  }),
+  cnsHypoxia: Object.freeze({
+    tauSec: 30,
+    sp: Object.freeze({
+      chiMinSpikesPerSec: 7.33,
+      chiMaxSpikesPerSec: 13.32,
+      pO2MidMmHg: 30,
+      kMmHg: 2,
+    }),
+    sh: Object.freeze({
+      chiMinSpikesPerSec: -49.38,
+      chiMaxSpikesPerSec: 3.59,
+      pO2MidMmHg: 45,
+      kMmHg: 6,
+    }),
+  }),
+});
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be a finite number');
+  }
+  return value;
+}
+
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(label + ' must be non-negative');
+  return value;
+}
+
+function firstOrderExact(current, target, dtSec, tauSec) {
+  finite(target, 'target');
+  nonNegative(dtSec, 'dtSec');
+  finite(tauSec, 'tauSec');
+  if (!(tauSec > 0)) throw new Error('tauSec must be > 0');
+  if (current == null) return target;
+  finite(current, 'current');
+  if (dtSec === 0) return current;
+  const decay = Math.exp(-dtSec / tauSec);
+  return target + (current - target) * decay;
+}
+
+// Ursino & Magosso 2000 Eq. 17.
+function peripheralChemoreceptorStatic(pao2MmHg) {
+  finite(pao2MmHg, 'pao2MmHg');
+  const p = P.peripheralChemoreceptor;
+  const e = Math.exp((pao2MmHg - p.pO2MidMmHg) / p.kMmHg);
+  return (p.fMaxSpikesPerSec + p.fMinSpikesPerSec * e) / (1 + e);
+}
+
+// Ursino & Magosso 2000 Eq. 19.
+function pulmonaryStretchStatic(tidalVolumeL) {
+  nonNegative(tidalVolumeL, 'tidalVolumeL');
+  return P.pulmonaryStretch.gainSpikesPerSecPerL * tidalVolumeL;
+}
+
+function cnsHypoxiaStatic(pao2MmHg, channel) {
+  finite(pao2MmHg, 'pao2MmHg');
+  const p = P.cnsHypoxia[channel];
+  if (!p) throw new Error('unknown CNS hypoxia channel: ' + channel);
+  const e = Math.exp((pao2MmHg - p.pO2MidMmHg) / p.kMmHg);
+  return (p.chiMinSpikesPerSec + p.chiMaxSpikesPerSec * e) / (1 + e);
+}
+
+// Ursino & Magosso 2000 Eq. 21.
+function peripheralSympatheticFiring({
+  fAbSpikesPerSec,
+  fAcSpikesPerSec,
+  fApSpikesPerSec,
+  thetaSpSpikesPerSec,
+}) {
+  finite(fAbSpikesPerSec, 'fAbSpikesPerSec');
+  finite(fAcSpikesPerSec, 'fAcSpikesPerSec');
+  finite(fApSpikesPerSec, 'fApSpikesPerSec');
+  finite(thetaSpSpikesPerSec, 'thetaSpSpikesPerSec');
+  const p = P.sympathetic;
+  const w = p.weights.sp;
+  const exponent = p.kSec * (
+    -w.baro * fAbSpikesPerSec +
+    w.chemo * fAcSpikesPerSec -
+    w.pulmonary * fApSpikesPerSec -
+    thetaSpSpikesPerSec
+  );
+  const raw = p.fInfinitySpikesPerSec +
+    (p.f0SpikesPerSec - p.fInfinitySpikesPerSec) * Math.exp(exponent);
+  return Math.min(p.fMaxSpikesPerSec, raw);
+}
+
+// Ursino & Magosso 2000 Eq. 22.
+function cardiacSympatheticFiring({
+  fAbSpikesPerSec,
+  fAcSpikesPerSec,
+  thetaShSpikesPerSec,
+}) {
+  finite(fAbSpikesPerSec, 'fAbSpikesPerSec');
+  finite(fAcSpikesPerSec, 'fAcSpikesPerSec');
+  finite(thetaShSpikesPerSec, 'thetaShSpikesPerSec');
+  const p = P.sympathetic;
+  const w = p.weights.sh;
+  const exponent = p.kSec * (
+    -w.baro * fAbSpikesPerSec +
+    w.chemo * fAcSpikesPerSec -
+    thetaShSpikesPerSec
+  );
+  const raw = p.fInfinitySpikesPerSec +
+    (p.f0SpikesPerSec - p.fInfinitySpikesPerSec) * Math.exp(exponent);
+  return Math.min(p.fMaxSpikesPerSec, raw);
+}
+
+// Ursino & Magosso 2000 Eq. 23.
+function vagalFiring({
+  fAbSpikesPerSec,
+  fAcSpikesPerSec,
+  fApSpikesPerSec,
+}) {
+  finite(fAbSpikesPerSec, 'fAbSpikesPerSec');
+  finite(fAcSpikesPerSec, 'fAcSpikesPerSec');
+  finite(fApSpikesPerSec, 'fApSpikesPerSec');
+  const p = P.vagal;
+  const e = Math.exp((fAbSpikesPerSec - p.baroMidSpikesPerSec) / p.kSpikesPerSec);
+  return (p.f0SpikesPerSec +
+    p.fInfinitySpikesPerSec * e) / (1 + e) +
+    p.chemoWeight * fAcSpikesPerSec -
+    p.pulmonaryWeight * fApSpikesPerSec -
+    p.thetaSpikesPerSec;
+}
+
+function createUrsinoMagossoAutonomicShadow() {
+  let state = Object.freeze({
+    fAcSpikesPerSec: null,
+    fApSpikesPerSec: null,
+    thetaSpSpikesPerSec: null,
+    thetaShSpikesPerSec: null,
+    fSpSpikesPerSec: null,
+    fShSpikesPerSec: null,
+    fVSpikesPerSec: null,
+    fAbSpikesPerSec: null,
+    baroreceptorMappingStatus: 'unmapped-no-source-valid-f_ab',
+    active: false,
+  });
+
+  function step({ dtSec, pao2MmHg, tidalVolumeL, fAbSpikesPerSec = null }) {
+    nonNegative(dtSec, 'dtSec');
+    finite(pao2MmHg, 'pao2MmHg');
+    nonNegative(tidalVolumeL, 'tidalVolumeL');
+
+    const phiAc = peripheralChemoreceptorStatic(pao2MmHg);
+    const phiAp = pulmonaryStretchStatic(tidalVolumeL);
+    const chiSp = cnsHypoxiaStatic(pao2MmHg, 'sp');
+    const chiSh = cnsHypoxiaStatic(pao2MmHg, 'sh');
+
+    const fAc = firstOrderExact(
+      state.fAcSpikesPerSec,
+      phiAc,
+      dtSec,
+      P.peripheralChemoreceptor.tauSec
+    );
+    const fAp = firstOrderExact(
+      state.fApSpikesPerSec,
+      phiAp,
+      dtSec,
+      P.pulmonaryStretch.tauSec
+    );
+    const thetaSp = firstOrderExact(
+      state.thetaSpSpikesPerSec,
+      chiSp,
+      dtSec,
+      P.cnsHypoxia.tauSec
+    );
+    const thetaSh = firstOrderExact(
+      state.thetaShSpikesPerSec,
+      chiSh,
+      dtSec,
+      P.cnsHypoxia.tauSec
+    );
+
+    let fSp = null;
+    let fSh = null;
+    let fV = null;
+    let mappingStatus = 'unmapped-no-source-valid-f_ab';
+    if (fAbSpikesPerSec != null) {
+      finite(fAbSpikesPerSec, 'fAbSpikesPerSec');
+      fSp = peripheralSympatheticFiring({
+        fAbSpikesPerSec,
+        fAcSpikesPerSec: fAc,
+        fApSpikesPerSec: fAp,
+        thetaSpSpikesPerSec: thetaSp,
+      });
+      fSh = cardiacSympatheticFiring({
+        fAbSpikesPerSec,
+        fAcSpikesPerSec: fAc,
+        thetaShSpikesPerSec: thetaSh,
+      });
+      fV = vagalFiring({
+        fAbSpikesPerSec,
+        fAcSpikesPerSec: fAc,
+        fApSpikesPerSec: fAp,
+      });
+      mappingStatus = 'explicit-f_ab-input-supplied';
+    }
+
+    state = Object.freeze({
+      fAcSpikesPerSec: fAc,
+      fApSpikesPerSec: fAp,
+      thetaSpSpikesPerSec: thetaSp,
+      thetaShSpikesPerSec: thetaSh,
+      fSpSpikesPerSec: fSp,
+      fShSpikesPerSec: fSh,
+      fVSpikesPerSec: fV,
+      fAbSpikesPerSec,
+      pao2MmHg,
+      tidalVolumeL,
+      baroreceptorMappingStatus: mappingStatus,
+      active: false,
+      authority: 'shadow-diagnostic-only',
+      provenance: SOURCE,
+    });
+    return state;
+  }
+
+  return Object.freeze({
+    step,
+    snapshot: () => state,
+    source: SOURCE,
+    parameters: P,
+  });
 }
 
 module.exports = {
-  HYPERCAPNIC_ACIDOSIS_ANCHOR,
-  hypercapnicAcidosisSeverity,
-  createHumModArdsAutonomicController,
+  SOURCE,
+  P,
+  firstOrderExact,
+  peripheralChemoreceptorStatic,
+  pulmonaryStretchStatic,
+  cnsHypoxiaStatic,
+  peripheralSympatheticFiring,
+  cardiacSympatheticFiring,
+  vagalFiring,
+  createUrsinoMagossoAutonomicShadow,
 };
+
+},
+"src/ursino_magosso_channelized_effectors_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Channelized Ursino/Magosso cardiovascular effector candidate.
+ *
+ * Source-family composition:
+ * - Ursino 1998: exact effector equations/parameters for resistance,
+ *   venous unstressed volume, ventricular Emax, and heart period.
+ * - Ursino & Magosso 2000: vascular effectors use vascular sympathetic f_sp;
+ *   cardiac Emax / sympathetic heart-period use cardiac sympathetic f_sh.
+ * - Magosso & Ursino 2001: vascular sympathetic output is separated into
+ *   arterial f_sp and venous f_sv. f_sv controls venous unstressed volume.
+ *
+ * This module changes no canonical patient state.
+ */
+
+const SOURCE=Object.freeze({
+  baroreflex:Object.freeze({
+    citation:'Ursino M. Interaction between carotid baroregulation and the pulsating heart: a mathematical model. Am J Physiol Heart Circ Physiol. 1998;275:H1733-H1747.',
+    doi:'10.1152/ajpheart.1998.275.5.H1733',
+    equations:'35-42',
+    parameters:'Table 3',
+  }),
+  hypoxia:Object.freeze({
+    citation:'Ursino M, Magosso E. Acute cardiovascular response to isocapnic hypoxia. I. A mathematical model. Am J Physiol Heart Circ Physiol. 2000;279:H149-H165.',
+    doi:'10.1152/ajpheart.2000.279.1.H149',
+    role:'f_sp -> resistance; f_sh -> cardiac elastance and sympathetic heart period',
+  }),
+  co2:Object.freeze({
+    citation:'Magosso E, Ursino M. A mathematical model of CO2 effect on cardiovascular regulation. Am J Physiol Heart Circ Physiol. 2001;281:H2036-H2052.',
+    doi:'10.1152/ajpheart.2001.281.5.H2036',
+    role:'separates vascular sympathetic fibers into arterial f_sp and venous f_sv; f_sv controls unstressed venous volumes',
+  }),
+  authority:'candidate-not-canonical',
+});
+
+const P=Object.freeze({
+  thresholdSpikesPerSec:2.66,
+  effectors:Object.freeze({
+    EmaxLv:Object.freeze({
+      channel:'fSh',gain:0.475,tauSec:8,delaySec:2,offset:2.392,
+      units:'mmHg/mL',
+    }),
+    EmaxRv:Object.freeze({
+      channel:'fSh',gain:0.282,tauSec:8,delaySec:2,offset:1.412,
+      units:'mmHg/mL',
+    }),
+    Rsp:Object.freeze({
+      channel:'fSp',gain:0.695,tauSec:6,delaySec:2,offset:2.49,
+      units:'mmHg*s/mL',
+    }),
+    Rep:Object.freeze({
+      channel:'fSp',gain:0.53,tauSec:6,delaySec:2,offset:0.78,
+      units:'mmHg*s/mL',
+    }),
+    Vusv:Object.freeze({
+      channel:'fSv',gain:-265.4,tauSec:20,delaySec:5,offset:1435.4,
+      units:'mL',
+    }),
+    Vuev:Object.freeze({
+      channel:'fSv',gain:-132.5,tauSec:20,delaySec:5,offset:1537,
+      units:'mL',
+    }),
+    Ts:Object.freeze({
+      channel:'fSh',gain:-0.13,tauSec:2,delaySec:2,offset:0,
+      units:'s',
+    }),
+    Tv:Object.freeze({
+      channel:'fV',gain:0.09,tauSec:1.5,delaySec:0.2,offset:0,
+      units:'s',
+    }),
+  }),
+  basalHeartPeriodSec:0.58,
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+
+function sympatheticStatic(firingSpikesPerSec,cfg){
+  nonNegative(firingSpikesPerSec,'firingSpikesPerSec');
+  if(firingSpikesPerSec<P.thresholdSpikesPerSec) return 0;
+  return cfg.gain*Math.log(
+    firingSpikesPerSec-P.thresholdSpikesPerSec+1
+  );
+}
+
+function vagalStatic(firingSpikesPerSec,cfg=P.effectors.Tv){
+  nonNegative(firingSpikesPerSec,'firingSpikesPerSec');
+  return cfg.gain*firingSpikesPerSec;
+}
+
+function sourceTargets({
+  fSpSpikesPerSec,
+  fSvSpikesPerSec,
+  fShSpikesPerSec,
+  fVSpikesPerSec,
+}={}){
+  for(const [k,v] of Object.entries({
+    fSpSpikesPerSec,fSvSpikesPerSec,fShSpikesPerSec,fVSpikesPerSec,
+  })) nonNegative(v,k);
+
+  const delta=Object.freeze({
+    EmaxLv:sympatheticStatic(fShSpikesPerSec,P.effectors.EmaxLv),
+    EmaxRv:sympatheticStatic(fShSpikesPerSec,P.effectors.EmaxRv),
+    Rsp:sympatheticStatic(fSpSpikesPerSec,P.effectors.Rsp),
+    Rep:sympatheticStatic(fSpSpikesPerSec,P.effectors.Rep),
+    Vusv:sympatheticStatic(fSvSpikesPerSec,P.effectors.Vusv),
+    Vuev:sympatheticStatic(fSvSpikesPerSec,P.effectors.Vuev),
+    Ts:sympatheticStatic(fShSpikesPerSec,P.effectors.Ts),
+    Tv:vagalStatic(fVSpikesPerSec),
+  });
+
+  const absolute=Object.freeze({
+    EmaxLv:P.effectors.EmaxLv.offset+delta.EmaxLv,
+    EmaxRv:P.effectors.EmaxRv.offset+delta.EmaxRv,
+    Rsp:P.effectors.Rsp.offset+delta.Rsp,
+    Rep:P.effectors.Rep.offset+delta.Rep,
+    Vusv:P.effectors.Vusv.offset+delta.Vusv,
+    Vuev:P.effectors.Vuev.offset+delta.Vuev,
+    heartPeriodSec:P.basalHeartPeriodSec+delta.Ts+delta.Tv,
+  });
+
+  return Object.freeze({delta,absolute});
+}
+
+function createChannelizedEffectorCandidate({
+  initialFSpSpikesPerSec,
+  initialFSvSpikesPerSec,
+  initialFShSpikesPerSec,
+  initialFVSpikesPerSec,
+}={}){
+  const init=sourceTargets({
+    fSpSpikesPerSec:initialFSpSpikesPerSec,
+    fSvSpikesPerSec:initialFSvSpikesPerSec,
+    fShSpikesPerSec:initialFShSpikesPerSec,
+    fVSpikesPerSec:initialFVSpikesPerSec,
+  });
+
+  let delta={...init.delta};
+  const history={
+    fSp:[],fSv:[],fSh:[],fV:[],
+  };
+  let timeSec=0;
+  let rates={
+    EmaxLv:0,EmaxRv:0,Rsp:0,Rep:0,Vusv:0,Vuev:0,Ts:0,Tv:0,
+  };
+
+  function delayed(name,delaySec,current){
+    const h=history[name];
+    const target=timeSec-delaySec;
+    if(!h.length||target<=h[0].t) return h.length?h[0].v:current;
+    for(let i=h.length-1;i>=1;i--){
+      const a=h[i-1],b=h[i];
+      if(a.t<=target&&target<=b.t){
+        const dt=b.t-a.t;
+        if(!(dt>0)) return a.v;
+        const w=(target-a.t)/dt;
+        return a.v+w*(b.v-a.v);
+      }
+    }
+    return h[h.length-1].v;
+  }
+
+  function derivative(current,target,tauSec){
+    return (-current+target)/tauSec;
+  }
+
+  function step({
+    dtSec,
+    fSpSpikesPerSec,
+    fSvSpikesPerSec,
+    fShSpikesPerSec,
+    fVSpikesPerSec,
+  }={}){
+    nonNegative(dtSec,'dtSec');
+    for(const [k,v] of Object.entries({
+      fSpSpikesPerSec,fSvSpikesPerSec,fShSpikesPerSec,fVSpikesPerSec,
+    })) nonNegative(v,k);
+
+    const delayedSignals={
+      EmaxLv:delayed('fSh',P.effectors.EmaxLv.delaySec,fShSpikesPerSec),
+      EmaxRv:delayed('fSh',P.effectors.EmaxRv.delaySec,fShSpikesPerSec),
+      Rsp:delayed('fSp',P.effectors.Rsp.delaySec,fSpSpikesPerSec),
+      Rep:delayed('fSp',P.effectors.Rep.delaySec,fSpSpikesPerSec),
+      Vusv:delayed('fSv',P.effectors.Vusv.delaySec,fSvSpikesPerSec),
+      Vuev:delayed('fSv',P.effectors.Vuev.delaySec,fSvSpikesPerSec),
+      Ts:delayed('fSh',P.effectors.Ts.delaySec,fShSpikesPerSec),
+      Tv:delayed('fV',P.effectors.Tv.delaySec,fVSpikesPerSec),
+    };
+
+    const targets={
+      EmaxLv:sympatheticStatic(delayedSignals.EmaxLv,P.effectors.EmaxLv),
+      EmaxRv:sympatheticStatic(delayedSignals.EmaxRv,P.effectors.EmaxRv),
+      Rsp:sympatheticStatic(delayedSignals.Rsp,P.effectors.Rsp),
+      Rep:sympatheticStatic(delayedSignals.Rep,P.effectors.Rep),
+      Vusv:sympatheticStatic(delayedSignals.Vusv,P.effectors.Vusv),
+      Vuev:sympatheticStatic(delayedSignals.Vuev,P.effectors.Vuev),
+      Ts:sympatheticStatic(delayedSignals.Ts,P.effectors.Ts),
+      Tv:vagalStatic(delayedSignals.Tv),
+    };
+
+    // Source Eqs. 35/38 first-order effector derivative at the start of
+    // this held-target interval. Eq. 8 of the 1998 cardiovascular plant
+    // requires dVuev/dt explicitly.
+    const nextRates={};
+    for(const name of Object.keys(delta)){
+      const cfg=P.effectors[name];
+      nextRates[name]=derivative(delta[name],targets[name],cfg.tauSec);
+    }
+    rates=nextRates;
+
+    // Exact first-order state update for the same held target over dt.
+    for(const name of Object.keys(delta)){
+      const cfg=P.effectors[name];
+      if(dtSec>0){
+        const decay=Math.exp(-dtSec/cfg.tauSec);
+        delta[name]=targets[name]+(delta[name]-targets[name])*decay;
+      }
+    }
+
+    timeSec+=dtSec;
+    history.fSp.push({t:timeSec,v:fSpSpikesPerSec});
+    history.fSv.push({t:timeSec,v:fSvSpikesPerSec});
+    history.fSh.push({t:timeSec,v:fShSpikesPerSec});
+    history.fV.push({t:timeSec,v:fVSpikesPerSec});
+
+    const keepAfter=timeSec-7;
+    for(const h of Object.values(history)){
+      while(h.length>2&&h[1].t<keepAfter) h.shift();
+    }
+
+    return snapshot();
+  }
+
+  function snapshot(){
+    const absolute={
+      EmaxLv:P.effectors.EmaxLv.offset+delta.EmaxLv,
+      EmaxRv:P.effectors.EmaxRv.offset+delta.EmaxRv,
+      Rsp:P.effectors.Rsp.offset+delta.Rsp,
+      Rep:P.effectors.Rep.offset+delta.Rep,
+      Vusv:P.effectors.Vusv.offset+delta.Vusv,
+      Vuev:P.effectors.Vuev.offset+delta.Vuev,
+      heartPeriodSec:P.basalHeartPeriodSec+delta.Ts+delta.Tv,
+    };
+    return Object.freeze({
+      timeSec,
+      delta:Object.freeze({...delta}),
+      rate:Object.freeze({...rates}),
+      absolute:Object.freeze(absolute),
+      authority:SOURCE.authority,
+      controlAuthority:false,
+      provenance:SOURCE,
+    });
+  }
+
+  return Object.freeze({step,snapshot,source:SOURCE,parameters:P});
+}
+
+module.exports=Object.freeze({
+  SOURCE,P,sympatheticStatic,vagalStatic,sourceTargets,
+  createChannelizedEffectorCandidate,
+});
+
+},
+"src/hummod_2013_baro_chemoreflex_sa_node_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> SA-node candidate for v2.4.
+ *
+ * Source generation:
+ * nysuloem/HumMod-UTSC-CPG@51d369eb75669e150ef7c61e3ba8bcb1e068aecf
+ *
+ * Source files:
+ * - Structure/Circulation/CarotidSinus.DES
+ * - Structure/Orthostatics/RegionalPressure.DES
+ * - Structure/Nerves/Baroreflex.DES
+ * - Structure/Nerves/Chemoreceptors.DES
+ * - Structure/Nerves/ChemoreceptorsCNS.DES
+ * - Structure/Nerves/Sympathetics-Adrenal.DES
+ * - Structure/Nerves/Sympathetics-Cardiac.DES
+ * - Structure/Nerves/Sympathetics-General.DES
+ * - Structure/Nerves/Ganglia-Adrenal.DES
+ * - Structure/Nerves/Ganglia-Cardiac.DES
+ * - Structure/Nerves/Ganglia-General.DES
+ * - Structure/Nerves/AdrenalNerve.DES
+ * - Structure/Nerves/VagusNerve.DES
+ * - Structure/Catechols/NESecretion.DES
+ * - Structure/Catechols/EpiSecretion.DES
+ * - Structure/Catechols/NEPool.DES
+ * - Structure/Catechols/EpiPool.DES
+ * - Structure/Catechols/Alpha1Pool.DES
+ * - Structure/Catechols/Beta1Pool.DES
+ * - Structure/Heart/SANode-BetaReceptors.DES
+ * - Structure/Heart/SANode-Rate.DES
+ *
+ * Reduction:
+ * - activates the source baroreflex and chemoreflex branches;
+ * - low-pressure, mechanoreceptor, apnea, A2, pain, trophic,
+ *   exercise, Cushing, fuel, essential, and renal-mechanoreflex terms are held
+ *   at their source-neutral values;
+ * - no blockade, clamps, exogenous agonists/antagonists, pumps, boluses, or
+ *   pheochromocytoma sources;
+ * - OtherTissue-Function.Effect = 1.
+ *
+ * No physiologic gain is introduced by this reduction.
+ */
+
+const SOURCE=Object.freeze({
+  repository:'nysuloem/HumMod-UTSC-CPG',
+  revision:'51d369eb75669e150ef7c61e3ba8bcb1e068aecf',
+  generation:'HumMod-2012/2013',
+  authority:'candidate-not-canonical',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(x<=points[0].x) return points[0].y+points[0].slope*(x-points[0].x);
+  const z=points[points.length-1];
+  if(x>=z.x) return z.y+z.slope*(x-z.x);
+  let i=0;
+  while(i+1<points.length&&x>points[i+1].x)i++;
+  const a=points[i],b=points[i+1],h=b.x-a.x,t=(x-a.x)/h;
+  return (2*t*t*t-3*t*t+1)*a.y+
+    (t*t*t-2*t*t+t)*h*a.slope+
+    (-2*t*t*t+3*t*t)*b.y+
+    (t*t*t-t*t)*h*b.slope;
+}
+
+const CURVES=Object.freeze({
+  cardiacBaroEffect:Object.freeze([
+    Object.freeze({x:0,y:1.7,slope:0}),
+    Object.freeze({x:1,y:1.0,slope:-0.6}),
+    Object.freeze({x:2,y:0.5,slope:0}),
+  ]),
+  adrenalGeneralBaroEffect:Object.freeze([
+    Object.freeze({x:0,y:1.5,slope:0}),
+    Object.freeze({x:1,y:1.0,slope:-0.5}),
+    Object.freeze({x:2,y:0.5,slope:0}),
+  ]),
+  chemoPo2:Object.freeze([
+    Object.freeze({x:30,y:10,slope:0}),
+    Object.freeze({x:60,y:2,slope:-0.05}),
+    Object.freeze({x:94,y:0.5,slope:-0.005}),
+    Object.freeze({x:400,y:0.2,slope:0}),
+  ]),
+  chemoDeltaPh:Object.freeze([
+    Object.freeze({x:-0.34,y:2,slope:0}),
+    Object.freeze({x:0,y:0.4,slope:-3}),
+    Object.freeze({x:0.26,y:0,slope:0}),
+  ]),
+  chemoSymps:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:1,y:0.1,slope:0.2}),
+    Object.freeze({x:4,y:0.6,slope:0}),
+  ]),
+  chemoCnsEffect:Object.freeze([
+    Object.freeze({x:-10,y:0.6,slope:0}),
+    Object.freeze({x:0,y:1,slope:0.10}),
+    Object.freeze({x:10,y:3,slope:0}),
+  ]),
+  vagusHz:Object.freeze([
+    Object.freeze({x:0,y:8,slope:0}),
+    Object.freeze({x:1.5,y:2,slope:-1}),
+    Object.freeze({x:4.5,y:0.5,slope:0}),
+  ]),
+  saParasympathetic:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:2,y:-20,slope:-12}),
+    Object.freeze({x:8,y:-40,slope:0}),
+  ]),
+  saSympathetic:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:1,y:15,slope:10}),
+    Object.freeze({x:1.75,y:45,slope:40}),
+    Object.freeze({x:2.5,y:100,slope:30}),
+    Object.freeze({x:3.5,y:120,slope:0}),
+  ]),
+});
+
+const P=Object.freeze({
+  baroTauMin:10,
+  baroSensitivity:1,
+  supineCarotidHydrostaticGradientMmHg:0,
+  chemoSsPhKPerMin:0.0001,
+  chemoCnsOnsetTauMin:5,
+  chemoCnsAdaptationTauDays:15,
+  sympatheticHzScale:1.5,
+  gangliaNaScale:0.667,
+  neTargetNgPerMl:0.240,
+  epiTargetNgPerMl:0.040,
+  neBase:220,
+  epiBase:375,
+  neSpilloverK:570,
+  neClearanceK:4.5,
+  epiClearanceK:9.4,
+  adrenalA:23,
+  adrenalM:4.6,
+  adrenalS:5.35,
+  adrenalB:0.8,
+  beta1Total:1.45,
+  beta1KdEpi:1.120,
+  beta1KdNe:0.973,
+  saNeuralK:0.5,
+  saHumoralK:0.25,
+  saBasicRatePerMin:77,
+  alpha1Total:4,
+  alpha1KdEpi:5,
+  alpha1KdNe:5,
+});
+
+function hillActivity({x,A,m,S,B}){
+  nonNegative(x,'hill x');
+  return A*((x**m)/((x**m)+(S**m)))+B;
+}
+
+function beta1Effect({nePgPerMl,epiPgPerMl}){
+  nonNegative(nePgPerMl,'nePgPerMl');
+  nonNegative(epiPgPerMl,'epiPgPerMl');
+  const ne=0.00592*nePgPerMl;
+  const epi=0.00546*epiPgPerMl;
+  // Source competitive binding with isoproterenol=0 and propranolol=0.
+  const denominator=
+    ne*P.beta1KdEpi+
+    epi*P.beta1KdNe+
+    P.beta1KdEpi*P.beta1KdNe;
+  const epiBound=denominator>0 ? epi*P.beta1KdNe/denominator : 0;
+  const neBound=denominator>0 ? ne*P.beta1KdEpi/denominator : 0;
+  return P.beta1Total*(2*epiBound+neBound);
+}
+
+function alpha1Effect({nePgPerMl,epiPgPerMl}){
+  nonNegative(nePgPerMl,'nePgPerMl');
+  nonNegative(epiPgPerMl,'epiPgPerMl');
+  const ne=0.00592*nePgPerMl;
+  const epi=0.00546*epiPgPerMl;
+  // Source competitive binding with midodrine/phenylephrine terms = 0.
+  const denominator=
+    ne*P.alpha1KdEpi+
+    epi*P.alpha1KdNe+
+    P.alpha1KdEpi*P.alpha1KdNe;
+  const epiBound=denominator>0 ? epi*P.alpha1KdNe/denominator : 0;
+  const neBound=denominator>0 ? ne*P.alpha1KdEpi/denominator : 0;
+  return P.alpha1Total*(epiBound+neBound);
+}
+
+function createHumMod2013BaroChemoreflexSaNodeCandidate({
+  ecfvMl,
+  initialArterialPh=7.44,
+  initialCarotidSinusPressureMmHg=87,
+}={}){
+  positive(ecfvMl,'ecfvMl');
+  finite(initialArterialPh,'initialArterialPh');
+  nonNegative(initialCarotidSinusPressureMmHg,'initialCarotidSinusPressureMmHg');
+
+  let ssPh=initialArterialPh;
+  let adaptedCarotidPressureMmHg=initialCarotidSinusPressureMmHg;
+  let onsetDelay=1;
+  let adaptationDelay=1;
+  let neMass=P.neTargetNgPerMl*ecfvMl;
+  let epiMass=P.epiTargetNgPerMl*ecfvMl;
+  let generalGangliaNa=0.667*1.5;
+  let last=null;
+  let timeSec=0;
+
+  function concentrations(){
+    return {
+      nePgPerMl:1000*(neMass/ecfvMl),
+      epiPgPerMl:1000*(epiMass/ecfvMl),
+    };
+  }
+
+  function step({dtSec,arterialPo2MmHg,arterialPh,carotidSinusPressureMmHg}={}){
+    positive(dtSec,'dtSec');
+    nonNegative(arterialPo2MmHg,'arterialPo2MmHg');
+    finite(arterialPh,'arterialPh');
+    nonNegative(carotidSinusPressureMmHg,'carotidSinusPressureMmHg');
+
+    const dtMin=dtSec/60;
+
+    // Baroreflex.DES: AdaptedPressure follows CarotidSinus.Pressure with Tau=10 min.
+    adaptedCarotidPressureMmHg +=
+      (carotidSinusPressureMmHg-adaptedCarotidPressureMmHg)*
+      (1-Math.exp(-dtMin/P.baroTauMin));
+    const baroPressureChangeMmHg=
+      carotidSinusPressureMmHg-adaptedCarotidPressureMmHg;
+    const baroreflexNa=2/(1+Math.exp(
+      P.baroSensitivity*0.05*-1*baroPressureChangeMmHg
+    ));
+    const cardiacBaroEffect=hermite(CURVES.cardiacBaroEffect,baroreflexNa);
+    const adrenalBaroEffect=hermite(CURVES.adrenalGeneralBaroEffect,baroreflexNa);
+    const generalBaroEffect=hermite(CURVES.adrenalGeneralBaroEffect,baroreflexNa);
+
+    // Chemoreceptors.DES: slow pH reference.
+    ssPh += (arterialPh-ssPh)*
+      (1-Math.exp(-P.chemoSsPhKPerMin*dtMin));
+    const deltaPh=arterialPh-ssPh;
+
+    const poolsBefore=concentrations();
+    const alpha1=alpha1Effect(poolsBefore);
+    const alphaAgonism=
+      0.5*generalGangliaNa+
+      0.5*alpha1;
+
+    const po2Effect=hermite(CURVES.chemoPo2,arterialPo2MmHg);
+    const phEffect=hermite(CURVES.chemoDeltaPh,deltaPh);
+    const sympsEffect=hermite(CURVES.chemoSymps,alphaAgonism);
+    const firingRate=po2Effect+phEffect+sympsEffect;
+
+    // ChemoreceptorsCNS.DES delay dynamics. HumMod timebase is minutes.
+    onsetDelay += (firingRate-onsetDelay)*
+      (1-Math.exp(-dtMin/P.chemoCnsOnsetTauMin));
+    const adaptTauMin=1440*P.chemoCnsAdaptationTauDays;
+    adaptationDelay += (firingRate-adaptationDelay)*
+      (1-Math.exp(-dtMin/adaptTauMin));
+
+    const change=onsetDelay-adaptationDelay;
+    const chemoCnsEffect=hermite(CURVES.chemoCnsEffect,change);
+
+    // HumMod 2012/2013 branch-specific reflex ownership.
+    // Low-pressure, mechanoreceptor, apnea and the other not-yet-integrated
+    // source factors remain at their neutral multiplier of 1.
+    const adrenalSympatheticNa=adrenalBaroEffect*chemoCnsEffect;
+    const cardiacSympatheticNa=cardiacBaroEffect*chemoCnsEffect;
+    const generalSympatheticNa=generalBaroEffect*chemoCnsEffect;
+
+    const adrenalHz=P.sympatheticHzScale*adrenalSympatheticNa;
+    const cardiacHz=P.sympatheticHzScale*cardiacSympatheticNa;
+    const generalHz=P.sympatheticHzScale*generalSympatheticNa;
+
+    const adrenalNerveHz=adrenalHz;
+    const generalGangliaHz=generalHz;
+    const cardiacGangliaHz=cardiacHz;
+    generalGangliaNa=P.gangliaNaScale*generalGangliaHz;
+
+    // Later HumMod adrenal secretion uses the source Hill relation.
+    const epiAdrenalEffect=hillActivity({
+      x:adrenalNerveHz,
+      A:P.adrenalA,m:P.adrenalM,S:P.adrenalS,B:P.adrenalB,
+    });
+    const neAdrenalEffect=epiAdrenalEffect;
+
+    const neSecretion=P.neBase*neAdrenalEffect;
+    const epiSecretion=P.epiBase*epiAdrenalEffect;
+    const neSpillover=P.neSpilloverK*generalGangliaHz;
+
+    // Source backward-Euler pool form with fixed ECFV over this acute step.
+    const neF2=1000*P.neClearanceK/ecfvMl;
+    const epiF2=1000*P.epiClearanceK/ecfvMl;
+    neMass=(neMass+dtMin*(neSecretion+neSpillover))/(1+dtMin*neF2);
+    epiMass=(epiMass+dtMin*epiSecretion)/(1+dtMin*epiF2);
+
+    const pools=concentrations();
+    const beta1=beta1Effect(pools);
+
+    const saBetaActivity=
+      P.saNeuralK*cardiacGangliaHz+
+      P.saHumoralK*beta1;
+    const vagusHz=clamp(hermite(CURVES.vagusHz,cardiacHz),0,8);
+    const parasympatheticEffectPerMin=
+      hermite(CURVES.saParasympathetic,vagusHz);
+    const sympatheticEffectPerMin=
+      hermite(CURVES.saSympathetic,saBetaActivity);
+    const heartRatePerMin=
+      P.saBasicRatePerMin+
+      parasympatheticEffectPerMin+
+      sympatheticEffectPerMin;
+
+    timeSec+=dtSec;
+    last=Object.freeze({
+      schema:'hummod-2013-baro-chemoreflex-sa-node-candidate/v1',
+      timeSec,
+      authority:SOURCE.authority,
+      canonicalControlAuthority:false,
+      arterialPo2MmHg,
+      arterialPh,
+      carotidSinusPressureMmHg,
+      baroreflex:Object.freeze({
+        adaptedCarotidPressureMmHg,
+        pressureChangeMmHg:baroPressureChangeMmHg,
+        na:baroreflexNa,
+        cardiacEffect:cardiacBaroEffect,
+        adrenalEffect:adrenalBaroEffect,
+        generalEffect:generalBaroEffect,
+      }),
+      ssPh,
+      deltaPh,
+      chemoreceptor:Object.freeze({
+        po2Effect,phEffect,sympsEffect,alphaAgonism,firingRate,
+      }),
+      chemoreceptorsCns:Object.freeze({
+        onsetDelay,adaptationDelay,change,effect:chemoCnsEffect,
+      }),
+      sympathetic:Object.freeze({
+        adrenalNa:adrenalSympatheticNa,
+        cardiacNa:cardiacSympatheticNa,
+        generalNa:generalSympatheticNa,
+        adrenalHz,cardiacHz,generalHz,
+      }),
+      ganglia:Object.freeze({
+        adrenalHz,
+        cardiacHz:cardiacGangliaHz,
+        generalHz:generalGangliaHz,
+        generalNa:generalGangliaNa,
+      }),
+      catecholamines:Object.freeze({
+        nePgPerMl:pools.nePgPerMl,
+        epiPgPerMl:pools.epiPgPerMl,
+        neSecretion,
+        epiSecretion,
+        neSpillover,
+        beta1Effect:beta1,
+        alpha1Effect:alpha1Effect(pools),
+      }),
+      saNode:Object.freeze({
+        vagusHz,
+        betaActivity:saBetaActivity,
+        parasympatheticEffectPerMin,
+        sympatheticEffectPerMin,
+        heartRatePerMin,
+      }),
+      heartRatePerMin,
+      provenance:SOURCE,
+      reduction:Object.freeze({
+        activeMechanisms:Object.freeze(['baroreflex','chemoreflex']),
+        neutralMultipliers:Object.freeze([
+          'apnea','low-pressure','mechanoreceptor',
+          'A2','pain','CNS trophic','renal mechanoreflex',
+        ]),
+        zeroAdditiveTerms:Object.freeze([
+          'exercise','Cushing','Brain-Fuel','EssentialEffect',
+          'constitutive sympathetic additions',
+        ]),
+        drugsAndClamps:'neutral/off',
+        numericalCoupling:
+          'exact-ZOH first-order delay updates; backward-Euler catecholamine pools',
+      }),
+    });
+    return last;
+  }
+
+  function runFor(seconds,inputs){
+    finite(seconds,'seconds');
+    if(seconds<0) throw new Error('seconds must be >= 0');
+    const dtSec=positive(inputs.dtSec,'inputs.dtSec');
+    const n=Math.floor(seconds/dtSec+1e-9);
+    for(let i=0;i<n;i++) step(inputs);
+    const rem=seconds-n*dtSec;
+    if(rem>1e-9) throw new Error('seconds must be integer multiple of dtSec');
+    return snapshot();
+  }
+
+  function snapshot(){
+    return last||Object.freeze({
+      schema:'hummod-2013-baro-chemoreflex-sa-node-candidate/v1',
+      timeSec,
+      authority:SOURCE.authority,
+      canonicalControlAuthority:false,
+      heartRatePerMin:null,
+      provenance:SOURCE,
+    });
+  }
+
+  return Object.freeze({step,runFor,snapshot,source:SOURCE});
+}
+
+module.exports=Object.freeze({
+  SOURCE,P,CURVES,hermite,hillActivity,beta1Effect,alpha1Effect,
+  createHumMod2013BaroChemoreflexSaNodeCandidate,
+});
+
+},
+"src/v24_terminal_state_controller.js":function(module,exports,require){
+'use strict';
+
+/**
+ * v2.4 terminal-state controller.
+ *
+ * Objective:
+ * Remove elapsed-asphyxia and oxygen-debt timers as direct arrest triggers.
+ * Terminal transition is tied to failure of the perfusing circulation.
+ *
+ * Authorized arrest pathways:
+ * 1. mechanical pump failure -> PEA;
+ * 2. sustained profound hypotension using the existing published
+ *    cardiovascular-collapse criteria:
+ *      MAP <30 mmHg for 10 min, or
+ *      MAP <20 mmHg for 10 sec.
+ *
+ * Oxygen deficit, hypoxemia, hypercapnia, and acidemia remain important
+ * upstream disease states, but none is used alone as a deterministic death
+ * threshold.
+ *
+ * This is a simulator state-transition rule, not a clinical resuscitation
+ * criterion and not a mortality prediction model.
+ */
+
+const SOURCE=Object.freeze({
+  collapseCriteria:
+    'Gomez et al. cardiovascular-collapse definition retained from project evidence ledger: MAP <30 mmHg for 10 min or MAP <20 mmHg for 10 sec',
+  rhythm:
+    'PEA used for nonperfusing mechanical/circulatory collapse in this reduced respiratory-shock pathway',
+  elapsedAsphyxiaTimer:false,
+  oxygenDebtDeathThreshold:false,
+  clinicalValidation:false,
+  authority:'v2.4-physiology-triggered-terminal-state',
+});
+
+const MAP30_MMHG=30;
+const MAP30_SEC=10*60;
+const MAP20_MMHG=20;
+const MAP20_SEC=10;
+
+const ASPHYXIAL_COLLAPSE_ENVELOPE=Object.freeze({
+  arterialPh:7.03,
+  arterialPco2MmHg:93,
+  citation:
+    'DeBehnke DJ et al. Resuscitation. 1995;30:169-175. PMID 8560107. At loss of aortic fluctuation: pH 7.03 +/- 0.07, PaCO2 93 +/- 19 mmHg, with a tachycardia/hypertension -> bradycardia/hypotension trajectory.',
+  role:
+    'experimental asphyxial collapse envelope; v2.4 uses falling MAP plus falling forward cardiac output as the reduced-circulation surrogate for the reported loss of aortic fluctuations; not a universal patient death threshold',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+
+function createV24TerminalStateController(){
+  let lowMapBelow30Sec=0;
+  let lowMapBelow20Sec=0;
+  let cardiacArrest=false;
+  let cardiacArrestReason=null;
+  let arrestRhythm=null;
+  let referenceHeartRatePerMin=null;
+  let referenceMapMmHg=null;
+  let referenceCardiacOutputMlPerMin=null;
+  let last=null;
+
+  function step({
+    dtSec,
+    meanArterialPressureMmHg,
+    cardiacOutputMlPerMin,
+    mechanicalPumpFailure=false,
+    oxygenDeficit=null,
+    heartRatePerMin=null,
+    arterialPh=null,
+    arterialPco2MmHg=null,
+  }={}){
+    positive(dtSec,'dtSec');
+    finite(meanArterialPressureMmHg,'meanArterialPressureMmHg');
+    finite(cardiacOutputMlPerMin,'cardiacOutputMlPerMin');
+    if(heartRatePerMin!=null) positive(heartRatePerMin,'heartRatePerMin');
+    if(arterialPh!=null) finite(arterialPh,'arterialPh');
+    if(arterialPco2MmHg!=null) positive(arterialPco2MmHg,'arterialPco2MmHg');
+
+    if(referenceMapMmHg==null && meanArterialPressureMmHg>0){
+      referenceMapMmHg=meanArterialPressureMmHg;
+    }
+    if(referenceHeartRatePerMin==null && heartRatePerMin!=null){
+      referenceHeartRatePerMin=heartRatePerMin;
+    }
+    if(referenceCardiacOutputMlPerMin==null && cardiacOutputMlPerMin>0){
+      referenceCardiacOutputMlPerMin=cardiacOutputMlPerMin;
+    }
+
+    const asphyxialEnvelopeReached=
+      oxygenDeficit&&oxygenDeficit.supplyDependent===true &&
+      arterialPh!=null &&
+      arterialPco2MmHg!=null &&
+      referenceMapMmHg!=null &&
+      referenceCardiacOutputMlPerMin!=null &&
+      arterialPh<=ASPHYXIAL_COLLAPSE_ENVELOPE.arterialPh &&
+      arterialPco2MmHg>=ASPHYXIAL_COLLAPSE_ENVELOPE.arterialPco2MmHg &&
+      cardiacOutputMlPerMin<referenceCardiacOutputMlPerMin &&
+      meanArterialPressureMmHg<referenceMapMmHg;
+
+    if(!cardiacArrest){
+      lowMapBelow30Sec=meanArterialPressureMmHg<MAP30_MMHG
+        ?lowMapBelow30Sec+dtSec
+        :0;
+      lowMapBelow20Sec=meanArterialPressureMmHg<MAP20_MMHG
+        ?lowMapBelow20Sec+dtSec
+        :0;
+
+      if(mechanicalPumpFailure){
+        cardiacArrest=true;
+        cardiacArrestReason='mechanical-pump-failure';
+        arrestRhythm='PEA';
+      }else if(lowMapBelow20Sec>=MAP20_SEC){
+        cardiacArrest=true;
+        cardiacArrestReason='sustained-map-below-20';
+        arrestRhythm='PEA';
+      }else if(lowMapBelow30Sec>=MAP30_SEC){
+        cardiacArrest=true;
+        cardiacArrestReason='sustained-map-below-30';
+        arrestRhythm='PEA';
+      }
+    }
+
+    let stage='perfusing';
+    if(cardiacArrest) stage='cardiac-arrest';
+    else if(meanArterialPressureMmHg<MAP20_MMHG) stage='profound-circulatory-failure';
+    else if(meanArterialPressureMmHg<MAP30_MMHG) stage='severe-circulatory-failure';
+    else if(oxygenDeficit&&oxygenDeficit.supplyDependent) stage='oxygen-supply-failure';
+
+    last=Object.freeze({
+      stage,
+      alive:!cardiacArrest,
+      cardiacArrest,
+      cardiacArrestReason,
+      arrestRhythm,
+      meanArterialPressureMmHg,
+      cardiacOutputMlPerMin,
+      mechanicalPumpFailure:Boolean(mechanicalPumpFailure),
+      asphyxialEnvelopeReached,
+      referenceHeartRatePerMin,
+      referenceMapMmHg,
+      referenceCardiacOutputMlPerMin,
+      heartRatePerMin,
+      arterialPh,
+      arterialPco2MmHg,
+      lowMapBelow30Sec,
+      lowMapBelow20Sec,
+      oxygenDeficit:oxygenDeficit?Object.freeze({
+        supplyDependent:Boolean(oxygenDeficit.supplyDependent),
+        cumulativeOxygenDeficitMl:
+          oxygenDeficit.cumulativeOxygenDeficitMl,
+        cumulativeFractionalDeficitMin:
+          oxygenDeficit.cumulativeFractionalDeficitMin,
+      }):null,
+      elapsedAsphyxiaTimerUsed:false,
+      oxygenDebtDeathThresholdUsed:false,
+      provenance:SOURCE,
+    });
+    return last;
+  }
+
+  function snapshot(){
+    return last||Object.freeze({
+      stage:'perfusing',
+      alive:true,
+      cardiacArrest:false,
+      cardiacArrestReason:null,
+      arrestRhythm:null,
+      lowMapBelow30Sec,
+      lowMapBelow20Sec,
+      elapsedAsphyxiaTimerUsed:false,
+      oxygenDebtDeathThresholdUsed:false,
+      provenance:SOURCE,
+      status:'initialized-not-stepped',
+    });
+  }
+
+  return Object.freeze({
+    kind:'v2.4-terminal-state-controller',
+    step,
+    snapshot,
+    source:SOURCE,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  MAP30_MMHG,
+  MAP30_SEC,
+  MAP20_MMHG,
+  MAP20_SEC,
+  ASPHYXIAL_COLLAPSE_ENVELOPE,
+  createV24TerminalStateController,
+});
+
+},
+"src/v21_pulmonary_vascular_controller.js":function(module,exports,require){
+'use strict';
+
+/**
+ * v2.1 reduced pulmonary vascular / RV-load controller.
+ *
+ * Purpose:
+ * Project source-backed pulmonary vascular effects into the compact v1.0
+ * circulation without importing the later full cardiopulmonary architecture.
+ *
+ * Components:
+ * 1. Karamolegkos/Albanese/Chbat 2021 lung-volume dependent pulmonary
+ *    arteriolar resistance (Eq. 3).
+ * 2. Marshall et al. 1994 hypoxic pulmonary vasoconstriction response,
+ *    retained with its canine-species limitation.
+ * 3. Stengl et al. 2013 hypercapnic-acidosis PVR challenge anchor,
+ *    retained as a bounded experimental anchor.
+ *
+ * Reduction:
+ * Each source mechanism is converted to a dimensionless resistance ratio
+ * relative to the controller's own normoxic/reference operating point.
+ * Ratios are multiplied to compose independent modeled loads. That
+ * multiplication is an explicit reduced-order composition assumption; it is
+ * not claimed as a published combined equation.
+ *
+ * The resulting resistance ratio is projected into the v1.0 circulation as:
+ *   pulmonary conductance multiplier = 1 / total PVR ratio
+ *
+ * No absolute PAP/PVR target and no fitted gain is introduced.
+ */
+
+const K=require("src/karamolegkos_pulmonary_circulation_candidate.js");
+const {
+  createV21PulmonaryCoordinateRuntime,
+}=require("src/v21_albanese_karamolegkos_pulmonary_coordinate_runtime.js");
+const {
+  dasHpvResistanceCoefficientFromMarshall,
+}=require("src/v21_marshall_hpv_candidate.js");
+
+const SOURCE=Object.freeze({
+  mechanical:
+    'Karamolegkos N et al. IEEE OJEMB. 2021;2:324-341. doi:10.1109/OJEMB.2021.3128629',
+  coordinate:
+    'Albanese A et al. Am J Physiol Heart Circ Physiol. 2016;310:H899-H921. doi:10.1152/ajpheart.00230.2014',
+  hpv:
+    'Marshall BE et al. Respir Physiol. 1994;96:231-247. doi:10.1016/0034-5687(94)90129-5',
+  hypercapnicAcidosis:
+    'Stengl M et al. Crit Care. 2013;17:R303',
+  composition:
+    'dimensionless resistance ratios multiplied as an explicit reduced-order assumption',
+  clinicalValidation:false,
+  authority:'v2.1-source-backed-reduced-pulmonary-vascular-controller',
+});
+
+const HCA=Object.freeze({
+  definitionPh:7.35,
+  challengePh:7.10,
+  definitionPaco2MmHg:45,
+  pvrBaseline:259,
+  pvrChallenge:356,
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+
+function hcaPvrRatio({arterialPh,arterialPco2MmHg}={}){
+  finite(arterialPh,'arterialPh');
+  positive(arterialPco2MmHg,'arterialPco2MmHg');
+  if(arterialPco2MmHg<=HCA.definitionPaco2MmHg||arterialPh>=HCA.definitionPh){
+    return 1;
+  }
+  const severity=clamp(
+    (HCA.definitionPh-arterialPh)/(HCA.definitionPh-HCA.challengePh),
+    0,1
+  );
+  return 1+severity*(HCA.pvrChallenge/HCA.pvrBaseline-1);
+}
+
+function createV21PulmonaryVascularController({
+  dtSec=0.0005,
+  shuntFraction=0.017,
+}={}){
+  positive(dtSec,'dtSec');
+  finite(shuntFraction,'shuntFraction');
+  if(shuntFraction<0||shuntFraction>=1) throw new Error('shuntFraction must be in [0,1)');
+
+  let airwayOpeningPressureCmH2O=0;
+  const coordinate=createV21PulmonaryCoordinateRuntime({
+    dtSec,
+    airwayOpeningPressureProvider:()=>airwayOpeningPressureCmH2O,
+  });
+
+  let reference=null;
+  let last=null;
+
+  function step({
+    dtSec:stepDtSec,
+    meanAirwayPressureCmH2O,
+    arterialPo2MmHg,
+    mixedVenousPo2MmHg,
+    arterialPco2MmHg,
+    arterialPh,
+  }={}){
+    positive(stepDtSec,'dtSec');
+    finite(meanAirwayPressureCmH2O,'meanAirwayPressureCmH2O');
+    positive(arterialPo2MmHg,'arterialPo2MmHg');
+    positive(mixedVenousPo2MmHg,'mixedVenousPo2MmHg');
+    positive(arterialPco2MmHg,'arterialPco2MmHg');
+    finite(arterialPh,'arterialPh');
+
+    airwayOpeningPressureCmH2O=meanAirwayPressureCmH2O;
+    const coord=coordinate.runFor(stepDtSec);
+
+    const mechanicalResistance=K.pulmonaryArteriolarResistance({
+      alveolarVolumeL:coord.alveolarVolumeL,
+      shuntFraction,
+    });
+
+    const hpv=dasHpvResistanceCoefficientFromMarshall({
+      alveolarPo2MmHg:arterialPo2MmHg,
+      mixedVenousPo2MmHg,
+    });
+
+    if(reference==null){
+      reference=Object.freeze({
+        mechanicalResistance,
+        hpvCoefficient:hpv.hpvCoefficient,
+      });
+    }
+
+    const mechanicalRatio=
+      mechanicalResistance/reference.mechanicalResistance;
+    const hpvRatio=
+      hpv.hpvCoefficient/reference.hpvCoefficient;
+    const acidemiaRatio=hcaPvrRatio({
+      arterialPh,
+      arterialPco2MmHg,
+    });
+
+    const totalResistanceRatio=
+      mechanicalRatio*hpvRatio*acidemiaRatio;
+    const pulmonaryArterialConductanceMultiplier=
+      1/positive(totalResistanceRatio,'totalResistanceRatio');
+
+    last=Object.freeze({
+      pulmonaryArterialConductanceMultiplier,
+      totalResistanceRatio,
+      mechanicalResistanceRatio:mechanicalRatio,
+      hpvResistanceRatio:hpvRatio,
+      hypercapnicAcidosisResistanceRatio:acidemiaRatio,
+      coordinate:coord,
+      hpv,
+      inputs:Object.freeze({
+        meanAirwayPressureCmH2O,
+        arterialPo2MmHg,
+        mixedVenousPo2MmHg,
+        arterialPco2MmHg,
+        arterialPh,
+      }),
+      reference,
+      provenance:SOURCE,
+    });
+    return last;
+  }
+
+  function snapshot(){
+    return last||Object.freeze({
+      pulmonaryArterialConductanceMultiplier:1,
+      totalResistanceRatio:1,
+      status:'initialized-not-stepped',
+      provenance:SOURCE,
+    });
+  }
+
+  return Object.freeze({
+    kind:'v2.1-pulmonary-vascular-controller',
+    step,
+    snapshot,
+    source:SOURCE,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  HCA,
+  hcaPvrRatio,
+  createV21PulmonaryVascularController,
+});
+
+},
+"src/karamolegkos_pulmonary_circulation_candidate.js":function(module,exports,require){
+'use strict';
+
+// Source-native pulmonary vascular candidate.
+// Karamolegkos N, Albanese A, Chbat NW.
+// IEEE Open J Eng Med Biol. 2021;2:324-341.
+// DOI: 10.1109/OJEMB.2021.3128629.
+//
+// This module intentionally accepts source-native alveolar volume (V_A) and
+// pressure/flow variables. It does NOT infer absolute V_A from Vent elastic
+// compartment volume. That cross-model adapter is a separate provenance gate.
+
+const SOURCE = Object.freeze({
+  citation:
+    'Karamolegkos N, Albanese A, Chbat NW. Heart-Lung Interactions During Mechanical Ventilation: Analysis via a Cardiopulmonary Simulation Model. IEEE Open J Eng Med Biol. 2021;2:324-341.',
+  doi: '10.1109/OJEMB.2021.3128629',
+  pmcid: 'PMC8975239',
+  authority: 'primary-paper-equations',
+});
+
+const PARAMETERS = Object.freeze({
+  CpaMlPerMmHg: 0.76,
+  VupaMl: 0,
+  RpaMmHgSecPerMl: 0.023,
+  LpaMmHgSec2PerMl: 1.8e-4,
+  CpalMlPerMmHg: 1.93,
+  VupalMl: 43.30,
+  CpcMlPerMmHg: 3.87,
+  VupcMl: 64.94,
+  RppTotalMmHgSecPerMl: 0.0894,
+  CpvMlPerMmHg: 25.37,
+  VupvMl: 105.6,
+  RpvMmHgSecPerMl: 0.0056,
+  frcNominalL: 2.25,
+});
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be finite');
+  }
+  return v;
+}
+
+function positive(v, label) {
+  finite(v, label);
+  if (!(v > 0)) throw new Error(label + ' must be > 0');
+  return v;
+}
+
+function shuntFraction(v) {
+  finite(v, 'shuntFraction');
+  if (v < 0 || v >= 1) throw new Error('shuntFraction must be in [0,1)');
+  return v;
+}
+
+// Paper Eq. 3.
+function pulmonaryArteriolarResistance({
+  alveolarVolumeL,
+  shuntFraction: sh,
+  totalPeripheralResistanceMmHgSecPerMl =
+    PARAMETERS.RppTotalMmHgSecPerMl,
+  frcNominalL = PARAMETERS.frcNominalL,
+} = {}) {
+  positive(alveolarVolumeL, 'alveolarVolumeL');
+  shuntFraction(sh);
+  positive(totalPeripheralResistanceMmHgSecPerMl,
+    'totalPeripheralResistanceMmHgSecPerMl');
+  positive(frcNominalL, 'frcNominalL');
+
+  return totalPeripheralResistanceMmHgSecPerMl /
+    (2 * (1 - sh)) *
+    Math.pow(alveolarVolumeL / frcNominalL, 2);
+}
+
+// Appendix A15.
+function pulmonaryShuntFlow({
+  nonShuntArteriolarFlowMlPerSec,
+  shuntFraction: sh,
+} = {}) {
+  finite(nonShuntArteriolarFlowMlPerSec, 'nonShuntArteriolarFlowMlPerSec');
+  shuntFraction(sh);
+  return sh / (1 - sh) * nonShuntArteriolarFlowMlPerSec;
+}
+
+// Appendix A8.
+function totalPeripheralFlow({
+  nonShuntArteriolarFlowMlPerSec,
+  shuntFraction: sh,
+} = {}) {
+  finite(nonShuntArteriolarFlowMlPerSec, 'nonShuntArteriolarFlowMlPerSec');
+  shuntFraction(sh);
+  return nonShuntArteriolarFlowMlPerSec / (1 - sh);
+}
+
+// Appendix A9 using source Eq. 3 for R_pal.
+function nonShuntArteriolarFlow({
+  pulmonaryArteriolarPressureMmHg,
+  pulmonaryCapillaryPressureMmHg,
+  alveolarVolumeL,
+  shuntFraction: sh,
+} = {}) {
+  finite(pulmonaryArteriolarPressureMmHg, 'pulmonaryArteriolarPressureMmHg');
+  finite(pulmonaryCapillaryPressureMmHg, 'pulmonaryCapillaryPressureMmHg');
+  const r = pulmonaryArteriolarResistance({
+    alveolarVolumeL,
+    shuntFraction: sh,
+  });
+  return (pulmonaryArteriolarPressureMmHg -
+    pulmonaryCapillaryPressureMmHg) / r;
+}
+
+// Appendix A25. Post-capillary resistance is source-derived from total
+// pulmonary peripheral resistance and selected shunt fraction.
+function pulmonaryCapillaryResistance({
+  shuntFraction: sh,
+  totalPeripheralResistanceMmHgSecPerMl =
+    PARAMETERS.RppTotalMmHgSecPerMl,
+} = {}) {
+  shuntFraction(sh);
+  positive(totalPeripheralResistanceMmHgSecPerMl,
+    'totalPeripheralResistanceMmHgSecPerMl');
+  return totalPeripheralResistanceMmHgSecPerMl /
+    (2 * (1 - sh));
+}
+
+// Appendix A12 using source Appendix A25 for R_pc.
+function pulmonaryCapillaryFlow({
+  pulmonaryCapillaryPressureMmHg,
+  pulmonaryVenousPressureMmHg,
+  shuntFraction: sh,
+} = {}) {
+  finite(pulmonaryCapillaryPressureMmHg, 'pulmonaryCapillaryPressureMmHg');
+  finite(pulmonaryVenousPressureMmHg, 'pulmonaryVenousPressureMmHg');
+  const capillaryResistanceMmHgSecPerMl =
+    pulmonaryCapillaryResistance({shuntFraction:sh});
+  return (pulmonaryCapillaryPressureMmHg -
+    pulmonaryVenousPressureMmHg) / capillaryResistanceMmHgSecPerMl;
+}
+
+// Appendix A16.
+function pulmonaryVenousFlow({
+  pulmonaryVenousPressureMmHg,
+  leftAtrialPressureMmHg,
+  venousResistanceMmHgSecPerMl = PARAMETERS.RpvMmHgSecPerMl,
+} = {}) {
+  finite(pulmonaryVenousPressureMmHg, 'pulmonaryVenousPressureMmHg');
+  finite(leftAtrialPressureMmHg, 'leftAtrialPressureMmHg');
+  positive(venousResistanceMmHgSecPerMl, 'venousResistanceMmHgSecPerMl');
+  return (pulmonaryVenousPressureMmHg - leftAtrialPressureMmHg) /
+    venousResistanceMmHgSecPerMl;
+}
+
+function compliantVolume({
+  internalPressureMmHg,
+  externalPressureMmHg,
+  complianceMlPerMmHg,
+  unstressedVolumeMl,
+} = {}) {
+  finite(internalPressureMmHg, 'internalPressureMmHg');
+  finite(externalPressureMmHg, 'externalPressureMmHg');
+  positive(complianceMlPerMmHg, 'complianceMlPerMmHg');
+  finite(unstressedVolumeMl, 'unstressedVolumeMl');
+  return complianceMlPerMmHg *
+    (internalPressureMmHg - externalPressureMmHg) +
+    unstressedVolumeMl;
+}
+
+function pulmonaryArteryVolume({ pressureMmHg, pleuralPressureMmHg } = {}) {
+  return compliantVolume({
+    internalPressureMmHg: pressureMmHg,
+    externalPressureMmHg: pleuralPressureMmHg,
+    complianceMlPerMmHg: PARAMETERS.CpaMlPerMmHg,
+    unstressedVolumeMl: PARAMETERS.VupaMl,
+  });
+}
+
+function pulmonaryArteriolarVolume({ pressureMmHg, pleuralPressureMmHg } = {}) {
+  return compliantVolume({
+    internalPressureMmHg: pressureMmHg,
+    externalPressureMmHg: pleuralPressureMmHg,
+    complianceMlPerMmHg: PARAMETERS.CpalMlPerMmHg,
+    unstressedVolumeMl: PARAMETERS.VupalMl,
+  });
+}
+
+function pulmonaryCapillaryVolume({ pressureMmHg, alveolarPressureMmHg } = {}) {
+  return compliantVolume({
+    internalPressureMmHg: pressureMmHg,
+    externalPressureMmHg: alveolarPressureMmHg,
+    complianceMlPerMmHg: PARAMETERS.CpcMlPerMmHg,
+    unstressedVolumeMl: PARAMETERS.VupcMl,
+  });
+}
+
+function pulmonaryVenousVolume({ pressureMmHg, pleuralPressureMmHg } = {}) {
+  return compliantVolume({
+    internalPressureMmHg: pressureMmHg,
+    externalPressureMmHg: pleuralPressureMmHg,
+    complianceMlPerMmHg: PARAMETERS.CpvMlPerMmHg,
+    unstressedVolumeMl: PARAMETERS.VupvMl,
+  });
+}
+
+// A4, A7, A11, A14 return derivative of the source transmural pressure
+// coordinate (P_internal - P_external), not absolute pressure.
+function dPulmonaryArteryTransmuralPressureDt({
+  rvOutflowMlPerSec,
+  pulmonaryArterialFlowMlPerSec,
+} = {}) {
+  finite(rvOutflowMlPerSec, 'rvOutflowMlPerSec');
+  finite(pulmonaryArterialFlowMlPerSec, 'pulmonaryArterialFlowMlPerSec');
+  return (rvOutflowMlPerSec - pulmonaryArterialFlowMlPerSec) /
+    PARAMETERS.CpaMlPerMmHg;
+}
+
+function dPulmonaryArterialFlowDt({
+  pulmonaryArteryPressureMmHg,
+  pulmonaryArteriolarPressureMmHg,
+  pulmonaryArterialFlowMlPerSec,
+} = {}) {
+  finite(pulmonaryArteryPressureMmHg, 'pulmonaryArteryPressureMmHg');
+  finite(pulmonaryArteriolarPressureMmHg, 'pulmonaryArteriolarPressureMmHg');
+  finite(pulmonaryArterialFlowMlPerSec, 'pulmonaryArterialFlowMlPerSec');
+  return (pulmonaryArteryPressureMmHg -
+    pulmonaryArteriolarPressureMmHg -
+    PARAMETERS.RpaMmHgSecPerMl * pulmonaryArterialFlowMlPerSec) /
+    PARAMETERS.LpaMmHgSec2PerMl;
+}
+
+function dPulmonaryArteriolarTransmuralPressureDt({
+  pulmonaryArterialFlowMlPerSec,
+  nonShuntArteriolarFlowMlPerSec,
+  shuntFlowMlPerSec,
+} = {}) {
+  finite(pulmonaryArterialFlowMlPerSec, 'pulmonaryArterialFlowMlPerSec');
+  finite(nonShuntArteriolarFlowMlPerSec, 'nonShuntArteriolarFlowMlPerSec');
+  finite(shuntFlowMlPerSec, 'shuntFlowMlPerSec');
+  return (pulmonaryArterialFlowMlPerSec -
+    nonShuntArteriolarFlowMlPerSec - shuntFlowMlPerSec) /
+    PARAMETERS.CpalMlPerMmHg;
+}
+
+function dPulmonaryCapillaryTransmuralPressureDt({
+  nonShuntArteriolarFlowMlPerSec,
+  pulmonaryCapillaryFlowMlPerSec,
+} = {}) {
+  finite(nonShuntArteriolarFlowMlPerSec, 'nonShuntArteriolarFlowMlPerSec');
+  finite(pulmonaryCapillaryFlowMlPerSec, 'pulmonaryCapillaryFlowMlPerSec');
+  return (nonShuntArteriolarFlowMlPerSec -
+    pulmonaryCapillaryFlowMlPerSec) / PARAMETERS.CpcMlPerMmHg;
+}
+
+function dPulmonaryVenousTransmuralPressureDt({
+  shuntFlowMlPerSec,
+  pulmonaryCapillaryFlowMlPerSec,
+  pulmonaryVenousFlowMlPerSec,
+} = {}) {
+  finite(shuntFlowMlPerSec, 'shuntFlowMlPerSec');
+  finite(pulmonaryCapillaryFlowMlPerSec, 'pulmonaryCapillaryFlowMlPerSec');
+  finite(pulmonaryVenousFlowMlPerSec, 'pulmonaryVenousFlowMlPerSec');
+  return (shuntFlowMlPerSec + pulmonaryCapillaryFlowMlPerSec -
+    pulmonaryVenousFlowMlPerSec) / PARAMETERS.CpvMlPerMmHg;
+}
+
+module.exports = Object.freeze({
+  SOURCE,
+  PARAMETERS,
+  pulmonaryArteriolarResistance,
+  pulmonaryShuntFlow,
+  totalPeripheralFlow,
+  nonShuntArteriolarFlow,
+  pulmonaryCapillaryResistance,
+  pulmonaryCapillaryFlow,
+  pulmonaryVenousFlow,
+  compliantVolume,
+  pulmonaryArteryVolume,
+  pulmonaryArteriolarVolume,
+  pulmonaryCapillaryVolume,
+  pulmonaryVenousVolume,
+  dPulmonaryArteryTransmuralPressureDt,
+  dPulmonaryArterialFlowDt,
+  dPulmonaryArteriolarTransmuralPressureDt,
+  dPulmonaryCapillaryTransmuralPressureDt,
+  dPulmonaryVenousTransmuralPressureDt,
+});
+
+},
+"src/v21_albanese_karamolegkos_pulmonary_coordinate_runtime.js":function(module,exports,require){
+'use strict';
+
+/**
+ * v2.1 Albanese/Karamolegkos pulmonary mechanics coordinate runtime.
+ *
+ * Purpose:
+ * Translate airway-opening pressure into the source-native pulmonary
+ * coordinates required by the Karamolegkos pulmonary vascular candidate:
+ *   P_A, P_pl, V_A.
+ *
+ * This runtime does NOT own Vent mechanics, tidal volume, recruitment, PEEP,
+ * or airway flow. Vent remains authoritative for those. The runtime is a
+ * source-coordinate translator driven by Vent airway-opening pressure.
+ *
+ * Source equations:
+ * Albanese et al. 2016, A30-A36.
+ * Karamolegkos et al. 2021 nominal FRC = 2.25 L.
+ *
+ * Mechanical-ventilation validation in Karamolegkos 2021 used passively
+ * breathing subjects, so dP_mus/dt = 0 in this translator.
+ *
+ * Absolute alveolar volume is initialized at the published Karamolegkos
+ * nominal FRC and then evolved with source Eq. A36. This intentionally avoids
+ * relying on the ambiguous V_u,A unit representation in public code.
+ *
+ * Candidate only.
+ */
+
+const SOURCE=Object.freeze({
+  respiratoryMechanics:
+    'Albanese A et al. Am J Physiol Heart Circ Physiol. 2016;310:H899-H921. doi:10.1152/ajpheart.00230.2014, Eqs. A30-A36.',
+  pulmonaryCoordinate:
+    'Karamolegkos N et al. IEEE OJEMB. 2021;2:324-341. doi:10.1109/OJEMB.2021.3128629.',
+  passiveVentilation:
+    'Karamolegkos 2021 validation scenarios pertain to passively breathing subjects.',
+  authority:'candidate-coordinate-translator-not-mechanics-owner',
+});
+
+const P=Object.freeze({
+  ClLPerCmH2O:0.00127,
+  CtrLPerCmH2O:0.00238,
+  CbLPerCmH2O:0.0131,
+  CaLPerCmH2O:0.2,
+  CcwLPerCmH2O:0.2445,
+  RmlCmH2OSecPerL:1.021,
+  RltCmH2OSecPerL:0.3369,
+  RtbCmH2OSecPerL:0.3063,
+  RbACmH2OSecPerL:0.0817,
+  initialPleuralPressureCmH2O:-5,
+  nominalAlveolarVolumeL:2.25,
+});
+
+const MMHG_PER_CMH2O=0.7355592401;
+
+const STATE_KEYS=Object.freeze([
+  'Pl',
+  'PtrTm',
+  'PbTm',
+  'PATm',
+  'Ppl',
+  'VA',
+]);
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+
+function defaultState(){
+  const ppl=P.initialPleuralPressureCmH2O;
+  return Object.freeze({
+    Pl:0,
+    PtrTm:-ppl,
+    PbTm:-ppl,
+    PATm:-ppl,
+    Ppl:ppl,
+    VA:P.nominalAlveolarVolumeL,
+  });
+}
+
+function addState(a,b,scale){
+  const out={};
+  for(const k of STATE_KEYS) out[k]=a[k]+scale*b[k];
+  return out;
+}
+function combineRk4(s,k1,k2,k3,k4,h){
+  const out={};
+  for(const k of STATE_KEYS){
+    out[k]=s[k]+h*(k1[k]+2*k2[k]+2*k3[k]+k4[k])/6;
+  }
+  return out;
+}
+
+function createV21PulmonaryCoordinateRuntime({
+  dtSec=0.0005,
+  airwayOpeningPressureProvider,
+  initialState=null,
+}={}){
+  positive(dtSec,'dtSec');
+  if(typeof airwayOpeningPressureProvider!=='function'){
+    throw new Error('airwayOpeningPressureProvider is required');
+  }
+
+  let state={...(initialState||defaultState())};
+  for(const k of STATE_KEYS) finite(state[k],k);
+  positive(state.VA,'VA');
+  let timeSec=0;
+  let last=null;
+
+  function pressures(s){
+    return Object.freeze({
+      Pl:s.Pl,
+      Ptr:s.PtrTm+s.Ppl,
+      Pb:s.PbTm+s.Ppl,
+      PA:s.PATm+s.Ppl,
+      Ppl:s.Ppl,
+    });
+  }
+
+  function derivatives(s,pao){
+    const p=pressures(s);
+    const qMl=(pao-p.Pl)/P.RmlCmH2OSecPerL;
+    const qLt=(p.Pl-p.Ptr)/P.RltCmH2OSecPerL;
+    const qTb=(p.Ptr-p.Pb)/P.RtbCmH2OSecPerL;
+    const qBa=(p.Pb-p.PA)/P.RbACmH2OSecPerL;
+
+    return {
+      Pl:(qMl-qLt)/P.ClLPerCmH2O,
+      PtrTm:(qLt-qTb)/P.CtrLPerCmH2O,
+      PbTm:(qTb-qBa)/P.CbLPerCmH2O,
+      PATm:qBa/P.CaLPerCmH2O,
+      Ppl:qLt/P.CcwLPerCmH2O,
+      VA:qBa,
+    };
+  }
+
+  function step(){
+    const pao=finite(
+      airwayOpeningPressureProvider({timeSec,previous:last}),
+      'airwayOpeningPressureCmH2O'
+    );
+    const h=dtSec;
+    const k1=derivatives(state,pao);
+    const k2=derivatives(addState(state,k1,h/2),pao);
+    const k3=derivatives(addState(state,k2,h/2),pao);
+    const k4=derivatives(addState(state,k3,h),pao);
+    state=combineRk4(state,k1,k2,k3,k4,h);
+    positive(state.VA,'alveolarVolumeL');
+    timeSec+=h;
+
+    const p=pressures(state);
+    last=Object.freeze({
+      schema:'v21-albanese-karamolegkos-pulmonary-coordinate/v1',
+      timeSec,
+      authority:SOURCE.authority,
+      canonicalMechanicsAuthority:false,
+      airwayOpeningPressureCmH2O:pao,
+      sourcePressureStateCmH2O:p,
+      alveolarVolumeL:state.VA,
+      pulmonaryVascularBoundary:Object.freeze({
+        sourceQualified:true,
+        alveolarVolumeL:state.VA,
+        alveolarPressureMmHg:p.PA*MMHG_PER_CMH2O,
+        pleuralPressureMmHg:p.Ppl*MMHG_PER_CMH2O,
+        provenance:Object.freeze({
+          airwayOpeningPressure:'Vent-owned external input',
+          pressureCoordinates:'Albanese 2016 A30-A34',
+          alveolarVolume:'Karamolegkos nominal FRC + Albanese A36',
+          musclePressure:'passive ventilation; dPmus/dt=0',
+        }),
+      }),
+      provenance:SOURCE,
+    });
+    return last;
+  }
+
+  function runFor(seconds){
+    finite(seconds,'seconds');
+    if(seconds<0) throw new Error('seconds must be >= 0');
+    const n=Math.floor(seconds/dtSec+1e-9);
+    for(let i=0;i<n;i++) step();
+    const rem=seconds-n*dtSec;
+    if(rem>1e-9) throw new Error('seconds must be an integer multiple of dtSec');
+    return snapshot();
+  }
+
+  function snapshot(){
+    if(last) return last;
+    const p=pressures(state);
+    return Object.freeze({
+      schema:'v21-albanese-karamolegkos-pulmonary-coordinate/v1',
+      timeSec,
+      authority:SOURCE.authority,
+      canonicalMechanicsAuthority:false,
+      status:'awaiting-first-step',
+      sourcePressureStateCmH2O:p,
+      alveolarVolumeL:state.VA,
+      provenance:SOURCE,
+    });
+  }
+
+  return Object.freeze({
+    step,
+    runFor,
+    snapshot,
+    source:SOURCE,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  P,
+  MMHG_PER_CMH2O,
+  defaultState,
+  createV21PulmonaryCoordinateRuntime,
+});
+
+},
+"src/v21_marshall_hpv_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * v2.1 Marshall HPV response candidate for the Das regional perfusion model.
+ *
+ * Source:
+ * Marshall BE, Clarke WR, Costarino AT, Chen L, Miller F, Marshall C.
+ * The dose-response relationship for hypoxic pulmonary vasoconstriction.
+ * Respir Physiol. 1994;96(2-3):231-247.
+ * DOI: 10.1016/0034-5687(94)90129-5.
+ *
+ * Source experimental population: canine lungs.
+ * Das et al. 2015 cite this source for the HPV function used in their
+ * human-ARDS simulator. This module is therefore candidate-only and preserves
+ * the species limitation explicitly.
+ *
+ * Source:
+ *   PSO2 = PvO2^0.41 * PAO2^0.59
+ *   responsePercent =
+ *     100 * PSO2^-2.616 / (6.683e-5 + PSO2^-2.616)
+ *
+ * Marshall reports the maximum PVR at PSO2=10 mmHg as a 3.15-fold increase
+ * over the 100%-oxygen baseline. We map the normalized response fraction
+ * linearly onto the reported baseline-to-maximum resistance ratio:
+ *
+ *   deltaV = 1 + (3.15 - 1) * responseFraction
+ *
+ * That final line is an algebraic conversion from the published normalized
+ * response to a resistance multiplier; it is not a fitted gain.
+ */
+
+const SOURCE=Object.freeze({
+  citation:'Marshall BE et al. Respir Physiol. 1994;96(2-3):231-247.',
+  doi:'10.1016/0034-5687(94)90129-5',
+  species:'canine',
+  usedByHumanArdsModel:
+    'Das et al. 2015 cite Marshall 1994 for their HPV vascular-resistance coefficient',
+  authority:'candidate-not-canonical',
+});
+
+const EXPONENT_VENOUS=0.41;
+const EXPONENT_ALVEOLAR=0.59;
+const SIGMOID_EXPONENT=-2.616;
+const SIGMOID_CONSTANT=6.683e-5;
+const MAX_PVR_RATIO=3.15;
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+
+function marshallStimulusPo2MmHg({
+  alveolarPo2MmHg,
+  mixedVenousPo2MmHg,
+}={}){
+  positive(alveolarPo2MmHg,'alveolarPo2MmHg');
+  positive(mixedVenousPo2MmHg,'mixedVenousPo2MmHg');
+  return Math.pow(mixedVenousPo2MmHg,EXPONENT_VENOUS) *
+    Math.pow(alveolarPo2MmHg,EXPONENT_ALVEOLAR);
+}
+
+function marshallHpvResponseFraction({
+  alveolarPo2MmHg,
+  mixedVenousPo2MmHg,
+}={}){
+  const stimulusPo2MmHg=marshallStimulusPo2MmHg({
+    alveolarPo2MmHg,
+    mixedVenousPo2MmHg,
+  });
+  const x=Math.pow(stimulusPo2MmHg,SIGMOID_EXPONENT);
+  const responseFraction=x/(SIGMOID_CONSTANT+x);
+  return Object.freeze({
+    stimulusPo2MmHg,
+    responseFraction,
+    responsePercent:100*responseFraction,
+    provenance:SOURCE,
+  });
+}
+
+function dasHpvResistanceCoefficientFromMarshall({
+  alveolarPo2MmHg,
+  mixedVenousPo2MmHg,
+}={}){
+  const r=marshallHpvResponseFraction({
+    alveolarPo2MmHg,
+    mixedVenousPo2MmHg,
+  });
+  const hpvCoefficient=1+(MAX_PVR_RATIO-1)*r.responseFraction;
+  return Object.freeze({
+    ...r,
+    hpvCoefficient,
+    baselineResistanceRatio:1,
+    maximumResistanceRatio:MAX_PVR_RATIO,
+    interpretation:
+      'candidate Das deltaV coefficient from Marshall normalized HPV response',
+    authority:SOURCE.authority,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  EXPONENT_VENOUS,
+  EXPONENT_ALVEOLAR,
+  SIGMOID_EXPONENT,
+  SIGMOID_CONSTANT,
+  MAX_PVR_RATIO,
+  marshallStimulusPo2MmHg,
+  marshallHpvResponseFraction,
+  dasHpvResistanceCoefficientFromMarshall,
+});
+
+},
+"src/v22_sepsis_disease_layer.js":function(module,exports,require){
+'use strict';
+
+/**
+ * v2.2 Yamanaka sepsis disease layer.
+ *
+ * This layer computes only source-supported inflammation effects. It does not
+ * invent a vasodilation-to-SVR gain or a capillary-leak-to-volume-loss gain.
+ *
+ * Live-safe output currently available:
+ * - fractional left-myocardial performance projection, obtained by preserving
+ *   the source Eq. 31 stroke-volume fraction as a dimensionless multiplier.
+ *
+ * Diagnostic/source outputs awaiting a separately justified bridge:
+ * - Eq. 29 capillary permeability
+ * - Eq. 30 vasodilation decrement
+ *
+ * That boundary is deliberate. v2.2 must not regain the v1.x pattern of
+ * turning disease labels into unsourced multipliers.
+ */
+
+const {
+  capillaryPermeabilityFromInflammation,
+  vasodilationDecrementFromInflammation,
+  strokeVolumeFromInflammation,
+  arterialCapillaryFiltration,
+  venousCapillaryReabsorption,
+  bloodVolumeRateFromCapillaryExchange,
+  systemicResistanceRatioFromYamanakaVasodilation,
+}=require("src/v22_yamanaka_sepsis_equations.js");
+const {
+  SOURCE:PARAMETER_SOURCE,
+  PARAMS,
+}=require("src/v22_yamanaka_sepsis_parameters.js");
+
+const SOURCE=Object.freeze({
+  citation:'Yamanaka Y et al. Theor Biol Med Model. 2019;16:5.',
+  doi:'10.1186/s12976-019-0101-9',
+  equations:Object.freeze([29,30,31]),
+  parameters:PARAMETER_SOURCE,
+  myocardialProjection:
+    'source Eq.31 stroke-volume fraction projected as dimensionless LV performance multiplier',
+  vasodilationBridge:'not-authorized-pending-radius/resistance mapping',
+  capillaryLeakBridge:'not-authorized-pending-vascular/interstitial volume mapping',
+  clinicalValidation:false,
+  authority:'v2.2-source-backed-sepsis-disease-layer',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+
+function evaluateV22SepsisDiseaseLayer({
+  inflammationNStar,
+  antiInflammatoryMediatorCA=0,
+  sourceAr=null,
+  capillaryExchange=null,
+}={}){
+  nonNegative(inflammationNStar,'inflammationNStar');
+  nonNegative(antiInflammatoryMediatorCA,'antiInflammatoryMediatorCA');
+
+  const capillaryPermeabilityMlPerMmHgSec=
+    capillaryPermeabilityFromInflammation(
+      inflammationNStar,
+      PARAMS.permeability
+    );
+
+  const vasodilationDecrement=
+    vasodilationDecrementFromInflammation(
+      inflammationNStar,
+      PARAMS.vasodilation
+    );
+
+  const sourceStrokeVolumeMl=strokeVolumeFromInflammation(
+    inflammationNStar,
+    {
+      normalStrokeVolumeMl:PARAMS.myocardial.normalStrokeVolumeMl,
+      kS:PARAMS.myocardial.kS,
+      antiInflammatoryMediator:antiInflammatoryMediatorCA,
+      cInfinity:PARAMS.myocardial.cInfinity,
+    }
+  );
+
+  const leftMyocardialPerformanceMultiplier=
+    sourceStrokeVolumeMl/PARAMS.myocardial.normalStrokeVolumeMl;
+
+  let systemicResistanceRatio=null;
+  if(sourceAr!=null){
+    systemicResistanceRatio=systemicResistanceRatioFromYamanakaVasodilation({
+      sourceAr,
+      vasodilationDecrement,
+    });
+  }
+
+  let capillaryExchangeState=null;
+  if(capillaryExchange!=null){
+    if(!capillaryExchange||typeof capillaryExchange!=='object'||
+       Array.isArray(capillaryExchange)){
+      throw new Error('capillaryExchange must be an object or null');
+    }
+    const filtrationMlPerSec=arterialCapillaryFiltration({
+      permeabilityLa:capillaryPermeabilityMlPerMmHgSec,
+      arterialCapillaryPressureMmHg:
+        capillaryExchange.arterialCapillaryPressureMmHg,
+      interstitialPressureMmHg:
+        capillaryExchange.interstitialPressureMmHg,
+      plasmaOncoticPressureMmHg:
+        capillaryExchange.plasmaOncoticPressureMmHg,
+      interstitialOncoticPressureMmHg:
+        capillaryExchange.interstitialOncoticPressureMmHg,
+    });
+    const reabsorptionMlPerSec=venousCapillaryReabsorption({
+      permeabilityLv:PARAMS.permeability.lv,
+      venousCapillaryPressureMmHg:
+        capillaryExchange.venousCapillaryPressureMmHg,
+      interstitialPressureMmHg:
+        capillaryExchange.interstitialPressureMmHg,
+      plasmaOncoticPressureMmHg:
+        capillaryExchange.plasmaOncoticPressureMmHg,
+      interstitialOncoticPressureMmHg:
+        capillaryExchange.interstitialOncoticPressureMmHg,
+    });
+    const bloodVolumeRateMlPerSec=bloodVolumeRateFromCapillaryExchange({
+      arterialFiltrationMlPerSec:filtrationMlPerSec,
+      venousReabsorptionMlPerSec:reabsorptionMlPerSec,
+      infusionMlPerSec:
+        capillaryExchange.infusionMlPerSec==null
+          ?0
+          :capillaryExchange.infusionMlPerSec,
+    });
+    capillaryExchangeState=Object.freeze({
+      filtrationMlPerSec,
+      reabsorptionMlPerSec,
+      bloodVolumeRateMlPerSec,
+      sourceInputs:Object.freeze({...capillaryExchange}),
+    });
+  }
+
+  return Object.freeze({
+    inflammationNStar,
+    antiInflammatoryMediatorCA,
+    capillaryPermeabilityMlPerMmHgSec,
+    capillaryPermeabilityRatio:
+      capillaryPermeabilityMlPerMmHgSec/PARAMS.permeability.laMin,
+    vasodilationDecrement,
+    sourceStrokeVolumeMl,
+    leftMyocardialPerformanceMultiplier,
+    systemicResistanceRatio,
+    capillaryExchange:capillaryExchangeState,
+    liveAuthority:Object.freeze({
+      leftMyocardialPerformanceMultiplier:true,
+      systemicVasodilation:systemicResistanceRatio!=null,
+      capillaryLeakVolume:capillaryExchangeState!=null,
+    }),
+    unresolved:Object.freeze({
+      systemicVasodilation:systemicResistanceRatio==null
+        ?'Eq.30 remains inactive unless the caller supplies the Yamanaka source-family A_r state. No Ursino-firing to Yamanaka-A_r mapping is invented.'
+        :null,
+      capillaryLeak:capillaryExchangeState==null
+        ?'Eq.29 remains inactive unless source capillary/interstitial/oncotic pressures are explicitly supplied. No pressure or oncotic proxy is invented.'
+        :null,
+    }),
+    provenance:SOURCE,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  evaluateV22SepsisDiseaseLayer,
+});
+
+},
+"src/v22_yamanaka_sepsis_equations.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Yamanaka et al. 2019 septic-shock disease-layer shadow functions.
+ *
+ * Primary source:
+ * Yamanaka Y et al. Theor Biol Med Model. 2019;16:5.
+ * doi:10.1186/s12976-019-0101-9
+ *
+ * No physiologic parameter defaults are supplied here. Callers must provide
+ * source-transcribed or explicitly documented calibrated parameters.
+ */
+
+const SOURCE=Object.freeze({
+  citation:'Yamanaka Y et al. Theor Biol Med Model. 2019;16:5.',
+  doi:'10.1186/s12976-019-0101-9',
+  pmid:'30841902',
+  status:'published-equations-v2.2-disease-layer',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){ finite(v,label); if(!(v>0)) throw new Error(label+' must be > 0'); return v; }
+function nonNegative(v,label){ finite(v,label); if(v<0) throw new Error(label+' must be >= 0'); return v; }
+
+function hillActivation(input,{max,min=0,ec50,slope}={}){
+  nonNegative(input,'input');
+  finite(max,'max');
+  finite(min,'min');
+  positive(ec50,'ec50');
+  positive(slope,'slope');
+  if(input===0) return min;
+  return (max-min)/(1+Math.pow(ec50/input,slope))+min;
+}
+
+// Yamanaka Eq. 29.
+function capillaryPermeabilityFromInflammation(
+  inflammation,
+  {laMax,laMin,ec50La,slopeLa}={}
+){
+  return hillActivation(inflammation,{
+    max:finite(laMax,'laMax'),
+    min:finite(laMin,'laMin'),
+    ec50:ec50La,
+    slope:slopeLa,
+  });
+}
+
+// Yamanaka Eq. 30.
+function vasodilationDecrementFromInflammation(
+  inflammation,
+  {kEx,ec50Ex,slopeEx}={}
+){
+  nonNegative(inflammation,'inflammation');
+  finite(kEx,'kEx');
+  positive(ec50Ex,'ec50Ex');
+  positive(slopeEx,'slopeEx');
+  if(inflammation===0) return 0;
+  return kEx/(1+Math.pow(ec50Ex/inflammation,slopeEx));
+}
+
+// Yamanaka Eq. 20 helper used by Eq. 31.
+function antiInflammatoryLimitedSignal(
+  input,
+  {antiInflammatoryMediator,cInfinity}={}
+){
+  nonNegative(input,'input');
+  nonNegative(antiInflammatoryMediator,'antiInflammatoryMediator');
+  positive(cInfinity,'cInfinity');
+  return input/(1+Math.pow(antiInflammatoryMediator/cInfinity,2));
+}
+
+// Yamanaka Eq. 31.
+function strokeVolumeFromInflammation(
+  inflammation,
+  {
+    normalStrokeVolumeMl,
+    kS,
+    antiInflammatoryMediator,
+    cInfinity,
+  }={}
+){
+  nonNegative(inflammation,'inflammation');
+  positive(normalStrokeVolumeMl,'normalStrokeVolumeMl');
+  nonNegative(kS,'kS');
+  const g=antiInflammatoryLimitedSignal(inflammation,{
+    antiInflammatoryMediator,
+    cInfinity,
+  });
+  return normalStrokeVolumeMl/(1+kS*g);
+}
+
+// Yamanaka Eq. 17.
+function sympatheticFatigueDerivative(
+  sympatheticActivity,
+  {normalActivity,tauGamma}={}
+){
+  finite(sympatheticActivity,'sympatheticActivity');
+  finite(normalActivity,'normalActivity');
+  positive(tauGamma,'tauGamma');
+  return (sympatheticActivity-normalActivity)/tauGamma;
+}
+
+// Yamanaka Eq. 18.
+function fatiguedSympatheticActivity(
+  pressureSignalDeficit,
+  {
+    normalPressureSignal,
+    gamma,
+    activityMin,
+    activityMax,
+  }={}
+){
+  finite(pressureSignalDeficit,'pressureSignalDeficit');
+  positive(normalPressureSignal,'normalPressureSignal');
+  finite(gamma,'gamma');
+  finite(activityMin,'activityMin');
+  finite(activityMax,'activityMax');
+  if(activityMax<activityMin) throw new Error('activityMax must be >= activityMin');
+  return (activityMax-activityMin)/
+    (1+Math.exp(-pressureSignalDeficit/normalPressureSignal+gamma))+
+    activityMin;
+}
+
+
+
+/**
+ * Yamanaka Eqs. 4-6 reduced fluid-exchange relations.
+ * Units follow the source:
+ * - permeability mL/mmHg/s
+ * - pressures mmHg
+ * - result mL/s
+ */
+function arterialCapillaryFiltration({
+  permeabilityLa,
+  arterialCapillaryPressureMmHg,
+  interstitialPressureMmHg,
+  plasmaOncoticPressureMmHg,
+  interstitialOncoticPressureMmHg,
+}={}){
+  nonNegative(permeabilityLa,'permeabilityLa');
+  for(const [k,v] of Object.entries({
+    arterialCapillaryPressureMmHg,
+    interstitialPressureMmHg,
+    plasmaOncoticPressureMmHg,
+    interstitialOncoticPressureMmHg,
+  })) finite(v,k);
+  return permeabilityLa*(
+    (arterialCapillaryPressureMmHg-interstitialPressureMmHg)-
+    (plasmaOncoticPressureMmHg-interstitialOncoticPressureMmHg)
+  );
+}
+
+function venousCapillaryReabsorption({
+  permeabilityLv,
+  venousCapillaryPressureMmHg,
+  interstitialPressureMmHg,
+  plasmaOncoticPressureMmHg,
+  interstitialOncoticPressureMmHg,
+}={}){
+  nonNegative(permeabilityLv,'permeabilityLv');
+  for(const [k,v] of Object.entries({
+    venousCapillaryPressureMmHg,
+    interstitialPressureMmHg,
+    plasmaOncoticPressureMmHg,
+    interstitialOncoticPressureMmHg,
+  })) finite(v,k);
+  return permeabilityLv*(
+    (interstitialPressureMmHg-venousCapillaryPressureMmHg)-
+    (interstitialOncoticPressureMmHg-plasmaOncoticPressureMmHg)
+  );
+}
+
+function bloodVolumeRateFromCapillaryExchange({
+  arterialFiltrationMlPerSec,
+  venousReabsorptionMlPerSec,
+  infusionMlPerSec=0,
+}={}){
+  finite(arterialFiltrationMlPerSec,'arterialFiltrationMlPerSec');
+  finite(venousReabsorptionMlPerSec,'venousReabsorptionMlPerSec');
+  finite(infusionMlPerSec,'infusionMlPerSec');
+  return -arterialFiltrationMlPerSec+
+    venousReabsorptionMlPerSec+
+    infusionMlPerSec;
+}
+
+/**
+ * Yamanaka Eqs. 9-10 and 30 disease-only resistance ratio.
+ *
+ * Source states R is inversely proportional to r^4, with
+ * K_r,cr = 1/A_r and r proportional to K_r,cr. Eq.30 applies
+ * A_r -> A_r - EX. Therefore, at the same underlying sympathetic
+ * state, the disease-only resistance ratio is:
+ *   R_sepsis/R_control = ((A_r - EX)/A_r)^4
+ *
+ * Caller must supply the source-family A_r state. This function refuses to
+ * invent an Ursino/Magosso-firing -> Yamanaka-A_r mapping.
+ */
+function systemicResistanceRatioFromYamanakaVasodilation({
+  sourceAr,
+  vasodilationDecrement,
+}={}){
+  positive(sourceAr,'sourceAr');
+  nonNegative(vasodilationDecrement,'vasodilationDecrement');
+  const septicAr=sourceAr-vasodilationDecrement;
+  if(!(septicAr>0)){
+    throw new Error(
+      'Yamanaka Eq.30 produced non-positive A_r; source-state mapping is outside the valid domain'
+    );
+  }
+  return Math.pow(septicAr/sourceAr,4);
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  hillActivation,
+  capillaryPermeabilityFromInflammation,
+  vasodilationDecrementFromInflammation,
+  antiInflammatoryLimitedSignal,
+  strokeVolumeFromInflammation,
+  sympatheticFatigueDerivative,
+  fatiguedSympatheticActivity,
+  arterialCapillaryFiltration,
+  venousCapillaryReabsorption,
+  bloodVolumeRateFromCapillaryExchange,
+  systemicResistanceRatioFromYamanakaVasodilation,
+});
+
+},
+"src/v22_yamanaka_sepsis_parameters.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Yamanaka et al. 2019 standard-patient sepsis parameters used by v2.2.
+ *
+ * Primary source:
+ * Yamanaka Y et al. Mathematical modeling of septic shock based on clinical
+ * data. Theor Biol Med Model. 2019;16:5.
+ * doi:10.1186/s12976-019-0101-9
+ *
+ * Table 7:
+ *   La,min 0.01 mL/mmHg/s
+ *   La,max 0.06 mL/mmHg/s
+ *   EC50,La 0.22
+ *   slopeLa 1.0
+ *   kEX 50
+ *   EC50,EX 0.5
+ *   slopeEX 3.0
+ *   kS 1.0
+ *
+ * Table 6:
+ *   S0 73.8 mL
+ *   cInfinity 0.28 CA-units
+ *
+ * These are source-model standard-patient parameters, not patient-specific
+ * calibration and not universal clinical thresholds.
+ */
+
+const SOURCE=Object.freeze({
+  citation:'Yamanaka Y et al. Theor Biol Med Model. 2019;16:5.',
+  doi:'10.1186/s12976-019-0101-9',
+  tables:Object.freeze([6,7]),
+  authority:'source-table-standard-patient',
+  clinicalValidation:false,
+});
+
+const PARAMS=Object.freeze({
+  permeability:Object.freeze({
+    laMin:0.01,
+    laMax:0.06,
+    lv:0.062,
+    ec50La:0.22,
+    slopeLa:1.0,
+    units:'mL/mmHg/s',
+  }),
+  vasodilation:Object.freeze({
+    kEx:50,
+    ec50Ex:0.5,
+    slopeEx:3.0,
+  }),
+  myocardial:Object.freeze({
+    normalStrokeVolumeMl:73.8,
+    kS:1.0,
+    cInfinity:0.28,
+  }),
+});
+
+module.exports=Object.freeze({SOURCE,PARAMS});
+
+},
+"src/v23_oxygen_deficit_state.js":function(module,exports,require){
+'use strict';
+
+/**
+ * v2.3 oxygen-deficit / metabolic-stress state.
+ *
+ * This module intentionally separates measured/modelled oxygen supply
+ * limitation from later organ-failure and arrest decisions.
+ *
+ * Source-backed concepts:
+ * - DO2 = blood flow * arterial O2 content.
+ * - Below an individual critical delivery, VO2 becomes supply dependent.
+ * - The amount of unmet aerobic demand can be integrated over time as an
+ *   oxygen-deficit bookkeeping state.
+ *
+ * Evidence anchors:
+ * - Cain 1977: biphasic DO2-VO2 behavior in experimental hypoxia/anemia.
+ * - Ronco et al. 1993: biphasic relationship in individual critically ill
+ *   humans with substantial interindividual variability.
+ * - Ward 1996: severe hypercapnic acidosis reduced extraction reserve in dogs.
+ *
+ * Critical rule:
+ * This module has NO mortality, arrest, organ-failure, lactate, or
+ * contractility authority. It does not convert a fixed amount of debt into
+ * a universal "metabolic failure fraction."
+ */
+
+const SOURCE=Object.freeze({
+  cain:
+    'Cain SM. J Appl Physiol. 1977;42:228-234. doi:10.1152/jappl.1977.42.2.228',
+  ronco:
+    'Ronco JJ et al. JAMA. 1993;270:1724-1730. PMID 8411504',
+  ward:
+    'Ward ME. Anesthesiology. 1996;85:817-822. PMID 8873552',
+  authority:'v2.3-oxygen-deficit-bookkeeping-not-failure-authority',
+  clinicalValidation:false,
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+function clamp(v,lo,hi){
+  return Math.max(lo,Math.min(hi,v));
+}
+
+function createV23OxygenDeficitState(){
+  let cumulativeOxygenDeficitMl=0;
+  let cumulativeFractionalDeficitMin=0;
+  let cumulativeBelowCriticalExposureMin=0;
+  let timeBelowCriticalSec=0;
+  let timeSupplyDependentSec=0;
+  let last=null;
+
+  function step({
+    dtSec,
+    requestedTissueO2UseMlPerMin,
+    actualTissueO2UseMlPerMin,
+    oxygenDeliveryMlPerMin,
+    criticalOxygenDeliveryMlPerMin,
+    deliveryToCriticalRatio,
+  }={}){
+    positive(dtSec,'dtSec');
+    nonNegative(requestedTissueO2UseMlPerMin,
+      'requestedTissueO2UseMlPerMin');
+    nonNegative(actualTissueO2UseMlPerMin,
+      'actualTissueO2UseMlPerMin');
+    nonNegative(oxygenDeliveryMlPerMin,'oxygenDeliveryMlPerMin');
+    nonNegative(criticalOxygenDeliveryMlPerMin,
+      'criticalOxygenDeliveryMlPerMin');
+
+    if(!(deliveryToCriticalRatio===Infinity ||
+      (typeof deliveryToCriticalRatio==='number' &&
+       Number.isFinite(deliveryToCriticalRatio) &&
+       deliveryToCriticalRatio>=0))){
+      throw new Error('deliveryToCriticalRatio must be >= 0 or Infinity');
+    }
+
+    const deficitMlPerMin=Math.max(
+      0,
+      requestedTissueO2UseMlPerMin-actualTissueO2UseMlPerMin
+    );
+    const deficitFraction=requestedTissueO2UseMlPerMin>0
+      ?clamp(deficitMlPerMin/requestedTissueO2UseMlPerMin,0,1)
+      :0;
+    const belowCriticalFraction=deliveryToCriticalRatio===Infinity
+      ?0
+      :clamp(1-deliveryToCriticalRatio,0,1);
+    const supplyDependent=deficitMlPerMin>
+      Math.max(1e-9,requestedTissueO2UseMlPerMin*1e-9);
+
+    cumulativeOxygenDeficitMl+=deficitMlPerMin*(dtSec/60);
+    cumulativeFractionalDeficitMin+=deficitFraction*(dtSec/60);
+    cumulativeBelowCriticalExposureMin+=
+      belowCriticalFraction*(dtSec/60);
+    if(deliveryToCriticalRatio<1) timeBelowCriticalSec+=dtSec;
+    if(supplyDependent) timeSupplyDependentSec+=dtSec;
+
+    last=Object.freeze({
+      requestedTissueO2UseMlPerMin,
+      actualTissueO2UseMlPerMin,
+      oxygenDeliveryMlPerMin,
+      criticalOxygenDeliveryMlPerMin,
+      deliveryToCriticalRatio,
+      oxygenSupplyDeficitMlPerMin:deficitMlPerMin,
+      deficitFraction,
+      belowCriticalFraction,
+      supplyDependent,
+      cumulativeOxygenDeficitMl,
+      cumulativeFractionalDeficitMin,
+      cumulativeBelowCriticalExposureMin,
+      timeBelowCriticalSec,
+      timeSupplyDependentSec,
+      failureAuthority:false,
+      arrestAuthority:false,
+      contractilityAuthority:false,
+      lactateAuthority:false,
+      provenance:SOURCE,
+    });
+    return last;
+  }
+
+  function snapshot(){
+    return last||Object.freeze({
+      cumulativeOxygenDeficitMl,
+      cumulativeFractionalDeficitMin,
+      cumulativeBelowCriticalExposureMin,
+      timeBelowCriticalSec,
+      timeSupplyDependentSec,
+      failureAuthority:false,
+      arrestAuthority:false,
+      contractilityAuthority:false,
+      lactateAuthority:false,
+      provenance:SOURCE,
+      status:'initialized-not-stepped',
+    });
+  }
+
+  return Object.freeze({
+    kind:'v2.3-oxygen-deficit-state',
+    step,
+    snapshot,
+    source:SOURCE,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  createV23OxygenDeficitState,
+});
 
 },
 "src/clinical_units.js":function(module,exports,require){
