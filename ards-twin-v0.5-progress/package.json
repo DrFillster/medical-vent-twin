@@ -12,7 +12,10 @@
     "benchmark:live-core-target": "node scripts/live-core-peep-target.js",
     "benchmark:cardiopulmonary-target": "node scripts/live-cardiopulmonary-peep-target.js",
     "benchmark:recruitability-challenge": "node scripts/recruitability-phenotype-challenge.js",
-    "verify:deploy": "node scripts/verify-deployable-web.js"
+    "verify:deploy": "node scripts/verify-deployable-web.js",
+    "test:integration": "node scripts/verify-integration.cjs",
+    "test:integration:browser": "node test/integration-browser.cjs",
+    "serve:integration": "node scripts/serve.js --integration"
   },
   "devDependencies": {
     "playwright": "1.62.1"

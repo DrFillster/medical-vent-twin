@@ -1,7 +1,8 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const root = path.resolve(__dirname, '../web');
+const integration = process.argv.includes('--integration');
+const root = path.resolve(__dirname, integration ? '../../ards-twin-v1.0/web' : '../web');
 const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json' };
 const server = http.createServer((req, res) => {
   let name;

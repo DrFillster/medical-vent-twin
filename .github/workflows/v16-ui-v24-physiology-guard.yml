@@ -1,4 +1,4 @@
-name: v1.6 UI + v2.4 physiology guard
+name: v1.6 bedside layout + v2.4 integration
 
 on:
   push:
@@ -19,7 +19,38 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # Immutable references; validates the served bundle and frozen worker.
+      # Immutable references; validates the served bundle and bedside layout.
       # This workflow has no deployment job or repository write permission.
-      - name: Verify frozen UI, physiology provenance and runtime contract
+      - name: Verify bedside layout, physiology provenance and runtime contract
         run: node ards-twin-v0.5-progress/scripts/verify-integration.cjs
+      - name: Verify hold scheduling regressions
+        run: node ards-twin-v0.5-progress/test/integration_hold_scheduling.test.js
+
+  browser:
+    needs: guard
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    defaults:
+      run:
+        working-directory: ards-twin-v0.5-progress
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser-test dependency
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Install browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Test served integration and bedside controls
+        env:
+          BROWSER: ${{ matrix.browser }}
+        run: npm run test:integration:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-${{ matrix.browser }}
+          path: ards-twin-v0.5-progress/browser-results/integration/

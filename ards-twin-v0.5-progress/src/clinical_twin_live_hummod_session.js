@@ -615,7 +615,9 @@ function createBerlinLiveHumModSession({
       simulation.requestExpiratoryHold(holdDurationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', expiratoryCount, maxAdvanceSecPerHold);
 
-      const elapsed = simulation.state.t - startVentTime;
+      // Mechanics commits fixed dt ticks; remove accumulated floating-point
+      // error before handing elapsed time to the fixed-step vascular runtime.
+      const elapsed = Math.round((simulation.state.t - startVentTime) / dt) * dt;
       if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
       sessionEvents.push(Object.freeze({
         t: systemicSnapshot.timeSec,
@@ -640,7 +642,9 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
       advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      // Mechanics commits fixed dt ticks; remove accumulated floating-point
+      // error before handing elapsed time to the fixed-step vascular runtime.
+      const elapsed = Math.round((simulation.state.t - startVentTime) / dt) * dt;
       if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
       const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
@@ -666,7 +670,9 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      // Mechanics commits fixed dt ticks; remove accumulated floating-point
+      // error before handing elapsed time to the fixed-step vascular runtime.
+      const elapsed = Math.round((simulation.state.t - startVentTime) / dt) * dt;
       if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
       const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({

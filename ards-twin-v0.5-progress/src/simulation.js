@@ -235,7 +235,12 @@ class Simulation {
       if (phase === BreathPhase.PAUSE) return true;
       return phase === BreathPhase.EXPIRATION &&
         (this.lastCommittedPhase === BreathPhase.INSPIRATION ||
-         this.lastCommittedPhase === BreathPhase.PAUSE);
+         this.lastCommittedPhase === BreathPhase.PAUSE ||
+         // The controller increments its clock before phase is read for the
+         // trace. With zero pause the last committed boundary can still be
+         // inspiratory while that trace phase already says expiration.
+         this.controller.lastBoundaryKind === 'INSPIRATION' ||
+         this.controller.lastBoundaryKind === 'PAUSE_FROM_VT_TARGET');
     }
 
     if (this.pendingManeuver.kind === ManeuverKind.EXPIRATORY_HOLD) {
