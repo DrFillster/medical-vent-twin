@@ -9,7 +9,7 @@ The accepted working baseline is commit `1a8f83ad212194750d79dd42128e1ee71375687
 - The displayed product version is v2.4. Use the actual v2.4 live session, with the accepted hold-scheduling fixes. Do not restore the broken v1.6-only factory call.
 - Keep model limitations visible. Do not enable unsupported controls, silently ignore active inputs, fabricate comparison values, or describe untested physiology as validated.
 - Keep physiology-equation changes separate from integration fixes. Preserve the accepted equations and parameters unless the user requests a physiology update.
-- Do not deploy or modify `vent.defying-logic.com`. Acceptance of this baseline does not authorize publication, promotion to another branch, or changing the repository default branch.
+- Publication target: `hummod.defying-logic.com`, as explicitly authorized by the user on October 29, 2026. Keep `vent.defying-logic.com` frozen except for the single navigation link to HumMod; do not publish simulator changes there. Publication does not imply promotion to another branch or changing the repository default branch.
 
 ## Required evidence for functional changes
 

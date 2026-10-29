@@ -65,3 +65,11 @@ PORT=8877 npm run serve:integration
 ```
 
 The browser suite starts a local server for the correct served directory by default. Set `BASE_URL` to test an already-running instance. Do not use the generic development `serve` command to validate this accepted site.
+
+## Publication scope authorized October 29, 2026
+
+After accepting the baseline, the user separately requested publication to **https://hummod.defying-logic.com/** and **LINK ONLY** on https://vent.defying-logic.com/.
+
+Publish the accepted `ards-twin-v1.0/web` assets from runtime SHA `1a8f83ad212194750d79dd42128e1ee713756870` at the HumMod root. Include `DEPLOY_SOURCE_SHA.txt` so the live build identifies its exact source. Keep the accepted UI/physiology unchanged and verify both real browsers against the published HTTPS URL.
+
+The only permitted Vent content change in this publication is one homepage link to HumMod. Preserve its existing simulator, archive files, scripts and styles. Do not replace Vent with the v2.4 application or redirect the whole site. This publication does not change the repository's default branch or promote the integration onto another branch.
