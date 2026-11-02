@@ -48,7 +48,7 @@ jobs:
         run: |
           rm -rf /tmp/hummod-integration-web
           mkdir -p /tmp/hummod-integration-web
-          cp ards-twin-v1.0/web/* /tmp/hummod-integration-web/
+          find ards-twin-v1.0/web -maxdepth 1 -type f -exec cp {} /tmp/hummod-integration-web/ \;
           printf '%s\n' "$GITHUB_SHA" > /tmp/hummod-integration-web/DEPLOY_SOURCE_SHA.txt
           test -f /tmp/hummod-integration-web/index.html
           test -f /tmp/hummod-integration-web/app.js
