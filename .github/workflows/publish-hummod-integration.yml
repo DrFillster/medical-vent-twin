@@ -53,7 +53,7 @@ jobs:
           test -f /tmp/hummod-integration-web/index.html
           test -f /tmp/hummod-integration-web/app.js
           test -f /tmp/hummod-integration-web/engine.js
-          grep -q 'id="clinical-simulation-rate"' /tmp/hummod-integration-web/index.html
+          grep -q 'id="clinical-speed"' /tmp/hummod-integration-web/index.html
           grep -q 'createV24TerminalStateController' /tmp/hummod-integration-web/engine.js
       - uses: actions/upload-artifact@v4
         with:
@@ -86,7 +86,7 @@ jobs:
           test -f ards-twin-v1.0/web/index.html
           test -f ards-twin-v1.0/web/app.js
           test -f ards-twin-v1.0/web/engine.js
-          grep -q 'id="clinical-simulation-rate"' ards-twin-v1.0/web/index.html
+          grep -q 'id="clinical-speed"' ards-twin-v1.0/web/index.html
           grep -q 'createV24TerminalStateController' ards-twin-v1.0/web/engine.js
           git status --porcelain --untracked-files=all | tee /tmp/status.txt
           if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.0/web/)' | grep -q .; then
@@ -123,7 +123,7 @@ jobs:
             source_code=$(curl -L -sS -o smoke/source.txt -w '%{http_code}' --max-time 20 "$BASE/DEPLOY_SOURCE_SHA.txt" || printf '000')
             live_sha=$(tr -d '\r\n' < smoke/source.txt 2>/dev/null || true)
             echo "attempt=$attempt index_code=$index_code source_code=$source_code live_sha=${live_sha:-missing} expected_sha=$SOURCE_SHA"
-            if [ "$index_code" = "200" ] && [ "$source_code" = "200" ] && [ "$live_sha" = "$SOURCE_SHA" ] && grep -q 'id="clinical-simulation-rate"' smoke/index.html; then
+            if [ "$index_code" = "200" ] && [ "$source_code" = "200" ] && [ "$live_sha" = "$SOURCE_SHA" ] && grep -q 'id="clinical-speed"' smoke/index.html; then
               ok=1
               break
             fi
