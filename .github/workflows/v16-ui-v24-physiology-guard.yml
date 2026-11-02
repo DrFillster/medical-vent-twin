@@ -19,6 +19,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # Rebuild only the generated physiology engine in the runner workspace.
+      # UI assets remain pinned and unchanged.
+      - name: Build current physiology engine into accepted served tree
+        run: node ards-twin-v0.5-progress/scripts/build.js --engine-output ards-twin-v1.0/web/engine.js
       # Immutable references; validates the served bundle and bedside layout.
       # This workflow has no deployment job or repository write permission.
       - name: Verify bedside layout, physiology provenance and runtime contract
