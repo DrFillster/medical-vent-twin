@@ -34,6 +34,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Build physiology engine into accepted served tree
+        run: node ards-twin-v0.5-progress/scripts/build.js --engine-output ards-twin-v1.0/web/engine.js
       - name: Verify frozen presentation and integration contract
         run: node ards-twin-v0.5-progress/scripts/verify-integration.cjs
       - name: Verify terminal-state physiology
@@ -42,10 +44,6 @@ jobs:
       - name: Verify live patient regression
         working-directory: ards-twin-v0.5-progress
         run: node test/clinical_twin_live_hummod_session.test.js
-      - name: Build physiology engine into accepted served tree
-        run: node ards-twin-v0.5-progress/scripts/build.js --engine-output ards-twin-v1.0/web/engine.js
-      - name: Re-verify accepted composition after engine build
-        run: node ards-twin-v0.5-progress/scripts/verify-integration.cjs
       - name: Stage accepted served tree
         run: |
           rm -rf /tmp/hummod-integration-web
