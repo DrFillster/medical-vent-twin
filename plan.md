@@ -954,3 +954,43 @@ Do not promote Lin 2012 merely because its steady-state direction is correct.
 
 Next source gate:
 Find a published mechanism that is valid for mechanically ventilated severe hypercapnia and can modify heart period through an explicit physiologic intermediate. If none is adequate, retain the Albanese path as non-authoritative outside its validated closed-loop respiratory domain and expose that model-boundary limitation rather than tuning to a desired HR.
+
+
+## v2.4.1 extremis terminal-state correction — 2026-11-02
+
+Status: IMPLEMENTED / PHYSIOLOGY REGRESSIONS PASS / UI UNCHANGED
+
+Problem:
+- The v2.4 extremis path could remain alive for prolonged severe acidemia because the source-defined asphyxial-collapse envelope was calculated but had no terminal-state authority.
+- This was a wiring defect, not a request to add a universal pH death threshold.
+
+Source model already present in v2.4:
+- DeBehnke DJ et al. Resuscitation. 1995;30:169-175. PMID 8560107.
+- Existing project envelope: pH <= 7.03 and PaCO2 >= 93 mmHg at the asphyxial collapse region.
+- The reduced model additionally requires supply-dependent oxygen failure plus deterioration of both forward cardiac output and MAP relative to the patient's own perfusing baseline.
+
+v2.4.1 change:
+- `v24_terminal_state_controller.js` now gives terminal-state authority to the complete asphyxial hemodynamic-collapse pattern already computed by v2.4.
+- Arrest reason: `asphyxial-hemodynamic-collapse-envelope`.
+- Rhythm representation remains PEA for this reduced nonperfusing mechanical/circulatory collapse pathway.
+- Acidemia alone does not trigger death.
+- Hypercapnia alone does not trigger death.
+- Oxygen deficit alone does not trigger death.
+- No elapsed-time death timer was added.
+- No empirical pH-to-mortality curve or fitted threshold was added.
+
+Validation:
+- v2.4 terminal-state regression: PASS.
+- prolonged live-patient respiratory-failure regression: PASS.
+- accepted v1.6 presentation/integration guard: PASS after rebuilding the physiology engine.
+- v1.6 presentation assets and bedside structure remain frozen.
+- raw v2.4 branch root auto-deployment was removed; HumMod root publication must use the accepted v1.6 presentation + current v2.4.x physiology composition.
+
+Source commits:
+- v2.4 physiology fix: `421940a08148f3e355862264b65dce2976a69fc3`.
+- v2.4 deployment safety: `b36ba7850d848f8d68024540a4858f9e2471c890`.
+- physiology release branch: `v2.4.1`.
+
+Publication target:
+- `hummod.defying-logic.com` only.
+- `vent.defying-logic.com` is not modified.
