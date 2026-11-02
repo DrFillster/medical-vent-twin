@@ -1,0 +1,134 @@
+name: Publish accepted v1.6 UI + current v2.4.x physiology
+
+on:
+  push:
+    branches:
+      - integration/v16-ui-v24-physiology
+    paths:
+      - '.github/workflows/publish-hummod-integration.yml'
+      - 'ards-twin-v0.5-progress/src/**'
+      - 'ards-twin-v0.5-progress/test/v24_terminal_state_controller.test.js'
+      - 'ards-twin-v0.5-progress/test/clinical_twin_live_hummod_session.test.js'
+      - 'ards-twin-v0.5-progress/scripts/build.js'
+      - 'ards-twin-v0.5-progress/scripts/verify-integration.cjs'
+      - 'ards-twin-v1.0/web/**'
+      - 'ACCEPTED_BASELINE.md'
+      - 'plan.md'
+  workflow_dispatch:
+
+concurrency:
+  group: hummod-integration-publish
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify frozen presentation and integration contract
+        run: node ards-twin-v0.5-progress/scripts/verify-integration.cjs
+      - name: Verify terminal-state physiology
+        working-directory: ards-twin-v0.5-progress
+        run: node test/v24_terminal_state_controller.test.js
+      - name: Verify live patient regression
+        working-directory: ards-twin-v0.5-progress
+        run: node test/clinical_twin_live_hummod_session.test.js
+      - name: Build physiology engine into accepted served tree
+        run: node ards-twin-v0.5-progress/scripts/build.js --engine-output ards-twin-v1.0/web/engine.js
+      - name: Re-verify accepted composition after engine build
+        run: node ards-twin-v0.5-progress/scripts/verify-integration.cjs
+      - name: Stage accepted served tree
+        run: |
+          rm -rf /tmp/hummod-integration-web
+          mkdir -p /tmp/hummod-integration-web
+          cp ards-twin-v1.0/web/* /tmp/hummod-integration-web/
+          printf '%s\n' "$GITHUB_SHA" > /tmp/hummod-integration-web/DEPLOY_SOURCE_SHA.txt
+          test -f /tmp/hummod-integration-web/index.html
+          test -f /tmp/hummod-integration-web/app.js
+          test -f /tmp/hummod-integration-web/engine.js
+          grep -q 'id="clinical-simulation-rate"' /tmp/hummod-integration-web/index.html
+          grep -q 'createV24TerminalStateController' /tmp/hummod-integration-web/engine.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: accepted-hummod-integration-web
+          path: /tmp/hummod-integration-web/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.5
+          fetch-depth: 0
+      - name: Download accepted composition
+        uses: actions/download-artifact@v4
+        with:
+          name: accepted-hummod-integration-web
+          path: /tmp/hummod-integration-web
+      - name: Replace HumMod served root only
+        run: |
+          mkdir -p ards-twin-v1.0/web
+          find ards-twin-v1.0/web -maxdepth 1 -type f -delete
+          cp /tmp/hummod-integration-web/* ards-twin-v1.0/web/
+          test -f ards-twin-v1.0/web/index.html
+          test -f ards-twin-v1.0/web/app.js
+          test -f ards-twin-v1.0/web/engine.js
+          grep -q 'id="clinical-simulation-rate"' ards-twin-v1.0/web/index.html
+          grep -q 'createV24TerminalStateController' ards-twin-v1.0/web/engine.js
+          git status --porcelain --untracked-files=all | tee /tmp/status.txt
+          if awk '{print $2}' /tmp/status.txt | grep -Ev '^(ards-twin-v1\.0/web/)' | grep -q .; then
+            echo "Refusing deployment: files outside HumMod served root changed."
+            exit 1
+          fi
+      - name: Commit accepted HumMod candidate
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ards-twin-v1.0/web
+          if ! git diff --cached --quiet; then
+            git commit -m "deploy(hummod): v1.6 UI + v2.4.x physiology $SOURCE_SHA"
+            git push origin HEAD:v1.5
+          fi
+
+  live-smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify published HumMod root
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          BASE: https://hummod.defying-logic.com
+        run: |
+          set -e
+          mkdir -p smoke
+          ok=0
+          for attempt in $(seq 1 20); do
+            index_code=$(curl -L -sS -o smoke/index.html -w '%{http_code}' --max-time 20 "$BASE/" || printf '000')
+            source_code=$(curl -L -sS -o smoke/source.txt -w '%{http_code}' --max-time 20 "$BASE/DEPLOY_SOURCE_SHA.txt" || printf '000')
+            live_sha=$(tr -d '\r\n' < smoke/source.txt 2>/dev/null || true)
+            echo "attempt=$attempt index_code=$index_code source_code=$source_code live_sha=${live_sha:-missing} expected_sha=$SOURCE_SHA"
+            if [ "$index_code" = "200" ] && [ "$source_code" = "200" ] && [ "$live_sha" = "$SOURCE_SHA" ] && grep -q 'id="clinical-simulation-rate"' smoke/index.html; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+          test "$ok" = "1"
