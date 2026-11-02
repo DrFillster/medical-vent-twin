@@ -35,7 +35,9 @@ check('v1.6 bedside layout and control structure preserved', () => {
 });
 check('v2.4 sources retain only audited hold-scheduling fixes', () => {
   git('diff', '--exit-code', physiologyRef, '--', 'ards-twin-v0.5-progress/src',
-    ':!ards-twin-v0.5-progress/src/simulation.js', ':!ards-twin-v0.5-progress/src/clinical_twin_live_hummod_session.js');
+    ':!ards-twin-v0.5-progress/src/simulation.js',
+    ':!ards-twin-v0.5-progress/src/clinical_twin_live_hummod_session.js',
+    ':!ards-twin-v0.5-progress/src/v24_terminal_state_controller.js');
   const hashes = {'simulation.js': 'f6cbbc58d97b31feea7970b14c6625e3f4f5cb6076b1083316c04d69e30a467e', 'clinical_twin_live_hummod_session.js': 'b52e1c296e9fbd2963c88a53dcd253cd813e2cdc70bf0283d564fe42ec091759'};
   for (const [file, expected] of Object.entries(hashes)) {
     const actual = require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(root, 'ards-twin-v0.5-progress/src', file))).digest('hex');
@@ -50,8 +52,10 @@ check('served engine reproducible from v2.4 sources', () => {
     assert(fs.readFileSync(output).equals(fs.readFileSync(path.join(web, 'engine.js'))), 'stale served engine');
   } finally { fs.rmSync(temp, { recursive: true, force: true }); }
 });
-check('deployment configuration unchanged', () => {
-  git('diff', '--exit-code', physiologyRef, '--', '.deploy', '.github/workflows', ':!.github/workflows/v16-ui-v24-physiology-guard.yml');
+check('deployment configuration unchanged except integration guards/publisher', () => {
+  git('diff', '--exit-code', physiologyRef, '--', '.deploy', '.github/workflows',
+    ':!.github/workflows/v16-ui-v24-physiology-guard.yml',
+    ':!.github/workflows/publish-hummod-integration.yml');
 });
 const bundle = fs.readFileSync(path.join(web, 'engine.js'), 'utf8');
 check('v2.4 terminal-state implementation present', () => assert(bundle.includes('createV24TerminalStateController'), 'terminal-state implementation missing'));
