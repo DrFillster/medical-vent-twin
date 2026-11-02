@@ -3,8 +3,8 @@ set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/medical-vent-twin}"
 BRANCH="v1.5"
-APP_DIR="$REPO_DIR/ards-twin-v1.0"
-MARKER="$APP_DIR/web/DEPLOY_SOURCE_SHA.txt"
+WEB_DIR="$REPO_DIR/ards-twin-v1.0/web"
+MARKER="$WEB_DIR/DEPLOY_SOURCE_SHA.txt"
 
 cd "$REPO_DIR"
 
@@ -14,20 +14,18 @@ if [ "$branch" != "$BRANCH" ]; then
   exit 2
 fi
 
-dirty=$(git status --porcelain | grep -v 'ards-twin-v1.0/web/DEPLOY_SOURCE_SHA.txt' || true)
-if [ -n "$dirty" ]; then
-  echo "v15-sync: refusing; working tree is not clean" >&2
-  printf '%s\n' "$dirty" >&2
+# Production serves a pre-built, CI-validated artifact. Never rebuild the
+# physiology or presentation on the production Mac.
+dirty_outside_web=$(git status --porcelain | awk '{print $2}' | grep -Ev '^ards-twin-v1\.0/web/' || true)
+if [ -n "$dirty_outside_web" ]; then
+  echo "v15-sync: refusing; working tree has changes outside served web artifact" >&2
+  printf '%s\n' "$dirty_outside_web" >&2
   exit 3
 fi
 
 git fetch --quiet origin "$BRANCH"
 local_sha=$(git rev-parse HEAD)
 remote_sha=$(git rev-parse "origin/$BRANCH")
-current_marker=""
-if [ -f "$MARKER" ]; then
-  current_marker=$(tr -d '\r\n' < "$MARKER")
-fi
 
 if [ "$local_sha" != "$remote_sha" ]; then
   if git merge-base --is-ancestor "$local_sha" "$remote_sha"; then
@@ -39,15 +37,26 @@ if [ "$local_sha" != "$remote_sha" ]; then
   fi
 fi
 
-if [ "$current_marker" = "$local_sha" ]; then
-  exit 0
-fi
+# A legacy sync invocation may have regenerated tracked web assets before this
+# script revision was pulled. Restore the exact validated artifact from HEAD.
+git restore --source=HEAD --worktree -- ards-twin-v1.0/web
 
-cd "$APP_DIR"
-if [ ! -d node_modules ]; then
-  npm ci
-fi
-npm run build
-npm run verify:deploy
-printf '%s\n' "$local_sha" > "$MARKER"
-echo "v15-sync: validated and published $local_sha"
+test -f "$WEB_DIR/index.html"
+test -f "$WEB_DIR/app.js"
+test -f "$WEB_DIR/engine.js"
+test -f "$MARKER"
+grep -q 'id="clinical-speed"' "$WEB_DIR/index.html"
+grep -q 'v2.4.1-physiology-triggered-terminal-state' "$WEB_DIR/engine.js"
+grep -q 'asphyxial-hemodynamic-collapse-envelope' "$WEB_DIR/engine.js"
+
+source_sha=$(tr -d '\r\n' < "$MARKER")
+case "$source_sha" in
+  [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+    ;;
+  *)
+    echo "v15-sync: invalid deployment source marker '$source_sha'" >&2
+    exit 5
+    ;;
+esac
+
+echo "v15-sync: serving validated artifact source=$source_sha branch_commit=$local_sha"
