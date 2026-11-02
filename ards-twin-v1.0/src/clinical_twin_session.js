@@ -17,7 +17,8 @@
 
 const { getBerlinCase } = require('./berlin_case_catalog.js');
 const { makePatientParams } = require('./contracts.js');
-const { Simulation, VcAcController, PcAcController } = require('./simulation.js');
+const { Simulation, VcAcController, PcAcController, AdaptiveVolumeController } = require('./simulation.js');
+const { normalizeMode } = require('./ventilator/modes.js');
 const { summarizeSimulationMeasurements } = require('./bedside_measurements.js');
 const { createBerlinHumModReplayRuntime } = require('./clinical_twin_runtime.js');
 const { validateHumModTrajectoryExport } = require('./hummod_export_contract.js');
@@ -64,7 +65,7 @@ function buildController(ventilation) {
   if (!ventilation || typeof ventilation !== 'object' || Array.isArray(ventilation)) {
     throw new Error('ventilation settings are required');
   }
-  const mode = ventilation.mode;
+  const mode = normalizeMode(ventilation.mode);
   const common = {
     fio2: fraction(ventilation.fio2, 'ventilation.fio2'),
     peep: nonNegative(ventilation.peep, 'ventilation.peep'),
@@ -93,7 +94,23 @@ function buildController(ventilation) {
     });
   }
 
-  throw new Error('ventilation.mode must be VC_AC or PC_AC');
+  if (mode === 'VC_AC_AUTOFLOW' || mode === 'APV_CMV') {
+    return new AdaptiveVolumeController({
+      ...common, mode, researchOnly: ventilation.researchOnly, passive: ventilation.passive,
+      sourceMode: ventilation.mode, startupStrategy: ventilation.startupStrategy, calibrationPauseSec: ventilation.calibrationPauseSec,
+      vt: positive(ventilation.vtL, 'ventilation.vtL'),
+      inspiratoryTime: positive(ventilation.inspiratoryTimeSec, 'ventilation.inspiratoryTimeSec'),
+      initialPinsp: ventilation.initialPinspCmH2O,
+      minPinsp: ventilation.minPinspCmH2O,
+      maxAirwayPressure: ventilation.maxAirwayPressureCmH2O,
+      maxPressureStep: ventilation.maxPressureStepCmH2O,
+      highPressureAlarm: ventilation.highPressureAlarmCmH2O,
+      adaptationGain: ventilation.adaptationGain,
+      volumeToleranceFraction: ventilation.volumeToleranceFraction,
+      inspiratoryPause: ventilation.inspiratoryPauseSec,
+    });
+  }
+  throw new Error('unsupported ventilation mode');
 }
 
 function createBerlinClinicalTwinSession({
@@ -142,6 +159,11 @@ function createBerlinClinicalTwinSession({
       peepCmH2O: s.peep,
       rrPerMin: s.rr,
     };
+    if (simulation.controller instanceof AdaptiveVolumeController) {
+      return Object.freeze({ ...base, mode: simulation.controller.mode,
+        vtL: s.vt, inspiratoryTimeSec: s.inspiratoryTime,
+        adaptive: simulation.controller.diagnostics() });
+    }
     if (simulation.controller instanceof VcAcController) {
       return Object.freeze({
         ...base,

@@ -19,6 +19,9 @@ function currentMode(simulation) {
   const name = simulation.controller && simulation.controller.constructor
     ? simulation.controller.constructor.name
     : '';
+  // Preserve research mode identity; downstream VC-only core adapters must
+  // continue rejecting adaptive modes rather than substituting target VT.
+  if (name === 'AdaptiveVolumeController') return simulation.controller.mode;
   if (name === 'VcAcController') return 'VC_AC';
   if (name === 'PcAcController') return 'PC_AC';
   return 'UNKNOWN';

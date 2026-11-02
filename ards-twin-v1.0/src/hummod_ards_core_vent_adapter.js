@@ -89,6 +89,7 @@ function createLiveCoreBoundaryFromVent({
   pulmonary,
   blood,
   environment,
+  researchDeliveredVentilation = null,
 } = {}) {
   if (!simulation) throw new Error('simulation is required');
   if (!systemic || !pulmonary || !blood || !environment) {
@@ -96,11 +97,30 @@ function createLiveCoreBoundaryFromVent({
   }
 
   const snap = createVentToArdsCoreSnapshot(simulation);
-  if (snap.ventilator.mode !== 'VC_AC') {
+  const measured = researchDeliveredVentilation;
+  if (measured) {
+    if (measured.researchOnly !== true || measured.schema !== 'measured-passive-ventilation/v1' ||
+        measured.passive !== true || measured.leakFreeAssumption !== true ||
+        !['VC_AC','VC_AC_AUTOFLOW','APV_CMV'].includes(snap.ventilator.mode)) {
+      throw new Error('invalid research delivered-ventilation boundary');
+    }
+    positive(measured.periodSec, 'measured periodSec');
+    positive(measured.actualRatePerMin, 'measured actualRatePerMin');
+    finite(measured.startSec, 'measured startSec');finite(measured.endSec, 'measured endSec');
+    positive(measured.maxAgeSec, 'measured maxAgeSec');
+    if (Math.abs(measured.periodSec - (measured.endSec-measured.startSec))>1e-7 ||
+        Math.abs(measured.actualRatePerMin*measured.periodSec-60)>1e-7 ||
+        simulation.state.t<measured.endSec || simulation.state.t-measured.endSec>measured.maxAgeSec) {
+      throw new Error('inconsistent or stale measured breath timing');
+    }
+    finite(pulmonary.deadSpaceBtpsMl, 'explicit research deadSpaceBtpsMl');
+    if (pulmonary.deadSpaceBtpsMl<0)throw new Error('research dead space must be nonnegative');
+  }
+  if (snap.ventilator.mode !== 'VC_AC' && !measured) {
     throw new Error('phase-1 live core adapter currently supports VC_AC only');
   }
 
-  const vtL = snap.ventilator.settings.vt;
+  const vtL = measured ? measured.deliveredVtL : snap.ventilator.settings.vt;
   positive(vtL, 'VC tidal volume');
 
   const flow = deriveVentilatedPulmonaryFlowMlPerMin({
@@ -125,7 +145,7 @@ function createLiveCoreBoundaryFromVent({
   return Object.freeze({
     boundary: Object.freeze({
       ventilation: Object.freeze({
-        respiratoryRatePerMin: snap.ventilator.rrPerMin,
+        respiratoryRatePerMin: measured ? measured.actualRatePerMin : snap.ventilator.rrPerMin,
         tidalVolumeBtpsMl: vtL * 1000,
         deadSpaceBtpsMl: pulmonary.deadSpaceBtpsMl == null
           ? humModLegacyDeadSpaceMl(vtL * 1000)
@@ -176,6 +196,9 @@ function createLiveCoreBoundaryFromVent({
       membraneInterpolation: membrane
         ? membrane.provenance.interpolation
         : null,
+      ...(measured ? { ventilationSource: measured.source,
+        ventilationAuthority: 'research-only-last-completed-breath',
+        measuredBreath: measured, setTidalVolumeL: snap.ventilator.settings.vt } : {}),
       hemodynamicCoupling: 'not-yet-enabled-without-pleural-pressure-model',
     }),
   });

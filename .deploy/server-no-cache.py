@@ -25,6 +25,19 @@ if not (WEB_ROOT / 'index.html').is_file():
 os.chdir(WEB_ROOT)
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
+
+    def parse_request(self):
+        if not super().parse_request():
+            return False
+        host = self.headers.get('Host', '').split(':')[0].lower()
+        self.directory = str(
+            Path('/Users/philipbernard/Sites/vent-v1.0-frozen-20261014')
+            if host == 'vent.defying-logic.com' else WEB_ROOT
+        )
+        return True
+
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store, must-revalidate')
         self.send_header('Pragma', 'no-cache')
@@ -32,6 +45,20 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
+        host = self.headers.get('Host', '').split(':')[0].lower()
+        legacy_prefix = '/ards-twin-v1.0/web'
+        if host == 'hummod.defying-logic.com' and (
+            self.path == legacy_prefix
+            or self.path.startswith(legacy_prefix + '/')
+            or self.path.startswith(legacy_prefix + '?')
+        ):
+            target = self.path[len(legacy_prefix):]
+            if not target.startswith('/'):
+                target = '/' + target
+            self.send_response(307)
+            self.send_header('Location', target)
+            self.end_headers()
+            return
         path = posixpath.normpath(self.path)
         for prefix in DENY_PREFIXES:
             if path.startswith(prefix):

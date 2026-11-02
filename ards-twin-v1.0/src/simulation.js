@@ -11,6 +11,8 @@ const { SimulationClock } = require('./clock.js');
 const { ThreeCompartmentMechanics } = require('./mechanics.js');
 const { VcAcController } = require('./ventilator/vc_ac.js');
 const { PcAcController } = require('./ventilator/pc_ac.js');
+const { AdaptiveVolumeController } = require('./ventilator/adaptive_volume.js');
+const { controllerMode } = require('./ventilator/modes.js');
 const { BreathPhase } = require('./ventilator/controller.js');
 const {
   makeBoundaryFlow, makeBoundaryPressure, makeInitialState,
@@ -133,8 +135,8 @@ class Simulation {
     const requested = Object.freeze({
       t: this.state.t,
       kind: 'REQUEST_CONTROLLER_CHANGE',
-      fromMode: this.controller instanceof VcAcController ? 'VC_AC' : 'PC_AC',
-      toMode: nextController instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      fromMode: controllerMode(this.controller),
+      toMode: controllerMode(nextController),
       metadata: Object.freeze({ ...metadata }),
     });
     this.interventions.push(requested);
@@ -162,8 +164,8 @@ class Simulation {
     this.interventions.push(Object.freeze({
       t: this.state.t,
       kind: 'APPLY_CONTROLLER_CHANGE',
-      fromMode: previous instanceof VcAcController ? 'VC_AC' : 'PC_AC',
-      toMode: this.controller instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      fromMode: controllerMode(previous),
+      toMode: controllerMode(this.controller),
       metadata: pending.metadata,
     }));
     return true;
@@ -178,10 +180,12 @@ class Simulation {
       throw new Error('Simulation controller does not expose a mutable PEEP setting');
     }
 
+    if (typeof this.controller.validatePEEP === 'function') this.controller.validatePEEP(value);
     const previous = this.controller.settings.peep;
     if (value === previous) return value;
 
     this.controller.settings.peep = value;
+    if (typeof this.controller.invalidateFeedback === 'function') this.controller.invalidateFeedback('PEEP_CHANGED');
     this.interventions.push(Object.freeze({
       t: this.state.t,
       kind: 'SET_PEEP',
@@ -386,10 +390,10 @@ class Simulation {
 
       // 1. controller produces boundary.
       boundary = this.controller.step(this.state, dt, this.deliveredSinceBreathStart);
-      tracePhase = this.controller.phase;
+      tracePhase = this.controller.lastStepPhase || this.controller.phase;
 
       // 2. EXPIRATION phase override: PEEP pressure clamp.
-      if (this.controller.phase === BreathPhase.EXPIRATION) {
+      if (tracePhase === BreathPhase.EXPIRATION) {
         boundary = makeBoundaryPressure({
           pressureCmH2O: this.controller.settings.peep,
           fio2: this.controller.settings.fio2,
@@ -401,6 +405,16 @@ class Simulation {
     let result;
     try {
       result = this.mechanics.step(this.params, this.state, boundary, dt);
+      // A startup FLOW request may require too much airway pressure. Re-solve
+      // from the SAME uncommitted lung state using the pressure ceiling, so
+      // reduced delivered volume remains a mechanical result (not a clip).
+      if (!this.activeManeuver && !result.output.solverFailure && boundary.kind === 'FLOW' &&
+          typeof this.controller.absolutePressureLimit === 'function' &&
+          result.output.airwayPressure > this.controller.absolutePressureLimit()) {
+        boundary = makeBoundaryPressure({ pressureCmH2O: this.controller.absolutePressureLimit(),
+          fio2: this.controller.settings.fio2 });
+        result = this.mechanics.step(this.params, this.state, boundary, dt);
+      }
     } catch (error) {
       restoreController();
       throw error;
@@ -430,7 +444,7 @@ class Simulation {
     // over-counts because passive recoil leaks some inflow back out
     // through the airway during inspiration. ΔV is what fills the lung
     // and what Vt means clinically.
-    if (!this.activeManeuver && this.controller.phase === BreathPhase.INSPIRATION) {
+    if (!this.activeManeuver && tracePhase === BreathPhase.INSPIRATION) {
       // Reset at start of a new breath (cycleTime just rolled over to 0).
       if (this.controller.cycleTime <= dt) {
         this.deliveredSinceBreathStart = 0;
@@ -438,6 +452,10 @@ class Simulation {
       }
       // Net V change since breath start.
       this.deliveredSinceBreathStart = state.totalVolume - this.inspStartVolume;
+    }
+
+    if (typeof this.controller.observeCommittedStep === 'function') {
+      this.controller.observeCommittedStep(state, tracePhase, Boolean(this.activeManeuver));
     }
 
     // 6. Commit state, append trace.
@@ -493,5 +511,6 @@ module.exports = {
   Simulation,
   VcAcController,
   PcAcController,
+  AdaptiveVolumeController,
   ManeuverKind,
 };
