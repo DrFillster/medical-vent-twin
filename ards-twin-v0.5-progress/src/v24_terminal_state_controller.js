@@ -9,14 +9,17 @@
  *
  * Authorized arrest pathways:
  * 1. mechanical pump failure -> PEA;
- * 2. sustained profound hypotension using the existing published
+ * 2. source-defined asphyxial hemodynamic collapse: supply-dependent oxygen
+ *    failure plus the DeBehnke gas envelope and deterioration of both forward
+ *    cardiac output and MAP relative to the patient's own perfusing baseline;
+ * 3. sustained profound hypotension using the existing published
  *    cardiovascular-collapse criteria:
  *      MAP <30 mmHg for 10 min, or
  *      MAP <20 mmHg for 10 sec.
  *
- * Oxygen deficit, hypoxemia, hypercapnia, and acidemia remain important
- * upstream disease states, but none is used alone as a deterministic death
- * threshold.
+ * Oxygen deficit, hypoxemia, hypercapnia, and acidemia are not used alone as
+ * deterministic death thresholds. The asphyxial pathway requires the complete
+ * gas + supply + hemodynamic-collapse pattern.
  *
  * This is a simulator state-transition rule, not a clinical resuscitation
  * criterion and not a mortality prediction model.
@@ -30,7 +33,7 @@ const SOURCE=Object.freeze({
   elapsedAsphyxiaTimer:false,
   oxygenDebtDeathThreshold:false,
   clinicalValidation:false,
-  authority:'v2.4-physiology-triggered-terminal-state',
+  authority:'v2.4.1-physiology-triggered-terminal-state',
 });
 
 const MAP30_MMHG=30;
@@ -119,6 +122,10 @@ function createV24TerminalStateController(){
       if(mechanicalPumpFailure){
         cardiacArrest=true;
         cardiacArrestReason='mechanical-pump-failure';
+        arrestRhythm='PEA';
+      }else if(asphyxialEnvelopeReached){
+        cardiacArrest=true;
+        cardiacArrestReason='asphyxial-hemodynamic-collapse-envelope';
         arrestRhythm='PEA';
       }else if(lowMapBelow20Sec>=MAP20_SEC){
         cardiacArrest=true;
