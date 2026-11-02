@@ -1,6 +1,6 @@
 'use strict';
 
-importScripts('./engine.js?v=0.6');
+importScripts('./engine.js?v=2.4-integration');
 
 let session = null;
 

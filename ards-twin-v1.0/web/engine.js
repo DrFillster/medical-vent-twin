@@ -276,7 +276,12 @@ class Simulation {
       if (phase === BreathPhase.PAUSE) return true;
       return phase === BreathPhase.EXPIRATION &&
         (this.lastCommittedPhase === BreathPhase.INSPIRATION ||
-         this.lastCommittedPhase === BreathPhase.PAUSE);
+         this.lastCommittedPhase === BreathPhase.PAUSE ||
+         // The controller increments its clock before phase is read for the
+         // trace. With zero pause the last committed boundary can still be
+         // inspiratory while that trace phase already says expiration.
+         this.controller.lastBoundaryKind === 'INSPIRATION' ||
+         this.controller.lastBoundaryKind === 'PAUSE_FROM_VT_TARGET');
     }
 
     if (this.pendingManeuver.kind === ManeuverKind.EXPIRATORY_HOLD) {
@@ -9188,7 +9193,9 @@ function createBerlinLiveHumModSession({
       simulation.requestExpiratoryHold(holdDurationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', expiratoryCount, maxAdvanceSecPerHold);
 
-      const elapsed = simulation.state.t - startVentTime;
+      // Mechanics commits fixed dt ticks; remove accumulated floating-point
+      // error before handing elapsed time to the fixed-step vascular runtime.
+      const elapsed = Math.round((simulation.state.t - startVentTime) / dt) * dt;
       if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
       sessionEvents.push(Object.freeze({
         t: systemicSnapshot.timeSec,
@@ -9213,7 +9220,9 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
       advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      // Mechanics commits fixed dt ticks; remove accumulated floating-point
+      // error before handing elapsed time to the fixed-step vascular runtime.
+      const elapsed = Math.round((simulation.state.t - startVentTime) / dt) * dt;
       if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
       const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
@@ -9239,7 +9248,9 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      // Mechanics commits fixed dt ticks; remove accumulated floating-point
+      // error before handing elapsed time to the fixed-step vascular runtime.
+      const elapsed = Math.round((simulation.state.t - startVentTime) / dt) * dt;
       if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
       const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
