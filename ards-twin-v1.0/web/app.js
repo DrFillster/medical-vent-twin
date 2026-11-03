@@ -12,7 +12,19 @@
   let clinicalPhysiologyTrend = [];
   let clinicalLastAppliedVentilation = null;
   let clinicalBuildSha = null;
+  let clinicalScenarioMode = null;
   const CLINICAL_TREND_MAX_POINTS = 1800;
+  const EXTREMIS_VALIDATION_STEP_SEC = 10;
+  const EXTREMIS_VALIDATION_MAX_SEC = 1200;
+  const EXTREMIS_VALIDATION_VENTILATION = Object.freeze({
+    mode: 'VC_AC',
+    fio2: 0.20,
+    peep: 8,
+    rr: 4,
+    vtL: 0.10,
+    inspiratoryFlowLps: 0.20,
+    inspiratoryPauseSec: 0,
+  });
 
   let nativeEngineClient = null;
   let nativeEnginePollTimer = null;
@@ -227,6 +239,8 @@
         : select.options[0]?.value || '';
       if (select.value) loadClinicalReferenceSettings();
       $('clinical-quick-start').disabled = false;
+      const extremisButton = $('clinical-extremis-validation');
+      if (extremisButton) extremisButton.disabled = false;
       $('clinical-initialize').disabled = false;
       $('clinical-session-status').textContent = 'Reference inputs loaded. Start the v2.4 patient.';
       select.addEventListener('change', () => {
@@ -706,6 +720,14 @@
     $('clinical-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.heartRatePerMin);
     $('clinical-source-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin);
     $('clinical-hr-overlay').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin);
+    const chronotropicReserve = snapshot.systemic?.hemodynamics?.chronotropicReserveMultiplier;
+    const chronotropicReserveEl = $('clinical-chronotropic-reserve');
+    if (chronotropicReserveEl) {
+      chronotropicReserveEl.textContent =
+        typeof chronotropicReserve === 'number' && Number.isFinite(chronotropicReserve)
+          ? chronotropicReserve.toFixed(3)
+          : '—';
+    }
     const brainPo2 = snapshot.systemic?.hemodynamics?.brainTissuePo2MmHg;
     $('clinical-brain-po2').textContent = typeof brainPo2 === 'number' && Number.isFinite(brainPo2)
       ? brainPo2.toFixed(1) : '—';
@@ -966,12 +988,15 @@
     clinicalPhysiologyTrend = [];
     renderClinicalInterventions();
     renderClinicalPhysiologyTrends();
-    clinicalWorker = new Worker('./clinical-worker.js?v=2.4-integration');
+    clinicalWorker = new Worker('./clinical-worker.js?v=1.5.0');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
       if (data.type === 'error') {
         stopClinicalContinuousRun();
+        clinicalScenarioMode = null;
+        const extremisButton = $('clinical-extremis-validation');
+        if (extremisButton) extremisButton.disabled = false;
         showClinicalError(data.message, data.diagnostics);
         $('clinical-initialize').disabled = false;
         return;
@@ -990,6 +1015,24 @@
         $('clinical-run-continuous').disabled = false;
         $('clinical-pause-continuous').disabled = true;
         renderClinicalSnapshot(data.snapshot);
+        if (clinicalScenarioMode === 'extremis-validation') {
+          $('clinical-fio2').value = String(EXTREMIS_VALIDATION_VENTILATION.fio2);
+          $('clinical-peep').value = String(EXTREMIS_VALIDATION_VENTILATION.peep);
+          $('clinical-rr').value = String(EXTREMIS_VALIDATION_VENTILATION.rr);
+          $('clinical-vt').value = String(EXTREMIS_VALIDATION_VENTILATION.vtL);
+          $('clinical-flow').value = String(EXTREMIS_VALIDATION_VENTILATION.inspiratoryFlowLps);
+          $('clinical-vc-pause').value = String(EXTREMIS_VALIDATION_VENTILATION.inspiratoryPauseSec);
+          recordClinicalIntervention(
+            'Test-harness extremis ventilation requested',
+            { ventilation: { ...EXTREMIS_VALIDATION_VENTILATION } }
+          );
+          clinicalWorker.postMessage({
+            type: 'requestVentilationChange',
+            ventilation: { ...EXTREMIS_VALIDATION_VENTILATION },
+          });
+          $('clinical-session-status').textContent =
+            'Test-harness extremis scenario · applying ventilation transition…';
+        }
         const setupPanel = $('clinical-session-panel');
         if (setupPanel) setupPanel.open = true;
         const livePanel = $('clinical-live');
@@ -1008,6 +1051,40 @@
         }
         $('clinical-session-error').hidden = true;
         renderClinicalSnapshot(data.snapshot);
+        if (clinicalScenarioMode === 'extremis-validation') {
+          const arrested = Boolean(data.snapshot.systemic?.decompensation?.cardiacArrest);
+          if (arrested) {
+            const h = data.snapshot.systemic?.hemodynamics || {};
+            const g = data.snapshot.systemic?.gasExchange || {};
+            $('clinical-session-status').textContent =
+              'TEST-HARNESS PARITY · arrest at ' + Math.round(data.snapshot.timeSec) +
+              ' s · HR ' + Math.round(h.heartRatePerMin) +
+              ' · CO ' + ((h.cardiacOutputMlPerMin || 0) / 1000).toFixed(2) +
+              ' L/min · MAP ' + Math.round(h.meanArterialPressureMmHg) +
+              ' · pH ' + Number(g.pH).toFixed(2) +
+              ' · PaCO₂ ' + Math.round(g.paco2MmHg);
+            clinicalScenarioMode = null;
+            const button = $('clinical-extremis-validation');
+            if (button) button.disabled = false;
+          } else if (data.snapshot.timeSec >= EXTREMIS_VALIDATION_MAX_SEC) {
+            clinicalScenarioMode = null;
+            const button = $('clinical-extremis-validation');
+            if (button) button.disabled = false;
+            showClinicalError(
+              'Test-harness extremis scenario did not reach arrest by ' +
+              EXTREMIS_VALIDATION_MAX_SEC + ' simulated seconds.'
+            );
+            return;
+          } else if (data.action === 'requestVentilationChange' || data.action === 'runFor') {
+            $('clinical-session-status').textContent =
+              'Test-harness extremis scenario · patient time ' +
+              Math.round(data.snapshot.timeSec) + ' s · advancing in 10 s steps…';
+            clinicalWorker.postMessage({
+              type: 'runFor',
+              seconds: EXTREMIS_VALIDATION_STEP_SEC,
+            });
+          }
+        }
         if (data.action === 'requestInspiratoryHold' || data.action === 'requestExpiratoryHold' ||
             data.action === 'performPassiveMechanics') {
           showClinicalManeuverResult(data.action, data.snapshot);
@@ -1141,6 +1218,7 @@
     $('clinical-load-demo').addEventListener('click', loadSyntheticDemoInputs);
     $('clinical-quick-start').addEventListener('click', () => {
       stopClinicalWorker();
+      clinicalScenarioMode = null;
       loadClinicalReferenceSettings();
       $('clinical-session-error').hidden = true;
       $('clinical-session-panel').open = true;
@@ -1149,6 +1227,20 @@
       $('clinical-session-form').requestSubmit();
       $('clinical-session-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+    $('clinical-extremis-validation')?.addEventListener('click', () => {
+      stopClinicalWorker();
+      clinicalScenarioMode = 'extremis-validation';
+      loadClinicalReferenceSettings();
+      const button = $('clinical-extremis-validation');
+      if (button) button.disabled = true;
+      $('clinical-session-error').hidden = true;
+      $('clinical-session-panel').open = true;
+      $('clinical-session-status').textContent =
+        'Loading exact test-harness patient and baseline ventilator…';
+      $('clinical-session-form').requestSubmit();
+      $('clinical-session-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
     $('clinical-systemic-provider').addEventListener('change', () => {
       syncClinicalProvider();
       if (clinicalWorker) {
@@ -1217,6 +1309,10 @@
           ventilation: clinicalVentilationPayload(),
           dt: clinicalNumber('clinical-dt'),
         };
+        if (clinicalScenarioMode === 'extremis-validation') {
+          // Exact parity with test/v13_extremis_chronotropy.test.js.
+          payload.mechanicalWarmupSec = 3;
+        }
         if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {
           if (!clinicalRecruitmentHistory) {
