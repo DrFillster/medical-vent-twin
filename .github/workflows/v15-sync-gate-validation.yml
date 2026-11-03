@@ -1,0 +1,25 @@
+name: v1.5 Sync Gate Validation
+
+on:
+  push:
+    branches:
+      - fix/v15-sync-gate-current-artifact-20261103
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deployment branch contract
+        run: node ards-twin-v1.0/test/v15_deploy_branch_contract.test.js
+      - name: Execute sync gate against checked-in artifact
+        run: |
+          git branch --show-current
+          bash .deploy/preview-sync-main.sh
