@@ -1,5 +1,5 @@
-name: v1.5 Terminal Chronotropic Reserve Validation
-# validation trigger revision 4
+name: v1.5 Baseline Failure Comparison
+# temporary validation; remove before merge
 
 on:
   push:
@@ -7,23 +7,21 @@ on:
       - fix/v15-terminal-chronotropic-reserve-20261103
     paths:
       - '.github/workflows/v15-terminal-chronotropic-reserve-validation.yml'
-      - 'ards-twin-v1.0/src/hummod_ards_cardiopulmonary_runtime.js'
-      - 'ards-twin-v1.0/src/hummod_ards_decompensation_controller.js'
-      - 'ards-twin-v1.0/test/v13_extremis_chronotropy.test.js'
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  focused-terminal-validation:
+  baseline-comparison:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ards-twin-v1.0
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: v1.5
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -31,16 +29,29 @@ jobs:
           cache-dependency-path: ards-twin-v1.0/package-lock.json
       - name: Install
         run: npm ci
-      - name: Build browser engine
+      - name: Build baseline browser engine
         run: npm run build
-      - name: Decompensation controller regression
-        run: node test/hummod_ards_decompensation_controller.test.js
-      - name: Physician candidate domain containment
-        run: node test/v15_physician_validation_candidate.test.js
-      - name: Extremis chronotropy regression and trace
-        run: node test/v13_extremis_chronotropy.test.js
-      - name: Full Node regression suite
-        run: npm test
-      - name: Baseline deployable web verification (non-blocking)
+      - name: Baseline gas external validation
         continue-on-error: true
-        run: npm run verify:deploy
+        run: node test/v15_gas_external_validation_matrix.test.js
+      - name: Baseline human autonomic smoke
+        continue-on-error: true
+        run: node test/v15_human_autonomic_validation_smoke.test.js
+      - name: Baseline myocardial observer
+        continue-on-error: true
+        run: node test/v15_hummod_myocardial_decompensation_observer.test.js
+      - name: Baseline integrated cardiopulmonary candidate
+        continue-on-error: true
+        run: node test/v15_integrated_cardiopulmonary_candidate.test.js
+      - name: Baseline physician browser contract
+        continue-on-error: true
+        run: node test/v15_physician_candidate_browser_contract.test.js
+      - name: Baseline physician myocardial UI
+        continue-on-error: true
+        run: node test/v15_physician_myocardial_status_ui.test.js
+      - name: Baseline basal flow allocation
+        continue-on-error: true
+        run: node test/v15_ursino_magosso_2000_basal_flow_allocation.test.js
+      - name: Baseline basal local O2 fixed point
+        continue-on-error: true
+        run: node test/v15_ursino_magosso_2000_basal_local_o2_fixed_point.test.js
