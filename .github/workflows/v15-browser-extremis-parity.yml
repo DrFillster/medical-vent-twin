@@ -1,0 +1,36 @@
+name: v1.5 Browser Extremis Parity
+
+on:
+  push:
+    branches:
+      - fix/v15-browser-extremis-parity-20261103
+
+permissions:
+  contents: read
+
+jobs:
+  browser-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ards-twin-v1.0/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build browser engine
+        run: npm run build
+      - name: Verify deployable web wiring
+        run: npm run verify:deploy
+      - name: Focused extremis harness
+        run: node test/v13_extremis_chronotropy.test.js
+      - name: Browser worker extremis parity
+        run: node test/browser-extremis-parity.cjs
