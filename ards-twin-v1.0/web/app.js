@@ -1309,6 +1309,10 @@
           ventilation: clinicalVentilationPayload(),
           dt: clinicalNumber('clinical-dt'),
         };
+        if (clinicalScenarioMode === 'extremis-validation') {
+          // Exact parity with test/v13_extremis_chronotropy.test.js.
+          payload.mechanicalWarmupSec = 3;
+        }
         if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {
           if (!clinicalRecruitmentHistory) {
