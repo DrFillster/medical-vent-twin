@@ -425,10 +425,17 @@ function createHumModArdsCardiopulmonaryRuntime({
       legacyControl.hypercapnicChronotropyExposureSec || 0;
     const chronotropicBridgeEnvelope = 0;
     const appliedEmpiricalChronotropicBoostPerMin = 0;
+    // Preserve the source SA-node rate for provenance, but apply the
+    // decompensation controller's explicit chronotropic-reserve state to the
+    // circulation boundary. This keeps early/mid compensation unchanged while
+    // allowing effective rate to fall as asphyxial cardiovascular reserve is
+    // exhausted. The multiplier is 1 until the decompensation model leaves its
+    // compensated phase and trends to 0 at terminal loss of reserve.
     const effectiveHeartRatePerMin =
-      autonomicMode==='source-aligned'
+      (autonomicMode==='source-aligned'
         ? sourceSaNodeHeartRatePerMin
-        : control.heartRatePerMin;
+        : control.heartRatePerMin) *
+      chronotropicReserveMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
