@@ -1,0 +1,23 @@
+name: v1.5 Server-only LaunchAgent Repair Validation
+
+on:
+  push:
+    branches:
+      - fix/v15-server-only-launchagent-repair-20261103
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Shell syntax
+        run: bash -n .deploy/repair-v15-server-launchagent.sh
+      - name: Isolation contract
+        run: node ards-twin-v1.0/test/v15_server_only_launchagent_repair.test.js
