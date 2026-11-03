@@ -46,5 +46,20 @@ test('gas and delivered-VT inputs change the candidate without granting authorit
   assert.equal(stressed.inputs.tidalVolumeL,0.45);
 });
 
+
+test('candidate fails closed when source oxygen transport leaves physical domain',()=>{
+  const r=createPhysicianValidationCandidate({
+    dtSec:0.002,pao2MmHg:0,paco2MmHg:100,tidalVolumeL:0.1,
+  });
+  const s=r.runFor(0.02);
+  assert.equal(s.available,false);
+  assert.equal(typeof s.unavailableReason,'string');
+  assert.equal(s.heartRatePerMin,null);
+  assert.equal(s.meanArterialPressureMmHg,null);
+  assert.equal(s.cardiacOutputMlPerMin,null);
+  const again=r.runFor(1);
+  assert.equal(again.available,false);
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);
