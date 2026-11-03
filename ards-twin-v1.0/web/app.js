@@ -720,6 +720,14 @@
     $('clinical-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.heartRatePerMin);
     $('clinical-source-hr').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.sourceSaNodeHeartRatePerMin);
     $('clinical-hr-overlay').textContent = displayClinicalInteger(snapshot.systemic?.hemodynamics?.empiricalChronotropicBoostPerMin);
+    const chronotropicReserve = snapshot.systemic?.hemodynamics?.chronotropicReserveMultiplier;
+    const chronotropicReserveEl = $('clinical-chronotropic-reserve');
+    if (chronotropicReserveEl) {
+      chronotropicReserveEl.textContent =
+        typeof chronotropicReserve === 'number' && Number.isFinite(chronotropicReserve)
+          ? chronotropicReserve.toFixed(3)
+          : '—';
+    }
     const brainPo2 = snapshot.systemic?.hemodynamics?.brainTissuePo2MmHg;
     $('clinical-brain-po2').textContent = typeof brainPo2 === 'number' && Number.isFinite(brainPo2)
       ? brainPo2.toFixed(1) : '—';
