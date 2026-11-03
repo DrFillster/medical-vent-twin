@@ -1,5 +1,5 @@
 name: v1.5 Terminal Chronotropic Reserve Validation
-# validation trigger revision 2
+# validation trigger revision 3
 
 on:
   push:
@@ -35,6 +35,8 @@ jobs:
         run: npm run build
       - name: Decompensation controller regression
         run: node test/hummod_ards_decompensation_controller.test.js
+      - name: Physician candidate domain containment
+        run: node test/v15_physician_validation_candidate.test.js
       - name: Extremis chronotropy regression and trace
         run: node test/v13_extremis_chronotropy.test.js
       - name: Deployable web verification
