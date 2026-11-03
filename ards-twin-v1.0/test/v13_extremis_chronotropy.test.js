@@ -40,7 +40,8 @@ for(let elapsed=0;elapsed<1200;elapsed+=10){
     pH:g.pH,
     paco2:g.paco2MmHg,
     pao2:g.pao2MmHg,
-    reserve:d.chronotropicReserveMultiplier,
+    reserve:h.chronotropicReserveMultiplier,
+    nextReserve:d.chronotropicReserveMultiplier,
     arrest:Boolean(d.cardiacArrest),
   });
   if(d.cardiacArrest)break;
