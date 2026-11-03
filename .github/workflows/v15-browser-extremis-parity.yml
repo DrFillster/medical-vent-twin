@@ -3,7 +3,25 @@ name: v1.5 Browser Extremis Parity
 on:
   push:
     branches:
-      - fix/v15-browser-extremis-parity-20261103
+      - v1.5
+    paths:
+      - 'ards-twin-v1.0/src/**'
+      - 'ards-twin-v1.0/web/**'
+      - 'ards-twin-v1.0/test/v13_extremis_chronotropy.test.js'
+      - 'ards-twin-v1.0/test/browser-extremis-parity.cjs'
+      - 'ards-twin-v1.0/scripts/verify-deployable-web.js'
+      - '.github/workflows/v15-browser-extremis-parity.yml'
+  pull_request:
+    branches:
+      - v1.5
+    paths:
+      - 'ards-twin-v1.0/src/**'
+      - 'ards-twin-v1.0/web/**'
+      - 'ards-twin-v1.0/test/v13_extremis_chronotropy.test.js'
+      - 'ards-twin-v1.0/test/browser-extremis-parity.cjs'
+      - 'ards-twin-v1.0/scripts/verify-deployable-web.js'
+      - '.github/workflows/v15-browser-extremis-parity.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
