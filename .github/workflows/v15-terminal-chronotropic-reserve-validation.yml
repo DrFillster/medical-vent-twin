@@ -1,0 +1,40 @@
+name: v1.5 Terminal Chronotropic Reserve Validation
+
+on:
+  push:
+    branches:
+      - fix/v15-terminal-chronotropic-reserve-20261103
+    paths:
+      - '.github/workflows/v15-terminal-chronotropic-reserve-validation.yml'
+      - 'ards-twin-v1.0/src/hummod_ards_cardiopulmonary_runtime.js'
+      - 'ards-twin-v1.0/src/hummod_ards_decompensation_controller.js'
+      - 'ards-twin-v1.0/test/v13_extremis_chronotropy.test.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  focused-terminal-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ards-twin-v1.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ards-twin-v1.0/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build browser engine
+        run: npm run build
+      - name: Decompensation controller regression
+        run: node test/hummod_ards_decompensation_controller.test.js
+      - name: Extremis chronotropy regression and trace
+        run: node test/v13_extremis_chronotropy.test.js
+      - name: Deployable web verification
+        run: npm run verify:deploy
