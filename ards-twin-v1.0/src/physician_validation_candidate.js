@@ -49,6 +49,8 @@ function createPhysicianValidationCandidate({
   });
 
   let environment=Object.freeze({pao2MmHg,paco2MmHg,tidalVolumeL});
+  let available=true;
+  let unavailableReason=null;
   let accumulator={seconds:0,mapIntegral:0,coIntegral:0};
   let averaged=Object.freeze({
     windowSec:0,
@@ -91,10 +93,23 @@ function createPhysicianValidationCandidate({
 
   function runFor(seconds){
     nonNegative(seconds,'seconds');
+    if(!available) return snapshot();
     const n=Math.floor(seconds/dtSec+1e-9);
     for(let i=0;i<n;i++){
       integrateCurrent(dtSec);
-      runtime.step();
+      try{
+        runtime.step();
+      }catch(error){
+        const message=error&&error.message?String(error.message):String(error);
+        const sourceDomainFailure=
+          message==='venousO2MlPerMl must be >= 0' ||
+          message.endsWith('source bed flow became non-positive');
+        if(!sourceDomainFailure) throw error;
+        available=false;
+        unavailableReason=message;
+        resetAccumulator();
+        return snapshot();
+      }
     }
     const rem=seconds-n*dtSec;
     if(rem>1e-9) throw new Error('seconds must be an integer multiple of dtSec');
@@ -119,17 +134,19 @@ function createPhysicianValidationCandidate({
     return Object.freeze({
       timeSec:s.timeSec,
       inputs:environment,
-      heartRatePerMin:hr,
-      meanArterialPressureMmHg:map,
-      cardiacOutputMlPerMin:Number.isFinite(co)?co*60:null,
-      strokeVolumeMl:sv,
+      available,
+      unavailableReason,
+      heartRatePerMin:available?hr:null,
+      meanArterialPressureMmHg:available?map:null,
+      cardiacOutputMlPerMin:available&&Number.isFinite(co)?co*60:null,
+      strokeVolumeMl:available?sv:null,
       systemicPeripheralResistanceMmHgMinPerL:
         Number.isFinite(peripheralResistance)
           ?peripheralResistance*60
           :null,
       autonomic:s.autonomic,
       vascularEffectors:s.vascularEffectors,
-      localO2:s.localO2,
+      localO2:available?s.localO2:null,
       conservation:s.conservation,
       averaging:Object.freeze({
         method:'time-average-of-pulsatile-candidate-output',
@@ -143,6 +160,9 @@ function createPhysicianValidationCandidate({
         'Basal regional flow allocation accepted by physician as candidate-layer tolerance, not exact source reproduction.',
         'Early Fig. 11 beat-averaged SAP rise remains smaller than source description.',
         'Human hypoxia/hypercapnia quantitative validation remains incomplete.',
+        ...(available?[]:[
+          'Parallel candidate stopped after its source oxygen-transport equations left their physical domain; canonical bedside physiology continues independently.',
+        ]),
       ]),
       provenance:SOURCE,
     });
