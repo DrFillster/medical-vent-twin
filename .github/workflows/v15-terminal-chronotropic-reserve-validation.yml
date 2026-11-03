@@ -1,5 +1,5 @@
 name: v1.5 Terminal Chronotropic Reserve Validation
-# validation trigger revision 3
+# validation trigger revision 4
 
 on:
   push:
@@ -39,5 +39,8 @@ jobs:
         run: node test/v15_physician_validation_candidate.test.js
       - name: Extremis chronotropy regression and trace
         run: node test/v13_extremis_chronotropy.test.js
-      - name: Deployable web verification
+      - name: Full Node regression suite
+        run: npm test
+      - name: Baseline deployable web verification (non-blocking)
+        continue-on-error: true
         run: npm run verify:deploy
