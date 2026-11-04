@@ -20,3 +20,5 @@ jobs:
         run: node ards-twin-v1.0/test/lin_2012_steady_state_hr_candidate.test.js
       - name: Lin 2012 operating-point projection
         run: node ards-twin-v1.0/test/lin_2012_hr_projection_candidate.test.js
+      - name: HumMod 2012/2013 tachycardia regression
+        run: node ards-twin-v1.0/test/hummod_2013_tachycardia_regression.test.js
