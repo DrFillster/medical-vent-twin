@@ -15,6 +15,7 @@ const { createHumModBloodVolume } = require('./hummod_blood_volume_source_aligne
 const { hgbConcentrationFromHematocrit } = require('./hummod_hgb_concentration_source_aligned.js');
 const { myocardialAcidBaseState } = require('./hummod_myocardial_acid_base_state.js');
 const { exerciseMusclePumpEffect } = require('./hummod_exercise_muscle_pump_source_aligned.js');
+const { createLin2012HrProjectionShadow } = require('./lin_2012_hr_projection_candidate.js');
 const {
   createHumModArdsDecompensationController,
 } = require('./hummod_ards_decompensation_controller.js');
@@ -46,6 +47,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   environmentBoundaries,
   pericardialTmpMmHg=0,
   autonomicMode='legacy',
+  heartRateControlMode='source-aligned',
   catecholamineEcfvMl=null,
   nativeAutonomicInputsProvider=null,
   sourceBloodVolumeInitialMl=null,
@@ -71,6 +73,9 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('nativeAutonomicInputsProvider must be a function or null');
   }
   if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
+  if(!['source-aligned','lin2012-quasi-steady'].includes(heartRateControlMode)){
+    throw new Error('unsupported heartRateControlMode: '+heartRateControlMode);
+  }
   if(!['conductance','explicit-organ-network'].includes(systemicOutflowMode)){
     throw new Error('unsupported systemicOutflowMode: '+systemicOutflowMode);
   }
@@ -100,6 +105,14 @@ function createHumModArdsCardiopulmonaryRuntime({
   };
   const autonomic = createHumModArdsAutonomicController({
     baseline: autonomicBaseline,
+  });
+  const lin2012Projection = createLin2012HrProjectionShadow({
+    patientReferenceHeartRatePerMin:autonomicBaseline.heartRatePerMin == null
+      ? 75
+      : autonomicBaseline.heartRatePerMin,
+    referenceMeanArterialPressureMmHg:82,
+    referenceArterialPo2MmHg:90,
+    referenceArterialPco2MmHg:40,
   });
   const sourceAlignedAutonomic = createHumModSourceAlignedAutonomicController({
     initialCarotidPressureMmHg: 97,
@@ -431,11 +444,22 @@ function createHumModArdsCardiopulmonaryRuntime({
     // allowing effective rate to fall as asphyxial cardiovascular reserve is
     // exhausted. The multiplier is 1 until the decompensation model leaves its
     // compensated phase and trends to 0 at terminal loss of reserve.
+    const lin2012HeartRateProjection =
+      heartRateControlMode==='lin2012-quasi-steady'
+        ? lin2012Projection.evaluate({
+            meanArterialPressureMmHg:circ.pressures.systemicArterialMmHg,
+            arterialPo2MmHg:priorGas ? priorGas.po2MmHg : 90,
+            arterialPco2MmHg:priorGas ? priorGas.pco2MmHg : 40,
+          })
+        : null;
+    const selectedHeartRatePerMin =
+      autonomicMode==='source-aligned'
+        ? (lin2012HeartRateProjection
+            ? Math.max(0,Math.min(260,lin2012HeartRateProjection.projectedHeartRatePerMin))
+            : sourceSaNodeHeartRatePerMin)
+        : control.heartRatePerMin;
     const effectiveHeartRatePerMin =
-      (autonomicMode==='source-aligned'
-        ? sourceSaNodeHeartRatePerMin
-        : control.heartRatePerMin) *
-      chronotropicReserveMultiplier;
+      selectedHeartRatePerMin * chronotropicReserveMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
@@ -535,6 +559,9 @@ function createHumModArdsCardiopulmonaryRuntime({
       autonomic:control,
       decompensation:decomp,
       sourceSaNodeHeartRatePerMin,
+      heartRateControlMode,
+      lin2012HeartRateProjection,
+      selectedHeartRatePerMin,
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
@@ -581,6 +608,12 @@ function createHumModArdsCardiopulmonaryRuntime({
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
         autonomicMode,
+        heartRateControlMode,
+        heartRateAuthority: autonomicMode!=='source-aligned'
+          ? 'legacy reduced autonomic controller'
+          : heartRateControlMode==='lin2012-quasi-steady'
+            ? 'Lin 2012 published steady-state baro-chemoreflex HR equations, operating-point translated; explicit quasi-steady candidate'
+            : 'HumMod source-aligned SA-node pathway',
         autonomicAuthority: autonomicMode==='source-aligned'
           ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
