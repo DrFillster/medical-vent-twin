@@ -77,7 +77,7 @@ test('falling atrial TMP activates HumMod low-pressure sympathetic reflex',()=>{
 });
 
 
-test('native Brain-Function <=0.1 branch suppresses normal reflex sympathetic drive',()=>{
+test('Brain-Function failure does not erase active baro/low-pressure reflex drive',()=>{
   const intact=createHumModSourceAlignedAutonomicController();
   const failed=createHumModSourceAlignedAutonomicController();
   let a,b;
@@ -91,11 +91,11 @@ test('native Brain-Function <=0.1 branch suppresses normal reflex sympathetic dr
       brainFunctionEffect:0.05,
     });
   }
-  near(b.sympsCnsHz,1.5,1e-9);
-  assert(b.sympsCnsHz<a.sympsCnsHz,
-    'brain failure branch should remove normal baro/low-pressure reflex contribution');
-  assert(b.heartRatePerMin<a.heartRatePerMin,
-    'native SA-node rate should fall when Brain-Function crosses the source branch threshold');
+  near(b.sympsCnsNa,a.sympsCnsNa,1e-9);
+  near(b.sympsCnsHz,a.sympsCnsHz,1e-9);
+  near(b.heartRatePerMin,a.heartRatePerMin,1e-9);
+  assert(b.sympsCnsHz>1.5,
+    'active hypotensive reflex drive must persist below the former Brain-Function cutoff');
 });
 
 
