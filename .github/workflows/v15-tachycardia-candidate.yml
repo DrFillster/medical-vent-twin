@@ -18,3 +18,5 @@ jobs:
         run: node ards-twin-v1.0/test/hummod_ards_autonomic_source_aligned.test.js
       - name: HumMod 2012/2013 tachycardia regression
         run: node ards-twin-v1.0/test/hummod_2013_tachycardia_regression.test.js
+      - name: Current v1.5 extremis trace replay
+        run: node ards-twin-v1.0/test/v15_hummod2013_extremis_trace_replay.test.js
