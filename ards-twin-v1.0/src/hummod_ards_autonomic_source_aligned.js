@@ -220,10 +220,13 @@ function createHumModSourceAlignedAutonomicController({
     const sympsCnsA2Effect = a2PoolLog10Conc == null
       ? 1
       : hermite(CURVES.sympsCnsA2Effect, a2PoolLog10Conc);
-    const sympsCnsNa = brainFunctionEffect > 0.1
-      ? (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
-        sympsCnsA2Effect
-      : (1 + sympsCnsFuelEffect);
+    // Brain-Function is not a reason to discard peripheral baroreceptor and
+    // low-pressure reflex drive. Keep the source-aligned reflex sum continuous
+    // through the former 0.1 branch boundary; native brain-fuel/A2 inputs still
+    // enter through their own terms. No empirical HR offset or gain is added.
+    const sympsCnsNa =
+      (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
+      sympsCnsA2Effect;
     const sympsCnsHz=SOURCE_CONSTANTS.sympsCnsHzScale*sympsCnsNa;
 
     const gangliaHz=sympsCnsHz;

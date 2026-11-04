@@ -77,25 +77,34 @@ test('falling atrial TMP activates HumMod low-pressure sympathetic reflex',()=>{
 });
 
 
-test('native Brain-Function <=0.1 branch suppresses normal reflex sympathetic drive',()=>{
-  const intact=createHumModSourceAlignedAutonomicController();
-  const failed=createHumModSourceAlignedAutonomicController();
+test('baroreflex and low-pressure reflex remain continuous below Brain-Function 0.1',()=>{
+  const above=createHumModSourceAlignedAutonomicController();
+  const below=createHumModSourceAlignedAutonomicController();
   let a,b;
   for(let i=0;i<20;i++){
-    a=intact.step({
+    a=above.step({
       dtSec:1,carotidPressureMmHg:60,averageAtrialTmpMmHg:2,
-      brainFunctionEffect:1,
+      brainFunctionEffect:0.100001,
     });
-    b=failed.step({
+    b=below.step({
       dtSec:1,carotidPressureMmHg:60,averageAtrialTmpMmHg:2,
-      brainFunctionEffect:0.05,
+      brainFunctionEffect:0.099999,
     });
   }
-  near(b.sympsCnsHz,1.5,1e-9);
-  assert(b.sympsCnsHz<a.sympsCnsHz,
-    'brain failure branch should remove normal baro/low-pressure reflex contribution');
-  assert(b.heartRatePerMin<a.heartRatePerMin,
-    'native SA-node rate should fall when Brain-Function crosses the source branch threshold');
+  near(b.sympsCnsHz,a.sympsCnsHz,1e-12);
+  near(b.vagusHz,a.vagusHz,1e-12);
+  near(b.heartRatePerMin,a.heartRatePerMin,1e-12);
+
+  const worse=below.step({
+    dtSec:1,carotidPressureMmHg:40,averageAtrialTmpMmHg:2,
+    brainFunctionEffect:0.01,
+  });
+  assert(worse.sympsCnsHz>b.sympsCnsHz,
+    'worsening hypotension must continue to increase sympathetic drive below the threshold');
+  assert(worse.vagusHz<b.vagusHz,
+    'vagal firing must withdraw as hypotension worsens');
+  assert(worse.heartRatePerMin>b.heartRatePerMin,
+    'native SA-node HR must continue rising with worsening hypotension');
 });
 
 

@@ -55,8 +55,8 @@ for(const r of preArrest){
     'source-aligned mode must not apply empirical HR boost');
   assert(Number.isFinite(r.reserve) && r.reserve>=0 && r.reserve<=1,
     'chronotropic reserve must remain a bounded fraction');
-  assert(Math.abs(r.hr-r.sourceHr*r.reserve)<1e-6,
-    'effective HR must equal source SA-node rate times chronotropic reserve');
+  assert(Math.abs(r.hr-r.sourceHr)<1e-6,
+    'source-aligned effective HR must equal the HumMod SA-node rate; project reserve is diagnostic only');
 }
 
 const fullReserve=preArrest.filter(r=>Math.abs(r.reserve-1)<1e-12);
@@ -69,9 +69,9 @@ for(const r of fullReserve){
 
 const reserveLoss=preArrest.find(r=>r.reserve<0.99);
 assert(reserveLoss,
-  'extremis trajectory must enter pre-arrest chronotropic reserve loss');
-assert(reserveLoss.hr<reserveLoss.sourceHr,
-  'loss of chronotropic reserve must reduce effective HR below source SA-node rate');
+  'extremis trajectory must register project reserve loss');
+assert(Math.abs(reserveLoss.hr-reserveLoss.sourceHr)<1e-6,
+  'project reserve loss must not suppress the source-aligned sinus rate');
 
 const first=preArrest[0];
 const peak=preArrest.reduce((a,b)=>b.hr>a.hr?b:a,preArrest[0]);
@@ -79,13 +79,13 @@ assert(peak.hr>first.hr,
   'source HumMod autonomic response should increase HR before brain failure');
 
 const failedBrain=preArrest.find(r=>r.brainFunction<0.1);
-assert(failedBrain,'trajectory must cross native Brain-Function < 0.1 branch');
-assert(Math.abs(failedBrain.sympsHz-1.5)<1e-9,
-  'native brain-failure branch must reset SympsCNS firing to 1.5 Hz');
-assert(Math.abs(failedBrain.sourceHr-72)<0.2,
-  'native SA-node rate should return near the HumMod baseline after brain failure');
+assert(failedBrain,'trajectory must cross the Brain-Function 0.1 level');
+assert(failedBrain.sympsHz>1.5,
+  'baroreflex/low-pressure drive must remain active after Brain-Function falls below 0.1');
+assert(failedBrain.sourceHr>80,
+  'source SA-node rate must not collapse to baseline across the Brain-Function threshold');
 assert(failedBrain.hr<=failedBrain.sourceHr+1e-6,
-  'effective HR must not exceed source rate after brain failure');
+  'effective HR must not exceed source rate after Brain-Function threshold crossing');
 
 assert(Number.isFinite(failedBrain.brainPo2) && failedBrain.brainPo2<20,
   'Brain-Function failure must occur with severe source-aligned brain hypoxia');
@@ -94,5 +94,5 @@ const last=rows[rows.length-1];
 assert(last.arrest,'extremis scenario should still reach terminal arrest');
 assert(last.hr===0,'displayed HR should be zero after terminal arrest');
 
-console.log('ok - v1.3 extremis preserves source HR and applies terminal chronotropic reserve');
+console.log('ok - v1.3 extremis preserves source SA-node HR through reserve loss and terminally arrests only at cardiac arrest');
 console.log(JSON.stringify({first,peak,failedBrain,last},null,2));
