@@ -1,0 +1,21 @@
+name: v1.5 tachycardia candidate
+on:
+  push:
+    branches:
+      - fix/v15-tachycardic-chemoreflex-20261104
+  workflow_dispatch:
+
+jobs:
+  focused-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Reflex continuity
+        run: node ards-twin-v1.0/test/hummod_ards_autonomic_source_aligned.test.js
+      - name: Lin 2012 steady-state source equations
+        run: node ards-twin-v1.0/test/lin_2012_steady_state_hr_candidate.test.js
+      - name: Lin 2012 operating-point projection
+        run: node ards-twin-v1.0/test/lin_2012_hr_projection_candidate.test.js
