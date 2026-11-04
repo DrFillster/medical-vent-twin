@@ -717,6 +717,12 @@ function createBerlinLiveHumModSession({
             effectiveCirculationBoundaries.heartRatePerMin),
         sourceSaNodeHeartRatePerMin:
           last.sourceSaNodeHeartRatePerMin ?? null,
+        heartRateControlMode:
+          last.heartRateControlMode ?? 'source-aligned',
+        selectedHeartRatePerMin:
+          last.selectedHeartRatePerMin ?? last.sourceSaNodeHeartRatePerMin ?? null,
+        hummod2013HeartRateState:
+          last.hummod2013HeartRateState ?? null,
         chronotropicReserveMultiplier:
           last.chronotropicReserveMultiplier ?? null,
         rightAtrialTmpMmHg:
