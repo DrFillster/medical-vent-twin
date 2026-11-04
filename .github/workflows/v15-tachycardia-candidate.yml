@@ -20,3 +20,5 @@ jobs:
         run: node ards-twin-v1.0/test/hummod_2013_tachycardia_regression.test.js
       - name: Current v1.5 extremis trace replay
         run: node ards-twin-v1.0/test/v15_hummod2013_extremis_trace_replay.test.js
+      - name: Integrated live-session tachycardia
+        run: node ards-twin-v1.0/test/clinical_twin_live_hummod_session.test.js
