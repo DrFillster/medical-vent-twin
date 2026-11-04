@@ -1310,8 +1310,9 @@
           dt: clinicalNumber('clinical-dt'),
         };
         if (clinicalScenarioMode === 'extremis-validation') {
-          // Exact parity with test/v13_extremis_chronotropy.test.js.
+          // Exact parity with the validated v1.5 tachycardic extremis harness.
           payload.mechanicalWarmupSec = 3;
+          payload.heartRateControlMode = 'hummod2013-baro-chemo';
         }
         if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {
