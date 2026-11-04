@@ -1,16 +1,22 @@
 name: v1.5 tachycardia candidate
-# trigger validation after workflow creation
+
 on:
   push:
     branches:
       - fix/v15-tachycardic-chemoreflex-20261104
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  focused-tests:
+  focused-tests-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: fix/v15-tachycardic-chemoreflex-20261104
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -22,3 +28,20 @@ jobs:
         run: node ards-twin-v1.0/test/v15_hummod2013_extremis_trace_replay.test.js
       - name: Integrated live-session tachycardia
         run: node ards-twin-v1.0/test/clinical_twin_live_hummod_session.test.js
+      - name: Build browser artifact
+        working-directory: ards-twin-v1.0
+        run: npm run build
+      - name: Verify candidate mode is in browser artifact
+        run: grep -q "hummod2013-baro-chemo" ards-twin-v1.0/web/engine.js
+      - name: Commit generated browser artifact
+        shell: bash
+        run: |
+          if git diff --quiet -- ards-twin-v1.0/web; then
+            echo "Browser artifact already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ards-twin-v1.0/web
+          git commit -m "build(v1.5): refresh tachycardia browser artifact [skip ci]"
+          git push origin HEAD:fix/v15-tachycardic-chemoreflex-20261104
