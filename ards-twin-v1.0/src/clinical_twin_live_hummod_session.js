@@ -167,6 +167,7 @@ function createBerlinLiveHumModSession({
   coupledEquilibrationSec = 0,
   nativeCalibrationTarget = null,
   physicianValidationCandidate = true,
+  heartRateControlMode = 'source-aligned',
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -369,6 +370,7 @@ function createBerlinLiveHumModSession({
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
     autonomicMode: 'source-aligned',
+    heartRateControlMode,
     catecholamineEcfvMl,
     nativeAutonomicInputsProvider: nativeAutonomicTrajectory
       ? ({ timeSec }) => interpolateNativeAutonomicInputs(timeSec)
