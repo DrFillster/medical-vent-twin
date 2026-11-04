@@ -1309,6 +1309,9 @@
           ventilation: clinicalVentilationPayload(),
           dt: clinicalNumber('clinical-dt'),
         };
+        if (provider === 'live-reduced-hummod') {
+          payload.heartRateControlMode = 'hummod2013-baro-chemo';
+        }
         if (clinicalScenarioMode === 'extremis-validation') {
           // Exact parity with the validated v1.5 tachycardic extremis harness.
           payload.mechanicalWarmupSec = 3;
