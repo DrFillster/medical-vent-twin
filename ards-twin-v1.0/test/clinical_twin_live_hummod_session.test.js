@@ -155,6 +155,40 @@ test('FiO2/VC setting changes are applied at a breath boundary and feed the live
   assert(Number.isFinite(s.systemic.gasExchange.pao2MmHg));
 });
 
+test('HumMod 2012/2013 HR candidate produces marked tachycardia before terminal reserve loss', () => {
+  const session = makeSession({
+    heartRateControlMode: 'hummod2013-baro-chemo',
+  });
+  session.initialize();
+  session.requestVentilationChange({
+    mode: 'VC_AC', fio2: 0.20, peep: 8, rr: 4,
+    vtL: 0.10, inspiratoryFlowLps: 0.20, inspiratoryPauseSec: 0,
+  });
+
+  const s200 = session.runFor(200);
+  const s300 = session.runFor(100);
+  const s600 = session.runFor(300);
+
+  const h200 = s200.systemic.hemodynamics;
+  const h300 = s300.systemic.hemodynamics;
+  const h600 = s600.systemic.hemodynamics;
+
+  assert(h200.heartRateControlMode === 'hummod2013-baro-chemo');
+  assert(h200.hummod2013HeartRateState &&
+    Number.isFinite(h200.hummod2013HeartRateState.heartRatePerMin),
+    'candidate intrinsic HR state must be exposed');
+  assert(h200.heartRatePerMin > 120,
+    'severe gas stress should produce tachycardia by 200 s');
+  assert(h300.heartRatePerMin > h200.heartRatePerMin,
+    'tachycardia should strengthen through the compensated phase');
+  assert(h300.heartRatePerMin > 150,
+    'candidate should produce marked tachycardia before reserve depletion');
+  assert(h600.selectedHeartRatePerMin > 150,
+    'intrinsic autonomic tachycardia should remain strong at 600 s');
+  assert(h600.heartRatePerMin <= h600.selectedHeartRatePerMin,
+    'chronotropic reserve may reduce effective HR but must not create the intrinsic tachycardia');
+});
+
 test('prolonged profound hypoxemic hypercapnic failure decompensates instead of remaining hemodynamically normal', () => {
   const session = makeSession();
   session.initialize();

@@ -220,10 +220,14 @@ function createHumModSourceAlignedAutonomicController({
     const sympsCnsA2Effect = a2PoolLog10Conc == null
       ? 1
       : hermite(CURVES.sympsCnsA2Effect, a2PoolLog10Conc);
-    const sympsCnsNa = brainFunctionEffect > 0.1
-      ? (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
-        sympsCnsA2Effect
-      : (1 + sympsCnsFuelEffect);
+    // v1.5 extremis continuity repair:
+    // Brain-Function is a downstream tissue-failure signal. It must not erase
+    // the concurrently active baroreflex/low-pressure drive at an arbitrary
+    // 0.1 threshold. Preserve the reflex path continuously; terminal rate loss
+    // remains owned by the explicit chronotropic-reserve/decompensation layer.
+    const sympsCnsNa =
+      (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
+      sympsCnsA2Effect;
     const sympsCnsHz=SOURCE_CONSTANTS.sympsCnsHzScale*sympsCnsNa;
 
     const gangliaHz=sympsCnsHz;

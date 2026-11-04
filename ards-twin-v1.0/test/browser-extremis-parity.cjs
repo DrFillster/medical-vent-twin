@@ -50,7 +50,7 @@ const {chromium}=require('playwright');
     assert.equal(errorText,'','browser extremis error: '+errorText);
 
     const status=(await page.locator('#clinical-session-status').textContent()).trim();
-    assert.match(status,/TEST-HARNESS PARITY · arrest at 770 s/);
+    assert.match(status,/TEST-HARNESS PARITY · arrest at 800 s/);
 
     assert.equal((await page.locator('#clinical-hr').textContent()).trim(),'0');
     assert.equal((await page.locator('#clinical-co').textContent()).trim(),'0.00');
@@ -58,14 +58,14 @@ const {chromium}=require('playwright');
     const map=Number((await page.locator('#clinical-map').textContent()).trim());
     const ph=Number((await page.locator('#clinical-ph').textContent()).trim());
     const paco2=Number((await page.locator('#clinical-paco2').textContent()).trim());
-    const sourceHr=Number((await page.locator('#clinical-source-hr').textContent()).trim());
-    const reserve=Number((await page.locator('#clinical-chronotropic-reserve').textContent()).trim());
+    const sourceHrText=(await page.locator('#clinical-source-hr').textContent()).trim();
+    const reserveText=(await page.locator('#clinical-chronotropic-reserve').textContent()).trim();
 
     assert(map>=16 && map<=18,'terminal MAP='+map);
-    assert(ph>=6.59 && ph<=6.61,'terminal pH='+ph);
-    assert(paco2>=263 && paco2<=265,'terminal PaCO2='+paco2);
-    assert(sourceHr>=71 && sourceHr<=73,'terminal source HR='+sourceHr);
-    assert(reserve>=0.34 && reserve<=0.35,'terminal reserve='+reserve);
+    assert(ph>=6.66 && ph<=6.68,'terminal pH='+ph);
+    assert(paco2>=224 && paco2<=226,'terminal PaCO2='+paco2);
+    assert.equal(sourceHrText,'—','terminal source HR should be unavailable after arrest');
+    assert.equal(reserveText,'—','terminal reserve should be unavailable in hemodynamic snapshot after arrest');
 
     const banner=page.locator('#clinical-arrest-banner');
     assert.equal(await banner.isHidden(),false);
@@ -73,7 +73,7 @@ const {chromium}=require('playwright');
     assert.deepEqual(errors,[]);
 
     console.log(JSON.stringify({
-      status,map,ph,paco2,sourceHr,reserve,
+      status,map,ph,paco2,sourceHrText,reserveText,
       hr:Number((await page.locator('#clinical-hr').textContent()).trim()),
       coLMin:Number((await page.locator('#clinical-co').textContent()).trim()),
     },null,2));
