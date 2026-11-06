@@ -9,6 +9,9 @@ on:
       - 'ards-twin-v1.0/web/**'
       - 'ards-twin-v1.0/test/v13_extremis_chronotropy.test.js'
       - 'ards-twin-v1.0/test/browser-extremis-parity.cjs'
+      - 'ards-twin-v1.0/test/browser-manual-holds.cjs'
+      - 'ards-twin-v1.0/test/manual_low_peep_chemoreflex.test.js'
+      - 'ards-twin-v1.0/test/bedside_measurements.test.js'
       - 'ards-twin-v1.0/scripts/verify-deployable-web.js'
       - '.github/workflows/v15-browser-extremis-parity.yml'
   pull_request:
@@ -19,6 +22,9 @@ on:
       - 'ards-twin-v1.0/web/**'
       - 'ards-twin-v1.0/test/v13_extremis_chronotropy.test.js'
       - 'ards-twin-v1.0/test/browser-extremis-parity.cjs'
+      - 'ards-twin-v1.0/test/browser-manual-holds.cjs'
+      - 'ards-twin-v1.0/test/manual_low_peep_chemoreflex.test.js'
+      - 'ards-twin-v1.0/test/bedside_measurements.test.js'
       - 'ards-twin-v1.0/scripts/verify-deployable-web.js'
       - '.github/workflows/v15-browser-extremis-parity.yml'
   workflow_dispatch:
