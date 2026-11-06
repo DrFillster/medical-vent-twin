@@ -867,6 +867,11 @@
     $('clinical-ppeak').textContent = displayClinicalValue(recentPeak);
     $('clinical-pplat').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.plateauPressureCmH2O);
     $('clinical-dp').textContent = displayClinicalValue(snapshot.pulmonary?.measurements?.drivingPressureCmH2O);
+    const holdMeasurements = snapshot.pulmonary?.measurements;
+    if (holdMeasurements?.staleInspiratoryHold || holdMeasurements?.staleExpiratoryHold) {
+      $('clinical-maneuver-result').textContent =
+        'Ventilator settings changed. Repeat the inspiratory and expiratory holds to update respiratory mechanics.';
+    }
     const clinicalWaveform = snapshot.pulmonary?.recentWaveform || [];
     drawClinicalTrace('clinical-pressure-chart', clinicalWaveform, 'pressureCmH2O');
     drawClinicalTrace('clinical-flow-chart', clinicalWaveform, 'flowLps');

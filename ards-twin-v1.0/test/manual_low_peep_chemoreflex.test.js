@@ -56,3 +56,19 @@ for (const method of ['requestInspiratoryHold', 'requestExpiratoryHold',
   }
 }
 console.log('ok - individual and combined holds preserve mechanics-tick timing and measured pressures');
+
+session.requestVentilationChange({
+  mode: 'VC_AC', fio2: 0.60, peep: 8, rr: 20,
+  vtL: 0.42, inspiratoryFlowLps: 0.70, inspiratoryPauseSec: 0.20,
+});
+let changed = session.runFor(20);
+assert(!changed.ventilatorChangePending);
+assert.equal(changed.pulmonary.measurements.plateauPressureCmH2O, null);
+assert.equal(changed.pulmonary.measurements.drivingPressureCmH2O, null);
+changed = session.requestInspiratoryHold();
+assert(Number.isFinite(changed.pulmonary.measurements.plateauPressureCmH2O));
+assert.equal(changed.pulmonary.measurements.drivingPressureCmH2O, null,
+  'old low-PEEP expiratory hold must not be paired with the new plateau');
+changed = session.requestExpiratoryHold();
+assert(Number.isFinite(changed.pulmonary.measurements.drivingPressureCmH2O));
+console.log('ok - restoring settings requires a fresh pair of holds before deriving driving pressure');

@@ -119,5 +119,45 @@ test('simulation summary exposes latest breath peak airway pressure', () => {
   assert(result.latestBreath.breathIndex === 1);
 });
 
+test('holds from previous ventilator settings cannot supply current pressures', () => {
+  const simulation = {
+    params: { airwayOpeningPressure: 4 },
+    interventions: [
+      { kind: 'REQUEST_CONTROLLER_CHANGE', t: 8 },
+      { kind: 'APPLY_CONTROLLER_CHANGE', t: 10 },
+    ],
+    measurements: [
+      { kind: 'INSPIRATORY_HOLD', startedAtSec: 4, plateauPressureCmH2O: 14 },
+      { kind: 'EXPIRATORY_HOLD', startedAtSec: 6, totalPeepCmH2O: 4, setPeepCmH2O: 3 },
+    ],
+  };
+  let result = summarizeSimulationMeasurements(simulation);
+  assert(result.plateauPressureCmH2O === null);
+  assert(result.totalPeepCmH2O === null);
+  assert(result.drivingPressureCmH2O === null);
+  assert(result.inspiratoryHold.plateauPressureCmH2O === 14, 'history is retained');
+  simulation.measurements.push({ kind: 'INSPIRATORY_HOLD', startedAtSec: 11, plateauPressureCmH2O: 20 });
+  result = summarizeSimulationMeasurements(simulation);
+  assert(result.plateauPressureCmH2O === 20);
+  assert(result.drivingPressureCmH2O === null, 'new plateau must not use old total PEEP');
+  simulation.measurements.push({ kind: 'EXPIRATORY_HOLD', startedAtSec: 12, totalPeepCmH2O: 8, setPeepCmH2O: 8 });
+  result = summarizeSimulationMeasurements(simulation);
+  assert(result.drivingPressureCmH2O === 12);
+  assert(!result.staleInspiratoryHold && !result.staleExpiratoryHold);
+  simulation.interventions.push({ kind: 'SET_PEEP', t: 13 });
+  assert(summarizeSimulationMeasurements(simulation).drivingPressureCmH2O === null);
+});
+
+test('a queued ventilator change does not invalidate holds before application', () => {
+  const result = summarizeSimulationMeasurements({
+    interventions: [{ kind: 'REQUEST_CONTROLLER_CHANGE', t: 10 }],
+    measurements: [
+      { kind: 'INSPIRATORY_HOLD', startedAtSec: 4, plateauPressureCmH2O: 20 },
+      { kind: 'EXPIRATORY_HOLD', startedAtSec: 6, totalPeepCmH2O: 8, setPeepCmH2O: 8 },
+    ],
+  });
+  assert(result.drivingPressureCmH2O === 12);
+});
+
 console.log(`\nTests: passed=${passed} failed=${failed}`);
 process.exit(failed === 0 ? 0 : 1);

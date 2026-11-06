@@ -50,5 +50,10 @@ jobs:
         run: npm run verify:deploy
       - name: Focused extremis harness
         run: node test/v13_extremis_chronotropy.test.js
+      - name: Manual ventilation and current hold measurements
+        run: |
+          node test/bedside_measurements.test.js
+          node test/manual_low_peep_chemoreflex.test.js
+          node test/browser-manual-holds.cjs
       - name: Browser worker extremis parity
         run: node test/browser-extremis-parity.cjs

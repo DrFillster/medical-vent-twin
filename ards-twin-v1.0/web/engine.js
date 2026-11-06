@@ -4343,20 +4343,34 @@ function summarizeSimulationMeasurements(simulation) {
 
   const inspiratory = latestMeasurement(simulation.measurements, 'INSPIRATORY_HOLD');
   const expiratory = latestMeasurement(simulation.measurements, 'EXPIRATORY_HOLD');
+  const appliedChanges = (simulation.interventions || []).filter(event =>
+    event.kind === 'APPLY_CONTROLLER_CHANGE' || event.kind === 'SET_PEEP');
+  const lastChange = appliedChanges.length ? appliedChanges[appliedChanges.length - 1] : null;
+  // Keep historical holds in the record, but never combine pressures from
+  // different ventilator settings into a current driving-pressure value.
+  const isCurrent = hold => hold && (!lastChange ||
+    (Number.isFinite(hold.startedAtSec) && hold.startedAtSec >= lastChange.t));
+  const currentInspiratory = isCurrent(inspiratory) ? inspiratory : null;
+  const currentExpiratory = isCurrent(expiratory) ? expiratory : null;
+  const staleInspiratoryHold = Boolean(inspiratory && !currentInspiratory);
+  const staleExpiratoryHold = Boolean(expiratory && !currentExpiratory);
   const latestBreath = latestBreathMetrics(simulation);
   const aop = simulation.params
     ? finiteOrNull(simulation.params.airwayOpeningPressure)
     : null;
 
   const derived = derivePassiveRespiratoryMechanics({
-    plateauPressureCmH2O: inspiratory ? inspiratory.plateauPressureCmH2O : null,
-    totalPeepCmH2O: expiratory ? expiratory.totalPeepCmH2O : null,
-    setPeepCmH2O: expiratory ? expiratory.setPeepCmH2O : null,
+    plateauPressureCmH2O: currentInspiratory ? currentInspiratory.plateauPressureCmH2O : null,
+    totalPeepCmH2O: currentExpiratory ? currentExpiratory.totalPeepCmH2O : null,
+    setPeepCmH2O: currentExpiratory ? currentExpiratory.setPeepCmH2O : null,
     airwayOpeningPressureCmH2O: aop,
   });
 
   return Object.freeze({
     ...derived,
+    staleInspiratoryHold,
+    staleExpiratoryHold,
+    lastVentilatorChangeAtSec: lastChange ? lastChange.t : null,
     peakPressureCmH2O: latestBreath ? finiteOrNull(latestBreath.Ppeak) : null,
     breathPeepCmH2O: latestBreath ? finiteOrNull(latestBreath.PEEP) : null,
     latestBreath,
