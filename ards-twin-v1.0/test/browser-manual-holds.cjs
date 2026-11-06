@@ -76,9 +76,15 @@ const { chromium } = require('playwright');
     await hold('clinical-exp-hold');
     const plateau = Number(await value('clinical-pplat'));
     const driving = Number(await value('clinical-dp'));
-    assert(Math.abs(plateau - 8 - driving) < 1e-8);
+    const result = await value('clinical-maneuver-result');
+    const measured = result.match(/Total PEEP ([\d.eE+-]+) cmH₂O/);
+    assert(measured, 'completed expiratory hold must report measured total PEEP: ' + result);
+    const totalPeep = Number(measured[1]);
+    const reference = Math.max(8, totalPeep, 4);
+    assert(Math.abs(plateau - reference - driving) < 1e-8,
+      JSON.stringify({ plateau, driving, totalPeep, reference }));
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ workflow: 'manual transition, recovery, current hold pairing', plateau, driving, errors }));
+    console.log(JSON.stringify({ workflow: 'manual transition, recovery, current hold pairing', plateau, driving, totalPeep, errors }));
   } finally {
     if (browser) await browser.close();
     if (server) server.kill();
