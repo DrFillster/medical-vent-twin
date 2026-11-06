@@ -136,12 +136,13 @@ function createPhysicianValidationCandidate({
       inputs:environment,
       available,
       unavailableReason,
+      validationStatus:available?'unqualified-candidate':'blocked-source-domain',
       heartRatePerMin:available?hr:null,
       meanArterialPressureMmHg:available?map:null,
       cardiacOutputMlPerMin:available&&Number.isFinite(co)?co*60:null,
       strokeVolumeMl:available?sv:null,
       systemicPeripheralResistanceMmHgMinPerL:
-        Number.isFinite(peripheralResistance)
+        available&&Number.isFinite(peripheralResistance)
           ?peripheralResistance*60
           :null,
       autonomic:s.autonomic,

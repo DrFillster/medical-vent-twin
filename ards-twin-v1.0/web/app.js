@@ -68,9 +68,17 @@
     if (!candidate) {
       throw new Error('Physician validation candidate missing from live runtime snapshot. Reload the current build before testing.');
     }
+    const documentedDomainStop = candidate.available === false &&
+      candidate.validationStatus === 'blocked-source-domain' &&
+      candidate.controlAuthority === false &&
+      typeof candidate.unavailableReason === 'string' &&
+      candidate.unavailableReason.length > 0;
     for (const key of ['heartRatePerMin', 'meanArterialPressureMmHg',
       'cardiacOutputMlPerMin', 'strokeVolumeMl', 'systemicPeripheralResistanceMmHgMinPerL']) {
-      if (!Number.isFinite(candidate[key])) {
+      if (documentedDomainStop && candidate[key] !== null) {
+        throw new Error('Blocked physician candidate must not publish current ' + key);
+      }
+      if (!documentedDomainStop && !Number.isFinite(candidate[key])) {
         throw new Error('Physician validation candidate has invalid ' + key + '. Reload the current build before testing.');
       }
     }

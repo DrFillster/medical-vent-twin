@@ -10624,11 +10624,16 @@ function createBerlinLiveHumModSession({
               strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
               systemicPeripheralResistanceMmHgMinPerL:
                 physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              available: physicianCandidateState.available,
+              unavailableReason: physicianCandidateState.unavailableReason,
+              validationStatus: physicianCandidateState.validationStatus,
               authority: physicianCandidateState.authority,
               controlAuthority: false,
               knownLimitations: physicianCandidateState.knownLimitations,
               status:
-                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+                physicianCandidateState.available === false
+                  ? 'Candidate model unavailable: ' + physicianCandidateState.unavailableReason + '; validation blocked; no live-patient control authority'
+                  : 'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
             })
           : null,
         hummod2013Compensation: physicianHumMod2013ComparisonView(),
@@ -10721,11 +10726,16 @@ function createBerlinLiveHumModSession({
               strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
               systemicPeripheralResistanceMmHgMinPerL:
                 physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              available: physicianCandidateState.available,
+              unavailableReason: physicianCandidateState.unavailableReason,
+              validationStatus: physicianCandidateState.validationStatus,
               authority: physicianCandidateState.authority,
               controlAuthority: false,
               knownLimitations: physicianCandidateState.knownLimitations,
               status:
-                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+                physicianCandidateState.available === false
+                  ? 'Candidate model unavailable: ' + physicianCandidateState.unavailableReason + '; validation blocked; no live-patient control authority'
+                  : 'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
             })
           : null,
         hummod2013Compensation: physicianHumMod2013ComparisonView(),
@@ -16725,12 +16735,13 @@ function createPhysicianValidationCandidate({
       inputs:environment,
       available,
       unavailableReason,
+      validationStatus:available?'unqualified-candidate':'blocked-source-domain',
       heartRatePerMin:available?hr:null,
       meanArterialPressureMmHg:available?map:null,
       cardiacOutputMlPerMin:available&&Number.isFinite(co)?co*60:null,
       strokeVolumeMl:available?sv:null,
       systemicPeripheralResistanceMmHgMinPerL:
-        Number.isFinite(peripheralResistance)
+        available&&Number.isFinite(peripheralResistance)
           ?peripheralResistance*60
           :null,
       autonomic:s.autonomic,
