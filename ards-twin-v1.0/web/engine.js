@@ -10759,6 +10759,8 @@ function createBerlinLiveHumModSession({
           : (circ.activeBoundaries?.heartRatePerMin ??
             effectiveCirculationBoundaries.heartRatePerMin),
         sourceSaNodeHeartRatePerMin:
+          last.selectedHeartRatePerMin ?? last.sourceSaNodeHeartRatePerMin ?? null,
+        legacySourceSaNodeHeartRatePerMin:
           last.sourceSaNodeHeartRatePerMin ?? null,
         heartRateControlMode:
           last.heartRateControlMode ?? 'source-aligned',
@@ -10790,8 +10792,6 @@ function createBerlinLiveHumModSession({
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
-        sourceSaNodeHeartRatePerMin:
-          last.sourceSaNodeHeartRatePerMin ?? null,
         empiricalChronotropicBoostPerMin:
           last.appliedEmpiricalChronotropicBoostPerMin ?? 0,
         chronotropicBridgeEnvelope:
@@ -10842,7 +10842,14 @@ function createBerlinLiveHumModSession({
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
           last.autonomic?.sourceAligned?.venousAlphaActivity ?? null,
-        autonomicAuthority: last.autonomic?.authority ?? null,
+        autonomicAuthority: last.autonomic?.authority
+          ? Object.freeze({
+              ...last.autonomic.authority,
+              heartRate:last.hummod2013HeartRateState
+                ? 'HumMod source-aligned 2012/2013 baroreflex/chemoreflex SA-node candidate'
+                : last.autonomic.authority.heartRate,
+            })
+          : null,
         sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
         catecholamines: last.autonomic?.catecholamines ?? null,
         vascularSympatheticComponents:
@@ -11806,7 +11813,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     baseline: autonomicBaseline,
   });
   const hummod2013SaNode = createHumMod2013BaroChemoreflexSaNodeCandidate({
-    ecfvMl:15000,
+    ecfvMl:catecholamineEcfvMl ?? 15000,
     initialArterialPh:7.44,
     initialCarotidSinusPressureMmHg:87,
   });
@@ -12314,7 +12321,9 @@ function createHumModArdsCardiopulmonaryRuntime({
             ? 'HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> Beta1 -> SA-node candidate'
             : 'HumMod source-aligned SA-node pathway',
         autonomicAuthority: autonomicMode==='source-aligned'
-          ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
+          ? heartRateControlMode==='hummod2013-baro-chemo'
+            ? 'HumMod 2012/2013 HR candidate; older HumMod source-aligned contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
+            : 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
           ? 'source-aligned upstream HumMod boundary provider; native bicycle mode can generate Exercise-Metabolism TotalWatts dynamically before MotorRadiation/metaboreflex drive'
@@ -15399,6 +15408,7 @@ function createHumMod2013BaroChemoreflexSaNodeCandidate({
     last=Object.freeze({
       schema:'hummod-2013-baro-chemoreflex-sa-node-candidate/v1',
       timeSec,
+      ecfvMl,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
       arterialPo2MmHg,
@@ -15483,6 +15493,7 @@ function createHumMod2013BaroChemoreflexSaNodeCandidate({
     return last||Object.freeze({
       schema:'hummod-2013-baro-chemoreflex-sa-node-candidate/v1',
       timeSec,
+      ecfvMl,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
       heartRatePerMin:null,

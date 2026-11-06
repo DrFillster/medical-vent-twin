@@ -726,6 +726,8 @@ function createBerlinLiveHumModSession({
           : (circ.activeBoundaries?.heartRatePerMin ??
             effectiveCirculationBoundaries.heartRatePerMin),
         sourceSaNodeHeartRatePerMin:
+          last.selectedHeartRatePerMin ?? last.sourceSaNodeHeartRatePerMin ?? null,
+        legacySourceSaNodeHeartRatePerMin:
           last.sourceSaNodeHeartRatePerMin ?? null,
         heartRateControlMode:
           last.heartRateControlMode ?? 'source-aligned',
@@ -757,8 +759,6 @@ function createBerlinLiveHumModSession({
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
-        sourceSaNodeHeartRatePerMin:
-          last.sourceSaNodeHeartRatePerMin ?? null,
         empiricalChronotropicBoostPerMin:
           last.appliedEmpiricalChronotropicBoostPerMin ?? 0,
         chronotropicBridgeEnvelope:
@@ -809,7 +809,14 @@ function createBerlinLiveHumModSession({
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
           last.autonomic?.sourceAligned?.venousAlphaActivity ?? null,
-        autonomicAuthority: last.autonomic?.authority ?? null,
+        autonomicAuthority: last.autonomic?.authority
+          ? Object.freeze({
+              ...last.autonomic.authority,
+              heartRate:last.hummod2013HeartRateState
+                ? 'HumMod source-aligned 2012/2013 baroreflex/chemoreflex SA-node candidate'
+                : last.autonomic.authority.heartRate,
+            })
+          : null,
         sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
         catecholamines: last.autonomic?.catecholamines ?? null,
         vascularSympatheticComponents:
