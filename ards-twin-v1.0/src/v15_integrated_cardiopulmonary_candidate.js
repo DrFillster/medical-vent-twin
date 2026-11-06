@@ -220,7 +220,7 @@ function createV15IntegratedCardiopulmonaryCandidate({
       coronaryFlowMlPerSec:flows.heart,
       muscleFlowMlPerSec:flows.muscle,
       muscleNormalResistanceMmHgSecPerMl:e.absolute.RmpNormal,
-      averageCardiacPumpPowerMmHgMlPerSec,
+      averageCardiacPumpPowerMmHgMlPerSec:averagePumpPowerMmHgMlPerSec,
     });
 
     plant.setEffectors({

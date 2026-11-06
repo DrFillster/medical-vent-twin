@@ -141,8 +141,7 @@ Printed page H162.
 
 ```
 f_v =
-  f_ev,0
-  + [f_ev,infinity * exp((f_ab - f_ab,0)/k_ev)]
+  [f_ev,0 + f_ev,infinity * exp((f_ab - f_ab,0)/k_ev)]
     / [1 + exp((f_ab - f_ab,0)/k_ev)]
   + W_c,v*f_ac
   - W_p,v*f_ap
@@ -157,6 +156,15 @@ Parameters from Table 2:
 - W_c,v = 0.2
 - W_p,v = 0.103
 - theta_v = -0.68 spikes/s
+
+The entire `f_ev,0 + f_ev,infinity * exp(...)` expression is the numerator.
+Its baroreceptor-only limits are 3.2 and 6.3 spikes/s, before the additive
+chemoreceptor, pulmonary, and offset terms. Putting the 3.2 term outside the
+fraction changes the upper limit to 9.5 and is a different equation.
+Source: primary article Appendix Eq. 23 (H162), with the same sigmoid in
+Ursino 1998 Appendix Eq. 34. Author-posted primary texts:
+https://www.researchgate.net/publication/12420296
+https://www.researchgate.net/publication/13471755
 
 Status: equation implemented as a pure shadow function, but output is withheld unless a source-valid f_ab is supplied.
 

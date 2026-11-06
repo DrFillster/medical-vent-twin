@@ -16028,8 +16028,10 @@ function vagalFiring({
   finite(fApSpikesPerSec, 'fApSpikesPerSec');
   const p = P.vagal;
   const e = Math.exp((fAbSpikesPerSec - p.baroMidSpikesPerSec) / p.kSpikesPerSec);
-  return p.f0SpikesPerSec +
-    (p.fInfinitySpikesPerSec * e) / (1 + e) +
+  // Eq. 23 has both f_ev,0 and f_ev,infinity*exp(...) in the numerator.
+  // Keeping f_ev,0 outside changes the high-pressure asymptote from 6.3 to
+  // 9.5 spikes/s and spuriously increases vagal inhibition of the heart.
+  return (p.f0SpikesPerSec + p.fInfinitySpikesPerSec * e) / (1 + e) +
     p.chemoWeight * fAcSpikesPerSec -
     p.pulmonaryWeight * fApSpikesPerSec -
     p.thetaSpikesPerSec;

@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#101d2a">
 <meta name="description" content="Explore pressure, flow, volume, and recruitment with an inspectable three-compartment mechanical lung model.">
 <title>ARDS Clinical Twin · v2.4</title>
-<link rel="stylesheet" href="./styles.css?v=1.5.0">
-<script src="./engine.js?v=1.5.0" defer></script>
-<script src="./native-engine-config.js?v=1.5.0" defer></script>
-<script src="./native-engine-client.js?v=1.5.0" defer></script>
-<script src="./app.js?v=1.5.0" defer></script>
+<link rel="stylesheet" href="./styles.css?v=1.5.1-candidate-runtime">
+<script src="./engine.js?v=1.5.1-candidate-runtime" defer></script>
+<script src="./native-engine-config.js?v=1.5.1-candidate-runtime" defer></script>
+<script src="./native-engine-client.js?v=1.5.1-candidate-runtime" defer></script>
+<script src="./app.js?v=1.5.1-candidate-runtime" defer></script>
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
@@ -208,7 +208,7 @@
 
 <details class="card physician-comparison-card advanced" open>
 <summary>Physician validation comparison</summary><div class="card-heading"><h2>Live model vs candidate model</h2><span class="pill">Candidate · no control authority</span></div>
-<p class="hint"><strong>Comparison availability:</strong> current-model values below come from the live v2.4 session. The earlier parallel candidate and HumMod 2013 comparison models are not included in v2.4; their fields remain blank.</p>
+<p class="hint"><strong>Comparison availability:</strong> current-model values below come from the live v2.4 session. The existing candidate is a parallel Ursino–Magosso 2000 cardiovascular model; the HumMod 2013 compensation channel is also shown for comparison. These comparison channels have no control authority over the live patient.</p>
 <div class="clinical-grid monitor-grid">
 <article><h3>Current-model HR</h3><p><span id="clinical-compare-live-hr">—</span><small> /min</small></p></article>
 <article><h3>Candidate HR</h3><p><span id="clinical-compare-shadow-hr">—</span><small> /min</small></p></article>
@@ -229,9 +229,10 @@
 <article><h3>2013 norepinephrine</h3><p><span id="clinical-compare-hm2013-ne">—</span><small> pg/mL</small></p></article>
 <article><h3>2013 epinephrine</h3><p><span id="clinical-compare-hm2013-epi">—</span><small> pg/mL</small></p></article>
 <article><h3>2013 Beta1 effect</h3><p><span id="clinical-compare-hm2013-beta1">—</span></p></article>
-<article><h3>Myocardial contractility model</h3><p><span id="clinical-compare-myocardial-status">Unavailable in v2.4</span></p></article>\n<article><h3>Native physiology engine</h3><p><span id="clinical-native-engine-status">Not configured</span></p></article>
+<article><h3>Myocardial contractility model</h3><p><span id="clinical-compare-myocardial-status">Not source-complete</span></p></article>
+<article><h3>Native physiology engine</h3><p><span id="clinical-native-engine-status">Not configured</span></p></article>
 </div>
-<p class="hint" id="clinical-compare-status">Earlier candidate comparisons are unavailable in v2.4.</p>
+<p class="hint" id="clinical-compare-status">Candidate is non-canonical and has no live-patient control authority.</p>
 </details>
 
 <details class="advanced research-shadow-panel">
