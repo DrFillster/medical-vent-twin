@@ -1308,11 +1308,15 @@
           caseId: $('clinical-case').value,
           ventilation: clinicalVentilationPayload(),
           dt: clinicalNumber('clinical-dt'),
+          // Use the same pinned HumMod 2012/2013 baro-chemoreflex ->
+          // sympathoadrenal -> Beta1 -> SA-node equations for manual and
+          // test-harness patients. Ventilator settings must not select the
+          // cardiac feedback model implicitly.
+          heartRateControlMode: 'hummod2013-baro-chemo',
         };
         if (clinicalScenarioMode === 'extremis-validation') {
           // Exact parity with the validated v1.5 tachycardic extremis harness.
           payload.mechanicalWarmupSec = 3;
-          payload.heartRateControlMode = 'hummod2013-baro-chemo';
         }
         if (provider === 'replay') payload.humModExport = clinicalHumModExport;
         if ($('clinical-init-mode').value === 'history') {

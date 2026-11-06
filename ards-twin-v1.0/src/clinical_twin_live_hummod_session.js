@@ -962,6 +962,13 @@ function createBerlinLiveHumModSession({
     throw new Error('passive mechanics measurement did not complete within maxAdvanceSec');
   }
 
+  function completedMechanicsElapsedSec(startVentTime) {
+    // Mechanics commits whole dt ticks. Reconstruct their elapsed duration
+    // before handing it to observers that require an integer number of ticks;
+    // subtracting two accumulated floating-point clocks can lose a tick.
+    return Math.round((simulation.state.t - startVentTime) / dt) * dt;
+  }
+
   return Object.freeze({
     kind: 'berlin-clinical-twin-live-hummod-session',
     clinicalCase,
@@ -1048,7 +1055,7 @@ function createBerlinLiveHumModSession({
       simulation.requestExpiratoryHold(holdDurationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', expiratoryCount, maxAdvanceSecPerHold);
 
-      const elapsed = simulation.state.t - startVentTime;
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
       if (elapsed > 0) {
         systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
         updateAutonomicShadow(elapsed);
@@ -1078,7 +1085,7 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
       advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
       if (elapsed > 0) {
         systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
         updateAutonomicShadow(elapsed);
@@ -1109,7 +1116,7 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
       if (elapsed > 0) {
         systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
         updateAutonomicShadow(elapsed);

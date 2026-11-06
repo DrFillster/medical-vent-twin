@@ -2106,21 +2106,12 @@ function buildSystem(activeComps, vOld, pBranchGuess, boundary, params, dt) {
       J[i][N] = 0;
       continue;
     }
-    // Evaluate the elastic law at the trial V.
-    let pEl;
-    if (vNew < FLOW_ZERO_TOL) {
-      // V near zero but flow is incoming. Use a small regularizing V to
-      // avoid singularity in p_el. The actual V_new is allowed to grow.
-      const vTiny = 1e-12;
-      pEl = elasticPressureAboveAOP(vTiny, cp, cs.recruitment);
-    } else {
-      pEl = elasticPressureAboveAOP(vNew, cp, cs.recruitment);
-    }
-    // v0.4.3: analytic tangent dP_el/dV = K/(Vmax - V).
-    // (For V→0 with vTiny regularization, dPressureDVolume is well-defined
-    // at the regularized point.)
-    const vForTangent = vNew < FLOW_ZERO_TOL ? 1e-12 : vNew;
-    const dpdV = dPressureDVolume(vForTangent, cp, cs.recruitment);
+    // The finite-capacity law is regular at V=0: p_el(0)=0 and
+    // dp_el/dV(0)=K/Vmax for every positive Vmax. Evaluate the actual trial
+    // volume instead of introducing an absolute volume floor, which can
+    // exceed Vmax as a recruitable compartment closes.
+    const pEl = elasticPressureAboveAOP(vNew, cp, cs.recruitment);
+    const dpdV = dPressureDVolume(vNew, cp, cs.recruitment);
     F[i] = vNew - cs.volume - dt * G * (pBranchGuess - aop - pEl);
     J[i][i] = 1 + dt * G * dpdV;
     J[i][N] = -dt * G;
@@ -10990,6 +10981,13 @@ function createBerlinLiveHumModSession({
     throw new Error('passive mechanics measurement did not complete within maxAdvanceSec');
   }
 
+  function completedMechanicsElapsedSec(startVentTime) {
+    // Mechanics commits whole dt ticks. Reconstruct their elapsed duration
+    // before handing it to observers that require an integer number of ticks;
+    // subtracting two accumulated floating-point clocks can lose a tick.
+    return Math.round((simulation.state.t - startVentTime) / dt) * dt;
+  }
+
   return Object.freeze({
     kind: 'berlin-clinical-twin-live-hummod-session',
     clinicalCase,
@@ -11076,7 +11074,7 @@ function createBerlinLiveHumModSession({
       simulation.requestExpiratoryHold(holdDurationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', expiratoryCount, maxAdvanceSecPerHold);
 
-      const elapsed = simulation.state.t - startVentTime;
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
       if (elapsed > 0) {
         systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
         updateAutonomicShadow(elapsed);
@@ -11106,7 +11104,7 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
       advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
       if (elapsed > 0) {
         systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
         updateAutonomicShadow(elapsed);
@@ -11137,7 +11135,7 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
       if (elapsed > 0) {
         systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
         updateAutonomicShadow(elapsed);
@@ -12056,7 +12054,9 @@ function createHumModArdsCardiopulmonaryRuntime({
           contractilityMultiplier: sourceControl.contractilityMultiplier,
           systemicVenousV0Ml: sourceControl.systemicVenousV0Ml,
           authority: Object.freeze({
-            heartRate:'HumMod source-aligned acute subset',
+            heartRate:heartRateControlMode==='hummod2013-baro-chemo'
+              ? 'HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> Beta1 -> SA-node reduced candidate'
+              : 'HumMod source-aligned acute subset',
             contractility:'HumMod source-aligned beta-receptor pathway',
             venousV0:'HumMod source-aligned venous alpha pathway',
             systemicArterialConductance:'legacy reduced controller',

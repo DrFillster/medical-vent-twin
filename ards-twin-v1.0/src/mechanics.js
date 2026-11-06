@@ -287,21 +287,12 @@ function buildSystem(activeComps, vOld, pBranchGuess, boundary, params, dt) {
       J[i][N] = 0;
       continue;
     }
-    // Evaluate the elastic law at the trial V.
-    let pEl;
-    if (vNew < FLOW_ZERO_TOL) {
-      // V near zero but flow is incoming. Use a small regularizing V to
-      // avoid singularity in p_el. The actual V_new is allowed to grow.
-      const vTiny = 1e-12;
-      pEl = elasticPressureAboveAOP(vTiny, cp, cs.recruitment);
-    } else {
-      pEl = elasticPressureAboveAOP(vNew, cp, cs.recruitment);
-    }
-    // v0.4.3: analytic tangent dP_el/dV = K/(Vmax - V).
-    // (For V→0 with vTiny regularization, dPressureDVolume is well-defined
-    // at the regularized point.)
-    const vForTangent = vNew < FLOW_ZERO_TOL ? 1e-12 : vNew;
-    const dpdV = dPressureDVolume(vForTangent, cp, cs.recruitment);
+    // The finite-capacity law is regular at V=0: p_el(0)=0 and
+    // dp_el/dV(0)=K/Vmax for every positive Vmax. Evaluate the actual trial
+    // volume instead of introducing an absolute volume floor, which can
+    // exceed Vmax as a recruitable compartment closes.
+    const pEl = elasticPressureAboveAOP(vNew, cp, cs.recruitment);
+    const dpdV = dPressureDVolume(vNew, cp, cs.recruitment);
     F[i] = vNew - cs.volume - dt * G * (pBranchGuess - aop - pEl);
     J[i][i] = 1 + dt * G * dpdV;
     J[i][N] = -dt * G;

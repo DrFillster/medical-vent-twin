@@ -379,7 +379,9 @@ function createHumModArdsCardiopulmonaryRuntime({
           contractilityMultiplier: sourceControl.contractilityMultiplier,
           systemicVenousV0Ml: sourceControl.systemicVenousV0Ml,
           authority: Object.freeze({
-            heartRate:'HumMod source-aligned acute subset',
+            heartRate:heartRateControlMode==='hummod2013-baro-chemo'
+              ? 'HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> Beta1 -> SA-node reduced candidate'
+              : 'HumMod source-aligned acute subset',
             contractility:'HumMod source-aligned beta-receptor pathway',
             venousV0:'HumMod source-aligned venous alpha pathway',
             systemicArterialConductance:'legacy reduced controller',
