@@ -79,6 +79,7 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
   ventilationMode='external-delivered-vt',
   diagnosticLocalO2Mode='source',
   diagnosticLocalO2EnabledBeds=null,
+  controlParameterSet='ursino-magosso-2000',
 }={}){
   positive(dtSec,'dtSec');
   nonNegative(pao2MmHg,'pao2MmHg');
@@ -102,10 +103,14 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     }
   }
 
+  const instanceSource=controlParameterSet==='ursino-magosso-2000'?SOURCE:Object.freeze({
+    ...SOURCE,role:'published-2016-parameter-adaptation-on-2000-plant',
+    parameterSource:require('./albanese_2016_control_parameter_set.js').SOURCE,
+  });
   const plant=createUrsinoMagosso2000ExpandedPlantRuntime({dtSec});
   const baro=createUrsinoBaroreceptorShadow();
-  const autonomic=createUrsinoMagossoAutonomicShadow();
-  const localO2=createUrsinoMagosso2000LocalO2Candidate();
+  const autonomic=createUrsinoMagossoAutonomicShadow({controlParameterSet});
+  const localO2=createUrsinoMagosso2000LocalO2Candidate({controlParameterSet});
   const sourceVentilation=ventilationMode===
     'ursino-magosso-2000-spontaneous-validation'
       ?createUrsinoMagosso2000TidalVolumeCandidate()
@@ -177,6 +182,7 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
       effectors=createUrsinoMagosso2000SplitEffectorsRuntime({
         initialVascularSympatheticSpikesPerSec:
           autonomicState.fSpSpikesPerSec,
+        initialVenousSympatheticSpikesPerSec:autonomicState.fSvSpikesPerSec,
         initialCardiacSympatheticSpikesPerSec:
           autonomicState.fShSpikesPerSec,
         initialCardiacVagalSpikesPerSec:
@@ -187,6 +193,7 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     const reflex=effectors.step({
       dtSec,
       vascularSympatheticSpikesPerSec:autonomicState.fSpSpikesPerSec,
+      venousSympatheticSpikesPerSec:autonomicState.fSvSpikesPerSec,
       cardiacSympatheticSpikesPerSec:autonomicState.fShSpikesPerSec,
       cardiacVagalSpikesPerSec:autonomicState.fVSpikesPerSec,
     });
@@ -271,25 +278,27 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
       hemodynamics:p.hemodynamics,
       vascularState:p.state,
       vascularEffectors:p.effectors,
+      controlParameterSet,
       autonomic:autonomicState,
+      reflexEffectors:effectors?effectors.snapshot():null,
       localO2:localState,
       averagePumpPowerMmHgMlPerSec,
       diagnostic:Object.freeze({
         localO2Mode:diagnosticLocalO2Mode,
         localO2EnabledBeds:Object.freeze([...localO2Beds]),
         sourceCandidateBehavior:
-          diagnosticLocalO2Mode==='source'&&localO2Beds.size===3,
+          diagnosticLocalO2Mode==='source'&&localO2Beds.size===3&&controlParameterSet==='ursino-magosso-2000',
       }),
       conservation:p.conservation,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
       candidatePlantControlAuthority:true,
-      provenance:SOURCE,
+      provenance:instanceSource,
     });
   }
 
   return Object.freeze({
-    step,runFor,snapshot,setEnvironment,source:SOURCE,
+    step,runFor,snapshot,setEnvironment,source:instanceSource,
   });
 }
 

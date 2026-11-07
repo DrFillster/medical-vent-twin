@@ -349,6 +349,36 @@
       "provenance": "LITERATURE_DIRECT",
       "authority": "SHADOW",
       "source": "docs/HENNIGS_RESPIRATORY_CENTER_AUDIT.md"
+    },
+    {
+      "id": "hummod2013.potassium_cell_balance",
+      "subsystem": "potassium",
+      "equation": "dKCellMass/dt = 0.0018*KAldoDelayed*KPoolMass - 0.00008*(KCellMass-2180)",
+      "units": "mEq/min",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANDIDATE",
+      "source": "src/hummod_2013_potassium_balance_candidate.js",
+      "reference": "nysuloem/HumMod-UTSC-CPG@51d369eb75669e150ef7c61e3ba8bcb1e068aecf; Structure/K/KCell.DES, KFluxToCell.DES, KFluxToPool.DES; coupled backward Euler, not DES solver identity"
+    },
+    {
+      "id": "hummod2013.potassium_pool_balance",
+      "subsystem": "potassium",
+      "equation": "dKPoolMass/dt = GIAbsorption + IVDrip + Transfusion - CollectingDuctOutflow - SweatOutflow - Hemorrhage - DialyzerFlux - dKCellMass/dt",
+      "units": "mEq/min",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANDIDATE",
+      "source": "src/hummod_2013_potassium_balance_candidate.js",
+      "reference": "same pinned source; Structure/K/KPool.DES; all source gains/losses mandatory"
+    },
+    {
+      "id": "hummod2013.potassium_aldosterone_delay",
+      "subsystem": "potassium",
+      "equation": "dKAldoDelayed/dt = (KAldoImmediate-KAldoDelayed)/120 min; Immediate = source Hermite curve at AldoPool concentration",
+      "units": "1/min",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANDIDATE",
+      "source": "src/hummod_2013_potassium_balance_candidate.js",
+      "reference": "same pinned source; Structure/K/KAldoEffect.DES; exact held-input delay with first-order Lie split"
     }
   ],
   "variables": [
@@ -573,6 +603,42 @@
       "units": "ratio",
       "subsystem": "myocardium",
       "authority": "SHADOW"
+    },
+    {
+      "id": "hummod2013.potassium.cellMassMeq",
+      "subsystem": "potassium",
+      "units": "mEq",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANDIDATE",
+      "source": "src/hummod_2013_potassium_balance_candidate.js"
+    },
+    {
+      "id": "hummod2013.potassium.poolMassMeq",
+      "subsystem": "potassium",
+      "units": "mEq",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANDIDATE",
+      "source": "src/hummod_2013_potassium_balance_candidate.js"
+    },
+    {
+      "id": "hummod2013.potassium.delayedAldosteroneEffect",
+      "subsystem": "potassium",
+      "units": "dimensionless",
+      "provenance": "HUMMOD_ADAPTED",
+      "authority": "CANDIDATE",
+      "source": "src/hummod_2013_potassium_balance_candidate.js"
+    }
+  ],
+  "parameterSets": [
+    {
+      "id": "albanese2016.table7.onUrsino2000Plant",
+      "subsystem": "autonomic-and-local-oxygen-control",
+      "provenance": "LITERATURE_ADAPTED",
+      "authority": "CANDIDATE",
+      "source": "src/albanese_2016_control_parameter_set.js",
+      "reference": "Albanese et al. 2016, doi:10.1152/ajpheart.00230.2014, Table 7",
+      "parameterCount": 11,
+      "limitation": "Published parameters adapted to the existing 2000 plant and afferent chemoreceptor, not a full 2016 CP Model reproduction; no canonical bedside control authority."
     }
   ]
 }

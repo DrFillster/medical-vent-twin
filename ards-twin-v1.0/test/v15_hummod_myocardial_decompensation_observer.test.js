@@ -3,6 +3,7 @@
 const assert=require('node:assert/strict');
 const {
   setupHgbProps,
+  po2ToO2Content,
 }=require('../src/hummod_hgb_tissue_source_aligned.js');
 const {
   createHumModMyocardialDecompensationObserver,
@@ -37,15 +38,24 @@ function fixture(arterialPo2MmHg=90){
     anesthesiaVascularConductance:1,
     vasculatureEffect:1,
     infarctionEffect:1,
-    arterialO2ContentMlPerMl:0.19,
+    // PO2 and content must describe the same blood sample in the flow solve.
+    arterialO2ContentMlPerMl:po2ToO2Content({
+      po2MmHg:arterialPo2MmHg,
+      o2MaxMlPerMl:0.20,
+      p50:h.p50,
+      scaleForSat:h.scaleForSat,
+    }),
     o2MaxMlPerMl:0.20,
     hgbP50:h.p50,
     hgbScaleForSat:h.scaleForSat,
     plasmaVolumeFraction:0.55,
-    fattyAcidConcentrationMgPerMl:0.0016,
-    fattyAcidConcentrationMgDl:0.16,
-    glucoseConcentrationMgPerMl:0.011,
-    glucoseConcentrationMgDl:1.10,
+    // Source GlucosePool.Target[Glucose] = 1.10 mg/mL; per-dL = 100 * per-mL.
+    // The old fixture divided both substrate pools by 100, unintentionally
+    // testing extreme substrate starvation in the normal composition smoke.
+    fattyAcidConcentrationMgPerMl:0.160,
+    fattyAcidConcentrationMgDl:16.0,
+    glucoseConcentrationMgPerMl:1.10,
+    glucoseConcentrationMgDl:110.0,
     myocardialLactateMgDlForFuel:10,
     intracellularPotassium:0.145,
     liquidVolumeMl:100,
@@ -87,6 +97,19 @@ test('observer fails closed on missing upstream state',()=>{
   const x=fixture();
   delete x.intracellularPotassium;
   assert.throws(()=>o.step(x),/intracellularPotassium/);
+});
+
+test('source-negative anaerobic fuel output is rejected, not clamped or promoted',()=>{
+  const o=createHumModMyocardialDecompensationObserver({side:'left'});
+  const x=fixture();
+  x.fattyAcidConcentrationMgPerMl=0.0016;
+  x.fattyAcidConcentrationMgDl=0.16;
+  x.glucoseConcentrationMgPerMl=0.011;
+  x.glucoseConcentrationMgDl=1.10;
+  // The pinned older Fuel.DES takes MIN(anaerobic demand, delivered glucose
+  // minus aerobic use). Under this boundary it returns a negative rate.
+  // Preserve source algebra and the downstream nonnegative-rate requirement.
+  assert.throws(()=>o.step(x),/anaerobicGlucoseUsedMgPerMin must be >= 0/);
 });
 
 test('cellular energetic fields remain incomplete when not supplied',()=>{

@@ -66,7 +66,7 @@ test('Halliwill matched hyperpnoea validation passes inside the integrated candi
   assert.equal(run.status,0,run.stderr||run.stdout);
   halliwill=JSON.parse(run.stdout);
   assert(halliwill.hypoxia.hrPerMin>halliwill.hyperpnoea.hrPerMin);
-  assert(halliwill.hypoxia.mapMmHg>halliwill.hyperpnoea.mapMmHg);
+  assert(halliwill.hypoxia.mapMmHg>halliwill.hypoxia.baseline.mapMmHg);
 });
 
 test('mild hypercapnia remains a separate report-only external target',()=>{

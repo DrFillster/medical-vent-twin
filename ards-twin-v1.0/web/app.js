@@ -61,6 +61,32 @@
     }
   }
 
+  function requirePhysicianCandidateSnapshot(snapshot) {
+    if (snapshot?.sessionSchema !== 'berlin-clinical-twin-live-hummod-session/v1') return;
+    const candidate = snapshot?.systemic?.physicianComparison?.candidateModel;
+    const hummod2013 = snapshot?.systemic?.physicianComparison?.hummod2013Compensation;
+    if (!candidate) {
+      throw new Error('Physician validation candidate missing from live runtime snapshot. Reload the current build before testing.');
+    }
+    const documentedDomainStop = candidate.available === false &&
+      candidate.validationStatus === 'blocked-source-domain' &&
+      candidate.controlAuthority === false &&
+      typeof candidate.unavailableReason === 'string' &&
+      candidate.unavailableReason.length > 0;
+    for (const key of ['heartRatePerMin', 'meanArterialPressureMmHg',
+      'cardiacOutputMlPerMin', 'strokeVolumeMl', 'systemicPeripheralResistanceMmHgMinPerL']) {
+      if (documentedDomainStop && candidate[key] !== null) {
+        throw new Error('Blocked physician candidate must not publish current ' + key);
+      }
+      if (!documentedDomainStop && !Number.isFinite(candidate[key])) {
+        throw new Error('Physician validation candidate has invalid ' + key + '. Reload the current build before testing.');
+      }
+    }
+    if (!Number.isFinite(hummod2013?.heartRatePerMin)) {
+      throw new Error('HumMod 2013 compensation comparison missing or invalid. Reload the current build before testing.');
+    }
+  }
+
   async function pollNativeEngineBoundary() {
     if (!nativeEngineClient) return;
     try {
@@ -304,7 +330,7 @@
       ? 'v2.4 LIVE PHYSIOLOGY · reference aspiration patient · VC-AC · experimental.'
       : 'TRAJECTORY REPLAY · Vent interventions do not alter replayed systemic values.';
     $('clinical-coupling-note').textContent = live
-      ? 'Vent mechanics drive the unchanged v2.4 gas-exchange, circulation, pulmonary vascular, autonomic and terminal-state models. Earlier candidate comparison models are unavailable.'
+      ? 'Vent mechanics drive the v2.4 gas-exchange, circulation, pulmonary vascular, autonomic and terminal-state models. Parallel comparison models are diagnostic only.'
       : 'Under fixed HumMod replay, Vent interventions change pulmonary mechanics only. The systemic trajectory does not synthesize a new response.';
 
     const reference = 'berlin-moderate-moderate-aspiration';
@@ -858,7 +884,7 @@
       comparisonStatus.textContent = candidateComparison.status
         ? candidateComparison.status + (limitations ? ' Known limitations: ' + limitations : '')
         : snapshot.coupling.mode === 'live-reduced-hummod-ards-core'
-          ? 'v2.4 live physiology active. Earlier candidate and HumMod 2013 comparison models are unavailable; blank values are not simulated.'
+          ? 'Candidate model unavailable. Comparison values have not been validated.'
           : 'Trajectory replay active. Candidate comparison models are unavailable.';
     }
     const recentPressures = (snapshot.pulmonary?.recentWaveform || [])
@@ -993,7 +1019,7 @@
     clinicalPhysiologyTrend = [];
     renderClinicalInterventions();
     renderClinicalPhysiologyTrends();
-    clinicalWorker = new Worker('./clinical-worker.js?v=1.5.0');
+    clinicalWorker = new Worker('./clinical-worker.js?v=1.5.1-candidate-runtime');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
@@ -1009,6 +1035,7 @@
       if (data.type === 'initialized') {
         try {
           requireClinicalSnapshot(data.snapshot);
+          requirePhysicianCandidateSnapshot(data.snapshot);
         } catch (error) {
           stopClinicalContinuousRun();
           showClinicalError(error.message);
@@ -1049,6 +1076,7 @@
       if (data.type === 'snapshot') {
         try {
           requireClinicalSnapshot(data.snapshot);
+          requirePhysicianCandidateSnapshot(data.snapshot);
         } catch (error) {
           stopClinicalContinuousRun();
           showClinicalError(error.message);
@@ -1442,6 +1470,7 @@
           throw new Error('Clinical session export is unavailable in this browser build');
         }
         requireClinicalSnapshot(clinicalSnapshot);
+        requirePhysicianCandidateSnapshot(clinicalSnapshot);
         const baseRecord = VENT.createClinicalSessionRecord(clinicalSnapshot);
         const record = { ...baseRecord };
         record.browserBuildSha = clinicalBuildSha;

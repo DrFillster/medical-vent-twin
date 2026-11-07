@@ -63,6 +63,7 @@ test('live session initializes with finite HumMod-derived gas and circulation ou
 
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({
+    heartRateControlMode:'hummod2013-baro-chemo',
     nativeCalibrationTarget: {
       schema: 'vent-native-reduced-hummod-calibration-target/v1',
       targetId: 'ecfv-only-fixture',
@@ -79,6 +80,11 @@ test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   });
   const s = session.initialize();
   assert(s.coupling.nativeEcfvApplied===true);
+  assert(s.systemic.hemodynamics.hummod2013HeartRateState.ecfvMl===14000,
+    'selected 2013 SA-node pools must use the supplied native ECFV boundary');
+  assert(s.systemic.hemodynamics.sourceSaNodeHeartRatePerMin===
+    s.systemic.hemodynamics.selectedHeartRatePerMin,
+    'source-rate diagnostics must identify the selected source controller');
   assert(s.coupling.humoralAutonomicMode===
     'dynamic-source-aligned-catecholamines-native-ecfv');
   assert(s.systemic.hemodynamics.catecholamines &&

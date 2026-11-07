@@ -4,8 +4,12 @@ const {
   createUrsinoMagosso2000ExpandedHypoxiaClosedLoop,
 }=require('./ursino_magosso_2000_expanded_hypoxia_closed_loop.js');
 
+const {PARAMETER_SET}=require('./albanese_2016_control_parameter_set.js');
+
 const SOURCE=Object.freeze({
-  model:'Ursino-Magosso 2000 expanded hypoxia candidate',
+  model:'Ursino-Magosso 2000 plant with published Albanese 2016 Table 7 control parameters',
+  controlParameterSet:PARAMETER_SET,
+  parameterDoi:'10.1152/ajpheart.00230.2014',
   doi:'10.1152/ajpheart.2000.279.1.H149',
   authority:'candidate-not-canonical',
   role:'physician-validation-parallel-view',
@@ -41,6 +45,7 @@ function createPhysicianValidationCandidate({
 
   const runtime=createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     dtSec,
+    controlParameterSet:PARAMETER_SET,
     pao2MmHg,
     paco2MmHg,
     tidalVolumeL,
@@ -103,7 +108,8 @@ function createPhysicianValidationCandidate({
         const message=error&&error.message?String(error.message):String(error);
         const sourceDomainFailure=
           message==='venousO2MlPerMl must be >= 0' ||
-          message.endsWith('source bed flow became non-positive');
+          message.endsWith('source bed flow became non-positive') ||
+          message==='1 + localState must remain > 0';
         if(!sourceDomainFailure) throw error;
         available=false;
         unavailableReason=message;
@@ -136,12 +142,13 @@ function createPhysicianValidationCandidate({
       inputs:environment,
       available,
       unavailableReason,
+      validationStatus:available?'unqualified-candidate':'blocked-source-domain',
       heartRatePerMin:available?hr:null,
       meanArterialPressureMmHg:available?map:null,
       cardiacOutputMlPerMin:available&&Number.isFinite(co)?co*60:null,
       strokeVolumeMl:available?sv:null,
       systemicPeripheralResistanceMmHgMinPerL:
-        Number.isFinite(peripheralResistance)
+        available&&Number.isFinite(peripheralResistance)
           ?peripheralResistance*60
           :null,
       autonomic:s.autonomic,
@@ -158,8 +165,9 @@ function createPhysicianValidationCandidate({
       candidatePlantControlAuthority:true,
       knownLimitations:Object.freeze([
         'Basal regional flow allocation accepted by physician as candidate-layer tolerance, not exact source reproduction.',
-        'Early Fig. 11 beat-averaged SAP rise remains smaller than source description.',
-        'Human hypoxia/hypercapnia quantitative validation remains incomplete.',
+        'Published 2016 control parameters are adapted to the 2000 plant and afferent chemoreceptor; this is not a full 2016 CP Model reproduction.',
+        'Human hypoxia/hypercapnia quantitative validation remains incomplete, including the magnitude of the hyperpnoea-only HR response.',
+        'Awake healthy human validation does not establish validity in ventilated ARDS or terminal decompensation.',
         ...(available?[]:[
           'Parallel candidate stopped after its source oxygen-transport equations left their physical domain; canonical bedside physiology continues independently.',
         ]),

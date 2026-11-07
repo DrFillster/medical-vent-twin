@@ -107,7 +107,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     baseline: autonomicBaseline,
   });
   const hummod2013SaNode = createHumMod2013BaroChemoreflexSaNodeCandidate({
-    ecfvMl:15000,
+    ecfvMl:catecholamineEcfvMl ?? 15000,
     initialArterialPh:7.44,
     initialCarotidSinusPressureMmHg:87,
   });
@@ -615,7 +615,9 @@ function createHumModArdsCardiopulmonaryRuntime({
             ? 'HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> Beta1 -> SA-node candidate'
             : 'HumMod source-aligned SA-node pathway',
         autonomicAuthority: autonomicMode==='source-aligned'
-          ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
+          ? heartRateControlMode==='hummod2013-baro-chemo'
+            ? 'HumMod 2012/2013 HR candidate; older HumMod source-aligned contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
+            : 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
           ? 'source-aligned upstream HumMod boundary provider; native bicycle mode can generate Exercise-Metabolism TotalWatts dynamically before MotorRadiation/metaboreflex drive'

@@ -50,11 +50,14 @@ function staticDelta(name,firing){
 
 function createUrsinoMagosso2000SplitEffectorsRuntime({
   initialVascularSympatheticSpikesPerSec,
+  initialVenousSympatheticSpikesPerSec=initialVascularSympatheticSpikesPerSec,
   initialCardiacSympatheticSpikesPerSec,
   initialCardiacVagalSpikesPerSec,
 }={}){
   nonNegative(initialVascularSympatheticSpikesPerSec,
     'initialVascularSympatheticSpikesPerSec');
+  nonNegative(initialVenousSympatheticSpikesPerSec,
+    'initialVenousSympatheticSpikesPerSec');
   nonNegative(initialCardiacSympatheticSpikesPerSec,
     'initialCardiacSympatheticSpikesPerSec');
   nonNegative(initialCardiacVagalSpikesPerSec,
@@ -64,7 +67,8 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
   for(const name of [
     'Rsp','Rep','RmpNormal','Vusv','Vuev','Vumv',
   ]){
-    delta[name]=staticDelta(name,initialVascularSympatheticSpikesPerSec);
+    delta[name]=staticDelta(name,['Vusv','Vuev','Vumv'].includes(name)
+      ?initialVenousSympatheticSpikesPerSec:initialVascularSympatheticSpikesPerSec);
   }
   for(const name of ['EmaxLv','EmaxRv','Ts']){
     delta[name]=staticDelta(name,initialCardiacSympatheticSpikesPerSec);
@@ -73,16 +77,18 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
 
   const initialSignals=Object.freeze({
     vascular:initialVascularSympatheticSpikesPerSec,
+    venous:initialVenousSympatheticSpikesPerSec,
     cardiac:initialCardiacSympatheticSpikesPerSec,
     vagal:initialCardiacVagalSpikesPerSec,
   });
-  const history={vascular:[],cardiac:[],vagal:[]};
+  const history={vascular:[],venous:[],cardiac:[],vagal:[]};
   let timeSec=0;
   let rates={};
   for(const name of Object.keys(delta)) rates[name]=0;
 
   function inputFor(name,current){
-    if(['Rsp','Rep','RmpNormal','Vusv','Vuev','Vumv'].includes(name)){
+    if(['Vusv','Vuev','Vumv'].includes(name)) return ['venous',current.venous];
+    if(['Rsp','Rep','RmpNormal'].includes(name)){
       return ['vascular',current.vascular];
     }
     if(['EmaxLv','EmaxRv','Ts'].includes(name)){
@@ -94,6 +100,7 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
   function step({
     dtSec,
     vascularSympatheticSpikesPerSec,
+    venousSympatheticSpikesPerSec=vascularSympatheticSpikesPerSec,
     cardiacSympatheticSpikesPerSec,
     cardiacVagalSpikesPerSec,
   }={}){
@@ -101,6 +108,8 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
     const current={
       vascular:nonNegative(vascularSympatheticSpikesPerSec,
         'vascularSympatheticSpikesPerSec'),
+      venous:nonNegative(venousSympatheticSpikesPerSec,
+        'venousSympatheticSpikesPerSec'),
       cardiac:nonNegative(cardiacSympatheticSpikesPerSec,
         'cardiacSympatheticSpikesPerSec'),
       vagal:nonNegative(cardiacVagalSpikesPerSec,
@@ -111,6 +120,7 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
     // For requested times before t=0, a source pure delay must see the
     // pre-perturbation basal signal, not the current perturbed signal.
     history.vascular.push({t:timeSec,v:current.vascular});
+    history.venous.push({t:timeSec,v:current.venous});
     history.cardiac.push({t:timeSec,v:current.cardiac});
     history.vagal.push({t:timeSec,v:current.vagal});
 

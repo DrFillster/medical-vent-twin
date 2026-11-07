@@ -321,6 +321,7 @@ function createHumMod2013BaroChemoreflexSaNodeCandidate({
     last=Object.freeze({
       schema:'hummod-2013-baro-chemoreflex-sa-node-candidate/v1',
       timeSec,
+      ecfvMl,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
       arterialPo2MmHg,
@@ -405,6 +406,7 @@ function createHumMod2013BaroChemoreflexSaNodeCandidate({
     return last||Object.freeze({
       schema:'hummod-2013-baro-chemoreflex-sa-node-candidate/v1',
       timeSec,
+      ecfvMl,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
       heartRatePerMin:null,

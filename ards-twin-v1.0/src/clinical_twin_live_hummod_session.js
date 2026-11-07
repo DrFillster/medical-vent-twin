@@ -591,11 +591,16 @@ function createBerlinLiveHumModSession({
               strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
               systemicPeripheralResistanceMmHgMinPerL:
                 physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              available: physicianCandidateState.available,
+              unavailableReason: physicianCandidateState.unavailableReason,
+              validationStatus: physicianCandidateState.validationStatus,
               authority: physicianCandidateState.authority,
               controlAuthority: false,
               knownLimitations: physicianCandidateState.knownLimitations,
               status:
-                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+                physicianCandidateState.available === false
+                  ? 'Candidate model unavailable: ' + physicianCandidateState.unavailableReason + '; validation blocked; no live-patient control authority'
+                  : 'Parallel 2000 plant with published 2016 control parameters; physician validation only; no live-patient control authority',
             })
           : null,
         hummod2013Compensation: physicianHumMod2013ComparisonView(),
@@ -688,11 +693,16 @@ function createBerlinLiveHumModSession({
               strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
               systemicPeripheralResistanceMmHgMinPerL:
                 physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              available: physicianCandidateState.available,
+              unavailableReason: physicianCandidateState.unavailableReason,
+              validationStatus: physicianCandidateState.validationStatus,
               authority: physicianCandidateState.authority,
               controlAuthority: false,
               knownLimitations: physicianCandidateState.knownLimitations,
               status:
-                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+                physicianCandidateState.available === false
+                  ? 'Candidate model unavailable: ' + physicianCandidateState.unavailableReason + '; validation blocked; no live-patient control authority'
+                  : 'Parallel 2000 plant with published 2016 control parameters; physician validation only; no live-patient control authority',
             })
           : null,
         hummod2013Compensation: physicianHumMod2013ComparisonView(),
@@ -716,6 +726,8 @@ function createBerlinLiveHumModSession({
           : (circ.activeBoundaries?.heartRatePerMin ??
             effectiveCirculationBoundaries.heartRatePerMin),
         sourceSaNodeHeartRatePerMin:
+          last.selectedHeartRatePerMin ?? last.sourceSaNodeHeartRatePerMin ?? null,
+        legacySourceSaNodeHeartRatePerMin:
           last.sourceSaNodeHeartRatePerMin ?? null,
         heartRateControlMode:
           last.heartRateControlMode ?? 'source-aligned',
@@ -747,8 +759,6 @@ function createBerlinLiveHumModSession({
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
-        sourceSaNodeHeartRatePerMin:
-          last.sourceSaNodeHeartRatePerMin ?? null,
         empiricalChronotropicBoostPerMin:
           last.appliedEmpiricalChronotropicBoostPerMin ?? 0,
         chronotropicBridgeEnvelope:
@@ -799,7 +809,14 @@ function createBerlinLiveHumModSession({
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
           last.autonomic?.sourceAligned?.venousAlphaActivity ?? null,
-        autonomicAuthority: last.autonomic?.authority ?? null,
+        autonomicAuthority: last.autonomic?.authority
+          ? Object.freeze({
+              ...last.autonomic.authority,
+              heartRate:last.hummod2013HeartRateState
+                ? 'HumMod source-aligned 2012/2013 baroreflex/chemoreflex SA-node candidate'
+                : last.autonomic.authority.heartRate,
+            })
+          : null,
         sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
         catecholamines: last.autonomic?.catecholamines ?? null,
         vascularSympatheticComponents:

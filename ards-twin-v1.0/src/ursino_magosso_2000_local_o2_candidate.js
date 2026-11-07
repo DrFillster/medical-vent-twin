@@ -30,6 +30,8 @@ const SOURCE=Object.freeze({
   authority:'candidate-not-canonical',
 });
 
+const {SOURCE:ADAPTATION_SOURCE,PARAMETERS:ALBANESE,PARAMETER_SET,validateParameterSet}=require('./albanese_2016_control_parameter_set.js');
+
 const LOCAL=Object.freeze({
   brain:Object.freeze({
     gain:10,tauSec:10,
@@ -99,13 +101,19 @@ function resistanceFromLocalO2({
   return normalResistanceMmHgSecPerMl/(1+localState);
 }
 
-function createUrsinoMagosso2000LocalO2Candidate(){
+function createUrsinoMagosso2000LocalO2Candidate({controlParameterSet='ursino-magosso-2000'}={}){
+  validateParameterSet(controlParameterSet);
+  const adapted=controlParameterSet===PARAMETER_SET;
+  const instanceSource=adapted?Object.freeze({
+    ...SOURCE,status:'published-parameter-adaptation-candidate-only',
+    parameterSource:ADAPTATION_SOURCE,
+  }):SOURCE;
   let x={brain:0,heart:0,muscle:0};
   let state=Object.freeze({
     authority:SOURCE.authority,
     active:false,
     localState:Object.freeze({...x}),
-    provenance:SOURCE,
+    provenance:instanceSource,
   });
 
   function step({
@@ -168,7 +176,7 @@ function createUrsinoMagosso2000LocalO2Candidate(){
       target[bed]=localO2Target({
         venousO2MlPerMl:cv[bed],
         normalVenousO2MlPerMl:LOCAL[bed].normalVenousO2MlPerMl,
-        gain:LOCAL[bed].gain,
+        gain:adapted?ALBANESE.localOxygenGains[bed]:LOCAL[bed].gain,
       });
       x[bed]=firstOrderExact(x[bed],target[bed],dtSec,LOCAL[bed].tauSec);
     }
@@ -204,7 +212,7 @@ function createUrsinoMagosso2000LocalO2Candidate(){
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
       active:true,
-      provenance:SOURCE,
+      provenance:instanceSource,
     });
     return state;
   }
@@ -212,7 +220,7 @@ function createUrsinoMagosso2000LocalO2Candidate(){
   return Object.freeze({
     step,
     snapshot:()=>state,
-    source:SOURCE,
+    source:instanceSource,
     parameters:LOCAL,
   });
 }

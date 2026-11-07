@@ -48,12 +48,11 @@ test('CNS hypoxia channels remain distinct', () => {
   assert.notEqual(sp, sh);
 });
 
-test('vagal Eq 23 keeps basal term outside the baroreflex sigmoid fraction', () => {
+test('vagal Eq 23 interpolates between the published lower and upper firing limits', () => {
   const p=P.vagal;
   const e=1; // f_ab equals the source midpoint.
   const expected=
-    p.f0SpikesPerSec+
-    (p.fInfinitySpikesPerSec*e)/(1+e) -
+    (p.f0SpikesPerSec+p.fInfinitySpikesPerSec*e)/(1+e) -
     p.thetaSpikesPerSec;
   const actual=vagalFiring({
     fAbSpikesPerSec:p.baroMidSpikesPerSec,
@@ -61,6 +60,11 @@ test('vagal Eq 23 keeps basal term outside the baroreflex sigmoid fraction', () 
     fApSpikesPerSec:0,
   });
   approx(actual,expected,1e-12,'midpoint f_v');
+  const common={fAcSpikesPerSec:0,fApSpikesPerSec:0};
+  approx(vagalFiring({...common,fAbSpikesPerSec:-500}),
+    p.f0SpikesPerSec-p.thetaSpikesPerSec,1e-12,'lower f_v');
+  approx(vagalFiring({...common,fAbSpikesPerSec:500}),
+    p.fInfinitySpikesPerSec-p.thetaSpikesPerSec,1e-12,'upper f_v');
 });
 
 test('vagal baroreflex component rises with baroreceptor afferent firing', () => {
