@@ -2106,21 +2106,12 @@ function buildSystem(activeComps, vOld, pBranchGuess, boundary, params, dt) {
       J[i][N] = 0;
       continue;
     }
-    // Evaluate the elastic law at the trial V.
-    let pEl;
-    if (vNew < FLOW_ZERO_TOL) {
-      // V near zero but flow is incoming. Use a small regularizing V to
-      // avoid singularity in p_el. The actual V_new is allowed to grow.
-      const vTiny = 1e-12;
-      pEl = elasticPressureAboveAOP(vTiny, cp, cs.recruitment);
-    } else {
-      pEl = elasticPressureAboveAOP(vNew, cp, cs.recruitment);
-    }
-    // v0.4.3: analytic tangent dP_el/dV = K/(Vmax - V).
-    // (For V→0 with vTiny regularization, dPressureDVolume is well-defined
-    // at the regularized point.)
-    const vForTangent = vNew < FLOW_ZERO_TOL ? 1e-12 : vNew;
-    const dpdV = dPressureDVolume(vForTangent, cp, cs.recruitment);
+    // The finite-capacity law is regular at V=0: p_el(0)=0 and
+    // dp_el/dV(0)=K/Vmax for every positive Vmax. Evaluate the actual trial
+    // volume instead of introducing an absolute volume floor, which can
+    // exceed Vmax as a recruitable compartment closes.
+    const pEl = elasticPressureAboveAOP(vNew, cp, cs.recruitment);
+    const dpdV = dPressureDVolume(vNew, cp, cs.recruitment);
     F[i] = vNew - cs.volume - dt * G * (pBranchGuess - aop - pEl);
     J[i][i] = 1 + dt * G * dpdV;
     J[i][N] = -dt * G;
@@ -4352,20 +4343,34 @@ function summarizeSimulationMeasurements(simulation) {
 
   const inspiratory = latestMeasurement(simulation.measurements, 'INSPIRATORY_HOLD');
   const expiratory = latestMeasurement(simulation.measurements, 'EXPIRATORY_HOLD');
+  const appliedChanges = (simulation.interventions || []).filter(event =>
+    event.kind === 'APPLY_CONTROLLER_CHANGE' || event.kind === 'SET_PEEP');
+  const lastChange = appliedChanges.length ? appliedChanges[appliedChanges.length - 1] : null;
+  // Keep historical holds in the record, but never combine pressures from
+  // different ventilator settings into a current driving-pressure value.
+  const isCurrent = hold => hold && (!lastChange ||
+    (Number.isFinite(hold.startedAtSec) && hold.startedAtSec >= lastChange.t));
+  const currentInspiratory = isCurrent(inspiratory) ? inspiratory : null;
+  const currentExpiratory = isCurrent(expiratory) ? expiratory : null;
+  const staleInspiratoryHold = Boolean(inspiratory && !currentInspiratory);
+  const staleExpiratoryHold = Boolean(expiratory && !currentExpiratory);
   const latestBreath = latestBreathMetrics(simulation);
   const aop = simulation.params
     ? finiteOrNull(simulation.params.airwayOpeningPressure)
     : null;
 
   const derived = derivePassiveRespiratoryMechanics({
-    plateauPressureCmH2O: inspiratory ? inspiratory.plateauPressureCmH2O : null,
-    totalPeepCmH2O: expiratory ? expiratory.totalPeepCmH2O : null,
-    setPeepCmH2O: expiratory ? expiratory.setPeepCmH2O : null,
+    plateauPressureCmH2O: currentInspiratory ? currentInspiratory.plateauPressureCmH2O : null,
+    totalPeepCmH2O: currentExpiratory ? currentExpiratory.totalPeepCmH2O : null,
+    setPeepCmH2O: currentExpiratory ? currentExpiratory.setPeepCmH2O : null,
     airwayOpeningPressureCmH2O: aop,
   });
 
   return Object.freeze({
     ...derived,
+    staleInspiratoryHold,
+    staleExpiratoryHold,
+    lastVentilatorChangeAtSec: lastChange ? lastChange.t : null,
     peakPressureCmH2O: latestBreath ? finiteOrNull(latestBreath.Ppeak) : null,
     breathPeepCmH2O: latestBreath ? finiteOrNull(latestBreath.PEEP) : null,
     latestBreath,
@@ -10062,6 +10067,9 @@ const {
 const {
   createPhysicianValidationCandidate,
 } = require("src/physician_validation_candidate.js");
+const {
+  createHumMod2013ChemoreflexSaNodeCandidate,
+} = require("src/hummod_2013_chemoreflex_sa_node_candidate.js");
 const { validateV11RcProvenanceManifest, V11_RC_OUTPUT_PROVENANCE } = require("src/v11_provenance_manifest.js");
 
 const LIVE_HUMMOD_REFERENCE_CASE_ID = 'berlin-moderate-moderate-aspiration';
@@ -10192,6 +10200,7 @@ function createBerlinLiveHumModSession({
   coupledEquilibrationSec = 0,
   nativeCalibrationTarget = null,
   physicianValidationCandidate = true,
+  heartRateControlMode = 'source-aligned',
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -10394,6 +10403,7 @@ function createBerlinLiveHumModSession({
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
     autonomicMode: 'source-aligned',
+    heartRateControlMode,
     catecholamineEcfvMl,
     nativeAutonomicInputsProvider: nativeAutonomicTrajectory
       ? ({ timeSec }) => interpolateNativeAutonomicInputs(timeSec)
@@ -10424,6 +10434,16 @@ function createBerlinLiveHumModSession({
   let physicianCandidateState = physicianCandidate
     ? physicianCandidate.snapshot()
     : null;
+  const physicianHumMod2013Compensation = physicianValidationCandidate
+    ? createHumMod2013ChemoreflexSaNodeCandidate({
+        ecfvMl: catecholamineEcfvMl,
+        initialArterialPh: 7.44,
+      })
+    : null;
+  let physicianHumMod2013CompensationState =
+    physicianHumMod2013Compensation
+      ? physicianHumMod2013Compensation.snapshot()
+      : null;
 
   function actualDeliveredTidalVolumeL() {
     const breaths = simulation.metrics();
@@ -10499,6 +10519,49 @@ function createBerlinLiveHumModSession({
     return physicianCandidateState;
   }
 
+  function updatePhysicianHumMod2013Compensation(seconds) {
+    if (!physicianHumMod2013Compensation) return null;
+    const last = systemicSnapshot && systemicSnapshot.lastStep;
+    const arterial = last?.gas?.gases?.arterial;
+    if (!arterial ||
+        !Number.isFinite(arterial.po2MmHg) ||
+        !Number.isFinite(arterial.pH)) {
+      return physicianHumMod2013CompensationState;
+    }
+    physicianHumMod2013CompensationState =
+      physicianHumMod2013Compensation.runFor(seconds, {
+        dtSec: dt,
+        arterialPo2MmHg: arterial.po2MmHg,
+        arterialPh: arterial.pH,
+      });
+    return physicianHumMod2013CompensationState;
+  }
+
+  function physicianHumMod2013ComparisonView() {
+    const s=physicianHumMod2013CompensationState;
+    if (!s || !Number.isFinite(s.heartRatePerMin)) return null;
+    return Object.freeze({
+      heartRatePerMin:s.heartRatePerMin,
+      chemoreceptorFiringRate:s.chemoreceptor?.firingRate ?? null,
+      chemoreceptorPo2Effect:s.chemoreceptor?.po2Effect ?? null,
+      chemoreceptorPhEffect:s.chemoreceptor?.phEffect ?? null,
+      chemoCnsEffect:s.chemoreceptorsCns?.effect ?? null,
+      cardiacSympatheticHz:s.sympathetic?.cardiacHz ?? null,
+      adrenalSympatheticHz:s.sympathetic?.adrenalHz ?? null,
+      generalSympatheticHz:s.sympathetic?.generalHz ?? null,
+      epinephrinePgPerMl:s.catecholamines?.epiPgPerMl ?? null,
+      norepinephrinePgPerMl:s.catecholamines?.nePgPerMl ?? null,
+      beta1Effect:s.catecholamines?.beta1Effect ?? null,
+      authority:s.authority,
+      controlAuthority:false,
+      status:
+        'Parallel HumMod 2012/2013 chemoreflex compensation candidate; live arterial PO2 and pH inputs; no live-patient control authority',
+      limitation:
+        'Compensation mechanism only; myocardial depression and conduction failure are not included in this comparison channel',
+      provenance:s.provenance ?? null,
+    });
+  }
+
   function patientTimeSec() {
     return Math.max(0, systemicSnapshot.timeSec - patientTimeOriginSec);
   }
@@ -10561,13 +10624,19 @@ function createBerlinLiveHumModSession({
               strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
               systemicPeripheralResistanceMmHgMinPerL:
                 physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              available: physicianCandidateState.available,
+              unavailableReason: physicianCandidateState.unavailableReason,
+              validationStatus: physicianCandidateState.validationStatus,
               authority: physicianCandidateState.authority,
               controlAuthority: false,
               knownLimitations: physicianCandidateState.knownLimitations,
               status:
-                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+                physicianCandidateState.available === false
+                  ? 'Candidate model unavailable: ' + physicianCandidateState.unavailableReason + '; validation blocked; no live-patient control authority'
+                  : 'Parallel 2000 plant with published 2016 control parameters; physician validation only; no live-patient control authority',
             })
           : null,
+        hummod2013Compensation: physicianHumMod2013ComparisonView(),
         publishedModelInterim: Object.freeze({
           heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
           meanArterialPressureMmHg: null,
@@ -10657,13 +10726,19 @@ function createBerlinLiveHumModSession({
               strokeVolumeMl: physicianCandidateState.strokeVolumeMl,
               systemicPeripheralResistanceMmHgMinPerL:
                 physicianCandidateState.systemicPeripheralResistanceMmHgMinPerL,
+              available: physicianCandidateState.available,
+              unavailableReason: physicianCandidateState.unavailableReason,
+              validationStatus: physicianCandidateState.validationStatus,
               authority: physicianCandidateState.authority,
               controlAuthority: false,
               knownLimitations: physicianCandidateState.knownLimitations,
               status:
-                'Parallel Ursino-Magosso 2000 candidate; physician validation only; no live-patient control authority',
+                physicianCandidateState.available === false
+                  ? 'Candidate model unavailable: ' + physicianCandidateState.unavailableReason + '; validation blocked; no live-patient control authority'
+                  : 'Parallel 2000 plant with published 2016 control parameters; physician validation only; no live-patient control authority',
             })
           : null,
+        hummod2013Compensation: physicianHumMod2013ComparisonView(),
         publishedModelInterim: Object.freeze({
           heartRatePerMin: heartPeriodShadowState.heartRatePerMin ?? null,
           meanArterialPressureMmHg: null,
@@ -10684,7 +10759,15 @@ function createBerlinLiveHumModSession({
           : (circ.activeBoundaries?.heartRatePerMin ??
             effectiveCirculationBoundaries.heartRatePerMin),
         sourceSaNodeHeartRatePerMin:
+          last.selectedHeartRatePerMin ?? last.sourceSaNodeHeartRatePerMin ?? null,
+        legacySourceSaNodeHeartRatePerMin:
           last.sourceSaNodeHeartRatePerMin ?? null,
+        heartRateControlMode:
+          last.heartRateControlMode ?? 'source-aligned',
+        selectedHeartRatePerMin:
+          last.selectedHeartRatePerMin ?? last.sourceSaNodeHeartRatePerMin ?? null,
+        hummod2013HeartRateState:
+          last.hummod2013HeartRateState ?? null,
         chronotropicReserveMultiplier:
           last.chronotropicReserveMultiplier ?? null,
         rightAtrialTmpMmHg:
@@ -10709,8 +10792,6 @@ function createBerlinLiveHumModSession({
         contractilityMultiplier:
           last.effectiveContractilityMultiplier ??
           circ.activeBoundaries?.leftContractilityMultiplier ?? null,
-        sourceSaNodeHeartRatePerMin:
-          last.sourceSaNodeHeartRatePerMin ?? null,
         empiricalChronotropicBoostPerMin:
           last.appliedEmpiricalChronotropicBoostPerMin ?? 0,
         chronotropicBridgeEnvelope:
@@ -10761,7 +10842,14 @@ function createBerlinLiveHumModSession({
           last.autonomic?.sourceAligned?.ventricularBetaActivity ?? null,
         venousAlphaReceptorActivity:
           last.autonomic?.sourceAligned?.venousAlphaActivity ?? null,
-        autonomicAuthority: last.autonomic?.authority ?? null,
+        autonomicAuthority: last.autonomic?.authority
+          ? Object.freeze({
+              ...last.autonomic.authority,
+              heartRate:last.hummod2013HeartRateState
+                ? 'HumMod source-aligned 2012/2013 baroreflex/chemoreflex SA-node candidate'
+                : last.autonomic.authority.heartRate,
+            })
+          : null,
         sourceAlignedAutonomic: last.autonomic?.sourceAligned ?? null,
         catecholamines: last.autonomic?.catecholamines ?? null,
         vascularSympatheticComponents:
@@ -10900,6 +10988,7 @@ function createBerlinLiveHumModSession({
       systemicSnapshot = systemicRuntime.step({ dtSec: h });
       updateAutonomicShadow(h);
       updatePhysicianValidationCandidate(h);
+      updatePhysicianHumMod2013Compensation(h);
       remaining -= h;
     }
   }
@@ -10923,6 +11012,13 @@ function createBerlinLiveHumModSession({
     throw new Error('passive mechanics measurement did not complete within maxAdvanceSec');
   }
 
+  function completedMechanicsElapsedSec(startVentTime) {
+    // Mechanics commits whole dt ticks. Reconstruct their elapsed duration
+    // before handing it to observers that require an integer number of ticks;
+    // subtracting two accumulated floating-point clocks can lose a tick.
+    return Math.round((simulation.state.t - startVentTime) / dt) * dt;
+  }
+
   return Object.freeze({
     kind: 'berlin-clinical-twin-live-hummod-session',
     clinicalCase,
@@ -10933,6 +11029,9 @@ function createBerlinLiveHumModSession({
       equilibrateCoupledBaseline(coupledEquilibrationSec);
       if (physicianCandidate) {
         updatePhysicianValidationCandidate(120);
+      }
+      if (physicianHumMod2013Compensation) {
+        updatePhysicianHumMod2013Compensation(120);
       }
       patientTimeOriginSec = systemicSnapshot.timeSec;
       initialized = true;
@@ -11006,11 +11105,12 @@ function createBerlinLiveHumModSession({
       simulation.requestExpiratoryHold(holdDurationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', expiratoryCount, maxAdvanceSecPerHold);
 
-      const elapsed = simulation.state.t - startVentTime;
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
       if (elapsed > 0) {
         systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
         updateAutonomicShadow(elapsed);
         updatePhysicianValidationCandidate(elapsed);
+        updatePhysicianHumMod2013Compensation(elapsed);
       }
       sessionEvents.push(Object.freeze({
         t: patientTimeSec(),
@@ -11035,11 +11135,12 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'INSPIRATORY_HOLD').length;
       simulation.requestInspiratoryHold(durationSec);
       advanceUntilMeasurement('INSPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
       if (elapsed > 0) {
         systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
         updateAutonomicShadow(elapsed);
         updatePhysicianValidationCandidate(elapsed);
+        updatePhysicianHumMod2013Compensation(elapsed);
       }
       const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
@@ -11065,8 +11166,13 @@ function createBerlinLiveHumModSession({
         .filter(m => m.kind === 'EXPIRATORY_HOLD').length;
       simulation.requestExpiratoryHold(durationSec);
       advanceUntilMeasurement('EXPIRATORY_HOLD', previousCount, 90);
-      const elapsed = simulation.state.t - startVentTime;
-      if (elapsed > 0) systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+      const elapsed = completedMechanicsElapsedSec(startVentTime);
+      if (elapsed > 0) {
+        systemicSnapshot = systemicRuntime.step({ dtSec: elapsed });
+        updateAutonomicShadow(elapsed);
+        updatePhysicianValidationCandidate(elapsed);
+        updatePhysicianHumMod2013Compensation(elapsed);
+      }
       const mechanics = summarizeSimulationMeasurements(simulation);
       sessionEvents.push(Object.freeze({
         t: patientTimeSec(),
@@ -11615,6 +11721,7 @@ const { createHumModBloodVolume } = require("src/hummod_blood_volume_source_alig
 const { hgbConcentrationFromHematocrit } = require("src/hummod_hgb_concentration_source_aligned.js");
 const { myocardialAcidBaseState } = require("src/hummod_myocardial_acid_base_state.js");
 const { exerciseMusclePumpEffect } = require("src/hummod_exercise_muscle_pump_source_aligned.js");
+const { createHumMod2013BaroChemoreflexSaNodeCandidate } = require("src/hummod_2013_baro_chemoreflex_sa_node_candidate.js");
 const {
   createHumModArdsDecompensationController,
 } = require("src/hummod_ards_decompensation_controller.js");
@@ -11646,6 +11753,7 @@ function createHumModArdsCardiopulmonaryRuntime({
   environmentBoundaries,
   pericardialTmpMmHg=0,
   autonomicMode='legacy',
+  heartRateControlMode='source-aligned',
   catecholamineEcfvMl=null,
   nativeAutonomicInputsProvider=null,
   sourceBloodVolumeInitialMl=null,
@@ -11671,6 +11779,9 @@ function createHumModArdsCardiopulmonaryRuntime({
     throw new Error('nativeAutonomicInputsProvider must be a function or null');
   }
   if(!['legacy','source-aligned'].includes(autonomicMode)) throw new Error('unsupported autonomicMode: '+autonomicMode);
+  if(!['source-aligned','hummod2013-baro-chemo'].includes(heartRateControlMode)){
+    throw new Error('unsupported heartRateControlMode: '+heartRateControlMode);
+  }
   if(!['conductance','explicit-organ-network'].includes(systemicOutflowMode)){
     throw new Error('unsupported systemicOutflowMode: '+systemicOutflowMode);
   }
@@ -11700,6 +11811,11 @@ function createHumModArdsCardiopulmonaryRuntime({
   };
   const autonomic = createHumModArdsAutonomicController({
     baseline: autonomicBaseline,
+  });
+  const hummod2013SaNode = createHumMod2013BaroChemoreflexSaNodeCandidate({
+    ecfvMl:catecholamineEcfvMl ?? 15000,
+    initialArterialPh:7.44,
+    initialCarotidSinusPressureMmHg:87,
   });
   const sourceAlignedAutonomic = createHumModSourceAlignedAutonomicController({
     initialCarotidPressureMmHg: 97,
@@ -11969,7 +12085,9 @@ function createHumModArdsCardiopulmonaryRuntime({
           contractilityMultiplier: sourceControl.contractilityMultiplier,
           systemicVenousV0Ml: sourceControl.systemicVenousV0Ml,
           authority: Object.freeze({
-            heartRate:'HumMod source-aligned acute subset',
+            heartRate:heartRateControlMode==='hummod2013-baro-chemo'
+              ? 'HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> Beta1 -> SA-node reduced candidate'
+              : 'HumMod source-aligned acute subset',
             contractility:'HumMod source-aligned beta-receptor pathway',
             venousV0:'HumMod source-aligned venous alpha pathway',
             systemicArterialConductance:'legacy reduced controller',
@@ -12025,10 +12143,29 @@ function createHumModArdsCardiopulmonaryRuntime({
       legacyControl.hypercapnicChronotropyExposureSec || 0;
     const chronotropicBridgeEnvelope = 0;
     const appliedEmpiricalChronotropicBoostPerMin = 0;
-    const effectiveHeartRatePerMin =
+    // Preserve the source SA-node rate for provenance, but apply the
+    // decompensation controller's explicit chronotropic-reserve state to the
+    // circulation boundary. This keeps early/mid compensation unchanged while
+    // allowing effective rate to fall as asphyxial cardiovascular reserve is
+    // exhausted. The multiplier is 1 until the decompensation model leaves its
+    // compensated phase and trends to 0 at terminal loss of reserve.
+    const hummod2013HeartRateState =
+      heartRateControlMode==='hummod2013-baro-chemo'
+        ? hummod2013SaNode.step({
+            dtSec,
+            arterialPo2MmHg:priorGas ? priorGas.po2MmHg : 90,
+            arterialPh:priorGas ? priorGas.pH : 7.40,
+            carotidSinusPressureMmHg:circ.pressures.systemicArterialMmHg,
+          })
+        : null;
+    const selectedHeartRatePerMin =
       autonomicMode==='source-aligned'
-        ? sourceSaNodeHeartRatePerMin
+        ? (hummod2013HeartRateState
+            ? Math.max(0,Math.min(260,hummod2013HeartRateState.heartRatePerMin))
+            : sourceSaNodeHeartRatePerMin)
         : control.heartRatePerMin;
+    const effectiveHeartRatePerMin =
+      selectedHeartRatePerMin * chronotropicReserveMultiplier;
     circulation.setBoundaries({
       heartRatePerMin: effectiveHeartRatePerMin,
       leftContractilityMultiplier: effectiveContractility,
@@ -12128,6 +12265,9 @@ function createHumModArdsCardiopulmonaryRuntime({
       autonomic:control,
       decompensation:decomp,
       sourceSaNodeHeartRatePerMin,
+      heartRateControlMode,
+      hummod2013HeartRateState,
+      selectedHeartRatePerMin,
       chronotropicReserveMultiplier,
       effectiveHeartRatePerMin,
       nativeAutonomicInputs,
@@ -12174,8 +12314,16 @@ function createHumModArdsCardiopulmonaryRuntime({
         decompensation:'oxygen-debt-driven reduced shock/collapse controller',
         pressureUnits:'caller-supplied validated adapter',
         autonomicMode,
+        heartRateControlMode,
+        heartRateAuthority: autonomicMode!=='source-aligned'
+          ? 'legacy reduced autonomic controller'
+          : heartRateControlMode==='hummod2013-baro-chemo'
+            ? 'HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> Beta1 -> SA-node candidate'
+            : 'HumMod source-aligned SA-node pathway',
         autonomicAuthority: autonomicMode==='source-aligned'
-          ? 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
+          ? heartRateControlMode==='hummod2013-baro-chemo'
+            ? 'HumMod 2012/2013 HR candidate; older HumMod source-aligned contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
+            : 'HumMod source-aligned HR/contractility/venous-V0 + legacy reduced arterial/pulmonary vascular control'
           : 'legacy reduced engineering autonomic controller',
         nativeMetabolicAutonomicAuthority: nativeAutonomicInputsProvider
           ? 'source-aligned upstream HumMod boundary provider; native bicycle mode can generate Exercise-Metabolism TotalWatts dynamically before MotorRadiation/metaboreflex drive'
@@ -13100,10 +13248,14 @@ function createHumModSourceAlignedAutonomicController({
     const sympsCnsA2Effect = a2PoolLog10Conc == null
       ? 1
       : hermite(CURVES.sympsCnsA2Effect, a2PoolLog10Conc);
-    const sympsCnsNa = brainFunctionEffect > 0.1
-      ? (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
-        sympsCnsA2Effect
-      : (1 + sympsCnsFuelEffect);
+    // v1.5 extremis continuity repair:
+    // Brain-Function is a downstream tissue-failure signal. It must not erase
+    // the concurrently active baroreflex/low-pressure drive at an arbitrary
+    // 0.1 threshold. Preserve the reflex path continuously; terminal rate loss
+    // remains owned by the explicit chronotropic-reserve/decompensation layer.
+    const sympsCnsNa =
+      (sympsCnsReflexNa + exerciseSympsTotalEffect + sympsCnsFuelEffect) *
+      sympsCnsA2Effect;
     const sympsCnsHz=SOURCE_CONSTANTS.sympsCnsHzScale*sympsCnsNa;
 
     const gangliaHz=sympsCnsHz;
@@ -14932,6 +15084,432 @@ function exerciseMusclePumpEffect(totalWatts){
 module.exports={MUSCLE_PUMP_CURVE,exerciseMusclePumpEffect};
 
 },
+"src/hummod_2013_baro_chemoreflex_sa_node_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * HumMod 2012/2013 baroreflex + chemoreflex -> sympathoadrenal -> SA-node candidate for v2.4.
+ *
+ * Source generation:
+ * nysuloem/HumMod-UTSC-CPG@51d369eb75669e150ef7c61e3ba8bcb1e068aecf
+ *
+ * Source files:
+ * - Structure/Circulation/CarotidSinus.DES
+ * - Structure/Orthostatics/RegionalPressure.DES
+ * - Structure/Nerves/Baroreflex.DES
+ * - Structure/Nerves/Chemoreceptors.DES
+ * - Structure/Nerves/ChemoreceptorsCNS.DES
+ * - Structure/Nerves/Sympathetics-Adrenal.DES
+ * - Structure/Nerves/Sympathetics-Cardiac.DES
+ * - Structure/Nerves/Sympathetics-General.DES
+ * - Structure/Nerves/Ganglia-Adrenal.DES
+ * - Structure/Nerves/Ganglia-Cardiac.DES
+ * - Structure/Nerves/Ganglia-General.DES
+ * - Structure/Nerves/AdrenalNerve.DES
+ * - Structure/Nerves/VagusNerve.DES
+ * - Structure/Catechols/NESecretion.DES
+ * - Structure/Catechols/EpiSecretion.DES
+ * - Structure/Catechols/NEPool.DES
+ * - Structure/Catechols/EpiPool.DES
+ * - Structure/Catechols/Alpha1Pool.DES
+ * - Structure/Catechols/Beta1Pool.DES
+ * - Structure/Heart/SANode-BetaReceptors.DES
+ * - Structure/Heart/SANode-Rate.DES
+ *
+ * Reduction:
+ * - activates the source baroreflex and chemoreflex branches;
+ * - low-pressure, mechanoreceptor, apnea, A2, pain, trophic,
+ *   exercise, Cushing, fuel, essential, and renal-mechanoreflex terms are held
+ *   at their source-neutral values;
+ * - no blockade, clamps, exogenous agonists/antagonists, pumps, boluses, or
+ *   pheochromocytoma sources;
+ * - OtherTissue-Function.Effect = 1.
+ *
+ * No physiologic gain is introduced by this reduction.
+ */
+
+const SOURCE=Object.freeze({
+  repository:'nysuloem/HumMod-UTSC-CPG',
+  revision:'51d369eb75669e150ef7c61e3ba8bcb1e068aecf',
+  generation:'HumMod-2012/2013',
+  authority:'candidate-not-canonical',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(x<=points[0].x) return points[0].y+points[0].slope*(x-points[0].x);
+  const z=points[points.length-1];
+  if(x>=z.x) return z.y+z.slope*(x-z.x);
+  let i=0;
+  while(i+1<points.length&&x>points[i+1].x)i++;
+  const a=points[i],b=points[i+1],h=b.x-a.x,t=(x-a.x)/h;
+  return (2*t*t*t-3*t*t+1)*a.y+
+    (t*t*t-2*t*t+t)*h*a.slope+
+    (-2*t*t*t+3*t*t)*b.y+
+    (t*t*t-t*t)*h*b.slope;
+}
+
+const CURVES=Object.freeze({
+  cardiacBaroEffect:Object.freeze([
+    Object.freeze({x:0,y:1.7,slope:0}),
+    Object.freeze({x:1,y:1.0,slope:-0.6}),
+    Object.freeze({x:2,y:0.5,slope:0}),
+  ]),
+  adrenalGeneralBaroEffect:Object.freeze([
+    Object.freeze({x:0,y:1.5,slope:0}),
+    Object.freeze({x:1,y:1.0,slope:-0.5}),
+    Object.freeze({x:2,y:0.5,slope:0}),
+  ]),
+  chemoPo2:Object.freeze([
+    Object.freeze({x:30,y:10,slope:0}),
+    Object.freeze({x:60,y:2,slope:-0.05}),
+    Object.freeze({x:94,y:0.5,slope:-0.005}),
+    Object.freeze({x:400,y:0.2,slope:0}),
+  ]),
+  chemoDeltaPh:Object.freeze([
+    Object.freeze({x:-0.34,y:2,slope:0}),
+    Object.freeze({x:0,y:0.4,slope:-3}),
+    Object.freeze({x:0.26,y:0,slope:0}),
+  ]),
+  chemoSymps:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:1,y:0.1,slope:0.2}),
+    Object.freeze({x:4,y:0.6,slope:0}),
+  ]),
+  chemoCnsEffect:Object.freeze([
+    Object.freeze({x:-10,y:0.6,slope:0}),
+    Object.freeze({x:0,y:1,slope:0.10}),
+    Object.freeze({x:10,y:3,slope:0}),
+  ]),
+  vagusHz:Object.freeze([
+    Object.freeze({x:0,y:8,slope:0}),
+    Object.freeze({x:1.5,y:2,slope:-1}),
+    Object.freeze({x:4.5,y:0.5,slope:0}),
+  ]),
+  saParasympathetic:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:2,y:-20,slope:-12}),
+    Object.freeze({x:8,y:-40,slope:0}),
+  ]),
+  saSympathetic:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:1,y:15,slope:10}),
+    Object.freeze({x:1.75,y:45,slope:40}),
+    Object.freeze({x:2.5,y:100,slope:30}),
+    Object.freeze({x:3.5,y:120,slope:0}),
+  ]),
+});
+
+const P=Object.freeze({
+  baroTauMin:10,
+  baroSensitivity:1,
+  supineCarotidHydrostaticGradientMmHg:0,
+  chemoSsPhKPerMin:0.0001,
+  chemoCnsOnsetTauMin:5,
+  chemoCnsAdaptationTauDays:15,
+  sympatheticHzScale:1.5,
+  gangliaNaScale:0.667,
+  neTargetNgPerMl:0.240,
+  epiTargetNgPerMl:0.040,
+  neBase:220,
+  epiBase:375,
+  neSpilloverK:570,
+  neClearanceK:4.5,
+  epiClearanceK:9.4,
+  adrenalA:23,
+  adrenalM:4.6,
+  adrenalS:5.35,
+  adrenalB:0.8,
+  beta1Total:1.45,
+  beta1KdEpi:1.120,
+  beta1KdNe:0.973,
+  saNeuralK:0.5,
+  saHumoralK:0.25,
+  saBasicRatePerMin:77,
+  alpha1Total:4,
+  alpha1KdEpi:5,
+  alpha1KdNe:5,
+});
+
+function hillActivity({x,A,m,S,B}){
+  nonNegative(x,'hill x');
+  return A*((x**m)/((x**m)+(S**m)))+B;
+}
+
+function beta1Effect({nePgPerMl,epiPgPerMl}){
+  nonNegative(nePgPerMl,'nePgPerMl');
+  nonNegative(epiPgPerMl,'epiPgPerMl');
+  const ne=0.00592*nePgPerMl;
+  const epi=0.00546*epiPgPerMl;
+  // Source competitive binding with isoproterenol=0 and propranolol=0.
+  const denominator=
+    ne*P.beta1KdEpi+
+    epi*P.beta1KdNe+
+    P.beta1KdEpi*P.beta1KdNe;
+  const epiBound=denominator>0 ? epi*P.beta1KdNe/denominator : 0;
+  const neBound=denominator>0 ? ne*P.beta1KdEpi/denominator : 0;
+  return P.beta1Total*(2*epiBound+neBound);
+}
+
+function alpha1Effect({nePgPerMl,epiPgPerMl}){
+  nonNegative(nePgPerMl,'nePgPerMl');
+  nonNegative(epiPgPerMl,'epiPgPerMl');
+  const ne=0.00592*nePgPerMl;
+  const epi=0.00546*epiPgPerMl;
+  // Source competitive binding with midodrine/phenylephrine terms = 0.
+  const denominator=
+    ne*P.alpha1KdEpi+
+    epi*P.alpha1KdNe+
+    P.alpha1KdEpi*P.alpha1KdNe;
+  const epiBound=denominator>0 ? epi*P.alpha1KdNe/denominator : 0;
+  const neBound=denominator>0 ? ne*P.alpha1KdEpi/denominator : 0;
+  return P.alpha1Total*(epiBound+neBound);
+}
+
+function createHumMod2013BaroChemoreflexSaNodeCandidate({
+  ecfvMl,
+  initialArterialPh=7.44,
+  initialCarotidSinusPressureMmHg=87,
+}={}){
+  positive(ecfvMl,'ecfvMl');
+  finite(initialArterialPh,'initialArterialPh');
+  nonNegative(initialCarotidSinusPressureMmHg,'initialCarotidSinusPressureMmHg');
+
+  let ssPh=initialArterialPh;
+  let adaptedCarotidPressureMmHg=initialCarotidSinusPressureMmHg;
+  let onsetDelay=1;
+  let adaptationDelay=1;
+  let neMass=P.neTargetNgPerMl*ecfvMl;
+  let epiMass=P.epiTargetNgPerMl*ecfvMl;
+  let generalGangliaNa=0.667*1.5;
+  let last=null;
+  let timeSec=0;
+
+  function concentrations(){
+    return {
+      nePgPerMl:1000*(neMass/ecfvMl),
+      epiPgPerMl:1000*(epiMass/ecfvMl),
+    };
+  }
+
+  function step({dtSec,arterialPo2MmHg,arterialPh,carotidSinusPressureMmHg}={}){
+    positive(dtSec,'dtSec');
+    nonNegative(arterialPo2MmHg,'arterialPo2MmHg');
+    finite(arterialPh,'arterialPh');
+    nonNegative(carotidSinusPressureMmHg,'carotidSinusPressureMmHg');
+
+    const dtMin=dtSec/60;
+
+    // Baroreflex.DES: AdaptedPressure follows CarotidSinus.Pressure with Tau=10 min.
+    adaptedCarotidPressureMmHg +=
+      (carotidSinusPressureMmHg-adaptedCarotidPressureMmHg)*
+      (1-Math.exp(-dtMin/P.baroTauMin));
+    const baroPressureChangeMmHg=
+      carotidSinusPressureMmHg-adaptedCarotidPressureMmHg;
+    const baroreflexNa=2/(1+Math.exp(
+      P.baroSensitivity*0.05*-1*baroPressureChangeMmHg
+    ));
+    const cardiacBaroEffect=hermite(CURVES.cardiacBaroEffect,baroreflexNa);
+    const adrenalBaroEffect=hermite(CURVES.adrenalGeneralBaroEffect,baroreflexNa);
+    const generalBaroEffect=hermite(CURVES.adrenalGeneralBaroEffect,baroreflexNa);
+
+    // Chemoreceptors.DES: slow pH reference.
+    ssPh += (arterialPh-ssPh)*
+      (1-Math.exp(-P.chemoSsPhKPerMin*dtMin));
+    const deltaPh=arterialPh-ssPh;
+
+    const poolsBefore=concentrations();
+    const alpha1=alpha1Effect(poolsBefore);
+    const alphaAgonism=
+      0.5*generalGangliaNa+
+      0.5*alpha1;
+
+    const po2Effect=hermite(CURVES.chemoPo2,arterialPo2MmHg);
+    const phEffect=hermite(CURVES.chemoDeltaPh,deltaPh);
+    const sympsEffect=hermite(CURVES.chemoSymps,alphaAgonism);
+    const firingRate=po2Effect+phEffect+sympsEffect;
+
+    // ChemoreceptorsCNS.DES delay dynamics. HumMod timebase is minutes.
+    onsetDelay += (firingRate-onsetDelay)*
+      (1-Math.exp(-dtMin/P.chemoCnsOnsetTauMin));
+    const adaptTauMin=1440*P.chemoCnsAdaptationTauDays;
+    adaptationDelay += (firingRate-adaptationDelay)*
+      (1-Math.exp(-dtMin/adaptTauMin));
+
+    const change=onsetDelay-adaptationDelay;
+    const chemoCnsEffect=hermite(CURVES.chemoCnsEffect,change);
+
+    // HumMod 2012/2013 branch-specific reflex ownership.
+    // Low-pressure, mechanoreceptor, apnea and the other not-yet-integrated
+    // source factors remain at their neutral multiplier of 1.
+    const adrenalSympatheticNa=adrenalBaroEffect*chemoCnsEffect;
+    const cardiacSympatheticNa=cardiacBaroEffect*chemoCnsEffect;
+    const generalSympatheticNa=generalBaroEffect*chemoCnsEffect;
+
+    const adrenalHz=P.sympatheticHzScale*adrenalSympatheticNa;
+    const cardiacHz=P.sympatheticHzScale*cardiacSympatheticNa;
+    const generalHz=P.sympatheticHzScale*generalSympatheticNa;
+
+    const adrenalNerveHz=adrenalHz;
+    const generalGangliaHz=generalHz;
+    const cardiacGangliaHz=cardiacHz;
+    generalGangliaNa=P.gangliaNaScale*generalGangliaHz;
+
+    // Later HumMod adrenal secretion uses the source Hill relation.
+    const epiAdrenalEffect=hillActivity({
+      x:adrenalNerveHz,
+      A:P.adrenalA,m:P.adrenalM,S:P.adrenalS,B:P.adrenalB,
+    });
+    const neAdrenalEffect=epiAdrenalEffect;
+
+    const neSecretion=P.neBase*neAdrenalEffect;
+    const epiSecretion=P.epiBase*epiAdrenalEffect;
+    const neSpillover=P.neSpilloverK*generalGangliaHz;
+
+    // Source backward-Euler pool form with fixed ECFV over this acute step.
+    const neF2=1000*P.neClearanceK/ecfvMl;
+    const epiF2=1000*P.epiClearanceK/ecfvMl;
+    neMass=(neMass+dtMin*(neSecretion+neSpillover))/(1+dtMin*neF2);
+    epiMass=(epiMass+dtMin*epiSecretion)/(1+dtMin*epiF2);
+
+    const pools=concentrations();
+    const beta1=beta1Effect(pools);
+
+    const saBetaActivity=
+      P.saNeuralK*cardiacGangliaHz+
+      P.saHumoralK*beta1;
+    const vagusHz=clamp(hermite(CURVES.vagusHz,cardiacHz),0,8);
+    const parasympatheticEffectPerMin=
+      hermite(CURVES.saParasympathetic,vagusHz);
+    const sympatheticEffectPerMin=
+      hermite(CURVES.saSympathetic,saBetaActivity);
+    const heartRatePerMin=
+      P.saBasicRatePerMin+
+      parasympatheticEffectPerMin+
+      sympatheticEffectPerMin;
+
+    timeSec+=dtSec;
+    last=Object.freeze({
+      schema:'hummod-2013-baro-chemoreflex-sa-node-candidate/v1',
+      timeSec,
+      ecfvMl,
+      authority:SOURCE.authority,
+      canonicalControlAuthority:false,
+      arterialPo2MmHg,
+      arterialPh,
+      carotidSinusPressureMmHg,
+      baroreflex:Object.freeze({
+        adaptedCarotidPressureMmHg,
+        pressureChangeMmHg:baroPressureChangeMmHg,
+        na:baroreflexNa,
+        cardiacEffect:cardiacBaroEffect,
+        adrenalEffect:adrenalBaroEffect,
+        generalEffect:generalBaroEffect,
+      }),
+      ssPh,
+      deltaPh,
+      chemoreceptor:Object.freeze({
+        po2Effect,phEffect,sympsEffect,alphaAgonism,firingRate,
+      }),
+      chemoreceptorsCns:Object.freeze({
+        onsetDelay,adaptationDelay,change,effect:chemoCnsEffect,
+      }),
+      sympathetic:Object.freeze({
+        adrenalNa:adrenalSympatheticNa,
+        cardiacNa:cardiacSympatheticNa,
+        generalNa:generalSympatheticNa,
+        adrenalHz,cardiacHz,generalHz,
+      }),
+      ganglia:Object.freeze({
+        adrenalHz,
+        cardiacHz:cardiacGangliaHz,
+        generalHz:generalGangliaHz,
+        generalNa:generalGangliaNa,
+      }),
+      catecholamines:Object.freeze({
+        nePgPerMl:pools.nePgPerMl,
+        epiPgPerMl:pools.epiPgPerMl,
+        neSecretion,
+        epiSecretion,
+        neSpillover,
+        beta1Effect:beta1,
+        alpha1Effect:alpha1Effect(pools),
+      }),
+      saNode:Object.freeze({
+        vagusHz,
+        betaActivity:saBetaActivity,
+        parasympatheticEffectPerMin,
+        sympatheticEffectPerMin,
+        heartRatePerMin,
+      }),
+      heartRatePerMin,
+      provenance:SOURCE,
+      reduction:Object.freeze({
+        activeMechanisms:Object.freeze(['baroreflex','chemoreflex']),
+        neutralMultipliers:Object.freeze([
+          'apnea','low-pressure','mechanoreceptor',
+          'A2','pain','CNS trophic','renal mechanoreflex',
+        ]),
+        zeroAdditiveTerms:Object.freeze([
+          'exercise','Cushing','Brain-Fuel','EssentialEffect',
+          'constitutive sympathetic additions',
+        ]),
+        drugsAndClamps:'neutral/off',
+        numericalCoupling:
+          'exact-ZOH first-order delay updates; backward-Euler catecholamine pools',
+      }),
+    });
+    return last;
+  }
+
+  function runFor(seconds,inputs){
+    finite(seconds,'seconds');
+    if(seconds<0) throw new Error('seconds must be >= 0');
+    const dtSec=positive(inputs.dtSec,'inputs.dtSec');
+    const n=Math.floor(seconds/dtSec+1e-9);
+    for(let i=0;i<n;i++) step(inputs);
+    const rem=seconds-n*dtSec;
+    if(rem>1e-9) throw new Error('seconds must be integer multiple of dtSec');
+    return snapshot();
+  }
+
+  function snapshot(){
+    return last||Object.freeze({
+      schema:'hummod-2013-baro-chemoreflex-sa-node-candidate/v1',
+      timeSec,
+      ecfvMl,
+      authority:SOURCE.authority,
+      canonicalControlAuthority:false,
+      heartRatePerMin:null,
+      provenance:SOURCE,
+    });
+  }
+
+  return Object.freeze({step,runFor,snapshot,source:SOURCE});
+}
+
+module.exports=Object.freeze({
+  SOURCE,P,CURVES,hermite,hillActivity,beta1Effect,alpha1Effect,
+  createHumMod2013BaroChemoreflexSaNodeCandidate,
+});
+
+},
 "src/hummod_ards_decompensation_controller.js":function(module,exports,require){
 'use strict';
 
@@ -15312,6 +15890,8 @@ module.exports = {
  * docs/URSINO_MAGOSSO_EQUATION_LEDGER.md
  */
 
+const {SOURCE:ADAPTATION_SOURCE,PARAMETERS:ALBANESE,PARAMETER_SET,validateParameterSet}=require("src/albanese_2016_control_parameter_set.js");
+
 const SOURCE = Object.freeze({
   citation:
     'Ursino M, Magosso E. Am J Physiol Heart Circ Physiol. 2000;279:H149-H165.',
@@ -15402,9 +15982,9 @@ function peripheralChemoreceptorStatic(pao2MmHg) {
 }
 
 // Ursino & Magosso 2000 Eq. 19.
-function pulmonaryStretchStatic(tidalVolumeL) {
+function pulmonaryStretchStatic(tidalVolumeL, gain=P.pulmonaryStretch.gainSpikesPerSecPerL) {
   nonNegative(tidalVolumeL, 'tidalVolumeL');
-  return P.pulmonaryStretch.gainSpikesPerSecPerL * tidalVolumeL;
+  return gain * tidalVolumeL;
 }
 
 function cnsHypoxiaStatic(pao2MmHg, channel) {
@@ -15421,13 +16001,13 @@ function peripheralSympatheticFiring({
   fAcSpikesPerSec,
   fApSpikesPerSec,
   thetaSpSpikesPerSec,
-}) {
+}, weights=P.sympathetic.weights.sp) {
   finite(fAbSpikesPerSec, 'fAbSpikesPerSec');
   finite(fAcSpikesPerSec, 'fAcSpikesPerSec');
   finite(fApSpikesPerSec, 'fApSpikesPerSec');
   finite(thetaSpSpikesPerSec, 'thetaSpSpikesPerSec');
   const p = P.sympathetic;
-  const w = p.weights.sp;
+  const w = weights;
   const exponent = p.kSec * (
     -w.baro * fAbSpikesPerSec +
     w.chemo * fAcSpikesPerSec -
@@ -15444,12 +16024,12 @@ function cardiacSympatheticFiring({
   fAbSpikesPerSec,
   fAcSpikesPerSec,
   thetaShSpikesPerSec,
-}) {
+}, weights=P.sympathetic.weights.sh) {
   finite(fAbSpikesPerSec, 'fAbSpikesPerSec');
   finite(fAcSpikesPerSec, 'fAcSpikesPerSec');
   finite(thetaShSpikesPerSec, 'thetaShSpikesPerSec');
   const p = P.sympathetic;
-  const w = p.weights.sh;
+  const w = weights;
   const exponent = p.kSec * (
     -w.baro * fAbSpikesPerSec +
     w.chemo * fAcSpikesPerSec -
@@ -15471,14 +16051,27 @@ function vagalFiring({
   finite(fApSpikesPerSec, 'fApSpikesPerSec');
   const p = P.vagal;
   const e = Math.exp((fAbSpikesPerSec - p.baroMidSpikesPerSec) / p.kSpikesPerSec);
-  return p.f0SpikesPerSec +
-    (p.fInfinitySpikesPerSec * e) / (1 + e) +
+  // Eq. 23 has both f_ev,0 and f_ev,infinity*exp(...) in the numerator.
+  // Keeping f_ev,0 outside changes the high-pressure asymptote from 6.3 to
+  // 9.5 spikes/s and spuriously increases vagal inhibition of the heart.
+  return (p.f0SpikesPerSec + p.fInfinitySpikesPerSec * e) / (1 + e) +
     p.chemoWeight * fAcSpikesPerSec -
     p.pulmonaryWeight * fApSpikesPerSec -
     p.thetaSpikesPerSec;
 }
 
-function createUrsinoMagossoAutonomicShadow() {
+function createUrsinoMagossoAutonomicShadow({controlParameterSet='ursino-magosso-2000'}={}) {
+  validateParameterSet(controlParameterSet);
+  const adapted=controlParameterSet===PARAMETER_SET;
+  const instanceSource=adapted?Object.freeze({
+    ...SOURCE,status:'published-parameter-adaptation-candidate-only',
+    parameterSource:ADAPTATION_SOURCE,
+  }):SOURCE;
+  const weights={};
+  for(const [key,w] of Object.entries(ALBANESE.sympatheticWeights)){
+    weights[key]={baro:-w.baro,chemo:w.chemo,pulmonary:-w.pulmonary};
+  }
+  const pulmonaryGain=adapted?ALBANESE.pulmonaryGainSpikesPerSecPerL:P.pulmonaryStretch.gainSpikesPerSecPerL;
   let state = Object.freeze({
     fAcSpikesPerSec: null,
     fApSpikesPerSec: null,
@@ -15498,7 +16091,7 @@ function createUrsinoMagossoAutonomicShadow() {
     nonNegative(tidalVolumeL, 'tidalVolumeL');
 
     const phiAc = peripheralChemoreceptorStatic(pao2MmHg);
-    const phiAp = pulmonaryStretchStatic(tidalVolumeL);
+    const phiAp = pulmonaryStretchStatic(tidalVolumeL,pulmonaryGain);
     const chiSp = cnsHypoxiaStatic(pao2MmHg, 'sp');
     const chiSh = cnsHypoxiaStatic(pao2MmHg, 'sh');
 
@@ -15528,6 +16121,7 @@ function createUrsinoMagossoAutonomicShadow() {
     );
 
     let fSp = null;
+    let fSv = null;
     let fSh = null;
     let fV = null;
     let mappingStatus = 'unmapped-no-source-valid-f_ab';
@@ -15538,12 +16132,16 @@ function createUrsinoMagossoAutonomicShadow() {
         fAcSpikesPerSec: fAc,
         fApSpikesPerSec: fAp,
         thetaSpSpikesPerSec: thetaSp,
-      });
+      },adapted?weights.sp:P.sympathetic.weights.sp);
+      fSv=adapted?peripheralSympatheticFiring({
+        fAbSpikesPerSec,fAcSpikesPerSec:fAc,fApSpikesPerSec:fAp,
+        thetaSpSpikesPerSec:thetaSp,
+      },weights.sv):fSp;
       fSh = cardiacSympatheticFiring({
         fAbSpikesPerSec,
         fAcSpikesPerSec: fAc,
         thetaShSpikesPerSec: thetaSh,
-      });
+      },adapted?weights.sh:P.sympathetic.weights.sh);
       fV = vagalFiring({
         fAbSpikesPerSec,
         fAcSpikesPerSec: fAc,
@@ -15557,7 +16155,9 @@ function createUrsinoMagossoAutonomicShadow() {
       fApSpikesPerSec: fAp,
       thetaSpSpikesPerSec: thetaSp,
       thetaShSpikesPerSec: thetaSh,
+      controlParameterSet,
       fSpSpikesPerSec: fSp,
+      fSvSpikesPerSec:fSv,
       fShSpikesPerSec: fSh,
       fVSpikesPerSec: fV,
       fAbSpikesPerSec,
@@ -15566,7 +16166,7 @@ function createUrsinoMagossoAutonomicShadow() {
       baroreceptorMappingStatus: mappingStatus,
       active: false,
       authority: 'shadow-diagnostic-only',
-      provenance: SOURCE,
+      provenance: instanceSource,
     });
     return state;
   }
@@ -15574,7 +16174,7 @@ function createUrsinoMagossoAutonomicShadow() {
   return Object.freeze({
     step,
     snapshot: () => state,
-    source: SOURCE,
+    source: instanceSource,
     parameters: P,
   });
 }
@@ -15591,6 +16191,39 @@ module.exports = {
   vagalFiring,
   createUrsinoMagossoAutonomicShadow,
 };
+
+},
+"src/albanese_2016_control_parameter_set.js":function(module,exports,require){
+'use strict';
+
+// Albanese et al. 2016, Table 7, doi:10.1152/ajpheart.00230.2014.
+// These are the published parameter revisions, not values fitted to Halliwill.
+// Applying them to the 2000 plant is an adaptation, NOT a full 2016 CP Model.
+const SOURCE=Object.freeze({
+  doi:'10.1152/ajpheart.00230.2014',
+  table:7,
+  authority:'published-parameter-adaptation-not-full-model-reproduction',
+  unchangedComponents:'Ursino-Magosso 2000 plant, afferent chemoreceptor and effector equations',
+});
+const PARAMETERS=Object.freeze({
+  pulmonaryGainSpikesPerSecPerL:11.76,
+  // Signed weights in the 2016 table; the 2000 functions subtract the
+  // baroreceptor and stretch contributions, so convert signs at that boundary.
+  sympatheticWeights:Object.freeze({
+    sp:Object.freeze({baro:-1.1375,chemo:1.716,pulmonary:-0.3997}),
+    sv:Object.freeze({baro:-1.0806,chemo:1.716,pulmonary:-0.2907}),
+    sh:Object.freeze({baro:-1.75,chemo:1,pulmonary:0}),
+  }),
+  localOxygenGains:Object.freeze({brain:140,heart:490,muscle:420}),
+});
+const PARAMETER_SET='albanese-2016-table7-adaptation';
+function validateParameterSet(name){
+  if(!['ursino-magosso-2000',PARAMETER_SET].includes(name)){
+    throw new Error('unknown cardiovascular control parameter set: '+name);
+  }
+  return name;
+}
+module.exports=Object.freeze({SOURCE,PARAMETERS,PARAMETER_SET,validateParameterSet});
 
 },
 "src/ursino_baroreceptor_shadow.js":function(module,exports,require){
@@ -16034,8 +16667,12 @@ const {
   createUrsinoMagosso2000ExpandedHypoxiaClosedLoop,
 }=require("src/ursino_magosso_2000_expanded_hypoxia_closed_loop.js");
 
+const {PARAMETER_SET}=require("src/albanese_2016_control_parameter_set.js");
+
 const SOURCE=Object.freeze({
-  model:'Ursino-Magosso 2000 expanded hypoxia candidate',
+  model:'Ursino-Magosso 2000 plant with published Albanese 2016 Table 7 control parameters',
+  controlParameterSet:PARAMETER_SET,
+  parameterDoi:'10.1152/ajpheart.00230.2014',
   doi:'10.1152/ajpheart.2000.279.1.H149',
   authority:'candidate-not-canonical',
   role:'physician-validation-parallel-view',
@@ -16071,6 +16708,7 @@ function createPhysicianValidationCandidate({
 
   const runtime=createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     dtSec,
+    controlParameterSet:PARAMETER_SET,
     pao2MmHg,
     paco2MmHg,
     tidalVolumeL,
@@ -16079,6 +16717,8 @@ function createPhysicianValidationCandidate({
   });
 
   let environment=Object.freeze({pao2MmHg,paco2MmHg,tidalVolumeL});
+  let available=true;
+  let unavailableReason=null;
   let accumulator={seconds:0,mapIntegral:0,coIntegral:0};
   let averaged=Object.freeze({
     windowSec:0,
@@ -16121,10 +16761,24 @@ function createPhysicianValidationCandidate({
 
   function runFor(seconds){
     nonNegative(seconds,'seconds');
+    if(!available) return snapshot();
     const n=Math.floor(seconds/dtSec+1e-9);
     for(let i=0;i<n;i++){
       integrateCurrent(dtSec);
-      runtime.step();
+      try{
+        runtime.step();
+      }catch(error){
+        const message=error&&error.message?String(error.message):String(error);
+        const sourceDomainFailure=
+          message==='venousO2MlPerMl must be >= 0' ||
+          message.endsWith('source bed flow became non-positive') ||
+          message==='1 + localState must remain > 0';
+        if(!sourceDomainFailure) throw error;
+        available=false;
+        unavailableReason=message;
+        resetAccumulator();
+        return snapshot();
+      }
     }
     const rem=seconds-n*dtSec;
     if(rem>1e-9) throw new Error('seconds must be an integer multiple of dtSec');
@@ -16149,17 +16803,20 @@ function createPhysicianValidationCandidate({
     return Object.freeze({
       timeSec:s.timeSec,
       inputs:environment,
-      heartRatePerMin:hr,
-      meanArterialPressureMmHg:map,
-      cardiacOutputMlPerMin:Number.isFinite(co)?co*60:null,
-      strokeVolumeMl:sv,
+      available,
+      unavailableReason,
+      validationStatus:available?'unqualified-candidate':'blocked-source-domain',
+      heartRatePerMin:available?hr:null,
+      meanArterialPressureMmHg:available?map:null,
+      cardiacOutputMlPerMin:available&&Number.isFinite(co)?co*60:null,
+      strokeVolumeMl:available?sv:null,
       systemicPeripheralResistanceMmHgMinPerL:
-        Number.isFinite(peripheralResistance)
+        available&&Number.isFinite(peripheralResistance)
           ?peripheralResistance*60
           :null,
       autonomic:s.autonomic,
       vascularEffectors:s.vascularEffectors,
-      localO2:s.localO2,
+      localO2:available?s.localO2:null,
       conservation:s.conservation,
       averaging:Object.freeze({
         method:'time-average-of-pulsatile-candidate-output',
@@ -16171,8 +16828,12 @@ function createPhysicianValidationCandidate({
       candidatePlantControlAuthority:true,
       knownLimitations:Object.freeze([
         'Basal regional flow allocation accepted by physician as candidate-layer tolerance, not exact source reproduction.',
-        'Early Fig. 11 beat-averaged SAP rise remains smaller than source description.',
-        'Human hypoxia/hypercapnia quantitative validation remains incomplete.',
+        'Published 2016 control parameters are adapted to the 2000 plant and afferent chemoreceptor; this is not a full 2016 CP Model reproduction.',
+        'Human hypoxia/hypercapnia quantitative validation remains incomplete, including the magnitude of the hyperpnoea-only HR response.',
+        'Awake healthy human validation does not establish validity in ventilated ARDS or terminal decompensation.',
+        ...(available?[]:[
+          'Parallel candidate stopped after its source oxygen-transport equations left their physical domain; canonical bedside physiology continues independently.',
+        ]),
       ]),
       provenance:SOURCE,
     });
@@ -16269,6 +16930,7 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
   ventilationMode='external-delivered-vt',
   diagnosticLocalO2Mode='source',
   diagnosticLocalO2EnabledBeds=null,
+  controlParameterSet='ursino-magosso-2000',
 }={}){
   positive(dtSec,'dtSec');
   nonNegative(pao2MmHg,'pao2MmHg');
@@ -16292,10 +16954,14 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     }
   }
 
+  const instanceSource=controlParameterSet==='ursino-magosso-2000'?SOURCE:Object.freeze({
+    ...SOURCE,role:'published-2016-parameter-adaptation-on-2000-plant',
+    parameterSource:require("src/albanese_2016_control_parameter_set.js").SOURCE,
+  });
   const plant=createUrsinoMagosso2000ExpandedPlantRuntime({dtSec});
   const baro=createUrsinoBaroreceptorShadow();
-  const autonomic=createUrsinoMagossoAutonomicShadow();
-  const localO2=createUrsinoMagosso2000LocalO2Candidate();
+  const autonomic=createUrsinoMagossoAutonomicShadow({controlParameterSet});
+  const localO2=createUrsinoMagosso2000LocalO2Candidate({controlParameterSet});
   const sourceVentilation=ventilationMode===
     'ursino-magosso-2000-spontaneous-validation'
       ?createUrsinoMagosso2000TidalVolumeCandidate()
@@ -16367,6 +17033,7 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
       effectors=createUrsinoMagosso2000SplitEffectorsRuntime({
         initialVascularSympatheticSpikesPerSec:
           autonomicState.fSpSpikesPerSec,
+        initialVenousSympatheticSpikesPerSec:autonomicState.fSvSpikesPerSec,
         initialCardiacSympatheticSpikesPerSec:
           autonomicState.fShSpikesPerSec,
         initialCardiacVagalSpikesPerSec:
@@ -16377,6 +17044,7 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     const reflex=effectors.step({
       dtSec,
       vascularSympatheticSpikesPerSec:autonomicState.fSpSpikesPerSec,
+      venousSympatheticSpikesPerSec:autonomicState.fSvSpikesPerSec,
       cardiacSympatheticSpikesPerSec:autonomicState.fShSpikesPerSec,
       cardiacVagalSpikesPerSec:autonomicState.fVSpikesPerSec,
     });
@@ -16461,25 +17129,27 @@ function createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
       hemodynamics:p.hemodynamics,
       vascularState:p.state,
       vascularEffectors:p.effectors,
+      controlParameterSet,
       autonomic:autonomicState,
+      reflexEffectors:effectors?effectors.snapshot():null,
       localO2:localState,
       averagePumpPowerMmHgMlPerSec,
       diagnostic:Object.freeze({
         localO2Mode:diagnosticLocalO2Mode,
         localO2EnabledBeds:Object.freeze([...localO2Beds]),
         sourceCandidateBehavior:
-          diagnosticLocalO2Mode==='source'&&localO2Beds.size===3,
+          diagnosticLocalO2Mode==='source'&&localO2Beds.size===3&&controlParameterSet==='ursino-magosso-2000',
       }),
       conservation:p.conservation,
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
       candidatePlantControlAuthority:true,
-      provenance:SOURCE,
+      provenance:instanceSource,
     });
   }
 
   return Object.freeze({
-    step,runFor,snapshot,setEnvironment,source:SOURCE,
+    step,runFor,snapshot,setEnvironment,source:instanceSource,
   });
 }
 
@@ -17326,11 +17996,14 @@ function staticDelta(name,firing){
 
 function createUrsinoMagosso2000SplitEffectorsRuntime({
   initialVascularSympatheticSpikesPerSec,
+  initialVenousSympatheticSpikesPerSec=initialVascularSympatheticSpikesPerSec,
   initialCardiacSympatheticSpikesPerSec,
   initialCardiacVagalSpikesPerSec,
 }={}){
   nonNegative(initialVascularSympatheticSpikesPerSec,
     'initialVascularSympatheticSpikesPerSec');
+  nonNegative(initialVenousSympatheticSpikesPerSec,
+    'initialVenousSympatheticSpikesPerSec');
   nonNegative(initialCardiacSympatheticSpikesPerSec,
     'initialCardiacSympatheticSpikesPerSec');
   nonNegative(initialCardiacVagalSpikesPerSec,
@@ -17340,7 +18013,8 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
   for(const name of [
     'Rsp','Rep','RmpNormal','Vusv','Vuev','Vumv',
   ]){
-    delta[name]=staticDelta(name,initialVascularSympatheticSpikesPerSec);
+    delta[name]=staticDelta(name,['Vusv','Vuev','Vumv'].includes(name)
+      ?initialVenousSympatheticSpikesPerSec:initialVascularSympatheticSpikesPerSec);
   }
   for(const name of ['EmaxLv','EmaxRv','Ts']){
     delta[name]=staticDelta(name,initialCardiacSympatheticSpikesPerSec);
@@ -17349,16 +18023,18 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
 
   const initialSignals=Object.freeze({
     vascular:initialVascularSympatheticSpikesPerSec,
+    venous:initialVenousSympatheticSpikesPerSec,
     cardiac:initialCardiacSympatheticSpikesPerSec,
     vagal:initialCardiacVagalSpikesPerSec,
   });
-  const history={vascular:[],cardiac:[],vagal:[]};
+  const history={vascular:[],venous:[],cardiac:[],vagal:[]};
   let timeSec=0;
   let rates={};
   for(const name of Object.keys(delta)) rates[name]=0;
 
   function inputFor(name,current){
-    if(['Rsp','Rep','RmpNormal','Vusv','Vuev','Vumv'].includes(name)){
+    if(['Vusv','Vuev','Vumv'].includes(name)) return ['venous',current.venous];
+    if(['Rsp','Rep','RmpNormal'].includes(name)){
       return ['vascular',current.vascular];
     }
     if(['EmaxLv','EmaxRv','Ts'].includes(name)){
@@ -17370,6 +18046,7 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
   function step({
     dtSec,
     vascularSympatheticSpikesPerSec,
+    venousSympatheticSpikesPerSec=vascularSympatheticSpikesPerSec,
     cardiacSympatheticSpikesPerSec,
     cardiacVagalSpikesPerSec,
   }={}){
@@ -17377,6 +18054,8 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
     const current={
       vascular:nonNegative(vascularSympatheticSpikesPerSec,
         'vascularSympatheticSpikesPerSec'),
+      venous:nonNegative(venousSympatheticSpikesPerSec,
+        'venousSympatheticSpikesPerSec'),
       cardiac:nonNegative(cardiacSympatheticSpikesPerSec,
         'cardiacSympatheticSpikesPerSec'),
       vagal:nonNegative(cardiacVagalSpikesPerSec,
@@ -17387,6 +18066,7 @@ function createUrsinoMagosso2000SplitEffectorsRuntime({
     // For requested times before t=0, a source pure delay must see the
     // pre-perturbation basal signal, not the current perturbed signal.
     history.vascular.push({t:timeSec,v:current.vascular});
+    history.venous.push({t:timeSec,v:current.venous});
     history.cardiac.push({t:timeSec,v:current.cardiac});
     history.vagal.push({t:timeSec,v:current.vagal});
 
@@ -17619,6 +18299,8 @@ const SOURCE=Object.freeze({
   authority:'candidate-not-canonical',
 });
 
+const {SOURCE:ADAPTATION_SOURCE,PARAMETERS:ALBANESE,PARAMETER_SET,validateParameterSet}=require("src/albanese_2016_control_parameter_set.js");
+
 const LOCAL=Object.freeze({
   brain:Object.freeze({
     gain:10,tauSec:10,
@@ -17688,13 +18370,19 @@ function resistanceFromLocalO2({
   return normalResistanceMmHgSecPerMl/(1+localState);
 }
 
-function createUrsinoMagosso2000LocalO2Candidate(){
+function createUrsinoMagosso2000LocalO2Candidate({controlParameterSet='ursino-magosso-2000'}={}){
+  validateParameterSet(controlParameterSet);
+  const adapted=controlParameterSet===PARAMETER_SET;
+  const instanceSource=adapted?Object.freeze({
+    ...SOURCE,status:'published-parameter-adaptation-candidate-only',
+    parameterSource:ADAPTATION_SOURCE,
+  }):SOURCE;
   let x={brain:0,heart:0,muscle:0};
   let state=Object.freeze({
     authority:SOURCE.authority,
     active:false,
     localState:Object.freeze({...x}),
-    provenance:SOURCE,
+    provenance:instanceSource,
   });
 
   function step({
@@ -17757,7 +18445,7 @@ function createUrsinoMagosso2000LocalO2Candidate(){
       target[bed]=localO2Target({
         venousO2MlPerMl:cv[bed],
         normalVenousO2MlPerMl:LOCAL[bed].normalVenousO2MlPerMl,
-        gain:LOCAL[bed].gain,
+        gain:adapted?ALBANESE.localOxygenGains[bed]:LOCAL[bed].gain,
       });
       x[bed]=firstOrderExact(x[bed],target[bed],dtSec,LOCAL[bed].tauSec);
     }
@@ -17793,7 +18481,7 @@ function createUrsinoMagosso2000LocalO2Candidate(){
       authority:SOURCE.authority,
       canonicalControlAuthority:false,
       active:true,
-      provenance:SOURCE,
+      provenance:instanceSource,
     });
     return state;
   }
@@ -17801,7 +18489,7 @@ function createUrsinoMagosso2000LocalO2Candidate(){
   return Object.freeze({
     step,
     snapshot:()=>state,
-    source:SOURCE,
+    source:instanceSource,
     parameters:LOCAL,
   });
 }
@@ -18128,6 +18816,387 @@ module.exports=Object.freeze({
 });
 
 },
+"src/hummod_2013_chemoreflex_sa_node_candidate.js":function(module,exports,require){
+'use strict';
+
+/**
+ * HumMod 2012/2013 chemoreflex -> sympathoadrenal -> SA-node candidate.
+ *
+ * Source generation:
+ * nysuloem/HumMod-UTSC-CPG@51d369eb75669e150ef7c61e3ba8bcb1e068aecf
+ *
+ * Source files:
+ * - Structure/Nerves/Chemoreceptors.DES
+ * - Structure/Nerves/ChemoreceptorsCNS.DES
+ * - Structure/Nerves/Sympathetics-Adrenal.DES
+ * - Structure/Nerves/Sympathetics-Cardiac.DES
+ * - Structure/Nerves/Sympathetics-General.DES
+ * - Structure/Nerves/Ganglia-Adrenal.DES
+ * - Structure/Nerves/Ganglia-Cardiac.DES
+ * - Structure/Nerves/Ganglia-General.DES
+ * - Structure/Nerves/AdrenalNerve.DES
+ * - Structure/Nerves/VagusNerve.DES
+ * - Structure/Catechols/NESecretion.DES
+ * - Structure/Catechols/EpiSecretion.DES
+ * - Structure/Catechols/NEPool.DES
+ * - Structure/Catechols/EpiPool.DES
+ * - Structure/Catechols/Alpha1Pool.DES
+ * - Structure/Catechols/Beta1Pool.DES
+ * - Structure/Heart/SANode-BetaReceptors.DES
+ * - Structure/Heart/SANode-Rate.DES
+ *
+ * Reduction:
+ * - isolates the chemoreflex branch;
+ * - baroreflex, low-pressure, mechanoreceptor, apnea, A2, pain, trophic,
+ *   exercise, Cushing, fuel, essential, and renal-mechanoreflex terms are held
+ *   at their source-neutral values;
+ * - no blockade, clamps, exogenous agonists/antagonists, pumps, boluses, or
+ *   pheochromocytoma sources;
+ * - OtherTissue-Function.Effect = 1.
+ *
+ * No physiologic gain is introduced by this reduction.
+ */
+
+const SOURCE=Object.freeze({
+  repository:'nysuloem/HumMod-UTSC-CPG',
+  revision:'51d369eb75669e150ef7c61e3ba8bcb1e068aecf',
+  generation:'HumMod-2012/2013',
+  authority:'candidate-not-canonical',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)) throw new Error(label+' must be finite');
+  return v;
+}
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+function hermite(points,x){
+  finite(x,'curve input');
+  if(x<=points[0].x) return points[0].y+points[0].slope*(x-points[0].x);
+  const z=points[points.length-1];
+  if(x>=z.x) return z.y+z.slope*(x-z.x);
+  let i=0;
+  while(i+1<points.length&&x>points[i+1].x)i++;
+  const a=points[i],b=points[i+1],h=b.x-a.x,t=(x-a.x)/h;
+  return (2*t*t*t-3*t*t+1)*a.y+
+    (t*t*t-2*t*t+t)*h*a.slope+
+    (-2*t*t*t+3*t*t)*b.y+
+    (t*t*t-t*t)*h*b.slope;
+}
+
+const CURVES=Object.freeze({
+  chemoPo2:Object.freeze([
+    Object.freeze({x:30,y:10,slope:0}),
+    Object.freeze({x:60,y:2,slope:-0.05}),
+    Object.freeze({x:94,y:0.5,slope:-0.005}),
+    Object.freeze({x:400,y:0.2,slope:0}),
+  ]),
+  chemoDeltaPh:Object.freeze([
+    Object.freeze({x:-0.34,y:2,slope:0}),
+    Object.freeze({x:0,y:0.4,slope:-3}),
+    Object.freeze({x:0.26,y:0,slope:0}),
+  ]),
+  chemoSymps:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:1,y:0.1,slope:0.2}),
+    Object.freeze({x:4,y:0.6,slope:0}),
+  ]),
+  chemoCnsEffect:Object.freeze([
+    Object.freeze({x:-10,y:0.6,slope:0}),
+    Object.freeze({x:0,y:1,slope:0.10}),
+    Object.freeze({x:10,y:3,slope:0}),
+  ]),
+  vagusHz:Object.freeze([
+    Object.freeze({x:0,y:8,slope:0}),
+    Object.freeze({x:1.5,y:2,slope:-1}),
+    Object.freeze({x:4.5,y:0.5,slope:0}),
+  ]),
+  saParasympathetic:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:2,y:-20,slope:-12}),
+    Object.freeze({x:8,y:-40,slope:0}),
+  ]),
+  saSympathetic:Object.freeze([
+    Object.freeze({x:0,y:0,slope:0}),
+    Object.freeze({x:1,y:15,slope:10}),
+    Object.freeze({x:1.75,y:45,slope:40}),
+    Object.freeze({x:2.5,y:100,slope:30}),
+    Object.freeze({x:3.5,y:120,slope:0}),
+  ]),
+});
+
+const P=Object.freeze({
+  chemoSsPhKPerMin:0.0001,
+  chemoCnsOnsetTauMin:5,
+  chemoCnsAdaptationTauDays:15,
+  sympatheticHzScale:1.5,
+  gangliaNaScale:0.667,
+  neTargetNgPerMl:0.240,
+  epiTargetNgPerMl:0.040,
+  neBase:220,
+  epiBase:375,
+  neSpilloverK:570,
+  neClearanceK:4.5,
+  epiClearanceK:9.4,
+  adrenalA:23,
+  adrenalM:4.6,
+  adrenalS:5.35,
+  adrenalB:0.8,
+  beta1Total:1.45,
+  beta1KdEpi:1.120,
+  beta1KdNe:0.973,
+  saNeuralK:0.5,
+  saHumoralK:0.25,
+  saBasicRatePerMin:77,
+  alpha1Total:4,
+  alpha1KdEpi:5,
+  alpha1KdNe:5,
+});
+
+function hillActivity({x,A,m,S,B}){
+  nonNegative(x,'hill x');
+  return A*((x**m)/((x**m)+(S**m)))+B;
+}
+
+function beta1Effect({nePgPerMl,epiPgPerMl}){
+  nonNegative(nePgPerMl,'nePgPerMl');
+  nonNegative(epiPgPerMl,'epiPgPerMl');
+  const ne=0.00592*nePgPerMl;
+  const epi=0.00546*epiPgPerMl;
+  // Source competitive binding with isoproterenol=0 and propranolol=0.
+  const denominator=
+    ne*P.beta1KdEpi+
+    epi*P.beta1KdNe+
+    P.beta1KdEpi*P.beta1KdNe;
+  const epiBound=denominator>0 ? epi*P.beta1KdNe/denominator : 0;
+  const neBound=denominator>0 ? ne*P.beta1KdEpi/denominator : 0;
+  return P.beta1Total*(2*epiBound+neBound);
+}
+
+function alpha1Effect({nePgPerMl,epiPgPerMl}){
+  nonNegative(nePgPerMl,'nePgPerMl');
+  nonNegative(epiPgPerMl,'epiPgPerMl');
+  const ne=0.00592*nePgPerMl;
+  const epi=0.00546*epiPgPerMl;
+  // Source competitive binding with midodrine/phenylephrine terms = 0.
+  const denominator=
+    ne*P.alpha1KdEpi+
+    epi*P.alpha1KdNe+
+    P.alpha1KdEpi*P.alpha1KdNe;
+  const epiBound=denominator>0 ? epi*P.alpha1KdNe/denominator : 0;
+  const neBound=denominator>0 ? ne*P.alpha1KdEpi/denominator : 0;
+  return P.alpha1Total*(epiBound+neBound);
+}
+
+function createHumMod2013ChemoreflexSaNodeCandidate({
+  ecfvMl,
+  initialArterialPh=7.44,
+}={}){
+  positive(ecfvMl,'ecfvMl');
+  finite(initialArterialPh,'initialArterialPh');
+
+  let ssPh=initialArterialPh;
+  let onsetDelay=1;
+  let adaptationDelay=1;
+  let neMass=P.neTargetNgPerMl*ecfvMl;
+  let epiMass=P.epiTargetNgPerMl*ecfvMl;
+  let generalGangliaNa=0.667*1.5;
+  let last=null;
+  let timeSec=0;
+
+  function concentrations(){
+    return {
+      nePgPerMl:1000*(neMass/ecfvMl),
+      epiPgPerMl:1000*(epiMass/ecfvMl),
+    };
+  }
+
+  function step({dtSec,arterialPo2MmHg,arterialPh}={}){
+    positive(dtSec,'dtSec');
+    nonNegative(arterialPo2MmHg,'arterialPo2MmHg');
+    finite(arterialPh,'arterialPh');
+
+    const dtMin=dtSec/60;
+
+    // Chemoreceptors.DES: slow pH reference.
+    ssPh += (arterialPh-ssPh)*
+      (1-Math.exp(-P.chemoSsPhKPerMin*dtMin));
+    const deltaPh=arterialPh-ssPh;
+
+    const poolsBefore=concentrations();
+    const alpha1=alpha1Effect(poolsBefore);
+    const alphaAgonism=
+      0.5*generalGangliaNa+
+      0.5*alpha1;
+
+    const po2Effect=hermite(CURVES.chemoPo2,arterialPo2MmHg);
+    const phEffect=hermite(CURVES.chemoDeltaPh,deltaPh);
+    const sympsEffect=hermite(CURVES.chemoSymps,alphaAgonism);
+    const firingRate=po2Effect+phEffect+sympsEffect;
+
+    // ChemoreceptorsCNS.DES delay dynamics. HumMod timebase is minutes.
+    onsetDelay += (firingRate-onsetDelay)*
+      (1-Math.exp(-dtMin/P.chemoCnsOnsetTauMin));
+    const adaptTauMin=1440*P.chemoCnsAdaptationTauDays;
+    adaptationDelay += (firingRate-adaptationDelay)*
+      (1-Math.exp(-dtMin/adaptTauMin));
+
+    const change=onsetDelay-adaptationDelay;
+    const chemoCnsEffect=hermite(CURVES.chemoCnsEffect,change);
+
+    // Source-neutral isolation: all multiplicative reflex terms other than
+    // ChemoreceptorsCNS.Effect = 1; all additive stress terms = 0.
+    const adrenalSympatheticNa=chemoCnsEffect;
+    const cardiacSympatheticNa=chemoCnsEffect;
+    const generalSympatheticNa=chemoCnsEffect;
+
+    const adrenalHz=P.sympatheticHzScale*adrenalSympatheticNa;
+    const cardiacHz=P.sympatheticHzScale*cardiacSympatheticNa;
+    const generalHz=P.sympatheticHzScale*generalSympatheticNa;
+
+    const adrenalNerveHz=adrenalHz;
+    const generalGangliaHz=generalHz;
+    const cardiacGangliaHz=cardiacHz;
+    generalGangliaNa=P.gangliaNaScale*generalGangliaHz;
+
+    // Later HumMod adrenal secretion uses the source Hill relation.
+    const epiAdrenalEffect=hillActivity({
+      x:adrenalNerveHz,
+      A:P.adrenalA,m:P.adrenalM,S:P.adrenalS,B:P.adrenalB,
+    });
+    const neAdrenalEffect=epiAdrenalEffect;
+
+    const neSecretion=P.neBase*neAdrenalEffect;
+    const epiSecretion=P.epiBase*epiAdrenalEffect;
+    const neSpillover=P.neSpilloverK*generalGangliaHz;
+
+    // Source backward-Euler pool form with fixed ECFV over this acute step.
+    const neF2=1000*P.neClearanceK/ecfvMl;
+    const epiF2=1000*P.epiClearanceK/ecfvMl;
+    neMass=(neMass+dtMin*(neSecretion+neSpillover))/(1+dtMin*neF2);
+    epiMass=(epiMass+dtMin*epiSecretion)/(1+dtMin*epiF2);
+
+    const pools=concentrations();
+    const beta1=beta1Effect(pools);
+
+    const saBetaActivity=
+      P.saNeuralK*cardiacGangliaHz+
+      P.saHumoralK*beta1;
+    const vagusHz=clamp(hermite(CURVES.vagusHz,cardiacHz),0,8);
+    const parasympatheticEffectPerMin=
+      hermite(CURVES.saParasympathetic,vagusHz);
+    const sympatheticEffectPerMin=
+      hermite(CURVES.saSympathetic,saBetaActivity);
+    const heartRatePerMin=
+      P.saBasicRatePerMin+
+      parasympatheticEffectPerMin+
+      sympatheticEffectPerMin;
+
+    timeSec+=dtSec;
+    last=Object.freeze({
+      schema:'hummod-2013-chemoreflex-sa-node-candidate/v1',
+      timeSec,
+      authority:SOURCE.authority,
+      canonicalControlAuthority:false,
+      arterialPo2MmHg,
+      arterialPh,
+      ssPh,
+      deltaPh,
+      chemoreceptor:Object.freeze({
+        po2Effect,phEffect,sympsEffect,alphaAgonism,firingRate,
+      }),
+      chemoreceptorsCns:Object.freeze({
+        onsetDelay,adaptationDelay,change,effect:chemoCnsEffect,
+      }),
+      sympathetic:Object.freeze({
+        adrenalNa:adrenalSympatheticNa,
+        cardiacNa:cardiacSympatheticNa,
+        generalNa:generalSympatheticNa,
+        adrenalHz,cardiacHz,generalHz,
+      }),
+      ganglia:Object.freeze({
+        adrenalHz,
+        cardiacHz:cardiacGangliaHz,
+        generalHz:generalGangliaHz,
+        generalNa:generalGangliaNa,
+      }),
+      catecholamines:Object.freeze({
+        nePgPerMl:pools.nePgPerMl,
+        epiPgPerMl:pools.epiPgPerMl,
+        neSecretion,
+        epiSecretion,
+        neSpillover,
+        beta1Effect:beta1,
+        alpha1Effect:alpha1Effect(pools),
+      }),
+      saNode:Object.freeze({
+        vagusHz,
+        betaActivity:saBetaActivity,
+        parasympatheticEffectPerMin,
+        sympatheticEffectPerMin,
+        heartRatePerMin,
+      }),
+      heartRatePerMin,
+      provenance:SOURCE,
+      reduction:Object.freeze({
+        isolatedMechanism:'chemoreflex',
+        neutralMultipliers:Object.freeze([
+          'apnea','baroreflex','low-pressure','mechanoreceptor',
+          'A2','pain','CNS trophic','renal mechanoreflex',
+        ]),
+        zeroAdditiveTerms:Object.freeze([
+          'exercise','Cushing','Brain-Fuel','EssentialEffect',
+          'constitutive sympathetic additions',
+        ]),
+        drugsAndClamps:'neutral/off',
+        numericalCoupling:
+          'exact-ZOH first-order delay updates; backward-Euler catecholamine pools',
+      }),
+    });
+    return last;
+  }
+
+  function runFor(seconds,inputs){
+    finite(seconds,'seconds');
+    if(seconds<0) throw new Error('seconds must be >= 0');
+    const dtSec=positive(inputs.dtSec,'inputs.dtSec');
+    const n=Math.floor(seconds/dtSec+1e-9);
+    for(let i=0;i<n;i++) step(inputs);
+    const rem=seconds-n*dtSec;
+    if(rem>1e-9) throw new Error('seconds must be integer multiple of dtSec');
+    return snapshot();
+  }
+
+  function snapshot(){
+    return last||Object.freeze({
+      schema:'hummod-2013-chemoreflex-sa-node-candidate/v1',
+      timeSec,
+      authority:SOURCE.authority,
+      canonicalControlAuthority:false,
+      heartRatePerMin:null,
+      provenance:SOURCE,
+    });
+  }
+
+  return Object.freeze({step,runFor,snapshot,source:SOURCE});
+}
+
+module.exports=Object.freeze({
+  SOURCE,P,CURVES,hermite,hillActivity,beta1Effect,alpha1Effect,
+  createHumMod2013ChemoreflexSaNodeCandidate,
+});
+
+},
 "src/clinical_session_record.js":function(module,exports,require){
 'use strict';
 
@@ -18187,6 +19256,20 @@ function createClinicalSessionRecord(snapshot) {
       : null,
     hemodynamics: isLiveHumModSession && snapshot.systemic && snapshot.systemic.hemodynamics
       ? Object.freeze({ ...snapshot.systemic.hemodynamics })
+      : null,
+    physicianComparison: isLiveHumModSession && snapshot.systemic && snapshot.systemic.physicianComparison
+      ? Object.freeze({
+          ...snapshot.systemic.physicianComparison,
+          liveHumMod: snapshot.systemic.physicianComparison.liveHumMod
+            ? Object.freeze({ ...snapshot.systemic.physicianComparison.liveHumMod })
+            : null,
+          candidateModel: snapshot.systemic.physicianComparison.candidateModel
+            ? Object.freeze({ ...snapshot.systemic.physicianComparison.candidateModel })
+            : null,
+          publishedModelInterim: snapshot.systemic.physicianComparison.publishedModelInterim
+            ? Object.freeze({ ...snapshot.systemic.physicianComparison.publishedModelInterim })
+            : null,
+        })
       : null,
     provenance: Object.freeze({
       ...(snapshot.provenance || {}),

@@ -5,21 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101d2a">
 <meta name="description" content="Explore pressure, flow, volume, and recruitment with an inspectable three-compartment mechanical lung model.">
-<title>ARDS Clinical Twin · v1.5</title>
-<link rel="stylesheet" href="./styles.css?v=1.0.0">
-<script src="./engine.js?v=1.0.0" defer></script>
-<script src="./native-engine-config.js?v=1.5.0" defer></script>
-<script src="./native-engine-client.js?v=1.5.0" defer></script>
-<script src="./app.js?v=1.0.0" defer></script>
+<title>ARDS Clinical Twin · v2.4</title>
+<link rel="stylesheet" href="./styles.css?v=1.5.1-candidate-runtime">
+<script src="./engine.js?v=1.5.1-candidate-runtime" defer></script>
+<script src="./native-engine-config.js?v=1.5.1-candidate-runtime" defer></script>
+<script src="./native-engine-client.js?v=1.5.1-candidate-runtime" defer></script>
+<script src="./app.js?v=1.5.1-candidate-runtime" defer></script>
 </head>
 <body>
 <a class="skip" href="#results">Skip to results</a>
-<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v1.5</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">v1.5 research preview · numerically equilibrated persistent patient · Vent mechanics + reduced systemic physiology · research shadows separated from bedside outputs</p></header>
+<header class="masthead"><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div><div class="brand"><span class="brand-mark" aria-hidden="true">∿</span><div><p class="eyebrow">ARDS CLINICAL TWIN <span>v2.4</span></p><h1>Ventilate a persistent virtual patient</h1></div></div><p class="intro">Change the ventilator, advance time, and watch mechanics, gas exchange, and hemodynamics evolve in the same simulated patient.</p><p class="scope">v2.4 physiology · persistent Vent patient · gas exchange + pulmonary vascular + cardiovascular/autonomic response</p></header>
 <main>
 <section class="clinical-preview card" aria-labelledby="clinical-title">
 <div class="section-heading"><span class="step">01</span><h2 id="clinical-title">Patient</h2></div>
 <p class="clinical-lead">Start with the experimental aspiration lung-injury reference patient. The patient persists as you change PEEP, FiO₂, tidal volume, respiratory rate, and perform respiratory mechanics maneuvers.</p>
-<div class="product-launch"><button id="clinical-quick-start" type="button">Start experimental reference patient <span aria-hidden="true">→</span></button><p>Starts an equilibrated persistent research patient. The current live gas/circulation model is not yet calibrated to reproduce the authored Berlin severity label.</p></div>
+<div class="product-launch"><button id="clinical-quick-start" type="button" disabled>Start v2.4 patient <span aria-hidden="true">→</span></button><button id="clinical-extremis-validation" type="button" class="secondary" disabled>Run test-harness extremis scenario</button><p>Starts the persistent v2.4 reference patient. The extremis validation control uses the exact initial patient and ventilator transition from the passing repository test harness.</p></div>
+<div class="clinical-summary"><strong>v2.4 simulation:</strong> Persistent reference patient with live mechanics, gas exchange and circulation. Reference aspiration case and VC-AC are supported. Physiology validation remains open; this is an educational simulation.</div>
 <label for="clinical-case">Synthetic ARDS case</label>
 <select id="clinical-case" aria-describedby="clinical-case-note"></select>
 <p id="clinical-case-note" class="hint">Cases are synthetic authored targets. The live reduced cardiopulmonary core is still undergoing calibration and must not be assumed to reproduce the displayed Berlin severity label.</p>
@@ -44,16 +45,18 @@
 <p id="clinical-calibration-note" class="hint"></p>
 </div>
 <details class="advanced product-provenance"><summary>Model provenance and safeguards</summary>
-<p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. Vent owns detailed pulmonary mechanics. The default live session uses a reduced, source-aligned HumMod cardiopulmonary core in the browser; it is not the full HumMod executable and is not clinically validated. Research mode can instead replay an externally produced HumMod trajectory.</p>
+<p class="hint">Berlin oxygenation severity and mechanical recruitability are independent axes. This build retains the established bedside layout and runs v2.4 physiology. Vent owns pulmonary mechanics; the reduced cardiopulmonary core supplies gas exchange, circulation, source autonomic response and terminal-state handling. Only the reference aspiration case in VC-AC is supported by the live engine. External trajectory replay remains available for research.</p>
 <p class="hint"><strong>Scientific transparency:</strong> every physiologically meaningful variable, equation, threshold, condition, transition, and scenario value is being assigned machine-readable provenance. The current model is a hybrid of HumMod-exact/adapted physiology, published literature anchors, and explicitly labeled engineering or scenario assumptions.</p>
 <ul>
-<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/MODEL_PROVENANCE_AUDIT.md" target="_blank" rel="noopener">Model provenance audit and critique</a></li>
-<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/PROVENANCE_STANDARD.md" target="_blank" rel="noopener">Provenance standard</a></li>
-<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/PROVENANCE_IMPLEMENTATION_PLAN.md" target="_blank" rel="noopener">Implementation and scientific-upgrade plan</a></li>
-<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/HUMMOD_PRODUCTION_RUNTIME_STRATEGY.md" target="_blank" rel="noopener">HumMod production runtime strategy</a></li>
-<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/V2_HUMMOD_CO_SIMULATION.md" target="_blank" rel="noopener">v2.0 HumMod co-simulation architecture</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/v1.5/ards-twin-v1.0/docs/MODEL_PROVENANCE_AUDIT.md" target="_blank" rel="noopener">Model provenance audit and critique</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/v1.5/ards-twin-v1.0/docs/PROVENANCE_STANDARD.md" target="_blank" rel="noopener">Provenance standard</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/v1.5/ards-twin-v1.0/docs/PROVENANCE_IMPLEMENTATION_PLAN.md" target="_blank" rel="noopener">Implementation and scientific-upgrade plan</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/v1.5/ards-twin-v1.0/docs/HUMMOD_PRODUCTION_RUNTIME_STRATEGY.md" target="_blank" rel="noopener">HumMod production runtime strategy</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/v1.5/ards-twin-v1.0/docs/V2_HUMMOD_CO_SIMULATION.md" target="_blank" rel="noopener">v2.0 HumMod co-simulation architecture</a></li>
 <li><a href="https://github.com/DrFillster/medical-vent-twin/issues/6" target="_blank" rel="noopener">Live provenance coverage tracker</a></li>
-<li><a href="https://github.com/DrFillster/medical-vent-twin/tree/v1.5" target="_blank" rel="noopener">v1.5 source branch</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/blob/v1.6/ards-twin-v1.0/docs/PHYSICIAN_REVIEW_V1_6.md" target="_blank" rel="noopener">Previous v1.6 physician review notes</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/tree/v1.5" target="_blank" rel="noopener">Current v1.5 source</a></li>
+<li><a href="https://github.com/DrFillster/medical-vent-twin/tree/v1.6" target="_blank" rel="noopener">Original v1.6 interface source</a></li>
 </ul>
 </details>
 
@@ -63,15 +66,30 @@
 <p class="hint product-setup-note">Reference settings are prefilled for the synthetic teaching phenotype. They are simulation inputs, not treatment recommendations.</p>
 <details class="engineering-provider"><summary>Research mode · systemic data source</summary><label for="clinical-systemic-provider">Systemic physiology provider</label>
 <select id="clinical-systemic-provider" required>
-<option value="live-reduced-hummod">Live reduced HumMod ARDS core · experimental</option>
+<option value="live-reduced-hummod">v2.4 live cardiopulmonary physiology</option>
+<option value="v16-integrated-ards" disabled>Previous v1.6 candidate · unavailable in v2.4</option>
 <option value="replay">HumMod trajectory replay</option>
 </select>
-<p id="clinical-provider-status" class="hint">Live mode couples Vent recruitment and airway pressure to a reduced, source-aligned HumMod cardiopulmonary core. It is not the full HumMod executable and is not clinically validated.</p></details>
+<p id="clinical-provider-status" class="hint">v2.4 live cardiopulmonary physiology · reference aspiration patient · VC-AC.</p></details>
 <div id="clinical-hummod-file-block" hidden>
 <label for="clinical-hummod-file">HumMod trajectory JSON</label>
 <input id="clinical-hummod-file" type="file" accept=".json,application/json">
 <div class="actions demo-actions"><button id="clinical-load-demo" type="button" class="secondary">Load synthetic demo inputs</button></div>
 <p id="clinical-hummod-status" class="hint">Attach a validated <code>vent-hummod-trajectory/v1</code> export, or load the clearly labeled synthetic demo dataset.</p>
+</div>
+
+<div id="clinical-v16-ards-boundaries">
+<div class="field-grid">
+<div>
+<label for="clinical-anatomic-shunt">Anatomical shunt <span>%</span></label>
+<input id="clinical-anatomic-shunt" type="number" min="0" max="99" step="1" value="35" disabled aria-describedby="clinical-boundary-note">
+</div>
+<div>
+<label for="clinical-excess-lung-water">Excess lung water <span>mL</span></label>
+<input id="clinical-excess-lung-water" type="number" min="0" step="10" value="0" disabled aria-describedby="clinical-boundary-note">
+</div>
+</div>
+<p id="clinical-boundary-note" class="hint"><strong>Unavailable in v2.4:</strong> Anatomical shunt and excess lung water were v1.6 candidate inputs. They are unavailable in this v2.4 session and are disabled; the engine uses its existing source-defined boundaries.</p>
 </div>
 
 <label for="clinical-mode">Ventilation mode</label>
@@ -126,12 +144,13 @@
 <select id="clinical-dt"><option value="0.002">0.002</option><option value="0.001">0.001</option><option value="0.0005">0.0005</option></select>
 
 <div class="actions">
-<button id="clinical-initialize" type="submit">Start patient</button>
+<button id="clinical-initialize" type="submit" disabled>Start patient</button>
 <button id="clinical-reset" type="button" class="secondary" disabled>Reset</button>
 </div>
 <p id="clinical-session-status" role="status" aria-live="polite">Waiting for explicit inputs.</p>
 <p id="clinical-session-error" role="alert" hidden></p>
 </form>
+</details>
 
 <div id="clinical-live" hidden>
 <div id="clinical-arrest-banner" class="clinical-arrest-banner" role="alert" aria-live="assertive" hidden>
@@ -144,7 +163,7 @@
 <div class="clinical-grid pressure-grid">
 <article><h3>Session time</h3><p><span id="clinical-time">—</span><small> s</small></p></article>
 <article><h3>PEEP</h3><p><span id="clinical-pressure-peep">—</span><small> cmH₂O</small></p></article>
-<article><h3>Peak airway pressure</h3><p><span id="clinical-ppeak">—</span><small> cmH₂O</small></p></article>
+<article><h3>Recent peak airway pressure</h3><p><span id="clinical-ppeak">—</span><small> cmH₂O</small></p></article>
 <article><h3>Plateau pressure</h3><p><span id="clinical-pplat">—</span><small> cmH₂O</small></p></article>
 <article><h3>Driving pressure</h3><p><span id="clinical-dp">—</span><small> cmH₂O</small></p></article>
 </div>
@@ -175,6 +194,7 @@
 <div class="clinical-grid monitor-grid">
 <article><h3>Source SA-node rate</h3><p><span id="clinical-source-hr">—</span><small> /min</small></p></article>
 <article><h3>Empirical HR overlay</h3><p><span id="clinical-hr-overlay">—</span><small> /min</small></p></article>
+<article><h3>Chronotropic reserve</h3><p><span id="clinical-chronotropic-reserve">—</span></p></article>
 <article><h3>Brain tissue PO₂</h3><p><span id="clinical-brain-po2">—</span><small> mmHg</small></p></article>
 <article><h3>HumMod BrainInsult-PO₂ effect</h3><p><span id="clinical-brain-function">—</span></p></article>
 <article><h3>Systemic circulation</h3><p><span id="clinical-circulation-mode">—</span></p></article>
@@ -186,9 +206,9 @@
 </div>
 </details>
 
-<details class="card physician-comparison-card advanced">
+<details class="card physician-comparison-card advanced" open>
 <summary>Physician validation comparison</summary><div class="card-heading"><h2>Live model vs candidate model</h2><span class="pill">Candidate · no control authority</span></div>
-<p class="hint"><strong>Physician validation:</strong> the candidate is a parallel Ursino–Magosso 2000 cardiovascular model driven by the same arterial gases and actual delivered tidal volume. It cannot control the live patient. Candidate MAP and CO are time-averaged from its pulsatile output.</p>
+<p class="hint"><strong>Comparison availability:</strong> current-model values below come from the live v2.4 session. The existing candidate is a parallel Ursino–Magosso 2000 cardiovascular model with published Albanese 2016 control parameters (an adaptation, not the complete 2016 model); the HumMod 2013 compensation channel is also shown for comparison. These comparison channels have no control authority over the live patient.</p>
 <div class="clinical-grid monitor-grid">
 <article><h3>Current-model HR</h3><p><span id="clinical-compare-live-hr">—</span><small> /min</small></p></article>
 <article><h3>Candidate HR</h3><p><span id="clinical-compare-shadow-hr">—</span><small> /min</small></p></article>
@@ -200,13 +220,23 @@
 <article><h3>Candidate stroke volume</h3><p><span id="clinical-compare-shadow-sv">—</span><small> mL</small></p></article>
 <article><h3>Current-model SVR</h3><p><span id="clinical-compare-live-svr">—</span><small> mmHg·min/L</small></p></article>
 <article><h3>Candidate systemic peripheral resistance</h3><p><span id="clinical-compare-shadow-svr">—</span><small> mmHg·min/L</small></p></article>
-<article><h3>Myocardial contractility model</h3><p><span id="clinical-compare-myocardial-status">Not source-complete</span></p></article>\n<article><h3>Native physiology engine</h3><p><span id="clinical-native-engine-status">Not configured</span></p></article>
+<article><h3>HumMod 2013 compensation HR</h3><p><span id="clinical-compare-hm2013-hr">—</span><small> /min</small></p></article>
+<article><h3>2013 chemoreceptor firing</h3><p><span id="clinical-compare-hm2013-chemo">—</span></p></article>
+<article><h3>2013 CNS chemoreflex effect</h3><p><span id="clinical-compare-hm2013-cns">—</span></p></article>
+<article><h3>2013 cardiac sympathetic</h3><p><span id="clinical-compare-hm2013-cardiac-symps">—</span><small> Hz</small></p></article>
+<article><h3>2013 adrenal sympathetic</h3><p><span id="clinical-compare-hm2013-adrenal-symps">—</span><small> Hz</small></p></article>
+<article><h3>2013 general sympathetic</h3><p><span id="clinical-compare-hm2013-general-symps">—</span><small> Hz</small></p></article>
+<article><h3>2013 norepinephrine</h3><p><span id="clinical-compare-hm2013-ne">—</span><small> pg/mL</small></p></article>
+<article><h3>2013 epinephrine</h3><p><span id="clinical-compare-hm2013-epi">—</span><small> pg/mL</small></p></article>
+<article><h3>2013 Beta1 effect</h3><p><span id="clinical-compare-hm2013-beta1">—</span></p></article>
+<article><h3>Myocardial contractility model</h3><p><span id="clinical-compare-myocardial-status">Not source-complete</span></p></article>
+<article><h3>Native physiology engine</h3><p><span id="clinical-native-engine-status">Not configured</span></p></article>
 </div>
 <p class="hint" id="clinical-compare-status">Candidate is non-canonical and has no live-patient control authority.</p>
 </details>
 
 <details class="advanced research-shadow-panel">
-<summary>v1.5 research physiology · shadow comparison</summary>
+<summary>Research physiology · diagnostic comparison</summary>
 <p class="hint"><strong>Evaluation only:</strong> these published-model states are diagnostic and have no control authority over HR, vascular tone, venous tone, or the SA node.</p>
 <div class="clinical-grid monitor-grid">
 <article><h3>Ursino baroreceptor f<sub>ab</sub></h3><p><span id="clinical-shadow-fab">—</span><small> spikes/s</small></p></article>
@@ -314,7 +344,6 @@
 </div>
 <p id="clinical-coupling-note" class="hint">Live reduced HumMod mode is experimental: Vent interventions feed a reduced source-aligned gas/circulation core, but several physiologic boundaries remain explicit synthetic assumptions. Replay mode remains available for validated HumMod trajectories.</p>
 </div>
-</details>
 </section>
 <section class="controls card legacy-lab" aria-labelledby="setup-title">
 <div class="section-heading"><span class="step">01</span><h2 id="setup-title">Set up a scenario</h2></div>
@@ -359,6 +388,6 @@
 <details class="card"><summary>What can I learn here?</summary><p>In volume control, compare the filling pressure with the pressure during a low-flow pause. In pressure control, change the pressure target and observe the volume that emerges. Change one setting at a time.</p><p>For recruitment, select an injury phenotype and explicitly choose its starting open fraction. Each run restarts the scenario; changing PEEP does not continue a previous pressure history.</p><p>The three-compartment model and mechanical phenotypes are simplified teaching constructs. Gas exchange, spontaneous effort, clinical calibration, and learning outcomes are outside this release. Driving pressure here uses airway PEEP; it does not measure intrinsic PEEP.</p></details>
 </section>
 </main>
-<footer>ARDS Clinical Twin · v1.5 · <a href="https://github.com/DrFillster/medical-vent-twin">Project source</a> · <a href="https://github.com/DrFillster/medical-vent-twin/blob/main/ards-twin-v1.0/docs/MODEL_PROVENANCE_AUDIT.md">Model provenance</a><span>Computational prototype. Not peer reviewed.</span></footer>
+<footer>ARDS Clinical Twin · v1.5 · <a href="https://github.com/DrFillster/medical-vent-twin">Project source</a> · <a href="https://github.com/DrFillster/medical-vent-twin/blob/v1.5/ards-twin-v1.0/docs/MODEL_PROVENANCE_AUDIT.md">Model provenance</a><span id="clinical-build-sha">Build source: loading…</span><span>Computational prototype. Not peer reviewed.</span></footer>
 <noscript><p class="noscript">Enable JavaScript to run the simulator.</p></noscript>
 </body></html>
