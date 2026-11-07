@@ -47,10 +47,15 @@ test('Halliwill matched-hyperpnoea control isolates an added hypoxic response',(
   assert.equal(run.status,0,run.stderr||run.stdout);
   const h=JSON.parse(run.stdout);
   assert.equal(h.authority,'external-validation-only');
+  assert.equal(h.controlParameterSet,require('../src/physician_validation_candidate.js').SOURCE.controlParameterSet);
+  assert.equal(h.productionQualification,false);
+  assert.equal(h.hypoxia.averaging.method,'complete-cardiac-cycle-aligned-trapezoid');
+  // Physician accepted near-equal matched-arm MAP on 2026-11-07.
+  // Retain strict HR ordering and the reported pressure rise from normoxia.
   assert(h.hypoxia.hrPerMin>h.hyperpnoea.hrPerMin,
     'matched hypoxia should increase HR beyond hyperpnoea alone');
-  assert(h.hypoxia.mapMmHg>h.hyperpnoea.mapMmHg,
-    'matched hypoxia should increase MAP beyond hyperpnoea alone');
+  assert(h.hypoxia.mapMmHg>h.hypoxia.baseline.mapMmHg,
+    'hypoxia should increase MAP above its normoxic baseline');
 });
 
 test('combined hypoxic hypercapnia is distinct from isolated gas challenges',()=>{

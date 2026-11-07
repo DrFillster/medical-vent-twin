@@ -628,5 +628,17 @@
       "authority": "CANDIDATE",
       "source": "src/hummod_2013_potassium_balance_candidate.js"
     }
+  ],
+  "parameterSets": [
+    {
+      "id": "albanese2016.table7.onUrsino2000Plant",
+      "subsystem": "autonomic-and-local-oxygen-control",
+      "provenance": "LITERATURE_ADAPTED",
+      "authority": "CANDIDATE",
+      "source": "src/albanese_2016_control_parameter_set.js",
+      "reference": "Albanese et al. 2016, doi:10.1152/ajpheart.00230.2014, Table 7",
+      "parameterCount": 11,
+      "limitation": "Published parameters adapted to the existing 2000 plant and afferent chemoreceptor, not a full 2016 CP Model reproduction; no canonical bedside control authority."
+    }
   ]
 }

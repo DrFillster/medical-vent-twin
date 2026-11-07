@@ -8,25 +8,45 @@ const {
   standardPo2FromSaturation,
 }=require('../src/severinghaus_1979_standard_odc_candidate.js');
 
+const {SOURCE:PHYSICIAN_SOURCE}=require('../src/physician_validation_candidate.js');
 const DT=0.002;
+const controlParameterSet=process.argv.find(x=>x.startsWith('--control-parameter-set='))
+  ?.split('=')[1]||PHYSICIAN_SOURCE.controlParameterSet;
 
+// Human MAP is a mean, not an arbitrary cardiac-phase sample. Align the
+// trapezoidal average to complete cardiac cycles (boundary precision DT).
+// The same method and minimum 10 s window apply to both experimental arms.
 function meanWindow(r,seconds=10){
-  const n=Math.round(seconds/DT);
-  const sums={hrPerMin:0,mapMmHg:0};
-  for(let i=0;i<n;i++){
-    const s=r.snapshot();
-    sums.hrPerMin+=s.hemodynamics.heartRatePerMin;
-    sums.mapMmHg+=s.hemodynamics.systemicArterialPressureMmHg;
-    r.step();
+  let previousPhase=r.snapshot().vascularState.phase;
+  let aligned=false;
+  for(let i=0;i<Math.ceil(3/DT);i++){
+    r.step();const phase=r.snapshot().vascularState.phase;
+    if(phase<previousPhase){aligned=true;break;}
+    previousPhase=phase;
   }
-  sums.hrPerMin/=n;
-  sums.mapMmHg/=n;
-  return sums;
+  if(!aligned)throw new Error('No cardiac-cycle boundary for averaging');
+  const start=r.snapshot().timeSec;
+  const sums={hrPerMin:0,mapMmHg:0};let n=0,cycles=0;
+  previousPhase=r.snapshot().vascularState.phase;
+  let complete=false;
+  for(let i=0;i<Math.ceil((seconds+3)/DT);i++){
+    const before=r.snapshot();r.step();const after=r.snapshot();
+    sums.hrPerMin+=(before.hemodynamics.heartRatePerMin+after.hemodynamics.heartRatePerMin)/2;
+    sums.mapMmHg+=(before.hemodynamics.systemicArterialPressureMmHg+after.hemodynamics.systemicArterialPressureMmHg)/2;
+    n++;
+    const phase=after.vascularState.phase;
+    if(phase<previousPhase){cycles++;if(n*DT>=seconds){complete=true;break;}}
+    previousPhase=phase;
+  }
+  if(!complete)throw new Error('Incomplete cardiac-cycle average');
+  sums.hrPerMin/=n;sums.mapMmHg/=n;
+  return {...sums,averaging:{method:'complete-cardiac-cycle-aligned-trapezoid',minimumWindowSec:seconds,windowSec:n*DT,cycles,startSec:start,endSec:r.snapshot().timeSec,boundaryPrecisionSec:DT}};
 }
 
 function runCondition({pao2MmHg,paco2MmHg,tidalVolumeL}){
   const r=createUrsinoMagosso2000ExpandedHypoxiaClosedLoop({
     dtSec:DT,
+    controlParameterSet,
     pao2MmHg:100,
     paco2MmHg:40,
     tidalVolumeL:0.667,
@@ -65,6 +85,11 @@ const hypoxia=runCondition({
 const out={
   schema:'halliwill-2003-matched-hyperpnoea-validation/v1',
   authority:'external-validation-only',
+  controlParameterSet,
+  productionQualification:false,
+  interpretation:controlParameterSet==='ursino-magosso-2000'
+    ?'Original 2000 source-family validation; qualification target unchanged.'
+    :'Current parallel physician candidate: published-parameter adaptation; not full 2016 model reproduction or production qualification.',
   source:{
     citation:'Halliwill JR, Morgan BJ, Charkoudian N. J Physiol. 2003;552:295-302.',
     doi:'10.1113/jphysiol.2003.050708',

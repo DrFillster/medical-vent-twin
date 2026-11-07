@@ -17,6 +17,8 @@
  * docs/URSINO_MAGOSSO_EQUATION_LEDGER.md
  */
 
+const {SOURCE:ADAPTATION_SOURCE,PARAMETERS:ALBANESE,PARAMETER_SET,validateParameterSet}=require('./albanese_2016_control_parameter_set.js');
+
 const SOURCE = Object.freeze({
   citation:
     'Ursino M, Magosso E. Am J Physiol Heart Circ Physiol. 2000;279:H149-H165.',
@@ -107,9 +109,9 @@ function peripheralChemoreceptorStatic(pao2MmHg) {
 }
 
 // Ursino & Magosso 2000 Eq. 19.
-function pulmonaryStretchStatic(tidalVolumeL) {
+function pulmonaryStretchStatic(tidalVolumeL, gain=P.pulmonaryStretch.gainSpikesPerSecPerL) {
   nonNegative(tidalVolumeL, 'tidalVolumeL');
-  return P.pulmonaryStretch.gainSpikesPerSecPerL * tidalVolumeL;
+  return gain * tidalVolumeL;
 }
 
 function cnsHypoxiaStatic(pao2MmHg, channel) {
@@ -126,13 +128,13 @@ function peripheralSympatheticFiring({
   fAcSpikesPerSec,
   fApSpikesPerSec,
   thetaSpSpikesPerSec,
-}) {
+}, weights=P.sympathetic.weights.sp) {
   finite(fAbSpikesPerSec, 'fAbSpikesPerSec');
   finite(fAcSpikesPerSec, 'fAcSpikesPerSec');
   finite(fApSpikesPerSec, 'fApSpikesPerSec');
   finite(thetaSpSpikesPerSec, 'thetaSpSpikesPerSec');
   const p = P.sympathetic;
-  const w = p.weights.sp;
+  const w = weights;
   const exponent = p.kSec * (
     -w.baro * fAbSpikesPerSec +
     w.chemo * fAcSpikesPerSec -
@@ -149,12 +151,12 @@ function cardiacSympatheticFiring({
   fAbSpikesPerSec,
   fAcSpikesPerSec,
   thetaShSpikesPerSec,
-}) {
+}, weights=P.sympathetic.weights.sh) {
   finite(fAbSpikesPerSec, 'fAbSpikesPerSec');
   finite(fAcSpikesPerSec, 'fAcSpikesPerSec');
   finite(thetaShSpikesPerSec, 'thetaShSpikesPerSec');
   const p = P.sympathetic;
-  const w = p.weights.sh;
+  const w = weights;
   const exponent = p.kSec * (
     -w.baro * fAbSpikesPerSec +
     w.chemo * fAcSpikesPerSec -
@@ -185,7 +187,18 @@ function vagalFiring({
     p.thetaSpikesPerSec;
 }
 
-function createUrsinoMagossoAutonomicShadow() {
+function createUrsinoMagossoAutonomicShadow({controlParameterSet='ursino-magosso-2000'}={}) {
+  validateParameterSet(controlParameterSet);
+  const adapted=controlParameterSet===PARAMETER_SET;
+  const instanceSource=adapted?Object.freeze({
+    ...SOURCE,status:'published-parameter-adaptation-candidate-only',
+    parameterSource:ADAPTATION_SOURCE,
+  }):SOURCE;
+  const weights={};
+  for(const [key,w] of Object.entries(ALBANESE.sympatheticWeights)){
+    weights[key]={baro:-w.baro,chemo:w.chemo,pulmonary:-w.pulmonary};
+  }
+  const pulmonaryGain=adapted?ALBANESE.pulmonaryGainSpikesPerSecPerL:P.pulmonaryStretch.gainSpikesPerSecPerL;
   let state = Object.freeze({
     fAcSpikesPerSec: null,
     fApSpikesPerSec: null,
@@ -205,7 +218,7 @@ function createUrsinoMagossoAutonomicShadow() {
     nonNegative(tidalVolumeL, 'tidalVolumeL');
 
     const phiAc = peripheralChemoreceptorStatic(pao2MmHg);
-    const phiAp = pulmonaryStretchStatic(tidalVolumeL);
+    const phiAp = pulmonaryStretchStatic(tidalVolumeL,pulmonaryGain);
     const chiSp = cnsHypoxiaStatic(pao2MmHg, 'sp');
     const chiSh = cnsHypoxiaStatic(pao2MmHg, 'sh');
 
@@ -235,6 +248,7 @@ function createUrsinoMagossoAutonomicShadow() {
     );
 
     let fSp = null;
+    let fSv = null;
     let fSh = null;
     let fV = null;
     let mappingStatus = 'unmapped-no-source-valid-f_ab';
@@ -245,12 +259,16 @@ function createUrsinoMagossoAutonomicShadow() {
         fAcSpikesPerSec: fAc,
         fApSpikesPerSec: fAp,
         thetaSpSpikesPerSec: thetaSp,
-      });
+      },adapted?weights.sp:P.sympathetic.weights.sp);
+      fSv=adapted?peripheralSympatheticFiring({
+        fAbSpikesPerSec,fAcSpikesPerSec:fAc,fApSpikesPerSec:fAp,
+        thetaSpSpikesPerSec:thetaSp,
+      },weights.sv):fSp;
       fSh = cardiacSympatheticFiring({
         fAbSpikesPerSec,
         fAcSpikesPerSec: fAc,
         thetaShSpikesPerSec: thetaSh,
-      });
+      },adapted?weights.sh:P.sympathetic.weights.sh);
       fV = vagalFiring({
         fAbSpikesPerSec,
         fAcSpikesPerSec: fAc,
@@ -264,7 +282,9 @@ function createUrsinoMagossoAutonomicShadow() {
       fApSpikesPerSec: fAp,
       thetaSpSpikesPerSec: thetaSp,
       thetaShSpikesPerSec: thetaSh,
+      controlParameterSet,
       fSpSpikesPerSec: fSp,
+      fSvSpikesPerSec:fSv,
       fShSpikesPerSec: fSh,
       fVSpikesPerSec: fV,
       fAbSpikesPerSec,
@@ -273,7 +293,7 @@ function createUrsinoMagossoAutonomicShadow() {
       baroreceptorMappingStatus: mappingStatus,
       active: false,
       authority: 'shadow-diagnostic-only',
-      provenance: SOURCE,
+      provenance: instanceSource,
     });
     return state;
   }
@@ -281,7 +301,7 @@ function createUrsinoMagossoAutonomicShadow() {
   return Object.freeze({
     step,
     snapshot: () => state,
-    source: SOURCE,
+    source: instanceSource,
     parameters: P,
   });
 }

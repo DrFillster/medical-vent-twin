@@ -30,7 +30,7 @@ for(let elapsed=0;elapsed<1200;elapsed+=10){
   rows.push({
     t:x.timeSec,
     hr:h.heartRatePerMin,
-    sourceHr:h.sourceSaNodeHeartRatePerMin,
+    sourceHr:h.legacySourceSaNodeHeartRatePerMin,
     selectedHr:h.selectedHeartRatePerMin,
     candidateHr:h.hummod2013HeartRateState?.heartRatePerMin ?? null,
     boost:h.empiricalChronotropicBoostPerMin,
