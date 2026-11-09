@@ -446,3 +446,23 @@ Target ownership after validation:
 **ADVANCE HENNIGS AS THE PREFERRED RESPIRATORY-DRIVE SHADOW CANDIDATE. DO NOT ACTIVATE.**
 
 The previous statement that a complete primary-source representation was unavailable is obsolete. The remaining blockers are specific and auditable rather than a general lack of source access.
+
+## 2026-11-09 oscillator-frequency reproduction gate
+
+Visual verification of Hennigs et al. 2026 Figure/equation page confirms Eq. 9 and Eq. 10 as printed:
+
+- `RR = 10 min^-1 + exp(1.8 * Drel) * 2.1 min^-1`
+- `KRR = (RR - 0.1212 min^-1) / 6.545 min^-1`
+- prose: coupling parameters `Wij` are scaled using `KRR`.
+
+A long-run numerical check of the current source-transcribed oscillator (300 s settle, 300 s observation) shows that the emergent inspiratory-state cycle frequency does not reproduce Eq. 9:
+
+| Drel | Eq. 9 RR (/min) | current emergent RR (/min) |
+| ---: | ---: | ---: |
+| 0.25 | 13.29 | 4.96 |
+| 0.50 | 15.17 | 5.81 |
+| 0.75 | 18.10 | 5.46 |
+
+This is not a transient artifact. A diagnostic-only experiment multiplying the whole oscillator ODE by `KRR` moved the corresponding rates to approximately 9.97, 13.33, and 14.93/min, but still did not reproduce Eq. 9 and is not source-authorized. It was not retained in code.
+
+Interpretation: the remaining defect is in the inherited oscillator time/coupling convention or another implementation detail not yet recovered from the cited source lineage. Do not fit `GPCO2,pH` or activate spontaneous ventilation to compensate for this mismatch. The public activation gate remains closed.
