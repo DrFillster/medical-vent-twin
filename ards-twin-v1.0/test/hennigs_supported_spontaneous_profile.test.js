@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {PROFILE}=require('../src/hennigs_supported_spontaneous_profile.js');
+const {createHennigsChemicalDriveCandidate}=require('../src/hennigs_chemical_drive_candidate.js');
+const {respiratoryRatePerMin}=require('../src/hennigs_neural_oscillator_candidate.js');
+assert.equal(PROFILE.authority,'hennigs-supported');
+assert.equal(PROFILE.controlAuthority,true);
+assert(Math.abs(respiratoryRatePerMin(PROFILE.minimumRelativeDrive)-12.5)<1e-9);
+const c=createHennigsChemicalDriveCandidate(PROFILE);
+let s=c.step({dtSec:1,medullaryPh:7.32,arterialPh:7.4,arterialPco2MmHg:40,arterialPo2MmHg:100});
+assert(s.frequencyRelativeDrive>=PROFILE.minimumRelativeDrive);
+console.log('ok - Hennigs-supported spontaneous profile preserves Figure 6 resting operating point');
+const severe=createHennigsChemicalDriveCandidate(PROFILE);
+let stressed;
+for(let i=0;i<300;i++) stressed=severe.step({dtSec:1,medullaryPh:7.20,arterialPh:7.20,arterialPco2MmHg:70,arterialPo2MmHg:55});
+assert(Math.abs(respiratoryRatePerMin(stressed.frequencyRelativeDrive)-25.5)<1e-9);
+assert.equal(stressed.amplitudeRelativeDrive,1);
+console.log('ok - Hennigs-supported frequency drive is bounded to Figure 6 validated envelope');

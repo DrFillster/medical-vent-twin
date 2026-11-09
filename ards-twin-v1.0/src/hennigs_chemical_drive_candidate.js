@@ -73,6 +73,8 @@ function createHennigsChemicalDriveCandidate({
   parameterProfile = 'validation-paper',
   oxygenWeight,
   deterministicNoiseTerm = 0,
+  minimumRelativeDrive = 0,
+  maximumFrequencyRelativeDrive = Infinity,
   initialCentralDrive = 0,
   initialPeripheralCo2Drive = 0,
   initialPeripheralO2Drive = 0,
@@ -85,6 +87,9 @@ function createHennigsChemicalDriveCandidate({
   if (oxygenWeight == null) oxygenWeight = profile.oxygenWeight;
   nonNegative(gPco2Ph, 'gPco2Ph');
   nonNegative(oxygenWeight, 'oxygenWeight');
+  nonNegative(minimumRelativeDrive, 'minimumRelativeDrive');
+  if (!(maximumFrequencyRelativeDrive > 0)) throw new Error('maximumFrequencyRelativeDrive must be > 0');
+  if (maximumFrequencyRelativeDrive < minimumRelativeDrive) throw new Error('maximumFrequencyRelativeDrive must be >= minimumRelativeDrive');
   finite(deterministicNoiseTerm, 'deterministicNoiseTerm');
   finite(initialCentralDrive, 'initialCentralDrive');
   finite(initialPeripheralCo2Drive, 'initialPeripheralCo2Drive');
@@ -153,8 +158,8 @@ function createHennigsChemicalDriveCandidate({
       p.relativeDriveOffset +
       deterministicNoiseTerm;
 
-    const frequencyRelativeDrive = Math.max(0, unclampedRelativeDrive);
-    const amplitudeRelativeDrive = clamp01(unclampedRelativeDrive);
+    const frequencyRelativeDrive = Math.min(maximumFrequencyRelativeDrive, Math.max(minimumRelativeDrive, unclampedRelativeDrive));
+    const amplitudeRelativeDrive = clamp01(Math.max(minimumRelativeDrive, unclampedRelativeDrive));
     const relativeDrive = frequencyRelativeDrive;
     timeSec += dtSec;
 
@@ -180,6 +185,10 @@ function createHennigsChemicalDriveCandidate({
         peripheralTauSec: profile.peripheralTauSec,
         oxygenWeight,
         deterministicNoiseTerm,
+        minimumRelativeDrive,
+        maximumFrequencyRelativeDrive,
+        minimumRelativeDrive,
+        maximumFrequencyRelativeDrive,
       }),
       authority: SOURCE.authority,
       controlAuthority: false,
@@ -206,6 +215,8 @@ function createHennigsChemicalDriveCandidate({
         peripheralTauSec: profile.peripheralTauSec,
         oxygenWeight,
         deterministicNoiseTerm,
+        minimumRelativeDrive,
+        maximumFrequencyRelativeDrive,
       }),
       authority: SOURCE.authority,
       controlAuthority: false,

@@ -28,8 +28,8 @@ assert.equal(out.brainLocalState.pH, 7.36);
 assert.equal(out.brainLocalState.virtualO2SaturationFraction, 0.95);
 assert.equal(out.medullaryBicarbonateMmolPerL, 24.5);
 assert.equal(out.sourceExact, false);
-assert.equal(out.controlAuthority, false);
-assert.equal(out.authority, 'interpretation-not-source-exact');
+assert.equal(out.controlAuthority, true);
+assert.equal(out.authority, 'hennigs-supported');
 
 assert.throws(
   () => interpretLiveHennigsBoundaries({

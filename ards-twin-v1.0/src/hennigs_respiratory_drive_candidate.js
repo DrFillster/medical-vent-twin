@@ -39,7 +39,9 @@ function createHennigsRespiratoryDriveCandidate({
   initialCsfPco2MmHg,
   brainCo2Transport = null,
   gPco2Ph,
-  oxygenWeight = 1,
+  parameterProfile = 'development-paper',
+  minimumRelativeDrive = 0,
+  oxygenWeight,
   deterministicNoiseTerm = 0,
   effortGainProfile = 'hennigs-2026-validation-reference',
   kI,
@@ -60,6 +62,8 @@ function createHennigsRespiratoryDriveCandidate({
   });
   const chemical = createHennigsChemicalDriveCandidate({
     gPco2Ph,
+    parameterProfile,
+    minimumRelativeDrive,
     oxygenWeight,
     deterministicNoiseTerm,
   });

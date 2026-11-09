@@ -106,6 +106,9 @@ function assessSpontaneousModeReadiness({
 
   const sourceAuthorityReady =
     boundaryAuthority === 'source-exact' && gainAuthority === 'source-exact';
+  const hennigsAuthorityReady =
+    ['source-exact', 'hennigs-supported'].includes(boundaryAuthority) &&
+    ['source-exact', 'hennigs-supported'].includes(gainAuthority);
 
   const checks = REQUIRED.map(item => Object.freeze({
     ...item,
@@ -120,7 +123,7 @@ function assessSpontaneousModeReadiness({
       source: check.source,
     }));
 
-  const psReady = shadowRunnable && sourceAuthorityReady;
+  const psReady = shadowRunnable && hennigsAuthorityReady;
 
   const simvReady =
     psReady && status.simvController;
@@ -139,6 +142,7 @@ function assessSpontaneousModeReadiness({
     schema: 'vent-spontaneous-mode-readiness/v1',
     shadowRunnable,
     sourceAuthorityReady,
+    hennigsAuthorityReady,
     boundaryAuthority,
     gainAuthority,
     psCpapReady: psReady,

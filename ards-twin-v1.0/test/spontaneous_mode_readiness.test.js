@@ -85,6 +85,22 @@ assert.equal(interpretedShadow.psCpapReady, false);
 assert.equal(interpretedShadow.simvReady, false);
 assert.equal(interpretedShadow.publicActivationAllowed, false);
 
+
+const hennigsSupported = assessSpontaneousModeReadiness({
+  systemic: liveSystemic,
+  brainLocalState: {pH:7.34,virtualO2SaturationFraction:0.75},
+  medullaryBicarbonateMmolPerL: 24,
+  gPco2Ph: 1,
+  boundaryAuthority: 'hennigs-supported',
+  gainAuthority: 'hennigs-supported',
+  components: {effortMechanics:true,mechanicalReflexes:true,psController:true,simvController:true},
+});
+assert.equal(hennigsSupported.sourceAuthorityReady, false);
+assert.equal(hennigsSupported.hennigsAuthorityReady, true);
+assert.equal(hennigsSupported.psCpapReady, true);
+assert.equal(hennigsSupported.simvReady, true);
+assert.equal(hennigsSupported.publicActivationAllowed, true);
+
 const missingFlow = assessSpontaneousModeReadiness({
   systemic: {
     gasExchange: liveSystemic.gasExchange,

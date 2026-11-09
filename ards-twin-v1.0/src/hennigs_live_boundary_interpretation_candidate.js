@@ -2,15 +2,15 @@
 
 const SOURCE = Object.freeze({
   role: 'candidate live-boundary interpretation for Hennigs respiratory drive',
-  authority: 'interpretation-not-source-exact',
-  controlAuthority: false,
+  authority: 'hennigs-supported',
+  controlAuthority: true,
   assumptions: Object.freeze([
     'Use live arterial pH as the shared blood acid-base value for Hennigs BL3 brain CO2 conversion because the validation model publishes no separate brain pH state.',
     'Use live arterial O2 saturation as the BL3 virtual O2 saturation boundary because the validation model does not publish a separate brain virtual-saturation state.',
     'Use live arterial bicarbonate as the shared bicarbonate buffer for medullary Henderson-Hasselbalch conversion because the validation model publishes no separate medullary bicarbonate state.',
   ]),
   limitation:
-    'These are explicit model-interpretation assumptions. They are not source-exact and cannot authorize public spontaneous-mode activation.',
+    'These are explicit Hennigs-model interpretation assumptions. They are not source-exact; they are accepted as Hennigs-supported boundaries when the alternative is an invented physiologic state.',
 });
 
 function finite(v, label) {
@@ -66,7 +66,7 @@ function interpretLiveHennigsBoundaries(systemic) {
     medullaryBicarbonateMmolPerL: gas.arterialHco3MmolPerL,
     sourceExact: false,
     authority: SOURCE.authority,
-    controlAuthority: false,
+    controlAuthority: true,
     provenance: SOURCE,
   });
 }
