@@ -22,10 +22,12 @@ const controller = new PressureSupportCandidateController({
   fio2: 0.4,
   peep: 5,
   pressureSupport: 8,
-  triggerPmusCmH2O: 0.5,
+  flowTriggerLMin: 1.5,
   cycleOffFraction: 0.25,
-  minInspiratoryTimeSec: 0.2,
+  minExpiratoryTimeSec: 0.15,
   maxInspiratoryTimeSec: 1.5,
+  riseTimeSec: 0.1,
+  backupRatePerMin: 2,
 });
 
 const sim = new Simulation({
@@ -45,6 +47,7 @@ const supported = sim.trace.filter(r =>
 
 assert(Math.max(...efforts) > 0.5, 'Hennigs must generate trigger-capable Pmus');
 assert(snap.breathIndex >= 3, 'Hennigs effort must trigger repeated PS breaths');
+assert(snap.lastTrigger === 'FLOW', 'Hennigs-supported breath must trigger from rising flow, not Pmus threshold');
 assert(supported.length > 100, 'PS breaths must produce sustained supported inspiration');
 assert(sim.metrics().some(b => b.VtInspired > 0.1),
   'Hennigs-triggered supported breaths must deliver finite VT');

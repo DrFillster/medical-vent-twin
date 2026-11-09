@@ -35,6 +35,21 @@ function meanAirwayPressureCmH2O(simulation, recentSamples=1500){
   return tr.reduce((a,row)=>a+row.airwayPressureCmH2O,0)/tr.length;
 }
 
+function meanPatientMusclePressureCmH2O(simulation,recentSamples=1500){
+  const tr=simulation&&Array.isArray(simulation.trace)
+    ? simulation.trace.slice(-recentSamples)
+    : [];
+  if(!tr.length) return 0;
+  let sum=0;
+  for(const row of tr){
+    const v=row&&Number.isFinite(row.patientMusclePressureCmH2O)
+      ? row.patientMusclePressureCmH2O
+      : 0;
+    sum+=v;
+  }
+  return sum/tr.length;
+}
+
 function createHumModArdsCardiopulmonaryRuntime({
   simulation,
   thorax,
@@ -150,7 +165,10 @@ function createHumModArdsCardiopulmonaryRuntime({
     }
 
     const meanPaw=meanAirwayPressureCmH2O(simulation);
-    const thoraxState=thorax.atStaticAirwayPressure(meanPaw);
+    const meanPmus=meanPatientMusclePressureCmH2O(simulation);
+    const thoraxState=typeof thorax.atAirwayAndMusclePressure==='function'
+      ? thorax.atAirwayAndMusclePressure(meanPaw,meanPmus)
+      : thorax.atStaticAirwayPressure(meanPaw);
     const thoracicPressureMmHg=pressureAdapter.cmH2OToMmHg(
       thoraxState.pleuralPressureCmH2O);
     finite(thoracicPressureMmHg,'converted thoracic pressure');
@@ -482,6 +500,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       timeSec+=dtSec;
       last=Object.freeze({
         meanAirwayPressureCmH2O:meanPaw,
+        meanPatientMusclePressureCmH2O:meanPmus,
         thorax:thoraxState,
         thoracicPressureMmHg,
         pericardialPressureMmHg,
@@ -552,6 +571,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     timeSec+=dtSec;
     last=Object.freeze({
       meanAirwayPressureCmH2O:meanPaw,
+      meanPatientMusclePressureCmH2O:meanPmus,
       thorax:thoraxState,
       thoracicPressureMmHg,
       pericardialPressureMmHg,
@@ -647,5 +667,6 @@ function createHumModArdsCardiopulmonaryRuntime({
 
 module.exports={
   meanAirwayPressureCmH2O,
+  meanPatientMusclePressureCmH2O,
   createHumModArdsCardiopulmonaryRuntime,
 };

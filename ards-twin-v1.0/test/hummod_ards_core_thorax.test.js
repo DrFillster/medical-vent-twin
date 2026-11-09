@@ -22,6 +22,35 @@ test('thorax partitions static airway-pressure changes by chest-wall elastance f
   near(x.transpulmonaryPressureCmH2O,6.5);
 });
 
+test('spontaneous inspiratory Pmus lowers pleural pressure without changing Paw',()=>{
+  const t=createThoraxState({
+    referenceAirwayPressureCmH2O:8,
+    referencePleuralPressureCmH2O:6,
+    chestWallElastanceFraction:0.25,
+    provenance:{kind:'synthetic-test'},
+  });
+  const passive=t.atStaticAirwayPressure(14);
+  const active=t.atAirwayAndMusclePressure(14,5);
+  near(active.airwayPressureCmH2O,passive.airwayPressureCmH2O);
+  near(active.pleuralPressureCmH2O,passive.pleuralPressureCmH2O-5);
+  near(active.transpulmonaryPressureCmH2O,passive.transpulmonaryPressureCmH2O+5);
+  near(active.musclePleuralContributionCmH2O,-5);
+});
+
+test('zero Pmus is numerically identical to passive thorax path',()=>{
+  const t=createThoraxState({
+    referenceAirwayPressureCmH2O:8,
+    referencePleuralPressureCmH2O:6,
+    chestWallElastanceFraction:0.25,
+    provenance:{kind:'synthetic-test'},
+  });
+  const a=t.atStaticAirwayPressure(11);
+  const b=t.atAirwayAndMusclePressure(11,0);
+  near(a.pleuralPressureCmH2O,b.pleuralPressureCmH2O);
+  near(a.transpulmonaryPressureCmH2O,b.transpulmonaryPressureCmH2O);
+  near(a.deltaPleuralCmH2O,b.deltaPleuralCmH2O);
+});
+
 test('thorax requires explicit provenance',()=>{
   let threw=false;
   try{

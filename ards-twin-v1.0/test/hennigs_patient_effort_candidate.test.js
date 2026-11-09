@@ -16,6 +16,30 @@ try {
 }
 assert(rejected, 'candidate must fail closed without caller-supplied muscle gains');
 
+const validationReference = createHennigsPatientEffortCandidate({
+  dtSec: 0.001,
+  dRel: 0.5,
+  gainProfile: 'hennigs-2026-validation-reference',
+});
+const validationSnapshot = validationReference.snapshot();
+assert(validationSnapshot.muscleGains.kI === 1.87);
+assert(validationSnapshot.muscleGains.kE === 1.87);
+assert(validationSnapshot.gainProvenance.authority ===
+  'validation-reference-not-patient-specific');
+
+let mixedGainRejected = false;
+try {
+  createHennigsPatientEffortCandidate({
+    dtSec: 0.001,
+    dRel: 0.5,
+    gainProfile: 'hennigs-2026-validation-reference',
+    kI: 1.87,
+  });
+} catch (e) {
+  mixedGainRejected = /do not combine/.test(e.message);
+}
+assert(mixedGainRejected, 'reference profile and explicit gains must not be combined');
+
 const bridge = createHennigsPatientEffortCandidate({
   dtSec: 0.001,
   dRel: 0.5,
