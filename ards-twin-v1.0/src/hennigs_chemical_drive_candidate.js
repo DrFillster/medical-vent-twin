@@ -7,6 +7,11 @@ const {
 
 const MMHG_PER_KPA = 7.500616827041697;
 
+const PARAMETER_PROFILES = Object.freeze({
+  'development-paper': Object.freeze({peripheralTauSec:1, oxygenWeight:0.25}),
+  'validation-paper': Object.freeze({peripheralTauSec:10, oxygenWeight:1}),
+});
+
 const SOURCE = Object.freeze({
   citation:
     'Hennigs C et al. Validation of a Computational Respiratory System Model for Mechanical Ventilation. arXiv:2607.06210v2 (2026), Appendix Tables 8-9.',
@@ -23,7 +28,7 @@ const SOURCE = Object.freeze({
     arterialPhThreshold: 7.40,
     peripheralO2GainPerKpa: 0.2,
     peripheralO2ThresholdMmHg: 75,
-    peripheralTauSec: 1,
+    peripheralTauSec: 10,
     relativeDriveScale: 1,
     relativeDriveOffset: -4,
   }),
@@ -65,16 +70,19 @@ function clamp01(value) {
 
 function createHennigsChemicalDriveCandidate({
   gPco2Ph,
-  oxygenWeight = 0.25,
+  parameterProfile = 'validation-paper',
+  oxygenWeight,
   deterministicNoiseTerm = 0,
   initialCentralDrive = 0,
   initialPeripheralCo2Drive = 0,
   initialPeripheralO2Drive = 0,
 } = {}) {
-  // GPCO2,pH remains deliberately mandatory because the published Hennigs
-  // parameter table does not provide its value. The primary paper states
-  // that the O2-dependent contribution to total chemical drive is weighted
-  // by 0.25 when computing respiratory-rate response.
+  // Preserve the two published 2026 parameterizations explicitly. The
+  // development paper gives tauP=1 s and a 0.25 O2 weighting for RR response;
+  // the later validation appendix gives tauP=10 s and RC2 as a direct sum.
+  const profile = PARAMETER_PROFILES[parameterProfile];
+  if (!profile) throw new Error('unknown parameterProfile: ' + parameterProfile);
+  if (oxygenWeight == null) oxygenWeight = profile.oxygenWeight;
   nonNegative(gPco2Ph, 'gPco2Ph');
   nonNegative(oxygenWeight, 'oxygenWeight');
   finite(deterministicNoiseTerm, 'deterministicNoiseTerm');
@@ -101,7 +109,7 @@ function createHennigsChemicalDriveCandidate({
     nonNegative(arterialPco2MmHg, 'arterialPco2MmHg');
     nonNegative(arterialPo2MmHg, 'arterialPo2MmHg');
 
-    const p = SOURCE.knownParameters;
+    const p = Object.freeze({...SOURCE.knownParameters, peripheralTauSec: profile.peripheralTauSec});
 
     const centralTarget =
       p.centralGainPerPh * (p.medullaryPhThreshold - medullaryPh);
@@ -164,6 +172,8 @@ function createHennigsChemicalDriveCandidate({
       }),
       parameters: Object.freeze({
         gPco2Ph,
+        parameterProfile,
+        peripheralTauSec: profile.peripheralTauSec,
         oxygenWeight,
         deterministicNoiseTerm,
       }),
@@ -186,6 +196,8 @@ function createHennigsChemicalDriveCandidate({
       inputs: null,
       parameters: Object.freeze({
         gPco2Ph,
+        parameterProfile,
+        peripheralTauSec: profile.peripheralTauSec,
         oxygenWeight,
         deterministicNoiseTerm,
       }),
@@ -204,6 +216,7 @@ function createHennigsChemicalDriveCandidate({
 
 module.exports = Object.freeze({
   MMHG_PER_KPA,
+  PARAMETER_PROFILES,
   SOURCE,
   mmHgToKpa,
   createHennigsChemicalDriveCandidate,
