@@ -338,7 +338,7 @@
       option.disabled = live && option.value !== reference;
     }
     for (const option of Array.from($('clinical-mode').options)) {
-      option.disabled = live && option.value === 'PC_AC';
+      option.disabled = !['', 'VC_AC', 'PC_AC'].includes(option.value) || (live && option.value === 'PC_AC');
     }
 
     if (live && $('clinical-case').value !== reference) {
