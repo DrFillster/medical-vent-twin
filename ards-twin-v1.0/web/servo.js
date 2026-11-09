@@ -54,8 +54,22 @@
     const state = $('clinical-settings-state').textContent;
     setText('servo-applied-state', snapshot ? state : 'Start patient to apply reference settings');
   }).observe($('clinical-settings-state'), {childList:true,subtree:true});
+  const activeControls = ['clinical-run','clinical-apply-vent','clinical-insp-hold','clinical-exp-hold','clinical-measure-mechanics'];
+  function renderStandby() {
+    snapshot = null;
+    $('clinical-quick-start').textContent = 'Start patient';
+    for (const id of ['servo-ppeak','servo-pplat','servo-dp','servo-measured-rr','servo-vte','servo-ve','servo-o2','servo-peep','servo-volume','servo-rate','clinical-hr','clinical-map','clinical-co','clinical-sao2','clinical-pao2','clinical-paco2','clinical-ph']) setText(id,'—');
+    setText('servo-clock','0'); setText('servo-status','Start the reference patient to begin monitoring');
+    setText('servo-applied-state','Start patient to apply reference settings');
+    document.querySelector('.servo-statusbar').classList.remove('servo-arrest-alert');
+    for (const id of activeControls) $(id).disabled = true;
+    for (const id of ['clinical-pressure-chart','clinical-flow-chart','clinical-volume-chart']) $(id).replaceChildren();
+    renderRunState();
+  }
+  document.addEventListener('vent:reset', renderStandby);
   document.addEventListener('vent:snapshot', event => {
     const initializing = !snapshot;
+    if (initializing) for (const id of activeControls) $(id).disabled = false;
     snapshot = event.detail;
     $('clinical-quick-start').textContent = 'Restart reference patient';
     const v = snapshot.ventilator || {}, m = snapshot.pulmonary?.measurements || {};
@@ -82,6 +96,7 @@
   error.setAttribute('role','alert'); error.className = 'servo-panel-error';
   $('servo-settings-panel').querySelector('.servo-panel-content').append(error);
   new MutationObserver(() => { error.textContent = $('clinical-session-error').hidden ? '' : $('clinical-session-error').textContent; }).observe($('clinical-session-error'), {attributes:true,childList:true,subtree:true});
+  renderStandby();
   for (const id of ['clinical-pressure-chart','clinical-flow-chart','clinical-volume-chart']) {
     const text = document.createElementNS('http://www.w3.org/2000/svg','text');
     text.setAttribute('x','50%');text.setAttribute('y','50%');text.setAttribute('text-anchor','middle');

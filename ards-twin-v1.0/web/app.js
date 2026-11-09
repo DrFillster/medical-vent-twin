@@ -980,6 +980,7 @@
     $('clinical-live').hidden = true;
     $('clinical-reset').disabled = true;
     $('clinical-initialize').disabled = false;
+    document.dispatchEvent(new Event('vent:reset'));
   }
 
   function showClinicalError(message, diagnostics) {
