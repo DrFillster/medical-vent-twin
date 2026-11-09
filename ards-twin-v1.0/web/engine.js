@@ -10304,6 +10304,8 @@ const { SimvCandidateController } = require("src/ventilator/simv_candidate.js");
 const { createHennigsPatientEffortCandidate } = require("src/hennigs_patient_effort_candidate.js");
 const { createHennigsMechanicalClosedEffortCandidate } = require("src/hennigs_mechanical_closed_effort_candidate.js");
 const { PROFILE: HENNIGS_SPONTANEOUS_PROFILE } = require("src/hennigs_supported_spontaneous_profile.js");
+const { getPatientStateProfile } = require("src/hennigs_patient_state_profiles.js");
+const { analyzePatientVentilatorInteraction } = require("src/patient_ventilator_interaction.js");
 const { summarizeSimulationMeasurements } = require("src/bedside_measurements.js");
 const { createThoraxState } = require("src/hummod_ards_core_thorax.js");
 const { createHumModArdsCirculation } = require("src/hummod_ards_core_circulation.js");
@@ -10496,6 +10498,7 @@ function createBerlinLiveHumModSession({
   nativeCalibrationTarget = null,
   physicianValidationCandidate = true,
   heartRateControlMode = 'source-aligned',
+  patientStateProfile = 'awake_cooperative',
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -10503,6 +10506,7 @@ function createBerlinLiveHumModSession({
       LIVE_HUMMOD_REFERENCE_CASE_ID);
   }
   const clinicalCase = getBerlinCase(caseId);
+  const patientState = getPatientStateProfile(patientStateProfile);
   if (nativeCalibrationTarget &&
       nativeCalibrationTarget.schema !== 'vent-native-reduced-hummod-calibration-target/v1') {
     throw new Error('nativeCalibrationTarget has unsupported schema');
@@ -10641,7 +10645,7 @@ function createBerlinLiveHumModSession({
 
   const effort = createHennigsPatientEffortCandidate({
     dtSec: dt,
-    dRel: HENNIGS_SPONTANEOUS_PROFILE.minimumRelativeDrive,
+    dRel: patientState.driveRelative,
     gainProfile: 'hennigs-2026-validation-reference',
     respiratoryFailureFraction: 0.75,
     physicalClock: {
@@ -10658,7 +10662,7 @@ function createBerlinLiveHumModSession({
   simulation.patientEffortProvider = args =>
     (simulation.controller instanceof PressureSupportCandidateController ||
      simulation.controller instanceof SimvCandidateController)
-      ? spontaneousEffort.provider(args)
+      ? spontaneousEffort.provider(args) * patientState.muscleTransmission
       : 0;
 
   if (mechanicalWarmupSec > 0) simulation.runFor(mechanicalWarmupSec);
@@ -10896,14 +10900,17 @@ function createBerlinLiveHumModSession({
 
   function currentVentSettings() {
     const s = simulation.controller.settings;
-    const breaths = simulation.metrics();
-    const completed = breaths.length > 1 ? breaths[breaths.length - 2] : null;
-    const measuredRr = completed && Number.isFinite(completed.RR) ? completed.RR : null;
+    const cutoff=Math.max(0,simulation.state.t-30);
+    const rows=simulation.trace.filter(row=>row.t>=cutoff);
+    let starts=0;
+    for(let i=1;i<rows.length;i++) if(rows[i-1].phase==='EXPIRATION'&&rows[i].phase==='INSPIRATION') starts++;
+    const span=rows.length>1?rows[rows.length-1].t-rows[0].t:0;
+    const measuredRr=starts>=2&&span>0?starts*60/span:null;
     const base = { fio2: s.fio2, peepCmH2O: s.peep, rrPerMin: measuredRr };
     if (simulation.controller instanceof VcAcController) return Object.freeze({...base, mode:'VC_AC', rrPerMin:s.rr, vtL:s.vt, inspiratoryFlowLps:s.inspiratoryFlow, inspiratoryPauseSec:s.inspiratoryPause});
     if (simulation.controller instanceof PcAcController) return Object.freeze({...base, mode:'PC_AC', rrPerMin:s.rr, pinspCmH2O:s.pinsp, inspiratoryTimeSec:s.inspiratoryTime, inspiratoryPauseSec:s.inspiratoryPause});
-    if (simulation.controller instanceof PressureSupportCandidateController) return Object.freeze({...base, mode:'PS', pressureSupportCmH2O:s.pressureSupport, backupRatePerMin:s.backupRatePerMin});
-    if (simulation.controller instanceof SimvCandidateController) return Object.freeze({...base, mode:'SIMV', mandatoryRatePerMin:s.mandatoryRatePerMin, pinspCmH2O:s.mandatoryPinspCmH2O, inspiratoryTimeSec:s.mandatoryInspiratoryTimeSec, pressureSupportCmH2O:s.pressureSupportCmH2O});
+    if (simulation.controller instanceof PressureSupportCandidateController) return Object.freeze({...base, mode:'PS', rrPerMin:measuredRr??s.backupRatePerMin, pressureSupportCmH2O:s.pressureSupport, backupRatePerMin:s.backupRatePerMin});
+    if (simulation.controller instanceof SimvCandidateController) return Object.freeze({...base, mode:'SIMV', rrPerMin:measuredRr??s.mandatoryRatePerMin, mandatoryRatePerMin:s.mandatoryRatePerMin, pinspCmH2O:s.mandatoryPinspCmH2O, inspiratoryTimeSec:s.mandatoryInspiratoryTimeSec, pressureSupportCmH2O:s.pressureSupportCmH2O});
     throw new Error('unsupported live controller');
   }
 
@@ -11235,6 +11242,8 @@ function createBerlinLiveHumModSession({
         synthetic: clinicalCase.synthetic,
       }),
       ventilator: currentVentSettings(),
+      patientState: Object.freeze({...patientState, patientMusclePressureCmH2O: simulation.state.patientMusclePressureCmH2O ?? 0}),
+      patientVentilatorInteraction: analyzePatientVentilatorInteraction(simulation.trace),
       ventilatorChangePending: Boolean(simulation.pendingControllerChange),
       pulmonary: Object.freeze({
         engine: 'Vent',
@@ -12744,6 +12753,39 @@ const PROFILE=Object.freeze({
 });
 
 module.exports=Object.freeze({SOURCE,PROFILE});
+
+},
+"src/hennigs_patient_state_profiles.js":function(module,exports,require){
+'use strict';
+const PROFILES=Object.freeze({
+  passive_paralyzed:Object.freeze({id:'passive_paralyzed',label:'Passive / paralyzed',driveRelative:0.09686299285820986,muscleTransmission:0,description:'Neural drive retained; neuromuscular transmission to Pmus is zero.'}),
+  sedated_breathing:Object.freeze({id:'sedated_breathing',label:'Sedated but breathing',driveRelative:0.09686299285820986,muscleTransmission:0.55,description:'Hennigs resting neural timing with reduced transmitted muscle effort.'}),
+  awake_cooperative:Object.freeze({id:'awake_cooperative',label:'Awake / cooperative',driveRelative:0.09686299285820986,muscleTransmission:1,description:'Hennigs resting neural timing and full reference muscle effort.'}),
+  agitated_high_drive:Object.freeze({id:'agitated_high_drive',label:'Agitated / high drive',driveRelative:0.9507657603338697,muscleTransmission:1.2,description:'High neural operating point with increased muscle effort; bounded inside Hennigs validated frequency envelope.'}),
+});
+function getPatientStateProfile(id='awake_cooperative'){const p=PROFILES[id];if(!p)throw new Error('unsupported patientStateProfile: '+id);return p;}
+module.exports=Object.freeze({PROFILES,getPatientStateProfile});
+
+},
+"src/patient_ventilator_interaction.js":function(module,exports,require){
+'use strict';
+function analyzePatientVentilatorInteraction(trace,{windowSec=30,effortThresholdCmH2O=0.05}={}){
+ if(!Array.isArray(trace)||trace.length<2)return Object.freeze({status:'insufficient-data',ineffectiveEfforts:0,doubleTriggers:0,totalEfforts:0,totalVentilatorBreaths:0,asynchronyIndex:null});
+ const end=trace[trace.length-1].t, rows=trace.filter(r=>r.t>=end-windowSec);
+ const efforts=[];let active=null;const ventStarts=[];
+ for(let i=1;i<rows.length;i++){
+  const a=rows[i-1],b=rows[i], pa=Number(a.patientMusclePressureCmH2O)||0,pb=Number(b.patientMusclePressureCmH2O)||0;
+  if(!active&&pa<=effortThresholdCmH2O&&pb>effortThresholdCmH2O)active={start:b.t,end:null};
+  if(active&&pa>effortThresholdCmH2O&&pb<=effortThresholdCmH2O){active.end=b.t;efforts.push(active);active=null;}
+  if(a.phase==='EXPIRATION'&&b.phase==='INSPIRATION')ventStarts.push(b.t);
+ }
+ if(active){active.end=end;efforts.push(active);}
+ let ineffective=0,double=0;
+ for(const e of efforts){const n=ventStarts.filter(t=>t>=e.start&&t<=e.end).length;if(n===0)ineffective++;if(n>1)double+=n-1;}
+ const async=ineffective+double, denom=efforts.length+ventStarts.length;
+ return Object.freeze({status:'measured-effort-breath-timing',windowSec,totalEfforts:efforts.length,totalVentilatorBreaths:ventStarts.length,ineffectiveEfforts:ineffective,doubleTriggers:double,asynchronyIndex:denom?async/denom:null,unsupportedDetectors:Object.freeze(['reverse-trigger','flow-starvation','premature-cycling','delayed-cycling'])});
+}
+module.exports=Object.freeze({analyzePatientVentilatorInteraction});
 
 },
 "src/hummod_ards_core_thorax.js":function(module,exports,require){

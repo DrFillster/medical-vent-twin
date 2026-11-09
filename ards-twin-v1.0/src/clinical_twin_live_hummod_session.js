@@ -13,6 +13,8 @@ const { SimvCandidateController } = require('./ventilator/simv_candidate.js');
 const { createHennigsPatientEffortCandidate } = require('./hennigs_patient_effort_candidate.js');
 const { createHennigsMechanicalClosedEffortCandidate } = require('./hennigs_mechanical_closed_effort_candidate.js');
 const { PROFILE: HENNIGS_SPONTANEOUS_PROFILE } = require('./hennigs_supported_spontaneous_profile.js');
+const { getPatientStateProfile } = require('./hennigs_patient_state_profiles.js');
+const { analyzePatientVentilatorInteraction } = require('./patient_ventilator_interaction.js');
 const { summarizeSimulationMeasurements } = require('./bedside_measurements.js');
 const { createThoraxState } = require('./hummod_ards_core_thorax.js');
 const { createHumModArdsCirculation } = require('./hummod_ards_core_circulation.js');
@@ -205,6 +207,7 @@ function createBerlinLiveHumModSession({
   nativeCalibrationTarget = null,
   physicianValidationCandidate = true,
   heartRateControlMode = 'source-aligned',
+  patientStateProfile = 'awake_cooperative',
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -212,6 +215,7 @@ function createBerlinLiveHumModSession({
       LIVE_HUMMOD_REFERENCE_CASE_ID);
   }
   const clinicalCase = getBerlinCase(caseId);
+  const patientState = getPatientStateProfile(patientStateProfile);
   if (nativeCalibrationTarget &&
       nativeCalibrationTarget.schema !== 'vent-native-reduced-hummod-calibration-target/v1') {
     throw new Error('nativeCalibrationTarget has unsupported schema');
@@ -350,7 +354,7 @@ function createBerlinLiveHumModSession({
 
   const effort = createHennigsPatientEffortCandidate({
     dtSec: dt,
-    dRel: HENNIGS_SPONTANEOUS_PROFILE.minimumRelativeDrive,
+    dRel: patientState.driveRelative,
     gainProfile: 'hennigs-2026-validation-reference',
     respiratoryFailureFraction: 0.75,
     physicalClock: {
@@ -367,7 +371,7 @@ function createBerlinLiveHumModSession({
   simulation.patientEffortProvider = args =>
     (simulation.controller instanceof PressureSupportCandidateController ||
      simulation.controller instanceof SimvCandidateController)
-      ? spontaneousEffort.provider(args)
+      ? spontaneousEffort.provider(args) * patientState.muscleTransmission
       : 0;
 
   if (mechanicalWarmupSec > 0) simulation.runFor(mechanicalWarmupSec);
@@ -605,14 +609,17 @@ function createBerlinLiveHumModSession({
 
   function currentVentSettings() {
     const s = simulation.controller.settings;
-    const breaths = simulation.metrics();
-    const completed = breaths.length > 1 ? breaths[breaths.length - 2] : null;
-    const measuredRr = completed && Number.isFinite(completed.RR) ? completed.RR : null;
+    const cutoff=Math.max(0,simulation.state.t-30);
+    const rows=simulation.trace.filter(row=>row.t>=cutoff);
+    let starts=0;
+    for(let i=1;i<rows.length;i++) if(rows[i-1].phase==='EXPIRATION'&&rows[i].phase==='INSPIRATION') starts++;
+    const span=rows.length>1?rows[rows.length-1].t-rows[0].t:0;
+    const measuredRr=starts>=2&&span>0?starts*60/span:null;
     const base = { fio2: s.fio2, peepCmH2O: s.peep, rrPerMin: measuredRr };
     if (simulation.controller instanceof VcAcController) return Object.freeze({...base, mode:'VC_AC', rrPerMin:s.rr, vtL:s.vt, inspiratoryFlowLps:s.inspiratoryFlow, inspiratoryPauseSec:s.inspiratoryPause});
     if (simulation.controller instanceof PcAcController) return Object.freeze({...base, mode:'PC_AC', rrPerMin:s.rr, pinspCmH2O:s.pinsp, inspiratoryTimeSec:s.inspiratoryTime, inspiratoryPauseSec:s.inspiratoryPause});
-    if (simulation.controller instanceof PressureSupportCandidateController) return Object.freeze({...base, mode:'PS', pressureSupportCmH2O:s.pressureSupport, backupRatePerMin:s.backupRatePerMin});
-    if (simulation.controller instanceof SimvCandidateController) return Object.freeze({...base, mode:'SIMV', mandatoryRatePerMin:s.mandatoryRatePerMin, pinspCmH2O:s.mandatoryPinspCmH2O, inspiratoryTimeSec:s.mandatoryInspiratoryTimeSec, pressureSupportCmH2O:s.pressureSupportCmH2O});
+    if (simulation.controller instanceof PressureSupportCandidateController) return Object.freeze({...base, mode:'PS', rrPerMin:measuredRr??s.backupRatePerMin, pressureSupportCmH2O:s.pressureSupport, backupRatePerMin:s.backupRatePerMin});
+    if (simulation.controller instanceof SimvCandidateController) return Object.freeze({...base, mode:'SIMV', rrPerMin:measuredRr??s.mandatoryRatePerMin, mandatoryRatePerMin:s.mandatoryRatePerMin, pinspCmH2O:s.mandatoryPinspCmH2O, inspiratoryTimeSec:s.mandatoryInspiratoryTimeSec, pressureSupportCmH2O:s.pressureSupportCmH2O});
     throw new Error('unsupported live controller');
   }
 
@@ -944,6 +951,8 @@ function createBerlinLiveHumModSession({
         synthetic: clinicalCase.synthetic,
       }),
       ventilator: currentVentSettings(),
+      patientState: Object.freeze({...patientState, patientMusclePressureCmH2O: simulation.state.patientMusclePressureCmH2O ?? 0}),
+      patientVentilatorInteraction: analyzePatientVentilatorInteraction(simulation.trace),
       ventilatorChangePending: Boolean(simulation.pendingControllerChange),
       pulmonary: Object.freeze({
         engine: 'Vent',

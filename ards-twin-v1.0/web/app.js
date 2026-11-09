@@ -1348,6 +1348,7 @@
         const payload = {
           caseId: $('clinical-case').value,
           ventilation: clinicalVentilationPayload(),
+          patientStateProfile: $('clinical-patient-state').value,
           dt: clinicalNumber('clinical-dt'),
           // Use the same pinned HumMod 2012/2013 baro-chemoreflex ->
           // sympathoadrenal -> Beta1 -> SA-node equations for manual and
