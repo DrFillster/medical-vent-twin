@@ -23,7 +23,7 @@ const SOURCE = Object.freeze({
     arterialPhThreshold: 7.40,
     peripheralO2GainPerKpa: 0.2,
     peripheralO2ThresholdMmHg: 75,
-    peripheralTauSec: 10,
+    peripheralTauSec: 1,
     relativeDriveScale: 1,
     relativeDriveOffset: -4,
   }),
@@ -65,16 +65,16 @@ function clamp01(value) {
 
 function createHennigsChemicalDriveCandidate({
   gPco2Ph,
-  oxygenWeight,
+  oxygenWeight = 0.25,
   deterministicNoiseTerm = 0,
   initialCentralDrive = 0,
   initialPeripheralCo2Drive = 0,
   initialPeripheralO2Drive = 0,
 } = {}) {
-  // GPCO2,pH remains deliberately mandatory because the validation-model
-  // governing equation includes it but the published baseline parameter
-  // table does not provide its value. RC2 in that validation model directly
-  // sums DC + DCO2 + DO2, so oxygenWeight=1 is the source-aligned default.
+  // GPCO2,pH remains deliberately mandatory because the published Hennigs
+  // parameter table does not provide its value. The primary paper states
+  // that the O2-dependent contribution to total chemical drive is weighted
+  // by 0.25 when computing respiratory-rate response.
   nonNegative(gPco2Ph, 'gPco2Ph');
   nonNegative(oxygenWeight, 'oxygenWeight');
   finite(deterministicNoiseTerm, 'deterministicNoiseTerm');
