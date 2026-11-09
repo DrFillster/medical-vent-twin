@@ -37,6 +37,12 @@ const {chromium}=require('playwright');
       null,{timeout:10000}
     );
 
+    await page.evaluate(() => {
+      window.browserHrReadings = [];
+      document.addEventListener('vent:snapshot', () => {
+        window.browserHrReadings.push({timeSec:Number(document.querySelector('#clinical-time').textContent),heartRatePerMin:Number(document.querySelector('#clinical-hr').textContent)});
+      });
+    });
     const button=page.locator('#clinical-extremis-validation');
     assert.equal(await button.isEnabled(),true);
     await button.click();
@@ -47,6 +53,14 @@ const {chromium}=require('playwright');
       return (status && status.textContent.includes('TEST-HARNESS PARITY')) ||
         (error && !error.hidden && error.textContent.trim());
     },null,{timeout:240000});
+
+    const hrReadings = await page.evaluate(() => window.browserHrReadings);
+    for (const [time, expected] of [[100,91],[200,128],[300,163],[400,176],[500,179]]) {
+      const row = hrReadings.find(r => Math.abs(r.timeSec-time)<0.01);
+      assert(row && Math.abs(row.heartRatePerMin-expected)<=2,'visible HR at '+time+' s: '+JSON.stringify(row));
+    }
+    const peak = hrReadings.reduce((a,b)=>b.heartRatePerMin>a.heartRatePerMin?b:a);
+    assert(peak.heartRatePerMin>=179 && peak.heartRatePerMin<=183,JSON.stringify(peak));
 
     const errorText=(await page.locator('#clinical-session-error').textContent()).trim();
     assert.equal(errorText,'','browser extremis error: '+errorText);
@@ -81,7 +95,7 @@ const {chromium}=require('playwright');
       await page.locator('.servo-nav [data-panel="trends"]').click();
       await page.locator('#clinical-hr-trend').scrollIntoViewIfNeeded();
       await page.screenshot({path:path.join(process.env.CAPTURE_DIR,'extremis-hr-trend.png')});
-      fs.writeFileSync(path.join(process.env.CAPTURE_DIR,'extremis-result.json'),JSON.stringify({url,status,map,ph,paco2,hr:Number(await page.locator('#clinical-hr').textContent()),coLMin:Number(await page.locator('#clinical-co').textContent()),errors},null,2));
+      fs.writeFileSync(path.join(process.env.CAPTURE_DIR,'extremis-result.json'),JSON.stringify({url,status,map,ph,paco2,peak,hrReadings,hr:Number(await page.locator('#clinical-hr').textContent()),coLMin:Number(await page.locator('#clinical-co').textContent()),errors},null,2));
     }
 
     console.log(JSON.stringify({
