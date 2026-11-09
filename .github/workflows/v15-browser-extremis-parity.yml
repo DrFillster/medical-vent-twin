@@ -42,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BASE_URL: ${{ inputs.base_url }}
+      CAPTURE_DIR: browser-evidence
     timeout-minutes: 12
     defaults:
       run:
@@ -72,3 +73,10 @@ jobs:
           node test/browser-manual-holds.cjs
       - name: Browser worker extremis parity
         run: node test/browser-extremis-parity.cjs
+      - name: Capture browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-browser-evidence
+          path: ards-twin-v1.0/browser-evidence/
+          if-no-files-found: ignore

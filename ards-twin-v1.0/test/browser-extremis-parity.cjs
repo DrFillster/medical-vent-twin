@@ -74,6 +74,16 @@ const {chromium}=require('playwright');
     assert.match((await page.locator('#clinical-arrest-title').textContent()).trim(),/CARDIAC ARREST/);
     assert.deepEqual(errors,[]);
 
+    if (process.env.CAPTURE_DIR) {
+      const fs=require('node:fs');
+      fs.mkdirSync(process.env.CAPTURE_DIR,{recursive:true});
+      await page.screenshot({path:path.join(process.env.CAPTURE_DIR,'extremis-workstation.png'),fullPage:true});
+      await page.locator('.servo-nav [data-panel="trends"]').click();
+      await page.locator('#clinical-hr-trend').scrollIntoViewIfNeeded();
+      await page.screenshot({path:path.join(process.env.CAPTURE_DIR,'extremis-hr-trend.png')});
+      fs.writeFileSync(path.join(process.env.CAPTURE_DIR,'extremis-result.json'),JSON.stringify({url,status,map,ph,paco2,hr:Number(await page.locator('#clinical-hr').textContent()),coLMin:Number(await page.locator('#clinical-co').textContent()),errors},null,2));
+    }
+
     console.log(JSON.stringify({
       status,map,ph,paco2,sourceHrText,reserveText,
       hr:Number((await page.locator('#clinical-hr').textContent()).trim()),

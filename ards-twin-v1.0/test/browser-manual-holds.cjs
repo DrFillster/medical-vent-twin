@@ -70,6 +70,11 @@ const { chromium } = require('playwright');
     await settings(0.30, 3, 4);
     await advance(100);
     assert(Number(await value('clinical-hr')) > 0);
+    if (process.env.CAPTURE_DIR) {
+      const fs=require('node:fs'); fs.mkdirSync(process.env.CAPTURE_DIR,{recursive:true});
+      await page.screenshot({path:path.join(process.env.CAPTURE_DIR,'manual-low-peep-100s.png'),fullPage:true});
+      fs.writeFileSync(path.join(process.env.CAPTURE_DIR,'manual-low-peep-100s.json'),JSON.stringify({time:await value('clinical-time'),hr:await value('clinical-hr'),map:await value('clinical-map'),co:await value('clinical-co'),pao2:await value('clinical-pao2'),paco2:await value('clinical-paco2'),ph:await value('clinical-ph')},null,2));
+    }
     await hold('clinical-insp-hold');
     await hold('clinical-exp-hold');
     assert(Number.isFinite(Number(await value('clinical-dp'))));
