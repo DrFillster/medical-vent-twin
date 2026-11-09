@@ -65,7 +65,7 @@ function clamp01(value) {
 
 function createHennigsChemicalDriveCandidate({
   gPco2Ph,
-  oxygenWeight = 1,
+  oxygenWeight,
   deterministicNoiseTerm = 0,
   initialCentralDrive = 0,
   initialPeripheralCo2Drive = 0,
