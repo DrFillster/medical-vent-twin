@@ -31,7 +31,8 @@ const {chromium} = require('playwright');
     await page.locator('#servo-settings-panel [data-close-panel]').click();
     for (const width of [1440,768,390]) {
       await page.setViewportSize({width,height:900});
-      assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'workstation horizontal overflow at '+width);
+      const overflow = await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,elements:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+1).slice(0,12).map(e=>({tag:e.tagName,id:e.id,class:e.className,right:e.getBoundingClientRect().right}))}));
+      assert(overflow.scroll<=width,'workstation horizontal overflow: '+JSON.stringify(overflow));
       await page.locator('.servo-nav [data-panel="settings"]').click();
       assert(await page.locator('#servo-vt').isVisible());
       assert(await page.evaluate(()=>{const p=document.querySelector('dialog[open]');return p.scrollWidth<=p.clientWidth;}),'settings drawer overflow at '+width);

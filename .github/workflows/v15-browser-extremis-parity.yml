@@ -54,6 +54,8 @@ jobs:
         run: npm run build
       - name: Verify deployable web wiring
         run: npm run verify:deploy
+      - name: v3 workstation and archived v2.4
+        run: node test/browser-servo-workstation.cjs
       - name: Focused extremis harness
         run: node test/v13_extremis_chronotropy.test.js
       - name: Manual ventilation and current hold measurements
@@ -61,7 +63,5 @@ jobs:
           node test/bedside_measurements.test.js
           node test/manual_low_peep_chemoreflex.test.js
           node test/browser-manual-holds.cjs
-      - name: v3 workstation and archived v2.4
-        run: node test/browser-servo-workstation.cjs
       - name: Browser worker extremis parity
         run: node test/browser-extremis-parity.cjs
