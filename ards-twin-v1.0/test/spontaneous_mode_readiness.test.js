@@ -55,10 +55,35 @@ const ready = assessSpontaneousModeReadiness({
   },
 });
 
+assert.equal(ready.shadowRunnable, true);
+assert.equal(ready.sourceAuthorityReady, true);
 assert.equal(ready.psCpapReady, true);
 assert.equal(ready.simvReady, true);
 assert.equal(ready.publicActivationAllowed, true);
 assert.deepEqual(ready.blockers, []);
+
+const interpretedShadow = assessSpontaneousModeReadiness({
+  systemic: liveSystemic,
+  brainLocalState: {
+    pH: 7.34,
+    virtualO2SaturationFraction: 0.75,
+  },
+  medullaryBicarbonateMmolPerL: 24,
+  gPco2Ph: 1,
+  boundaryAuthority: 'interpretation-not-source-exact',
+  gainAuthority: 'calibrated-not-source-exact',
+  components: {
+    effortMechanics: true,
+    mechanicalReflexes: true,
+    psController: true,
+    simvController: true,
+  },
+});
+assert.equal(interpretedShadow.shadowRunnable, true);
+assert.equal(interpretedShadow.sourceAuthorityReady, false);
+assert.equal(interpretedShadow.psCpapReady, false);
+assert.equal(interpretedShadow.simvReady, false);
+assert.equal(interpretedShadow.publicActivationAllowed, false);
 
 const missingFlow = assessSpontaneousModeReadiness({
   systemic: {

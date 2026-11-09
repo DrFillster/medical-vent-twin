@@ -58,6 +58,8 @@ function assessSpontaneousModeReadiness({
   medullaryBicarbonateMmolPerL = null,
   gPco2Ph = null,
   components = {},
+  boundaryAuthority = 'source-exact',
+  gainAuthority = 'source-exact',
 } = {}) {
   const gas = systemic && systemic.gasExchange ? systemic.gasExchange : {};
   const hemo = systemic && systemic.hemodynamics ? systemic.hemodynamics : {};
@@ -91,6 +93,20 @@ function assessSpontaneousModeReadiness({
       components.simvController === true,
   };
 
+  const shadowRunnable = [
+    'arterialGasState',
+    'cerebralFlow',
+    'brainCo2LocalState',
+    'medullaryAcidBase',
+    'peripheralCo2PhGain',
+    'effortMechanics',
+    'mechanicalReflexes',
+    'psController',
+  ].every(key => status[key]);
+
+  const sourceAuthorityReady =
+    boundaryAuthority === 'source-exact' && gainAuthority === 'source-exact';
+
   const checks = REQUIRED.map(item => Object.freeze({
     ...item,
     ready: status[item.key],
@@ -104,16 +120,7 @@ function assessSpontaneousModeReadiness({
       source: check.source,
     }));
 
-  const psReady = [
-    'arterialGasState',
-    'cerebralFlow',
-    'brainCo2LocalState',
-    'medullaryAcidBase',
-    'peripheralCo2PhGain',
-    'effortMechanics',
-    'mechanicalReflexes',
-    'psController',
-  ].every(key => status[key]);
+  const psReady = shadowRunnable && sourceAuthorityReady;
 
   const simvReady =
     psReady && status.simvController;
@@ -130,6 +137,10 @@ function assessSpontaneousModeReadiness({
 
   return Object.freeze({
     schema: 'vent-spontaneous-mode-readiness/v1',
+    shadowRunnable,
+    sourceAuthorityReady,
+    boundaryAuthority,
+    gainAuthority,
     psCpapReady: psReady,
     simvReady,
     publicActivationAllowed: psReady && simvReady,
