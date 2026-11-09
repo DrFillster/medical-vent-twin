@@ -28,7 +28,7 @@ function positive(v,label){
 
 function validateDRel(v){
   finite(v,'dRel');
-  if(v<0||v>1) throw new Error('dRel must be between 0 and 1');
+  if(v<0) throw new Error('dRel must be >= 0');
   return v;
 }
 

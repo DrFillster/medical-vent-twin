@@ -70,3 +70,18 @@ console.log(JSON.stringify({
   validationDirectSumTotal: hypoxia.totalChemicalDrive,
   explicitQuarterWeightTotal: experimentalQuarterWeight.totalChemicalDrive,
 }, null, 2));
+
+{
+  const c = createHennigsChemicalDriveCandidate({
+    gPco2Ph: 80,
+    parameterProfile: 'validation-paper',
+  });
+  let s;
+  for (let i = 0; i < 120; i += 1) {
+    s = c.step({dtSec:1,medullaryPh:7.20,arterialPh:7.20,arterialPco2MmHg:60,arterialPo2MmHg:100});
+  }
+  assert(s.frequencyRelativeDrive >= s.amplitudeRelativeDrive);
+  assert(s.amplitudeRelativeDrive <= 1);
+  assert(s.frequencyRelativeDrive > 1);
+  console.log('ok - supranormal frequency drive is preserved while amplitude drive remains bounded');
+}

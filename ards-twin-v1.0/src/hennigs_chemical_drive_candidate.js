@@ -153,7 +153,9 @@ function createHennigsChemicalDriveCandidate({
       p.relativeDriveOffset +
       deterministicNoiseTerm;
 
-    const relativeDrive = clamp01(unclampedRelativeDrive);
+    const frequencyRelativeDrive = Math.max(0, unclampedRelativeDrive);
+    const amplitudeRelativeDrive = clamp01(unclampedRelativeDrive);
+    const relativeDrive = frequencyRelativeDrive;
     timeSec += dtSec;
 
     last = Object.freeze({
@@ -163,6 +165,8 @@ function createHennigsChemicalDriveCandidate({
       peripheralO2Drive,
       totalChemicalDrive,
       unclampedRelativeDrive,
+      frequencyRelativeDrive,
+      amplitudeRelativeDrive,
       relativeDrive,
       inputs: Object.freeze({
         medullaryPh,
@@ -192,6 +196,8 @@ function createHennigsChemicalDriveCandidate({
       peripheralO2Drive,
       totalChemicalDrive: null,
       unclampedRelativeDrive: null,
+      frequencyRelativeDrive: null,
+      amplitudeRelativeDrive: null,
       relativeDrive: null,
       inputs: null,
       parameters: Object.freeze({

@@ -127,7 +127,7 @@ function createHennigsRespiratoryDriveCandidate({
       arterialPo2MmHg,
     });
 
-    effort.setRelativeDrive(drive.relativeDrive);
+    effort.setRelativeDrive(drive.frequencyRelativeDrive);
     const effortState = effort.step({ dtSec });
 
     last = Object.freeze({
@@ -136,7 +136,9 @@ function createHennigsRespiratoryDriveCandidate({
       brainTransport: brainTransportState,
       medullaryPh,
       chemicalDrive: drive,
-      relativeDrive: drive.relativeDrive,
+      relativeDrive: drive.frequencyRelativeDrive,
+      frequencyRelativeDrive: drive.frequencyRelativeDrive,
+      amplitudeRelativeDrive: drive.amplitudeRelativeDrive,
       respiratoryRatePerMin: effortState.prescribedRespiratoryRatePerMin,
       patientMusclePressureCmH2O: effortState.patientMusclePressureCmH2O,
       effort: effortState,

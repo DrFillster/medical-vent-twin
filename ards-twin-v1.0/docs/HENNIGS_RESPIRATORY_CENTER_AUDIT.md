@@ -487,3 +487,16 @@ Two defensible paths remain:
 - **Longobardo exact quantification reproduction:** recover the full 2005 quantification procedure and reproduce it exactly before assigning physical time. This is scientifically cleaner but currently blocked by unavailable full method details in accessible sources.
 
 Do not fit GPCO2,pH against Figure 6 until one of these physical-time mappings is selected and locked. Public spontaneous-mode activation remains blocked pending that decision.
+
+## 2026-11-09 Figure 6 frequency-drive reproduction and calibration boundary
+
+Figure 6 of Hennigs et al. 2026 shows the modeled hypercapnic RR trace reaching approximately 25-26/min. Eq. 9 cannot reach that range if Drel is hard-clamped at 1 (22.704/min at Drel=1). The paper also states that chemical-drive components are selected in the range 0-1. To reproduce the published validation behavior without allowing supranormal amplitude scaling, the candidate implementation now separates:
+
+- frequencyRelativeDrive: lower-bounded at zero, not upper-clamped; used by Eq. 9 / KRR physical-frequency path;
+- amplitudeRelativeDrive: clamped to 0-1; used for tonic/amplitude interpretation.
+
+This is an explicit resolution of an internal source inconsistency and remains candidate-only.
+
+A provisional Figure-6 inverse fit after removing the frequency ceiling produced GCO2,pH values in the approximate mid-20s to mid-30s depending on challenge alignment/initialization. No value is accepted. The fit is structurally non-identifiable while the medullary acid-base boundary is interpretation-grade: at normal arterial pH the GCO2,pH pH-sensitive peripheral term is zero, so resting Drel is determined by the central chemoreceptor/medullary-pH state plus the published CO2 term and bch normalization. Substituting arterial bicarbonate for medullary bicarbonate leaves the modeled resting central drive inconsistent with the Figure 6 operating point.
+
+Decision gate: do not calibrate GCO2,pH to compensate for an unresolved medullary bicarbonate/pH boundary. Recover or define a defensible medullary acid-base state first. Public spontaneous-mode activation remains closed.

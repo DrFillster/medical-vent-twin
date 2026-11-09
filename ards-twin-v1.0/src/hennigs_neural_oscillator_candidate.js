@@ -84,21 +84,25 @@ function finite(v,label){
   return v;
 }
 
-function relativeDrive01(v){
+function nonNegativeDrive(v){
   finite(v,'dRel');
-  if(v<0||v>1) throw new Error('dRel must be between 0 and 1');
+  if(v<0) throw new Error('dRel must be >= 0');
   return v;
+}
+function amplitudeDrive01(v){
+  v=nonNegativeDrive(v);
+  return Math.min(1,v);
 }
 
 // Table-2 footnote.
 function lateInspiratoryTonic(dRel){
-  dRel=relativeDrive01(dRel);
+  dRel=amplitudeDrive01(dRel);
   return 3.628*dRel*dRel-5.628*dRel-0.5901;
 }
 
 // Eq. 9.
 function respiratoryRatePerMin(dRel){
-  dRel=relativeDrive01(dRel);
+  dRel=nonNegativeDrive(dRel);
   return RR.basePerMin+
     Math.exp(RR.sensitivity*dRel)*RR.amplitudePerMin;
 }
@@ -111,7 +115,7 @@ function respiratoryRateCouplingScale(dRel){
 
 // Eq. 8 plus Table-2 L footnote.
 function tonicInputs(dRel){
-  dRel=relativeDrive01(dRel);
+  dRel=amplitudeDrive01(dRel);
   return Object.freeze({
     R:dRel*BASAL_TONIC.R,
     I:dRel*BASAL_TONIC.I,
@@ -147,7 +151,7 @@ function oscillatorDerivatives({
   sigmoidK=0.6,
 }={}){
   const x=validateState(state);
-  dRel=relativeDrive01(dRel);
+  dRel=nonNegativeDrive(dRel);
   finite(sigmoidK,'sigmoidK');
 
   const b={...tonicInputs(dRel)};

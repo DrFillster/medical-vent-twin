@@ -15,7 +15,7 @@ const SOURCE=Object.freeze({
 
 function finite(v,label){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(label+' must be finite');return v;}
 function positive(v,label){finite(v,label);if(!(v>0))throw new Error(label+' must be > 0');return v;}
-function unit(v,label){finite(v,label);if(v<0||v>1)throw new Error(label+' must be in [0,1]');return v;}
+function nonNegative(v,label){finite(v,label);if(v<0)throw new Error(label+' must be >= 0');return v;}
 
 function createHennigsPhysicalClockAdapter({
   estimateRawPeriodSec,
@@ -27,9 +27,9 @@ function createHennigsPhysicalClockAdapter({
   if(maxScale<minScale) throw new Error('maxScale must be >= minScale');
 
   const cache=new Map();
-  function key(dRel){return unit(dRel,'dRel').toFixed(4);}
+  function key(dRel){return nonNegative(dRel,'dRel').toFixed(4);}
   function mapping(dRel){
-    dRel=unit(dRel,'dRel');
+    dRel=nonNegative(dRel,'dRel');
     const k=key(dRel);
     let rawPeriodSec=cache.get(k);
     if(rawPeriodSec==null){

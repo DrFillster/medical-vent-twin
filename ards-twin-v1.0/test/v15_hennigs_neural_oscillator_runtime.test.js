@@ -56,8 +56,10 @@ test('runFor fails closed on non-integral fixed-step duration',()=>{
   assert.throws(()=>r.runFor(1),/integer multiple/);
 });
 
-test('Drel outside source normalized range fails closed',()=>{
-  assert.throws(()=>createHennigsNeuralOscillatorRuntime({dRel:1.1}),/between 0 and 1/);
+test('frequency Drel may exceed 1 but negative drive fails closed',()=>{
+  const r=createHennigsNeuralOscillatorRuntime({dRel:1.1});
+  assert(r.snapshot().prescribedRespiratoryRatePerMin>22.7);
+  assert.throws(()=>createHennigsNeuralOscillatorRuntime({dRel:-0.01}),/>= 0/);
 });
 
 console.log('\nTests: passed='+passed+' failed='+failed);
