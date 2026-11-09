@@ -1,7 +1,7 @@
 {
   "name": "ards-clinical-twin",
   "version": "1.5.0",
-  "browserAssetVersion": "1.5.1-candidate-runtime",
+  "browserAssetVersion": "3.0.0-ui",
   "private": true,
   "scripts": {
     "build": "node scripts/build-clinical-manifest.js && node scripts/build.js",
@@ -64,5 +64,6 @@
   },
   "devDependencies": {
     "playwright": "1.62.1"
-  }
+  },
+  "uiVersion": "3.0"
 }

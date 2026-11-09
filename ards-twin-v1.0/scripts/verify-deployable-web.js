@@ -6,7 +6,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const pkg=require(path.join(root,'package.json'));
 const web=path.join(root,'web');
-const required=['index.html','styles.css','app.js','worker.js','clinical-worker.js','engine.js','clinical-cases.json'];
+const required=['index.html','styles.css','app.js','worker.js','clinical-worker.js','engine.js','clinical-cases.json','servo.css','servo.js','v2.4/index.html','v2.4/engine.js','v2.4/clinical-worker.js'];
 const failures=[];
 for(const name of required){
   const p=path.join(web,name);
@@ -17,6 +17,8 @@ if(failures.length===0){
   const html=read('index.html'), app=read('app.js'), css=read('styles.css'), engine=read('engine.js'), clinicalWorker=read('clinical-worker.js');
   const assetVersion=pkg.browserAssetVersion||pkg.version;
   const checks=[
+    [html.includes('href="/v2.4/"'),'frozen v2.4 release link missing'],
+    [html.includes('v3.0'),'v3.0 release label missing'],
     [html.includes('id="clinical-quick-start"'),'quick-start control missing'],
     [html.includes('id="clinical-ph"'),'pH monitor missing'],
     [html.includes('id="clinical-run-continuous"'),'continuous-run control missing'],

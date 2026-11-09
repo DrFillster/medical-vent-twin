@@ -7,7 +7,7 @@ const server = http.createServer((req, res) => {
   let name;
   try { name = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); }
   catch { res.writeHead(400).end(); return; }
-  const file = path.resolve(root, '.' + (name === '/' ? '/index.html' : name));
+  const file = path.resolve(root, '.' + (name.endsWith('/') ? name + 'index.html' : name));
   if (!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
   fs.readFile(file, (error, bytes) => {
     if (error) { res.writeHead(404).end('Not found'); return; }

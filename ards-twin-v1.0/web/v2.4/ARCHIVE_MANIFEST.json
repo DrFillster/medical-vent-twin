@@ -1,0 +1,16 @@
+{
+  "release": "v2.4",
+  "sourceCommit": "7310fae73ecfff770ec8bba46e7b8fc9828b215f",
+  "sha256": {
+    "index.html": "9e577490d1ee5b9e3b7d231435b4c9031c423229eaf617585e41b705d23dc961",
+    "DEPLOY_SOURCE_SHA.txt": "fdc409c024b093ebfea7b8285e4482214e2041aedd82843f62415e4dc541e4b4",
+    "styles.css": "b608a18c4961c445d6746022a39d49579f3e2d48fe142cfffd0ea6106b65b198",
+    "worker.js": "fd835fa57bce26f7ca1e45ec85ba506f735bb322e2b868aeca09f7d39854f5c6",
+    "clinical-worker.js": "4e7d69d8560632afdd3edaedcde41bec0af27cbb37feefc7cf1c228e04908d04",
+    "clinical-cases.json": "a53d68332c881641a2720d677244c92cac7285340558c8dadd82b612f63cf900",
+    "native-engine-client.js": "6d074429025421e416de03f52e86599bcf0897202505ee8fe3f1dc2d7aba0596",
+    "native-engine-config.js": "5ed6f8e67a28ee2cd03a1d1d6a9ee7ef97a23a52c9c84993152ebfadd9f0b7e7",
+    "engine.js": "0dbddec653505a42c5dc35b93abdaf0b91adbdb437f967d5669b829ef1057fb3",
+    "app.js": "be7a661fb0b28bf03071a8c676e35f907681a50fa2e5b5f5d9ee752ebdb05e4f"
+  }
+}

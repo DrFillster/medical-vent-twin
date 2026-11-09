@@ -4,6 +4,7 @@
 // reduced, source-aligned HumMod ARDS cardiopulmonary core.
 // This is not full HumMod and is not clinically validated.
 
+const { sampleWaveformForDisplay } = require('./waveform_display.js');
 const { getBerlinCase } = require('./berlin_case_catalog.js');
 const { makePatientParams } = require('./contracts.js');
 const { Simulation, VcAcController } = require('./simulation.js');
@@ -889,6 +890,8 @@ function createBerlinLiveHumModSession({
         totalLungVolumeL: simulation.state.totalVolume,
         measurements: mechanics,
         recentWaveform,
+        displayWaveform: sampleWaveformForDisplay(simulation.trace, ventTimeOriginSec),
+        displayWaveformStatus: 'last-30-seconds-uniformly-sampled-for-display-only',
         waveformStatus: 'most-recent-2000-committed-Vent-samples',
         gasExchangeAuthority: 'HumMod reduced ARDS core',
       }),

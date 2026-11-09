@@ -8,8 +8,9 @@ const {chromium}=require('playwright');
 
 (async()=>{
   let server=null,browser=null;
-  const url='http://127.0.0.1:8765/';
+  const url=process.env.BASE_URL || 'http://127.0.0.1:8765/';
   try{
+    if (!process.env.BASE_URL) {
     server=spawn(process.execPath,['scripts/serve.js'],{
       cwd:path.resolve(__dirname,'..'),
       stdio:['ignore','pipe','inherit'],
@@ -23,6 +24,7 @@ const {chromium}=require('playwright');
       ]);
     }finally{clearTimeout(timer);}
 
+    }
     browser=await chromium.launch({headless:true});
     const page=await browser.newPage({viewport:{width:1440,height:1000}});
     const errors=[];
@@ -35,6 +37,12 @@ const {chromium}=require('playwright');
       null,{timeout:10000}
     );
 
+    await page.evaluate(() => {
+      window.browserHrReadings = [];
+      document.addEventListener('vent:snapshot', () => {
+        window.browserHrReadings.push({timeSec:Number(document.querySelector('#clinical-time').textContent),heartRatePerMin:Number(document.querySelector('#clinical-hr').textContent)});
+      });
+    });
     const button=page.locator('#clinical-extremis-validation');
     assert.equal(await button.isEnabled(),true);
     await button.click();
@@ -45,6 +53,14 @@ const {chromium}=require('playwright');
       return (status && status.textContent.includes('TEST-HARNESS PARITY')) ||
         (error && !error.hidden && error.textContent.trim());
     },null,{timeout:240000});
+
+    const hrReadings = await page.evaluate(() => window.browserHrReadings);
+    for (const [time, expected] of [[100,91],[200,128],[300,163],[400,176],[500,179]]) {
+      const row = hrReadings.find(r => Math.abs(r.timeSec-time)<0.01);
+      assert(row && Math.abs(row.heartRatePerMin-expected)<=2,'visible HR at '+time+' s: '+JSON.stringify(row));
+    }
+    const peak = hrReadings.reduce((a,b)=>b.heartRatePerMin>a.heartRatePerMin?b:a);
+    assert(peak.heartRatePerMin>=179 && peak.heartRatePerMin<=183,JSON.stringify(peak));
 
     const errorText=(await page.locator('#clinical-session-error').textContent()).trim();
     assert.equal(errorText,'','browser extremis error: '+errorText);
@@ -71,6 +87,16 @@ const {chromium}=require('playwright');
     assert.equal(await banner.isHidden(),false);
     assert.match((await page.locator('#clinical-arrest-title').textContent()).trim(),/CARDIAC ARREST/);
     assert.deepEqual(errors,[]);
+
+    if (process.env.CAPTURE_DIR) {
+      const fs=require('node:fs');
+      fs.mkdirSync(process.env.CAPTURE_DIR,{recursive:true});
+      await page.screenshot({path:path.join(process.env.CAPTURE_DIR,'extremis-workstation.png'),fullPage:true});
+      await page.locator('.servo-nav [data-panel="trends"]').click();
+      await page.locator('#clinical-hr-trend').scrollIntoViewIfNeeded();
+      await page.screenshot({path:path.join(process.env.CAPTURE_DIR,'extremis-hr-trend.png')});
+      fs.writeFileSync(path.join(process.env.CAPTURE_DIR,'extremis-result.json'),JSON.stringify({url,status,map,ph,paco2,peak,hrReadings,hr:Number(await page.locator('#clinical-hr').textContent()),coLMin:Number(await page.locator('#clinical-co').textContent()),errors},null,2));
+    }
 
     console.log(JSON.stringify({
       status,map,ph,paco2,sourceHrText,reserveText,

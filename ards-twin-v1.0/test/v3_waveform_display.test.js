@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {sampleWaveformForDisplay}=require('../src/waveform_display.js');
+const trace=Array.from({length:40001},(_,i)=>Object.freeze({t:i/1000,output:Object.freeze({airwayPressure:10,airwayFlow:0.5,totalVolume:1}),phase:'INSPIRATION'}));
+const sampled=sampleWaveformForDisplay(trace,20);
+assert.equal(sampled.length,2000);
+assert.equal(sampled[0].t,-10);
+assert.equal(sampled.at(-1).t,20);
+assert.equal(trace.length,40001);
+assert.equal(trace.at(-1).t,40);
+assert.equal(sampled.at(-1).flowLps,0.5);
+assert(Object.isFrozen(sampled));
+assert.deepEqual(sampleWaveformForDisplay([],0),[]);
+console.log('ok - 30-second display sampling preserves endpoints, canonical units and original committed trace');
