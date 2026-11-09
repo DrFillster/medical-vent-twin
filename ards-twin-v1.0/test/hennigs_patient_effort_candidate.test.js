@@ -3,6 +3,7 @@
 const { Simulation, PcAcController } = require('../src/simulation.js');
 const { PRESETS } = require('../src/presets.js');
 const {
+  CMH2O_PER_MMHG,
   createHennigsPatientEffortCandidate,
 } = require('../src/hennigs_patient_effort_candidate.js');
 
@@ -22,10 +23,28 @@ const validationReference = createHennigsPatientEffortCandidate({
   gainProfile: 'hennigs-2026-validation-reference',
 });
 const validationSnapshot = validationReference.snapshot();
-assert(validationSnapshot.muscleGains.kI === 1.87);
-assert(validationSnapshot.muscleGains.kE === 1.87);
+assert(validationSnapshot.muscleGains.sourceKI === 1.87);
+assert(validationSnapshot.muscleGains.sourceKE === 1.87);
+assert(Math.abs(validationSnapshot.muscleGains.effectiveKICmH2OPerExc -
+  1.87 * CMH2O_PER_MMHG) < 1e-12);
+assert(Math.abs(validationSnapshot.muscleGains.effectiveKECmH2OPerExc -
+  1.87 * CMH2O_PER_MMHG) < 1e-12);
 assert(validationSnapshot.gainProvenance.authority ===
   'validation-reference-not-patient-specific');
+
+
+const impairedReference = createHennigsPatientEffortCandidate({
+  dtSec: 0.001,
+  dRel: 0.5,
+  gainProfile: 'hennigs-2026-validation-reference',
+  respiratoryFailureFraction: 0.75,
+});
+const impairedSnapshot = impairedReference.snapshot();
+assert(Math.abs(
+  impairedSnapshot.muscleGains.effectiveKICmH2OPerExc -
+  1.87 * CMH2O_PER_MMHG * 0.25
+) < 1e-12);
+assert(impairedSnapshot.muscleGains.respiratoryFailureFraction === 0.75);
 
 let mixedGainRejected = false;
 try {

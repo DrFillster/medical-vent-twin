@@ -7,18 +7,19 @@ const {
 
 const SOURCE = Object.freeze({
   citation:
-    'Hennigs C et al. Patient-ventilator interaction—Development of a mathematical model of the respiratory center. Comput Methods Programs Biomed. 2026;280:109329.',
-  doi: '10.1016/j.cmpb.2026.109329',
-  equations: '11,12',
+    'Hennigs C et al. Validation of a Computational Respiratory System Model for Mechanical Ventilation. arXiv:2607.06210v2 (2026).',
+  companionPrimarySource: '10.1016/j.cmpb.2026.109329',
+  equations: 'primary Eqs. 11-12; validation reference parameter table',
   authority: 'candidate-not-canonical',
   controlAuthority: false,
   referenceParameters: Object.freeze({
     kPrsPerL: 7.5,
-    kInspSecPerL: 2,
+    kInspSecPerL: 0.1,
+    functionalResidualCapacityL: 2.5,
     heringBreuerThresholdRangeL: Object.freeze([1, 1.5]),
   }),
   limitation:
-    'The reflex drives are source-structured, but their complete neural-population injection mapping is not promoted here.',
+    'Reflex equations and BI/BE mapping are source-backed; thresholds and reference parameters remain validation-reference values, not patient measurements.',
 });
 
 function finite(value, label) {
@@ -41,15 +42,25 @@ function positive(value, label) {
 function createHennigsMechanicalFeedbackCandidate({
   endExpiratoryVolumeL,
   heringBreuerThresholdL,
+  functionalResidualCapacityL = SOURCE.referenceParameters.functionalResidualCapacityL,
   kPrsPerL = SOURCE.referenceParameters.kPrsPerL,
   kInspSecPerL = SOURCE.referenceParameters.kInspSecPerL,
 } = {}) {
   nonNegative(endExpiratoryVolumeL, 'endExpiratoryVolumeL');
+  nonNegative(functionalResidualCapacityL, 'functionalResidualCapacityL');
   positive(heringBreuerThresholdL, 'heringBreuerThresholdL');
   positive(kPrsPerL, 'kPrsPerL');
   positive(kInspSecPerL, 'kInspSecPerL');
 
+  let currentEndExpiratoryVolumeL = endExpiratoryVolumeL;
+  const volumeReferenceOffsetL = functionalResidualCapacityL;
   let last = null;
+
+  function setEndExpiratoryVolumeL(value) {
+    nonNegative(value, 'endExpiratoryVolumeL');
+    currentEndExpiratoryVolumeL = value;
+    return snapshot();
+  }
 
   function evaluate({
     totalLungVolumeL,
@@ -59,9 +70,12 @@ function createHennigsMechanicalFeedbackCandidate({
     finite(airwayFlowLps, 'airwayFlowLps');
 
     const inspiratoryFlowLps = Math.max(0, airwayFlowLps);
+    const absoluteLungVolumeL = volumeReferenceOffsetL + totalLungVolumeL;
+    const absoluteEndExpiratoryVolumeL =
+      volumeReferenceOffsetL + currentEndExpiratoryVolumeL;
     const hbDrive = heringBreuerDrive({
-      lungVolume: totalLungVolumeL,
-      endExpiratoryVolume: endExpiratoryVolumeL,
+      lungVolume: absoluteLungVolumeL,
+      endExpiratoryVolume: absoluteEndExpiratoryVolumeL,
       thresholdVolume: heringBreuerThresholdL,
       kPrs: kPrsPerL,
     });
@@ -72,9 +86,12 @@ function createHennigsMechanicalFeedbackCandidate({
 
     last = Object.freeze({
       totalLungVolumeL,
-      endExpiratoryVolumeL,
+      absoluteLungVolumeL,
+      volumeReferenceOffsetL,
+      endExpiratoryVolumeL: currentEndExpiratoryVolumeL,
+      absoluteEndExpiratoryVolumeL,
       excessVolumeAboveEndExpirationL:
-        totalLungVolumeL - endExpiratoryVolumeL,
+        totalLungVolumeL - currentEndExpiratoryVolumeL,
       airwayFlowLps,
       inspiratoryFlowLps,
       heringBreuerDrive: hbDrive,
@@ -109,6 +126,7 @@ function createHennigsMechanicalFeedbackCandidate({
   return Object.freeze({
     evaluate,
     fromSimulation,
+    setEndExpiratoryVolumeL,
     snapshot,
     source: SOURCE,
   });
