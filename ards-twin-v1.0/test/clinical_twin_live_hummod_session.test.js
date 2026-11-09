@@ -35,6 +35,8 @@ test('live session initializes with finite HumMod-derived gas and circulation ou
   assert(s.systemic.status === 'live-coupled-experimental');
   assert(Number.isFinite(s.systemic.gasExchange.pao2MmHg));
   assert(Number.isFinite(s.systemic.gasExchange.paco2MmHg));
+  assert(Number.isFinite(s.systemic.gasExchange.arterialHco3MmolPerL),
+    'live gas view must expose dynamic arterial bicarbonate');
   assert(Number.isFinite(s.systemic.hemodynamics.meanArterialPressureMmHg));
   assert(Number.isFinite(s.systemic.hemodynamics.cardiacOutputMlPerMin));
   assert(Number.isFinite(s.systemic.hemodynamics.brainBloodFlowMlPerMin),
