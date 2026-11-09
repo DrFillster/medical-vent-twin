@@ -12,9 +12,10 @@ const SOURCE = Object.freeze({
     hemoglobinMolPerL: 2e-3,
     co2SolubilityLPerMmHg: 0.0301,
     concentrationScale: 2.226,
+    volumePercentToLPerL: 0.01,
   }),
   limitation:
-    'Brain pH and local virtual O2 saturation are required for BL3 inversion; arterial values are not substituted.',
+    'BL3 raw content is converted from volume-percent units to L(STPD)/L for GE7. Brain pH and local virtual O2 saturation remain explicit boundaries.',
 });
 
 function finite(v, label) {
@@ -58,7 +59,8 @@ function co2ConcentrationLPerL({
     SOURCE.parameters.co2SolubilityLPerMmHg *
     pco2MmHg *
     (1 + Math.pow(10, pH - 6.1)) *
-    SOURCE.parameters.concentrationScale
+    SOURCE.parameters.concentrationScale *
+    SOURCE.parameters.volumePercentToLPerL
   );
 }
 

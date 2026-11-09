@@ -1,6 +1,9 @@
 'use strict';
 
 const {
+  createHennigsBrainCo2TransportCandidate,
+} = require('./hennigs_brain_co2_transport_candidate.js');
+const {
   createHennigsCsfMedullaryCo2Candidate,
   hendersonHasselbalchPh,
 } = require('./hennigs_csf_medullary_co2_candidate.js');
@@ -34,6 +37,7 @@ function positive(value, label) {
 function createHennigsRespiratoryDriveCandidate({
   dtSec = 0.001,
   initialCsfPco2MmHg,
+  brainCo2Transport = null,
   gPco2Ph,
   oxygenWeight = 1,
   deterministicNoiseTerm = 0,
@@ -48,6 +52,9 @@ function createHennigsRespiratoryDriveCandidate({
     throw new Error('initialRelativeDrive must be in [0,1]');
   }
 
+  const brainTransport = brainCo2Transport == null
+    ? null
+    : createHennigsBrainCo2TransportCandidate(brainCo2Transport);
   const csfMedullary = createHennigsCsfMedullaryCo2Candidate({
     initialCsfPco2MmHg,
   });
@@ -70,6 +77,9 @@ function createHennigsRespiratoryDriveCandidate({
     dtSec: callerDtSec = dtSec,
     brainPco2MmHg,
     cerebralFlowLPerMin,
+    brainPh,
+    brainVirtualO2SaturationFraction,
+    arterialO2SaturationFraction,
     medullaryBicarbonateMmolPerL,
     arterialPh,
     arterialPco2MmHg,
@@ -80,9 +90,27 @@ function createHennigsRespiratoryDriveCandidate({
     }
     positive(medullaryBicarbonateMmolPerL, 'medullaryBicarbonateMmolPerL');
 
+    let resolvedBrainPco2MmHg = brainPco2MmHg;
+    let brainTransportState = null;
+    if (brainTransport) {
+      brainTransportState = brainTransport.step({
+        dtSec,
+        arterialPco2MmHg,
+        arterialPh,
+        arterialVirtualO2SaturationFraction:
+          arterialO2SaturationFraction,
+        cerebralFlowLPerMin,
+        brainPh,
+        brainVirtualO2SaturationFraction,
+      });
+      resolvedBrainPco2MmHg = brainTransportState.brainPco2MmHg;
+    } else {
+      positive(resolvedBrainPco2MmHg, 'brainPco2MmHg');
+    }
+
     const brain = csfMedullary.step({
       dtSec,
-      brainPco2MmHg,
+      brainPco2MmHg: resolvedBrainPco2MmHg,
       cerebralFlowLPerMin,
     });
 
@@ -105,6 +133,7 @@ function createHennigsRespiratoryDriveCandidate({
     last = Object.freeze({
       timeSec: effortState.timeSec,
       brain,
+      brainTransport: brainTransportState,
       medullaryPh,
       chemicalDrive: drive,
       relativeDrive: drive.relativeDrive,
@@ -138,6 +167,7 @@ function createHennigsRespiratoryDriveCandidate({
     return last || Object.freeze({
       timeSec: 0,
       brain: csfMedullary.snapshot(),
+      brainTransport: brainTransport ? brainTransport.snapshot() : null,
       medullaryPh: null,
       chemicalDrive: chemical.snapshot(),
       relativeDrive: initialRelativeDrive,
@@ -154,6 +184,7 @@ function createHennigsRespiratoryDriveCandidate({
     step,
     snapshot,
     patientEffortProvider,
+    brainTransport,
     csfMedullary,
     chemical,
     effort,

@@ -22,6 +22,8 @@ const recovered40 = pco2FromConcentrationMmHg({
   virtualO2SaturationFraction: 0.97,
 });
 assert(Math.abs(recovered40 - 40) < 1e-10);
+assert(c40 > 0.50 && c40 < 0.65,
+  'normal arterial CO2 content should be in the Chiari source range, not raw volume-percent units');
 
 assert.throws(
   () => createHennigsBrainCo2TransportCandidate({
