@@ -6,6 +6,7 @@ const SOURCE = Object.freeze({
       inspiredCo2Fraction: 0.07,
       durationSec: 25 * 60,
       reference: 'Reynolds et al. J Appl Physiol. 1972;33(1):47-54',
+      cohort: '14 normal subjects at 7% CO2 per Cheng et al. 2016',
     }),
     hypoxia: Object.freeze({
       inspiredO2Fraction: 0.08,
@@ -15,9 +16,9 @@ const SOURCE = Object.freeze({
   }),
   hennigsAcceptance: Object.freeze({
     metric: 'MAPE',
-    targetPercent: 10,
+    comparisonPercent: 10,
     note:
-      'Hennigs T1 evaluates RR(t), VT(t), baseline, peak, TTP, and AUC; the paper reports total MAPE near 10 percent but not a complete machine-readable target series.',
+      'Comparison benchmark only, not a universal pass/fail threshold. Hennigs T1 evaluates RR(t), VT(t), baseline, peak, TTP, and AUC and reports individual errors that can exceed 10 percent.',
   }),
   authority: 'calibration-framework-only',
 });
@@ -166,8 +167,8 @@ function scoreCandidate({
     hypercapnia: hypercapniaScore,
     hypoxia: hypoxiaScore,
     overallMapePercent,
-    meetsHennigsNominalTenPercentCriterion:
-      overallMapePercent <= SOURCE.hennigsAcceptance.targetPercent,
+    withinNominalTenPercentComparison:
+      overallMapePercent <= SOURCE.hennigsAcceptance.comparisonPercent,
     authority: 'calibrated-candidate-not-source-exact',
     candidateProvenance: candidateProvenance
       ? Object.freeze({ ...candidateProvenance })

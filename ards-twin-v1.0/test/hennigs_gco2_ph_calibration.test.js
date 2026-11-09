@@ -52,7 +52,7 @@ const perfect = scoreCandidate({
   candidateProvenance: { kind: 'synthetic-test-only' },
 });
 assert.equal(perfect.overallMapePercent, 0);
-assert.equal(perfect.meetsHennigsNominalTenPercentCriterion, true);
+assert.equal(perfect.withinNominalTenPercentComparison, true);
 assert.equal(perfect.authority, 'calibrated-candidate-not-source-exact');
 
 const poor = scoreCandidate({
@@ -68,6 +68,6 @@ const poor = scoreCandidate({
   candidateGPco2Ph: 2,
 });
 assert(poor.overallMapePercent > 10);
-assert.equal(poor.meetsHennigsNominalTenPercentCriterion, false);
+assert.equal(poor.withinNominalTenPercentComparison, false);
 
 console.log('ok - GCO2,pH calibration harness requires provenance-locked RR/VT target data');
