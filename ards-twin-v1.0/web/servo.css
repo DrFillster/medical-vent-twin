@@ -23,3 +23,4 @@ button{background:linear-gradient(#506571,#3b4d58);border:1px solid #6a7d88;colo
 @media(max-width:600px){.servo-vent-measured{display:block}.servo-measured strong{font-size:23px}.servo-vent-measured strong{font-size:21px}.servo-measure-note{font-size:7px!important;margin:5px 0!important}}
 .product-launch button{width:auto;margin-bottom:0}
 @media(max-width:600px){.product-launch{flex-wrap:wrap}.product-launch button{flex:1 1 140px;min-width:0;white-space:normal}.product-launch .secondary{margin-left:0}}
+@media(min-width:601px){.clinical-waveforms svg{height:clamp(68px,calc((100dvh - 650px)/3),125px)}.servo-modebar{padding:8px 18px}.servo-settings button{min-height:60px;padding:8px 12px}.servo-nav button{min-height:31px}.servo-measured article{padding:3px 0}.servo-measure-note{font-size:9px!important;line-height:1.25;margin:5px 0!important}}
