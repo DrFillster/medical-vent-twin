@@ -93,13 +93,6 @@ function derivePassiveRespiratoryMechanics({
   return Object.freeze(result);
 }
 
-function latestBreathMetrics(simulation) {
-  if (!simulation || typeof simulation.metrics !== 'function') return null;
-  const metrics = simulation.metrics();
-  if (!Array.isArray(metrics) || metrics.length === 0) return null;
-  return metrics[metrics.length - 1] || null;
-}
-
 function latestMeasurement(measurements, kind) {
   if (!Array.isArray(measurements)) return null;
   for (let i = measurements.length - 1; i >= 0; i--) {
@@ -126,7 +119,9 @@ function summarizeSimulationMeasurements(simulation) {
   const currentExpiratory = isCurrent(expiratory) ? expiratory : null;
   const staleInspiratoryHold = Boolean(inspiratory && !currentInspiratory);
   const staleExpiratoryHold = Boolean(expiratory && !currentExpiratory);
-  const latestBreath = latestBreathMetrics(simulation);
+  const metrics = typeof simulation.metrics === 'function' ? simulation.metrics() : [];
+  const breaths = Array.isArray(metrics) ? metrics : [];
+  const latestBreath = breaths.length ? breaths[breaths.length - 1] : null;
   const aop = simulation.params
     ? finiteOrNull(simulation.params.airwayOpeningPressure)
     : null;
@@ -148,10 +143,7 @@ function summarizeSimulationMeasurements(simulation) {
     latestBreath,
     // metrics() includes the currently open breath as its final record.
     // Device readouts must use the preceding, fully delivered breath.
-    lastCompletedBreath: (() => {
-      const breaths = typeof simulation.metrics === 'function' ? simulation.metrics() : [];
-      return breaths.length > 1 ? Object.freeze({ ...breaths[breaths.length - 2] }) : null;
-    })(),
+    lastCompletedBreath: breaths.length > 1 ? Object.freeze({ ...breaths[breaths.length - 2] }) : null,
     inspiratoryHold: inspiratory,
     expiratoryHold: expiratory,
   });

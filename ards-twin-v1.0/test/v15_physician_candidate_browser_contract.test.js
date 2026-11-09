@@ -14,7 +14,7 @@ const root=path.resolve(__dirname,'..');
 const index=fs.readFileSync(path.join(root,'web/index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'web/app.js'),'utf8');
 const worker=fs.readFileSync(path.join(root,'web/clinical-worker.js'),'utf8');
-const cacheKey='1.5.1-candidate-runtime';
+const cacheKey=require('../package.json').browserAssetVersion;
 
 test('candidate runtime assets use one cache-busting key',()=>{
   assert(index.includes('./engine.js?v='+cacheKey));
