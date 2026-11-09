@@ -43,6 +43,7 @@ class Simulation {
     // caller must supply them explicitly, or pass initializationHistory
     // from which the recruitment state can be derived.
     initialPEEP, initialRecruitmentState, initializationHistory,
+    patientEffortProvider = null,
   }) {
     this.params = params;
     this.controller = controller;
@@ -98,6 +99,10 @@ class Simulation {
       initialRecruitmentState: Object.freeze({ ...resolvedRecState }),
       recruitmentHistoryDerivation: initializationDerivation,
     });
+    if (patientEffortProvider != null && typeof patientEffortProvider !== 'function') {
+      throw new Error('patientEffortProvider must be a function or null');
+    }
+    this.patientEffortProvider = patientEffortProvider;
     this.mechanics = new ThreeCompartmentMechanics();
     this.trace = [];
     this.interventions = [];
@@ -361,6 +366,7 @@ class Simulation {
 
     let boundary;
     let tracePhase;
+    let patientMusclePressureCmH2O = 0;
     let controllerSnapshot = null;
     let trackerSnapshot = null;
     let restoreController = () => {};
@@ -384,11 +390,31 @@ class Simulation {
         Object.assign(this.controller.tracker, trackerSnapshot);
       };
 
-      // 1. controller produces boundary.
-      boundary = this.controller.step(this.state, dt, this.deliveredSinceBreathStart);
+      // 1. Resolve patient effort before controller action so assisted modes
+      // can trigger from the same Pmus signal that drives lung mechanics.
+      if (this.patientEffortProvider) {
+        patientMusclePressureCmH2O = this.patientEffortProvider({
+          timeSec: this.state.t,
+          dtSec: dt,
+          state: this.state,
+          controller: this.controller,
+          phase: this.controller.phase,
+          boundary: null,
+        });
+        if (typeof patientMusclePressureCmH2O !== 'number' ||
+            !Number.isFinite(patientMusclePressureCmH2O)) {
+          restoreController();
+          throw new Error('patientEffortProvider must return finite Pmus cmH2O');
+        }
+      }
+
+      // 2. Controller produces boundary. Existing controllers ignore the
+      // fourth argument; assisted controllers may use it as trigger input.
+      boundary = this.controller.step(
+        this.state, dt, this.deliveredSinceBreathStart, patientMusclePressureCmH2O);
       tracePhase = this.controller.phase;
 
-      // 2. EXPIRATION phase override: PEEP pressure clamp.
+      // 3. EXPIRATION phase override: PEEP pressure clamp.
       if (this.controller.phase === BreathPhase.EXPIRATION) {
         boundary = makeBoundaryPressure({
           pressureCmH2O: this.controller.settings.peep,
@@ -397,10 +423,22 @@ class Simulation {
       }
     }
 
-    // 3. Advance mechanics with the final boundary.
+    // 4. Apply the same separately recorded Pmus to lung mechanics.
+    // Hennigs convention: positive Pmus is inspiratory. It lowers effective
+    // pleural/alveolar pressure without changing reported ventilator Paw.
+    const mechanicsParams = patientMusclePressureCmH2O === 0
+      ? this.params
+      : {
+          ...this.params,
+          airwayOpeningPressure:
+            this.params.airwayOpeningPressure - patientMusclePressureCmH2O,
+        };
+
+    // 4. Advance mechanics with the final airway boundary and the separate
+    // patient-effort pressure contribution.
     let result;
     try {
-      result = this.mechanics.step(this.params, this.state, boundary, dt);
+      result = this.mechanics.step(mechanicsParams, this.state, boundary, dt);
     } catch (error) {
       restoreController();
       throw error;
@@ -420,12 +458,12 @@ class Simulation {
       return { state: this.state, output, boundary, failed: true };
     }
 
-    // 4. Gas exchange (parallel to mechanics, no irreversible coupling).
+    // 5. Gas exchange (parallel to mechanics, no irreversible coupling).
     if (this.trackGas) {
       this.gas = stepGasState(this.gas, this.params, state.compartments, dt);
     }
 
-    // 5. Track cumulative inspired volume since breath start.
+    // 6. Track cumulative inspired volume since breath start.
     // We use NET volume change (ΔV), not cumulative FLOW — the latter
     // over-counts because passive recoil leaks some inflow back out
     // through the airway during inspiration. ΔV is what fills the lung
@@ -440,18 +478,19 @@ class Simulation {
       this.deliveredSinceBreathStart = state.totalVolume - this.inspStartVolume;
     }
 
-    // 6. Commit state, append trace.
+    // 7. Commit state, append trace.
     this.state = state;
     this.trace.push({
       t: state.t,
       phase: tracePhase,
       maneuver: this.activeManeuver ? this.activeManeuver.kind : null,
       boundaryKind: boundary.kind,
-      output,
+      patientMusclePressureCmH2O,
+      output: { ...output, patientMusclePressureCmH2O },
     });
     this.lastCommittedPhase = tracePhase;
 
-    // 7. Record hold samples only after a successful committed mechanics step.
+    // 8. Record hold samples only after a successful committed mechanics step.
     if (this.activeManeuver) {
       this.activeManeuver.samples.push({
         t: state.t,
