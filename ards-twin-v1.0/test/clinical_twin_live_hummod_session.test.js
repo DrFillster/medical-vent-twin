@@ -223,17 +223,19 @@ test('prolonged profound hypoxemic hypercapnic failure decompensates instead of 
     'terminal state must no longer report a perfusing circulation');
 });
 
-test('live core rejects PC-AC until its Vent adapter is implemented', () => {
-  let threw = false;
-  try {
-    makeSession({ ventilation: {
-      mode: 'PC_AC', fio2: 0.60, peep: 8, rr: 20,
-      pinspCmH2O: 12, inspiratoryTimeSec: 0.8, inspiratoryPauseSec: 0,
-    }});
-  } catch (e) {
-    threw = /VC_AC only/.test(e.message);
-  }
-  assert(threw, 'expected explicit VC_AC-only error');
+test('live core supports PC-AC using delivered Vent tidal volume', () => {
+  const s = makeSession({ ventilation: {
+    mode: 'PC_AC', fio2: 0.60, peep: 8, rr: 20,
+    pinspCmH2O: 12, inspiratoryTimeSec: 0.8, inspiratoryPauseSec: 0,
+  }});
+  const initial=s.initialize();
+  assert(initial.ventilator.mode === 'PC_AC');
+  assert(initial.pulmonary.measurements.lastCompletedBreath.VtInspired > 0);
+  s.runFor(5);
+  const later=s.snapshot();
+  assert(later.ventilator.mode === 'PC_AC');
+  assert(Number.isFinite(later.systemic.gasExchange.paco2MmHg));
+  assert(Number.isFinite(later.systemic.hemodynamics.meanArterialPressureMmHg));
 });
 
 test('live core is restricted to the authored reference case while boundaries are synthetic', () => {

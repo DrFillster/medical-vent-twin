@@ -73,6 +73,8 @@
     $('clinical-quick-start').textContent = 'Start patient';
     for (const id of ['servo-ppeak','servo-pplat','servo-dp','servo-measured-rr','servo-vte','servo-ve','servo-o2','servo-peep','servo-volume','servo-rate','clinical-hr','clinical-map','clinical-co','clinical-sao2','clinical-pao2','clinical-paco2','clinical-ph']) setText(id,'—');
     setText('servo-clock','0'); setText('servo-status','Start the reference patient to begin monitoring');
+    setText('servo-mode-title','Volume Control'); setText('servo-mode-code','CMV · VC-AC');
+    $('servo-primary-setting').dataset.focus='servo-vt'; $('servo-primary-label').childNodes[0].nodeValue='Tidal volume '; setText('servo-primary-unit','mL');
     for (const id of ['icu-hr','icu-art','icu-rr','icu-cvp','icu-spo2','icu-etco2']) setText(id,'—');
     renderMonitorWaves(60,12);
     setText('servo-applied-state','Start patient to apply reference settings');
@@ -91,7 +93,13 @@
     setText('servo-clock', fixed(snapshot.timeSec, 1));
     setText('servo-o2', Number.isFinite(v.fio2) ? String(Math.round(v.fio2 * 100)) : '—');
     setText('servo-peep', fixed(v.peepCmH2O));
-    setText('servo-volume', Number.isFinite(v.vtL) ? String(Math.round(v.vtL * 1000)) : '—');
+    const pc = v.mode === 'PC_AC';
+    setText('servo-mode-title', pc ? 'Pressure Control' : 'Volume Control');
+    setText('servo-mode-code', pc ? 'CMV · PC-AC' : 'CMV · VC-AC');
+    $('servo-primary-setting').dataset.focus = pc ? 'clinical-pinsp' : 'servo-vt';
+    $('servo-primary-label').childNodes[0].nodeValue = pc ? 'Pressure above PEEP ' : 'Tidal volume ';
+    setText('servo-primary-unit', pc ? 'cmH₂O' : 'mL');
+    setText('servo-volume', pc ? fixed(v.pinspCmH2O, 1) : (Number.isFinite(v.vtL) ? String(Math.round(v.vtL * 1000)) : '—'));
     setText('servo-rate', fixed(v.rrPerMin ?? v.rr, 0));
     setText('servo-ppeak', fixed(m.lastCompletedBreath?.Ppeak));
     setText('servo-pplat', fixed(m.plateauPressureCmH2O));

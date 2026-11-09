@@ -327,7 +327,7 @@
       $(id).required = false;
     }
     $('clinical-provider-status').textContent = live
-      ? 'v2.4 LIVE PHYSIOLOGY · reference aspiration patient · VC-AC · experimental.'
+      ? 'v2.4 LIVE PHYSIOLOGY · reference aspiration patient · VC-AC / PC-AC · experimental.'
       : 'TRAJECTORY REPLAY · Vent interventions do not alter replayed systemic values.';
     $('clinical-coupling-note').textContent = live
       ? 'Vent mechanics drive the v2.4 gas-exchange, circulation, pulmonary vascular, autonomic and terminal-state models. Parallel comparison models are diagnostic only.'
@@ -338,16 +338,12 @@
       option.disabled = live && option.value !== reference;
     }
     for (const option of Array.from($('clinical-mode').options)) {
-      option.disabled = !['', 'VC_AC', 'PC_AC'].includes(option.value) || (live && option.value === 'PC_AC');
+      option.disabled = !['', 'VC_AC', 'PC_AC'].includes(option.value);
     }
 
     if (live && $('clinical-case').value !== reference) {
       $('clinical-case').value = reference;
       renderClinicalCase(reference);
-    }
-    if (live && $('clinical-mode').value !== 'VC_AC') {
-      $('clinical-mode').value = 'VC_AC';
-      syncClinicalMode();
     }
     if (live) {
       $('clinical-executable').textContent = 'v2.4 reference patient';

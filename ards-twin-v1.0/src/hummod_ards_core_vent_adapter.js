@@ -2,6 +2,7 @@
 
 const { humModLegacyDeadSpaceMl } = require('./hummod_ards_core_breathing.js');
 const { createVentToArdsCoreSnapshot } = require('./hummod_ards_core_coupling.js');
+const { summarizeSimulationMeasurements } = require('./bedside_measurements.js');
 const {
   pulmonaryMembraneState,
 } = require('./hummod_ards_core_pulmonary_membrane.js');
@@ -96,12 +97,22 @@ function createLiveCoreBoundaryFromVent({
   }
 
   const snap = createVentToArdsCoreSnapshot(simulation);
-  if (snap.ventilator.mode !== 'VC_AC') {
-    throw new Error('phase-1 live core adapter currently supports VC_AC only');
+  if (!['VC_AC', 'PC_AC'].includes(snap.ventilator.mode)) {
+    throw new Error('live core adapter supports VC_AC or PC_AC only');
   }
 
-  const vtL = snap.ventilator.settings.vt;
-  positive(vtL, 'VC tidal volume');
+  let vtL;
+  let tidalVolumeSource;
+  if (snap.ventilator.mode === 'VC_AC') {
+    vtL = snap.ventilator.settings.vt;
+    tidalVolumeSource = 'VC setting';
+    positive(vtL, 'VC tidal volume');
+  } else {
+    const completed = summarizeSimulationMeasurements(simulation).lastCompletedBreath;
+    vtL = completed && completed.VtInspired;
+    tidalVolumeSource = 'PC last completed delivered breath';
+    positive(vtL, 'PC delivered tidal volume');
+  }
 
   const flow = deriveVentilatedPulmonaryFlowMlPerMin({
     simulation,
@@ -176,7 +187,10 @@ function createLiveCoreBoundaryFromVent({
       membraneInterpolation: membrane
         ? membrane.provenance.interpolation
         : null,
-      hemodynamicCoupling: 'not-yet-enabled-without-pleural-pressure-model',
+      ventilatorMode: snap.ventilator.mode,
+      tidalVolumeL: vtL,
+      tidalVolumeSource,
+      hemodynamicCoupling: 'mean-airway-pressure thorax path; no spontaneous-effort pleural-pressure model',
     }),
   });
 }

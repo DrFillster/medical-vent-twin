@@ -7,7 +7,7 @@
 const { sampleWaveformForDisplay } = require('./waveform_display.js');
 const { getBerlinCase } = require('./berlin_case_catalog.js');
 const { makePatientParams } = require('./contracts.js');
-const { Simulation, VcAcController } = require('./simulation.js');
+const { Simulation, VcAcController, PcAcController } = require('./simulation.js');
 const { summarizeSimulationMeasurements } = require('./bedside_measurements.js');
 const { createThoraxState } = require('./hummod_ards_core_thorax.js');
 const { createHumModArdsCirculation } = require('./hummod_ards_core_circulation.js');
@@ -143,19 +143,32 @@ function buildLiveController(ventilation) {
   if (!ventilation || typeof ventilation !== 'object' || Array.isArray(ventilation)) {
     throw new Error('ventilation settings are required');
   }
-  if (ventilation.mode !== 'VC_AC') {
-    throw new Error('live reduced HumMod core currently supports VC_AC only');
-  }
-  return new VcAcController({
+  const common = {
     fio2: fraction(ventilation.fio2, 'ventilation.fio2'),
     peep: nonNegative(ventilation.peep, 'ventilation.peep'),
     rr: positive(ventilation.rr, 'ventilation.rr'),
-    vt: positive(ventilation.vtL, 'ventilation.vtL'),
-    inspiratoryFlow: positive(ventilation.inspiratoryFlowLps, 'ventilation.inspiratoryFlowLps'),
-    inspiratoryPause: ventilation.inspiratoryPauseSec == null
-      ? 0
-      : nonNegative(ventilation.inspiratoryPauseSec, 'ventilation.inspiratoryPauseSec'),
-  });
+  };
+  if (ventilation.mode === 'VC_AC') {
+    return new VcAcController({
+      ...common,
+      vt: positive(ventilation.vtL, 'ventilation.vtL'),
+      inspiratoryFlow: positive(ventilation.inspiratoryFlowLps, 'ventilation.inspiratoryFlowLps'),
+      inspiratoryPause: ventilation.inspiratoryPauseSec == null
+        ? 0
+        : nonNegative(ventilation.inspiratoryPauseSec, 'ventilation.inspiratoryPauseSec'),
+    });
+  }
+  if (ventilation.mode === 'PC_AC') {
+    return new PcAcController({
+      ...common,
+      pinsp: positive(ventilation.pinspCmH2O, 'ventilation.pinspCmH2O'),
+      inspiratoryTime: positive(ventilation.inspiratoryTimeSec, 'ventilation.inspiratoryTimeSec'),
+      inspiratoryPause: ventilation.inspiratoryPauseSec == null
+        ? 0
+        : nonNegative(ventilation.inspiratoryPauseSec, 'ventilation.inspiratoryPauseSec'),
+    });
+  }
+  throw new Error('ventilation.mode must be VC_AC or PC_AC');
 }
 
 function createBerlinLiveHumModSession({
@@ -547,13 +560,21 @@ function createBerlinLiveHumModSession({
 
   function currentVentSettings() {
     const s = simulation.controller.settings;
+    const base = { fio2: s.fio2, peepCmH2O: s.peep, rrPerMin: s.rr };
+    if (simulation.controller instanceof VcAcController) {
+      return Object.freeze({
+        ...base,
+        mode: 'VC_AC',
+        vtL: s.vt,
+        inspiratoryFlowLps: s.inspiratoryFlow,
+        inspiratoryPauseSec: s.inspiratoryPause,
+      });
+    }
     return Object.freeze({
-      mode: 'VC_AC',
-      fio2: s.fio2,
-      peepCmH2O: s.peep,
-      rrPerMin: s.rr,
-      vtL: s.vt,
-      inspiratoryFlowLps: s.inspiratoryFlow,
+      ...base,
+      mode: 'PC_AC',
+      pinspCmH2O: s.pinsp,
+      inspiratoryTimeSec: s.inspiratoryTime,
       inspiratoryPauseSec: s.inspiratoryPause,
     });
   }
