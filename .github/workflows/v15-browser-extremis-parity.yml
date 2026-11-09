@@ -28,6 +28,11 @@ on:
       - 'ards-twin-v1.0/scripts/verify-deployable-web.js'
       - '.github/workflows/v15-browser-extremis-parity.yml'
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Optional public browser URL; blank starts the local artifact"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -35,6 +40,8 @@ permissions:
 jobs:
   browser-parity:
     runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ inputs.base_url }}
     timeout-minutes: 12
     defaults:
       run:

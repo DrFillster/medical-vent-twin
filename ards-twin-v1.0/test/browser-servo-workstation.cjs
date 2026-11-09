@@ -7,12 +7,14 @@ const {chromium} = require('playwright');
 (async () => {
   let server, browser;
   try {
+    if (!process.env.BASE_URL) {
     server = spawn(process.execPath,['scripts/serve.js'],{cwd:path.resolve(__dirname,'..'),stdio:['ignore','pipe','inherit']});
     await once(server.stdout,'data');
+    }
     browser = await chromium.launch({headless:true});
     const page = await browser.newPage({viewport:{width:1440,height:900}});
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
-    await page.goto('http://127.0.0.1:8765/');
+    await page.goto(process.env.BASE_URL || 'http://127.0.0.1:8765/');
     await page.waitForFunction(()=>!document.querySelector('#clinical-quick-start').disabled);
     await page.locator('#clinical-quick-start').click();
     await page.waitForFunction(()=>document.querySelector('#servo-o2').textContent==='60');
@@ -48,6 +50,8 @@ const {chromium} = require('playwright');
     assert.equal(await page.locator('#clinical-apply-vent').isDisabled(),true);
     await page.locator('#servo-settings-panel [data-close-panel]').click();
     await page.getByRole('link',{name:'Open v2.4'}).click();
+    await page.waitForURL('**/v2.4/');
+    await page.waitForLoadState('domcontentloaded');
     assert.match(await page.title(),/v2\.4/);
     await page.waitForFunction(()=>!document.querySelector('#clinical-quick-start').disabled);
     assert.equal(await page.locator('#clinical-fio2').inputValue(),'0.60');

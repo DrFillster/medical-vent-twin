@@ -9,6 +9,7 @@ const { chromium } = require('playwright');
 (async () => {
   let server, browser;
   try {
+    if (!process.env.BASE_URL) {
     server = spawn(process.execPath, ['scripts/serve.js'], {
       cwd: path.resolve(__dirname, '..'), stdio: ['ignore', 'pipe', 'inherit'],
     });
@@ -20,11 +21,12 @@ const { chromium } = require('playwright');
         new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('server startup timed out')), 10000); }),
       ]);
     } finally { clearTimeout(timer); }
+    }
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto('http://127.0.0.1:8765/');
+    await page.goto(process.env.BASE_URL || 'http://127.0.0.1:8765/');
     await page.waitForFunction(() => !document.querySelector('#clinical-initialize').disabled);
     await page.locator('#clinical-quick-start').click();
     await page.waitForFunction(() => document.querySelector('#clinical-time').textContent.trim() === '0');

@@ -8,8 +8,9 @@ const {chromium}=require('playwright');
 
 (async()=>{
   let server=null,browser=null;
-  const url='http://127.0.0.1:8765/';
+  const url=process.env.BASE_URL || 'http://127.0.0.1:8765/';
   try{
+    if (!process.env.BASE_URL) {
     server=spawn(process.execPath,['scripts/serve.js'],{
       cwd:path.resolve(__dirname,'..'),
       stdio:['ignore','pipe','inherit'],
@@ -23,6 +24,7 @@ const {chromium}=require('playwright');
       ]);
     }finally{clearTimeout(timer);}
 
+    }
     browser=await chromium.launch({headless:true});
     const page=await browser.newPage({viewport:{width:1440,height:1000}});
     const errors=[];
