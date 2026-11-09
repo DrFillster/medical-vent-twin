@@ -62,9 +62,9 @@ function combineRk4(s,k1,k2,k3,k4,h){
   return out;
 }
 
-function derivativeOnly(state,dRel,tonicAdjustments,sigmoidK){
+function derivativeOnly(state,dRel,activeTonicAdjustments,sigmoidK){
   return oscillatorDerivatives({
-    state,dRel,tonicAdjustments,sigmoidK,
+    state,dRel,tonicAdjustments:activeTonicAdjustments,sigmoidK,
   }).derivatives;
 }
 
@@ -79,6 +79,7 @@ function createHennigsNeuralOscillatorRuntime({
   dRel=validateDRel(dRel);
   finite(sigmoidK,'sigmoidK');
   let state=cloneState(initialState||defaultNumericalSeed());
+  let activeTonicAdjustments=tonicAdjustments==null?null:{...tonicAdjustments};
   let timeSec=0;
 
   function setRelativeDrive(next){
@@ -86,17 +87,29 @@ function createHennigsNeuralOscillatorRuntime({
     return snapshot();
   }
 
+  function setTonicAdjustments(next){
+    if(next==null){activeTonicAdjustments=null;return snapshot();}
+    const normalized={};
+    for(const p of POPULATIONS){
+      const v=next[p]??0;
+      finite(v,'tonicAdjustments.'+p);
+      normalized[p]=v;
+    }
+    activeTonicAdjustments=normalized;
+    return snapshot();
+  }
+
   function step(){
     const h=dtSec;
-    const k1=derivativeOnly(state,dRel,tonicAdjustments,sigmoidK);
+    const k1=derivativeOnly(state,dRel,activeTonicAdjustments,sigmoidK);
     const k2=derivativeOnly(
-      addScaled(state,k1,h/2),dRel,tonicAdjustments,sigmoidK
+      addScaled(state,k1,h/2),dRel,activeTonicAdjustments,sigmoidK
     );
     const k3=derivativeOnly(
-      addScaled(state,k2,h/2),dRel,tonicAdjustments,sigmoidK
+      addScaled(state,k2,h/2),dRel,activeTonicAdjustments,sigmoidK
     );
     const k4=derivativeOnly(
-      addScaled(state,k3,h),dRel,tonicAdjustments,sigmoidK
+      addScaled(state,k3,h),dRel,activeTonicAdjustments,sigmoidK
     );
     state=combineRk4(state,k1,k2,k3,k4,h);
     timeSec+=h;
@@ -122,7 +135,7 @@ function createHennigsNeuralOscillatorRuntime({
 
   function snapshot(){
     const derived=oscillatorDerivatives({
-      state,dRel,tonicAdjustments,sigmoidK,
+      state,dRel,tonicAdjustments:activeTonicAdjustments,sigmoidK,
     });
     return Object.freeze({
       timeSec,
@@ -131,6 +144,8 @@ function createHennigsNeuralOscillatorRuntime({
       dRel,
       prescribedRespiratoryRatePerMin:respiratoryRatePerMin(dRel),
       kRR:derived.kRR,
+      tonic:derived.tonic,
+      tonicAdjustments:activeTonicAdjustments==null?null:Object.freeze({...activeTonicAdjustments}),
       authority:SOURCE.authority,
       controlAuthority:false,
       provenance:SOURCE,
@@ -138,7 +153,7 @@ function createHennigsNeuralOscillatorRuntime({
   }
 
   return Object.freeze({
-    step,runFor,snapshot,setRelativeDrive,
+    step,runFor,snapshot,setRelativeDrive,setTonicAdjustments,
     source:SOURCE,
   });
 }

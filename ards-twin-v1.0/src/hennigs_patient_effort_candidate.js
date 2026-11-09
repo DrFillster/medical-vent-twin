@@ -95,6 +95,20 @@ function createHennigsPatientEffortCandidate({
     return last;
   }
 
+  function setMechanicalFeedback({
+    heringBreuerDrive = 0,
+    inspiratoryFlowDrive = 0,
+  } = {}) {
+    nonNegative(heringBreuerDrive, 'heringBreuerDrive');
+    nonNegative(inspiratoryFlowDrive, 'inspiratoryFlowDrive');
+    const total = heringBreuerDrive + inspiratoryFlowDrive;
+    oscillator.setTonicAdjustments({
+      I: -total,
+      E: total,
+    });
+    return snapshot();
+  }
+
   function provider(args = {}) {
     return step(args).patientMusclePressureCmH2O;
   }
@@ -126,6 +140,7 @@ function createHennigsPatientEffortCandidate({
     step,
     snapshot,
     setRelativeDrive,
+    setMechanicalFeedback,
     oscillator,
     source: SOURCE,
   });

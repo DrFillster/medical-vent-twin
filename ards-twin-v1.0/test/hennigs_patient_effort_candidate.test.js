@@ -79,5 +79,15 @@ assert(snap.controlAuthority === false);
 assert(snap.authority === 'candidate-not-canonical');
 assert(Number.isFinite(snap.prescribedRespiratoryRatePerMin));
 
+bridge.setMechanicalFeedback({
+  heringBreuerDrive: 0.4,
+  inspiratoryFlowDrive: 0.2,
+});
+const tonic = bridge.oscillator.snapshot().tonic;
+assert(Math.abs(tonic.I - (5.04 * 0.5 - 0.6)) < 1e-9,
+  'DHB + Dinsp must be subtracted from BI');
+assert(Math.abs(tonic.E - (4.14 * 0.5 + 0.6)) < 1e-9,
+  'DHB + Dinsp must be added to BE');
+
 console.log('ok - Hennigs candidate drives separate Vent Pmus path with explicit gains');
 console.log(JSON.stringify({ maxPmus, minPmus, rr: snap.prescribedRespiratoryRatePerMin }, null, 2));
