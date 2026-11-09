@@ -11,6 +11,8 @@ const { SimulationClock } = require('./clock.js');
 const { ThreeCompartmentMechanics } = require('./mechanics.js');
 const { VcAcController } = require('./ventilator/vc_ac.js');
 const { PcAcController } = require('./ventilator/pc_ac.js');
+const { PressureSupportCandidateController } = require('./ventilator/pressure_support_candidate.js');
+const { SimvCandidateController } = require('./ventilator/simv_candidate.js');
 const { BreathPhase } = require('./ventilator/controller.js');
 const {
   makeBoundaryFlow, makeBoundaryPressure, makeInitialState,
@@ -33,6 +35,14 @@ function median(values) {
   const sorted = values.slice().sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function controllerMode(controller) {
+  if (controller instanceof VcAcController) return 'VC_AC';
+  if (controller instanceof PcAcController) return 'PC_AC';
+  if (controller instanceof PressureSupportCandidateController) return 'PS';
+  if (controller instanceof SimvCandidateController) return 'SIMV';
+  return null;
 }
 
 class Simulation {
@@ -124,9 +134,8 @@ class Simulation {
   // new setting is applied by the controller / expiratory pressure boundary
   // on subsequent solver steps.
   requestControllerChange(nextController, metadata = {}) {
-    if (!(nextController instanceof VcAcController) &&
-        !(nextController instanceof PcAcController)) {
-      throw new Error('nextController must be a VcAcController or PcAcController');
+    if (!controllerMode(nextController)) {
+      throw new Error('nextController must be a supported ventilator controller');
     }
     if (this.pendingControllerChange) {
       throw new Error('a ventilator controller change is already pending');
@@ -138,8 +147,8 @@ class Simulation {
     const requested = Object.freeze({
       t: this.state.t,
       kind: 'REQUEST_CONTROLLER_CHANGE',
-      fromMode: this.controller instanceof VcAcController ? 'VC_AC' : 'PC_AC',
-      toMode: nextController instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      fromMode: controllerMode(this.controller),
+      toMode: controllerMode(nextController),
       metadata: Object.freeze({ ...metadata }),
     });
     this.interventions.push(requested);
@@ -151,10 +160,15 @@ class Simulation {
     if (!this.pendingControllerChange) return false;
     if (this.pendingManeuver || this.activeManeuver) return false;
     const tracker = this.controller && this.controller.tracker;
-    if (!tracker || typeof tracker.isBreathComplete !== 'function') {
-      throw new Error('current controller does not expose a breath boundary');
+    if (tracker && typeof tracker.isBreathComplete === 'function') {
+      if (!tracker.isBreathComplete(this.controller.cycleTime)) return false;
+    } else {
+      // Assisted controllers mark a completed breath by entering expiration
+      // with phaseTime reset to zero. Wait for that boundary rather than
+      // replacing a controller mid-inspiration or mid-expiration.
+      if (!(this.controller.phase === BreathPhase.EXPIRATION &&
+            this.controller.phaseTime <= this.clock.dt * 1.5)) return false;
     }
-    if (!tracker.isBreathComplete(this.controller.cycleTime)) return false;
 
     const pending = this.pendingControllerChange;
     const previous = this.controller;
@@ -167,8 +181,8 @@ class Simulation {
     this.interventions.push(Object.freeze({
       t: this.state.t,
       kind: 'APPLY_CONTROLLER_CHANGE',
-      fromMode: previous instanceof VcAcController ? 'VC_AC' : 'PC_AC',
-      toMode: this.controller instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      fromMode: controllerMode(previous),
+      toMode: controllerMode(this.controller),
       metadata: pending.metadata,
     }));
     return true;

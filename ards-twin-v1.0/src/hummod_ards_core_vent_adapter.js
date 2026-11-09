@@ -97,8 +97,8 @@ function createLiveCoreBoundaryFromVent({
   }
 
   const snap = createVentToArdsCoreSnapshot(simulation);
-  if (!['VC_AC', 'PC_AC'].includes(snap.ventilator.mode)) {
-    throw new Error('live core adapter supports VC_AC or PC_AC only');
+  if (!['VC_AC', 'PC_AC', 'PS', 'SIMV'].includes(snap.ventilator.mode)) {
+    throw new Error('live core adapter received unsupported ventilation mode');
   }
 
   let vtL;
@@ -110,8 +110,8 @@ function createLiveCoreBoundaryFromVent({
   } else {
     const completed = summarizeSimulationMeasurements(simulation).lastCompletedBreath;
     vtL = completed && completed.VtInspired;
-    tidalVolumeSource = 'PC last completed delivered breath';
-    positive(vtL, 'PC delivered tidal volume');
+    tidalVolumeSource = snap.ventilator.mode + ' last completed delivered breath';
+    positive(vtL, snap.ventilator.mode + ' delivered tidal volume');
   }
 
   const flow = deriveVentilatedPulmonaryFlowMlPerMin({

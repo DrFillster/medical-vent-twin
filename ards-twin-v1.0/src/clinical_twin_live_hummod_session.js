@@ -8,6 +8,11 @@ const { sampleWaveformForDisplay } = require('./waveform_display.js');
 const { getBerlinCase } = require('./berlin_case_catalog.js');
 const { makePatientParams } = require('./contracts.js');
 const { Simulation, VcAcController, PcAcController } = require('./simulation.js');
+const { PressureSupportCandidateController } = require('./ventilator/pressure_support_candidate.js');
+const { SimvCandidateController } = require('./ventilator/simv_candidate.js');
+const { createHennigsPatientEffortCandidate } = require('./hennigs_patient_effort_candidate.js');
+const { createHennigsMechanicalClosedEffortCandidate } = require('./hennigs_mechanical_closed_effort_candidate.js');
+const { PROFILE: HENNIGS_SPONTANEOUS_PROFILE } = require('./hennigs_supported_spontaneous_profile.js');
 const { summarizeSimulationMeasurements } = require('./bedside_measurements.js');
 const { createThoraxState } = require('./hummod_ards_core_thorax.js');
 const { createHumModArdsCirculation } = require('./hummod_ards_core_circulation.js');
@@ -168,7 +173,25 @@ function buildLiveController(ventilation) {
         : nonNegative(ventilation.inspiratoryPauseSec, 'ventilation.inspiratoryPauseSec'),
     });
   }
-  throw new Error('ventilation.mode must be VC_AC or PC_AC');
+  if (ventilation.mode === 'PS') {
+    return new PressureSupportCandidateController({
+      fio2: common.fio2, peep: common.peep,
+      pressureSupport: nonNegative(ventilation.pressureSupportCmH2O, 'ventilation.pressureSupportCmH2O'),
+      flowTriggerLMin: 1.5, cycleOffFraction: 0.25, minExpiratoryTimeSec: 0.15,
+      maxInspiratoryTimeSec: 1.5, riseTimeSec: 0.1, backupRatePerMin: common.rr,
+    });
+  }
+  if (ventilation.mode === 'SIMV') {
+    return new SimvCandidateController({
+      fio2: common.fio2, peep: common.peep, mandatoryRatePerMin: common.rr,
+      mandatoryPinspCmH2O: positive(ventilation.pinspCmH2O, 'ventilation.pinspCmH2O'),
+      mandatoryInspiratoryTimeSec: positive(ventilation.inspiratoryTimeSec, 'ventilation.inspiratoryTimeSec'),
+      mandatoryRiseTimeSec: 0.1, pressureSupportCmH2O: nonNegative(ventilation.pressureSupportCmH2O, 'ventilation.pressureSupportCmH2O'),
+      supportRiseTimeSec: 0.1, flowTriggerLMin: 1.5, cycleOffFraction: 0.25,
+      minExpiratoryTimeSec: 0.15, maxSupportInspiratoryTimeSec: 1.5, syncWindowSec: 0.5,
+    });
+  }
+  throw new Error('ventilation.mode must be VC_AC, PC_AC, PS, or SIMV');
 }
 
 function createBerlinLiveHumModSession({
@@ -325,6 +348,28 @@ function createBerlinLiveHumModSession({
     initializationHistory,
   });
 
+  const effort = createHennigsPatientEffortCandidate({
+    dtSec: dt,
+    dRel: HENNIGS_SPONTANEOUS_PROFILE.minimumRelativeDrive,
+    gainProfile: 'hennigs-2026-validation-reference',
+    respiratoryFailureFraction: 0.75,
+    physicalClock: {
+      profile: 'hennigs-eq9',
+      estimateRawPeriodSec: () => HENNIGS_SPONTANEOUS_PROFILE.baselineRawOscillatorPeriod,
+    },
+  });
+  const spontaneousEffort = createHennigsMechanicalClosedEffortCandidate({
+    effort,
+    initialEndExpiratoryVolumeL: simulation.state.totalVolume,
+    functionalResidualCapacityL: 2.5,
+    heringBreuerThresholdL: 1.0,
+  });
+  simulation.patientEffortProvider = args =>
+    (simulation.controller instanceof PressureSupportCandidateController ||
+     simulation.controller instanceof SimvCandidateController)
+      ? spontaneousEffort.provider(args)
+      : 0;
+
   if (mechanicalWarmupSec > 0) simulation.runFor(mechanicalWarmupSec);
   const ventTimeOriginSec = simulation.state.t;
   const referenceMeanAirwayPressureCmH2O = meanAirwayPressureCmH2O(simulation);
@@ -408,7 +453,7 @@ function createBerlinLiveHumModSession({
         dtSec: dt,
         pao2MmHg: 95,
         paco2MmHg: 40,
-        tidalVolumeL: ventilation.vtL,
+        tidalVolumeL: ventilation.vtL == null ? HENNIGS_SPONTANEOUS_PROFILE.baselineTidalVolumeL : ventilation.vtL,
         averagingWindowSec: 1,
       })
     : null;
@@ -560,23 +605,15 @@ function createBerlinLiveHumModSession({
 
   function currentVentSettings() {
     const s = simulation.controller.settings;
-    const base = { fio2: s.fio2, peepCmH2O: s.peep, rrPerMin: s.rr };
-    if (simulation.controller instanceof VcAcController) {
-      return Object.freeze({
-        ...base,
-        mode: 'VC_AC',
-        vtL: s.vt,
-        inspiratoryFlowLps: s.inspiratoryFlow,
-        inspiratoryPauseSec: s.inspiratoryPause,
-      });
-    }
-    return Object.freeze({
-      ...base,
-      mode: 'PC_AC',
-      pinspCmH2O: s.pinsp,
-      inspiratoryTimeSec: s.inspiratoryTime,
-      inspiratoryPauseSec: s.inspiratoryPause,
-    });
+    const breaths = simulation.metrics();
+    const completed = breaths.length > 1 ? breaths[breaths.length - 2] : null;
+    const measuredRr = completed && Number.isFinite(completed.RR) ? completed.RR : null;
+    const base = { fio2: s.fio2, peepCmH2O: s.peep, rrPerMin: measuredRr };
+    if (simulation.controller instanceof VcAcController) return Object.freeze({...base, mode:'VC_AC', rrPerMin:s.rr, vtL:s.vt, inspiratoryFlowLps:s.inspiratoryFlow, inspiratoryPauseSec:s.inspiratoryPause});
+    if (simulation.controller instanceof PcAcController) return Object.freeze({...base, mode:'PC_AC', rrPerMin:s.rr, pinspCmH2O:s.pinsp, inspiratoryTimeSec:s.inspiratoryTime, inspiratoryPauseSec:s.inspiratoryPause});
+    if (simulation.controller instanceof PressureSupportCandidateController) return Object.freeze({...base, mode:'PS', pressureSupportCmH2O:s.pressureSupport, backupRatePerMin:s.backupRatePerMin});
+    if (simulation.controller instanceof SimvCandidateController) return Object.freeze({...base, mode:'SIMV', mandatoryRatePerMin:s.mandatoryRatePerMin, pinspCmH2O:s.mandatoryPinspCmH2O, inspiratoryTimeSec:s.mandatoryInspiratoryTimeSec, pressureSupportCmH2O:s.pressureSupportCmH2O});
+    throw new Error('unsupported live controller');
   }
 
   function liveSystemicView() {

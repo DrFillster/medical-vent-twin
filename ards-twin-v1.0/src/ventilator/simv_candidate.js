@@ -24,7 +24,7 @@ class SimvCandidateController{
     const period=60/settings.mandatoryRatePerMin;
     if(settings.mandatoryInspiratoryTimeSec>=period)throw new Error('mandatory inspiratory time must be shorter than mandatory period');
     if(settings.syncWindowSec>=period)throw new Error('syncWindowSec must be shorter than mandatory period');
-    this.settings={...settings};this.phase=BreathPhase.EXPIRATION;this.phaseTime=0;this.timeSinceMandatoryStartSec=period;this.breathIndex=0;this.mandatoryBreathCount=0;this.spontaneousBreathCount=0;this.activeBreathType=null;this.peakInspiratoryFlowLps=0;this.lastSampledFlowLps=0;this.sampleAccumulatorSec=0;this.lastTrigger='NONE';this.lastCycleReason=null;this.source=SOURCE;this.controlAuthority=false;
+    this.settings={...settings};this.phase=BreathPhase.EXPIRATION;this.phaseTime=0;this.timeSinceMandatoryStartSec=period;this.breathIndex=0;this.mandatoryBreathCount=0;this.spontaneousBreathCount=0;this.activeBreathType=null;this.peakInspiratoryFlowLps=0;this.lastSampledFlowLps=0;this.sampleAccumulatorSec=0;this.lastTrigger='NONE';this.lastCycleReason=null;this.effortArmed=true;this.source=SOURCE;this.controlAuthority=false;
   }
   get breath(){return this.breathIndex;}
   _sampleFlowTrigger(state,dt){
@@ -39,12 +39,14 @@ class SimvCandidateController{
   _startMandatory(trigger){this.phase=BreathPhase.INSPIRATION;this.phaseTime=0;this.timeSinceMandatoryStartSec=0;this.breathIndex++;this.mandatoryBreathCount++;this.activeBreathType='MANDATORY';this.peakInspiratoryFlowLps=0;this.lastTrigger=trigger;this.lastCycleReason=null;}
   _startSpontaneous(){this.phase=BreathPhase.INSPIRATION;this.phaseTime=0;this.breathIndex++;this.spontaneousBreathCount++;this.activeBreathType='SPONTANEOUS_PS';this.peakInspiratoryFlowLps=0;this.lastTrigger='FLOW';this.lastCycleReason=null;}
   _end(reason){this.phase=BreathPhase.EXPIRATION;this.phaseTime=0;this.activeBreathType=null;this.sampleAccumulatorSec=0;this.lastCycleReason=reason;}
-  step(state,dt){
+  step(state,dt,_deliveredSinceBreathStart=0,patientMusclePressureCmH2O=0){
     positive(dt,'dt');const period=60/this.settings.mandatoryRatePerMin;this.timeSinceMandatoryStartSec+=dt;
     if(this.phase===BreathPhase.EXPIRATION){
-      const flowTrigger=this._sampleFlowTrigger(state,dt);
+      if(patientMusclePressureCmH2O<=0)this.effortArmed=true;
+      const flowTrigger=this.effortArmed&&patientMusclePressureCmH2O>0&&this._sampleFlowTrigger(state,dt);
       const inSyncWindow=this.timeSinceMandatoryStartSec>=period-this.settings.syncWindowSec;
       const mandatoryDue=this.timeSinceMandatoryStartSec>=period;
+      if(flowTrigger)this.effortArmed=false;
       if(mandatoryDue||(flowTrigger&&inSyncWindow))this._startMandatory(mandatoryDue?'TIME':'FLOW_SYNC');
       else if(flowTrigger)this._startSpontaneous();
     }else if(this.activeBreathType==='MANDATORY'){
@@ -66,6 +68,6 @@ class SimvCandidateController{
     this.phaseTime+=dt;
     return makeBoundaryPressure({pressureCmH2O:pressure,fio2:this.settings.fio2});
   }
-  snapshot(){return Object.freeze({mode:'SIMV_PC_PS_CANDIDATE',phase:this.phase,phaseTimeSec:this.phaseTime,timeSinceMandatoryStartSec:this.timeSinceMandatoryStartSec,breathIndex:this.breathIndex,mandatoryBreathCount:this.mandatoryBreathCount,spontaneousBreathCount:this.spontaneousBreathCount,activeBreathType:this.activeBreathType,lastTrigger:this.lastTrigger,lastCycleReason:this.lastCycleReason,settings:Object.freeze({...this.settings}),authority:SOURCE.authority,controlAuthority:false,provenance:SOURCE});}
+  snapshot(){return Object.freeze({mode:'SIMV_PC_PS_CANDIDATE',phase:this.phase,phaseTimeSec:this.phaseTime,timeSinceMandatoryStartSec:this.timeSinceMandatoryStartSec,breathIndex:this.breathIndex,mandatoryBreathCount:this.mandatoryBreathCount,spontaneousBreathCount:this.spontaneousBreathCount,activeBreathType:this.activeBreathType,lastTrigger:this.lastTrigger,lastCycleReason:this.lastCycleReason,effortArmed:this.effortArmed,settings:Object.freeze({...this.settings}),authority:SOURCE.authority,controlAuthority:false,provenance:SOURCE});}
 }
 module.exports=Object.freeze({SOURCE,SimvCandidateController});

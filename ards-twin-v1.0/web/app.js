@@ -301,15 +301,21 @@
     const mode = $('clinical-mode').value;
     const vc = mode === 'VC_AC';
     const pc = mode === 'PC_AC';
+    const ps = mode === 'PS';
+    const simv = mode === 'SIMV';
     $('clinical-vc-fields').hidden = !vc;
-    $('clinical-pc-fields').hidden = !pc;
+    $('clinical-pc-fields').hidden = !(pc || simv);
+    $('clinical-ps-fields').hidden = !(ps || simv);
+    $('clinical-rr-label').innerHTML = ps ? 'Backup rate <span>/min</span>' : (simv ? 'Mandatory rate <span>/min</span>' : 'Respiratory rate <span>/min</span>');
+    if (ps && $('clinical-mode').dataset.previousMode !== 'PS') $('clinical-rr').value = '2';
+    $('clinical-mode').dataset.previousMode = mode;
     ['clinical-vt', 'clinical-flow', 'clinical-vc-pause'].forEach(id => {
       $(id).required = vc && id !== 'clinical-vc-pause';
       $(id).disabled = !vc;
     });
     ['clinical-pinsp', 'clinical-ti', 'clinical-pc-pause'].forEach(id => {
-      $(id).required = pc && id !== 'clinical-pc-pause';
-      $(id).disabled = !pc;
+      $(id).required = (pc || simv) && id !== 'clinical-pc-pause';
+      $(id).disabled = !(pc || simv);
     });
   }
 
@@ -338,7 +344,7 @@
       option.disabled = live && option.value !== reference;
     }
     for (const option of Array.from($('clinical-mode').options)) {
-      option.disabled = !['', 'VC_AC', 'PC_AC'].includes(option.value);
+      option.disabled = !['', 'VC_AC', 'PC_AC', 'PS', 'SIMV'].includes(option.value);
     }
 
     if (live && $('clinical-case').value !== reference) {
@@ -1002,8 +1008,14 @@
       payload.pinspCmH2O = clinicalNumber('clinical-pinsp');
       payload.inspiratoryTimeSec = clinicalNumber('clinical-ti');
       payload.inspiratoryPauseSec = clinicalNumber('clinical-pc-pause');
+    } else if (mode === 'PS') {
+      payload.pressureSupportCmH2O = clinicalNumber('clinical-ps');
+    } else if (mode === 'SIMV') {
+      payload.pinspCmH2O = clinicalNumber('clinical-pinsp');
+      payload.inspiratoryTimeSec = clinicalNumber('clinical-ti');
+      payload.pressureSupportCmH2O = clinicalNumber('clinical-ps');
     } else {
-      throw new Error('Choose VC-AC or PC-AC');
+      throw new Error('Choose VC-AC, PC-AC, PS, or SIMV');
     }
     return payload;
   }
@@ -1282,10 +1294,8 @@
     $('clinical-mode').addEventListener('change', () => {
       syncClinicalMode();
       const provider = $('clinical-systemic-provider').value;
-      if (provider === 'live-reduced-hummod' &&
-          $('clinical-mode').value !== 'VC_AC') {
-        $('clinical-provider-status').textContent =
-          'The selected live candidate currently supports VC-AC only. Choose VC-AC or switch to trajectory replay.';
+      if (provider === 'live-reduced-hummod' && ['PS','SIMV'].includes($('clinical-mode').value)) {
+        $('clinical-provider-status').textContent = 'Hennigs-supported spontaneous effort · assisted mode experimental.';
       }
     });
     $('clinical-init-mode').addEventListener('change', () => {
@@ -1330,8 +1340,8 @@
           if ($('clinical-case').value !== 'berlin-moderate-moderate-aspiration') {
             throw new Error('v2.4 physiology is currently limited to the moderate/intermediate aspiration reference case');
           }
-          if ($('clinical-mode').value !== 'VC_AC') {
-            throw new Error('v2.4 physiology currently supports VC-AC only');
+          if (!['VC_AC','PC_AC','PS','SIMV'].includes($('clinical-mode').value)) {
+            throw new Error('Selected ventilation mode is not available in live physiology');
           }
         }
         const w = startClinicalWorker();
@@ -1426,7 +1436,7 @@
       } catch (error) { showClinicalError(error.message); }
     });
 
-    ['clinical-mode','clinical-fio2','clinical-peep','clinical-rr','clinical-vt','clinical-flow','clinical-vc-pause','clinical-pinsp','clinical-ti','clinical-pc-pause']
+    ['clinical-mode','clinical-fio2','clinical-peep','clinical-rr','clinical-vt','clinical-flow','clinical-vc-pause','clinical-pinsp','clinical-ti','clinical-pc-pause','clinical-ps']
       .forEach(id => $(id)?.addEventListener('input', renderClinicalPendingSettings));
 
     $('clinical-apply-vent').addEventListener('click', () => {

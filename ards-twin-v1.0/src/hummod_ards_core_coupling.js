@@ -21,6 +21,8 @@ function currentMode(simulation) {
     : '';
   if (name === 'VcAcController') return 'VC_AC';
   if (name === 'PcAcController') return 'PC_AC';
+  if (name === 'PressureSupportCandidateController') return 'PS';
+  if (name === 'SimvCandidateController') return 'SIMV';
   return 'UNKNOWN';
 }
 
@@ -34,6 +36,20 @@ function createVentToArdsCoreSnapshot(simulation, { recentSamples = 1000 } = {})
 
   const settings = simulation.controller.settings || {};
   const state = simulation.state;
+  const rrWindowSec = 30;
+  const cutoff = Math.max(0, state.t - rrWindowSec);
+  const recentRows = simulation.trace.filter(row => row.t >= cutoff);
+  let inspirationStarts = 0;
+  for (let i = 1; i < recentRows.length; i++) {
+    if (recentRows[i - 1].phase === 'EXPIRATION' && recentRows[i].phase === 'INSPIRATION') inspirationStarts += 1;
+  }
+  const observedDurationSec = recentRows.length > 1 ? recentRows[recentRows.length - 1].t - recentRows[0].t : 0;
+  const measuredRr = inspirationStarts >= 2 && observedDurationSec > 0
+    ? inspirationStarts * 60 / observedDurationSec : null;
+  const fallbackRr = Number.isFinite(settings.rr) ? settings.rr :
+    (Number.isFinite(settings.mandatoryRatePerMin) ? settings.mandatoryRatePerMin :
+      (Number.isFinite(settings.backupRatePerMin) ? settings.backupRatePerMin : null));
+  const respiratoryRatePerMin = measuredRr == null ? fallbackRr : measuredRr;
   const trace = simulation.trace.slice(-recentSamples).map(row => Object.freeze({
     tSec: row.t,
     phase: row.phase,
@@ -58,7 +74,7 @@ function createVentToArdsCoreSnapshot(simulation, { recentSamples = 1000 } = {})
       mode: currentMode(simulation),
       fio2: finite(settings.fio2, 'FiO2'),
       peepCmH2O: finite(settings.peep, 'PEEP'),
-      rrPerMin: finite(settings.rr, 'respiratory rate'),
+      rrPerMin: finite(respiratoryRatePerMin, 'respiratory rate'),
       settings: Object.freeze({ ...settings }),
     }),
     mechanics: Object.freeze({

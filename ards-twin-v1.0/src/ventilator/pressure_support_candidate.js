@@ -41,6 +41,7 @@ class PressureSupportCandidateController {
     this.lastSampledFlowLps=0;
     this.sampleAccumulatorSec=0;
     this.lastTrigger='NONE';
+    this.effortArmed=true;
     this.lastCycleReason=null;
     this.source=SOURCE;
     this.controlAuthority=false;
@@ -65,13 +66,14 @@ class PressureSupportCandidateController {
     this.lastTrigger=trigger;
     this.lastCycleReason=null;
   }
-  step(state,dt){
+  step(state,dt,_deliveredSinceBreathStart=0,patientMusclePressureCmH2O=0){
     positive(dt,'dt');
     this.timeSinceBreathStartSec+=dt;
     if(this.phase===BreathPhase.EXPIRATION){
-      const flowTrigger=this._sampleTrigger(state,dt);
+      if(patientMusclePressureCmH2O<=0)this.effortArmed=true;
+      const flowTrigger=this.effortArmed&&patientMusclePressureCmH2O>0&&this._sampleTrigger(state,dt);
       const timedBackup=this.timeSinceBreathStartSec>=60/this.settings.backupRatePerMin;
-      if(flowTrigger||timedBackup)this._startInspiration(flowTrigger?'FLOW':'BACKUP_TIME');
+      if(flowTrigger||timedBackup){if(flowTrigger)this.effortArmed=false;this._startInspiration(flowTrigger?'FLOW':'BACKUP_TIME');}
     }else{
       const flow=state&&Number.isFinite(state.totalFlow)?Math.max(0,state.totalFlow):0;
       this.peakInspiratoryFlowLps=Math.max(this.peakInspiratoryFlowLps,flow);
@@ -97,7 +99,7 @@ class PressureSupportCandidateController {
     mode:'CSV_PS_CANDIDATE',phase:this.phase,phaseTimeSec:this.phaseTime,
     breathIndex:this.breathIndex,peakInspiratoryFlowLps:this.peakInspiratoryFlowLps,
     lastSampledFlowLps:this.lastSampledFlowLps,lastTrigger:this.lastTrigger,
-    lastCycleReason:this.lastCycleReason,settings:Object.freeze({...this.settings}),
+    lastCycleReason:this.lastCycleReason,effortArmed:this.effortArmed,settings:Object.freeze({...this.settings}),
     authority:SOURCE.authority,controlAuthority:false,provenance:SOURCE,
   });}
 }

@@ -20,6 +20,8 @@ const PROFILE=Object.freeze({
   minimumRelativeDrive:0.09686299285820986,
   maximumFrequencyRelativeDrive:1.1105014884421243,
   baselineRespiratoryRatePerMin:12.5,
+  baselineTidalVolumeL:0.5,
+  baselineRawOscillatorPeriod:16.956222222302998,
   boundaryAuthority:'hennigs-supported',
   gainAuthority:'hennigs-supported',
   authority:SOURCE.authority,

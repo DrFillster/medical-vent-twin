@@ -1288,6 +1288,8 @@ const { SimulationClock } = require("src/clock.js");
 const { ThreeCompartmentMechanics } = require("src/mechanics.js");
 const { VcAcController } = require("src/ventilator/vc_ac.js");
 const { PcAcController } = require("src/ventilator/pc_ac.js");
+const { PressureSupportCandidateController } = require("src/ventilator/pressure_support_candidate.js");
+const { SimvCandidateController } = require("src/ventilator/simv_candidate.js");
 const { BreathPhase } = require("src/ventilator/controller.js");
 const {
   makeBoundaryFlow, makeBoundaryPressure, makeInitialState,
@@ -1312,6 +1314,14 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function controllerMode(controller) {
+  if (controller instanceof VcAcController) return 'VC_AC';
+  if (controller instanceof PcAcController) return 'PC_AC';
+  if (controller instanceof PressureSupportCandidateController) return 'PS';
+  if (controller instanceof SimvCandidateController) return 'SIMV';
+  return null;
+}
+
 class Simulation {
   constructor({
     params, controller, dt = 0.001, fio2 = 0.4, trackGas = true,
@@ -1320,6 +1330,7 @@ class Simulation {
     // caller must supply them explicitly, or pass initializationHistory
     // from which the recruitment state can be derived.
     initialPEEP, initialRecruitmentState, initializationHistory,
+    patientEffortProvider = null,
   }) {
     this.params = params;
     this.controller = controller;
@@ -1375,6 +1386,10 @@ class Simulation {
       initialRecruitmentState: Object.freeze({ ...resolvedRecState }),
       recruitmentHistoryDerivation: initializationDerivation,
     });
+    if (patientEffortProvider != null && typeof patientEffortProvider !== 'function') {
+      throw new Error('patientEffortProvider must be a function or null');
+    }
+    this.patientEffortProvider = patientEffortProvider;
     this.mechanics = new ThreeCompartmentMechanics();
     this.trace = [];
     this.interventions = [];
@@ -1396,9 +1411,8 @@ class Simulation {
   // new setting is applied by the controller / expiratory pressure boundary
   // on subsequent solver steps.
   requestControllerChange(nextController, metadata = {}) {
-    if (!(nextController instanceof VcAcController) &&
-        !(nextController instanceof PcAcController)) {
-      throw new Error('nextController must be a VcAcController or PcAcController');
+    if (!controllerMode(nextController)) {
+      throw new Error('nextController must be a supported ventilator controller');
     }
     if (this.pendingControllerChange) {
       throw new Error('a ventilator controller change is already pending');
@@ -1410,8 +1424,8 @@ class Simulation {
     const requested = Object.freeze({
       t: this.state.t,
       kind: 'REQUEST_CONTROLLER_CHANGE',
-      fromMode: this.controller instanceof VcAcController ? 'VC_AC' : 'PC_AC',
-      toMode: nextController instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      fromMode: controllerMode(this.controller),
+      toMode: controllerMode(nextController),
       metadata: Object.freeze({ ...metadata }),
     });
     this.interventions.push(requested);
@@ -1423,10 +1437,15 @@ class Simulation {
     if (!this.pendingControllerChange) return false;
     if (this.pendingManeuver || this.activeManeuver) return false;
     const tracker = this.controller && this.controller.tracker;
-    if (!tracker || typeof tracker.isBreathComplete !== 'function') {
-      throw new Error('current controller does not expose a breath boundary');
+    if (tracker && typeof tracker.isBreathComplete === 'function') {
+      if (!tracker.isBreathComplete(this.controller.cycleTime)) return false;
+    } else {
+      // Assisted controllers mark a completed breath by entering expiration
+      // with phaseTime reset to zero. Wait for that boundary rather than
+      // replacing a controller mid-inspiration or mid-expiration.
+      if (!(this.controller.phase === BreathPhase.EXPIRATION &&
+            this.controller.phaseTime <= this.clock.dt * 1.5)) return false;
     }
-    if (!tracker.isBreathComplete(this.controller.cycleTime)) return false;
 
     const pending = this.pendingControllerChange;
     const previous = this.controller;
@@ -1439,8 +1458,8 @@ class Simulation {
     this.interventions.push(Object.freeze({
       t: this.state.t,
       kind: 'APPLY_CONTROLLER_CHANGE',
-      fromMode: previous instanceof VcAcController ? 'VC_AC' : 'PC_AC',
-      toMode: this.controller instanceof VcAcController ? 'VC_AC' : 'PC_AC',
+      fromMode: controllerMode(previous),
+      toMode: controllerMode(this.controller),
       metadata: pending.metadata,
     }));
     return true;
@@ -1638,6 +1657,7 @@ class Simulation {
 
     let boundary;
     let tracePhase;
+    let patientMusclePressureCmH2O = 0;
     let controllerSnapshot = null;
     let trackerSnapshot = null;
     let restoreController = () => {};
@@ -1661,11 +1681,31 @@ class Simulation {
         Object.assign(this.controller.tracker, trackerSnapshot);
       };
 
-      // 1. controller produces boundary.
-      boundary = this.controller.step(this.state, dt, this.deliveredSinceBreathStart);
+      // 1. Resolve patient effort before controller action so assisted modes
+      // can trigger from the same Pmus signal that drives lung mechanics.
+      if (this.patientEffortProvider) {
+        patientMusclePressureCmH2O = this.patientEffortProvider({
+          timeSec: this.state.t,
+          dtSec: dt,
+          state: this.state,
+          controller: this.controller,
+          phase: this.controller.phase,
+          boundary: null,
+        });
+        if (typeof patientMusclePressureCmH2O !== 'number' ||
+            !Number.isFinite(patientMusclePressureCmH2O)) {
+          restoreController();
+          throw new Error('patientEffortProvider must return finite Pmus cmH2O');
+        }
+      }
+
+      // 2. Controller produces boundary. Existing controllers ignore the
+      // fourth argument; assisted controllers may use it as trigger input.
+      boundary = this.controller.step(
+        this.state, dt, this.deliveredSinceBreathStart, patientMusclePressureCmH2O);
       tracePhase = this.controller.phase;
 
-      // 2. EXPIRATION phase override: PEEP pressure clamp.
+      // 3. EXPIRATION phase override: PEEP pressure clamp.
       if (this.controller.phase === BreathPhase.EXPIRATION) {
         boundary = makeBoundaryPressure({
           pressureCmH2O: this.controller.settings.peep,
@@ -1674,10 +1714,22 @@ class Simulation {
       }
     }
 
-    // 3. Advance mechanics with the final boundary.
+    // 4. Apply the same separately recorded Pmus to lung mechanics.
+    // Hennigs convention: positive Pmus is inspiratory. It lowers effective
+    // pleural/alveolar pressure without changing reported ventilator Paw.
+    const mechanicsParams = patientMusclePressureCmH2O === 0
+      ? this.params
+      : {
+          ...this.params,
+          airwayOpeningPressure:
+            this.params.airwayOpeningPressure - patientMusclePressureCmH2O,
+        };
+
+    // 4. Advance mechanics with the final airway boundary and the separate
+    // patient-effort pressure contribution.
     let result;
     try {
-      result = this.mechanics.step(this.params, this.state, boundary, dt);
+      result = this.mechanics.step(mechanicsParams, this.state, boundary, dt);
     } catch (error) {
       restoreController();
       throw error;
@@ -1697,12 +1749,12 @@ class Simulation {
       return { state: this.state, output, boundary, failed: true };
     }
 
-    // 4. Gas exchange (parallel to mechanics, no irreversible coupling).
+    // 5. Gas exchange (parallel to mechanics, no irreversible coupling).
     if (this.trackGas) {
       this.gas = stepGasState(this.gas, this.params, state.compartments, dt);
     }
 
-    // 5. Track cumulative inspired volume since breath start.
+    // 6. Track cumulative inspired volume since breath start.
     // We use NET volume change (ΔV), not cumulative FLOW — the latter
     // over-counts because passive recoil leaks some inflow back out
     // through the airway during inspiration. ΔV is what fills the lung
@@ -1717,18 +1769,19 @@ class Simulation {
       this.deliveredSinceBreathStart = state.totalVolume - this.inspStartVolume;
     }
 
-    // 6. Commit state, append trace.
+    // 7. Commit state, append trace.
     this.state = state;
     this.trace.push({
       t: state.t,
       phase: tracePhase,
       maneuver: this.activeManeuver ? this.activeManeuver.kind : null,
       boundaryKind: boundary.kind,
-      output,
+      patientMusclePressureCmH2O,
+      output: { ...output, patientMusclePressureCmH2O },
     });
     this.lastCommittedPhase = tracePhase;
 
-    // 7. Record hold samples only after a successful committed mechanics step.
+    // 8. Record hold samples only after a successful committed mechanics step.
     if (this.activeManeuver) {
       this.activeManeuver.samples.push({
         t: state.t,
@@ -3840,6 +3893,192 @@ class PcAcController {
 }
 
 module.exports = { PcAcController };
+
+},
+"src/ventilator/pressure_support_candidate.js":function(module,exports,require){
+'use strict';
+
+const { BreathPhase } = require("src/ventilator/controller.js");
+const { makeBoundaryPressure } = require("src/contracts.js");
+
+const SOURCE = Object.freeze({
+  citation:'Hennigs C et al. Comput Methods Programs Biomed. 2026;280:109329.',
+  equations:'23,24,26,27',
+  sampleIntervalSec:0.01,
+  defaultFlowTriggerLMin:1.5,
+  defaultCycleOffFraction:0.25,
+  role:'source-aligned candidate continuous spontaneous pressure-support controller',
+  authority:'candidate-not-canonical',
+  limitation:'TE,min, TI,max, backup rate and slope duration remain explicit scenario inputs until their source values are fully reproduced.',
+});
+
+function finite(v,label){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(label+' must be finite');return v;}
+function positive(v,label){finite(v,label);if(!(v>0))throw new Error(label+' must be > 0');return v;}
+function nonNegative(v,label){finite(v,label);if(v<0)throw new Error(label+' must be >= 0');return v;}
+function fraction(v,label){finite(v,label);if(!(v>0&&v<1))throw new Error(label+' must be between 0 and 1');return v;}
+
+class PressureSupportCandidateController {
+  constructor(settings={}){
+    const required=['fio2','peep','pressureSupport','flowTriggerLMin','cycleOffFraction','minExpiratoryTimeSec','maxInspiratoryTimeSec','riseTimeSec','backupRatePerMin'];
+    for(const key of required) finite(settings[key],'PressureSupport.'+key);
+    if(settings.fio2<0||settings.fio2>1)throw new Error('fio2 must be in [0,1]');
+    nonNegative(settings.peep,'peep');
+    nonNegative(settings.pressureSupport,'pressureSupport');
+    positive(settings.flowTriggerLMin,'flowTriggerLMin');
+    fraction(settings.cycleOffFraction,'cycleOffFraction');
+    nonNegative(settings.minExpiratoryTimeSec,'minExpiratoryTimeSec');
+    positive(settings.maxInspiratoryTimeSec,'maxInspiratoryTimeSec');
+    positive(settings.riseTimeSec,'riseTimeSec');
+    positive(settings.backupRatePerMin,'backupRatePerMin');
+    this.settings={...settings};
+    this.phase=BreathPhase.EXPIRATION;
+    this.phaseTime=0;
+    this.timeSinceBreathStartSec=60/settings.backupRatePerMin;
+    this.breathIndex=0;
+    this.peakInspiratoryFlowLps=0;
+    this.lastSampledFlowLps=0;
+    this.sampleAccumulatorSec=0;
+    this.lastTrigger='NONE';
+    this.effortArmed=true;
+    this.lastCycleReason=null;
+    this.source=SOURCE;
+    this.controlAuthority=false;
+  }
+  get breath(){return this.breathIndex;}
+  _sampleTrigger(state,dt){
+    this.sampleAccumulatorSec+=dt;
+    if(this.sampleAccumulatorSec+1e-12<SOURCE.sampleIntervalSec)return false;
+    this.sampleAccumulatorSec-=SOURCE.sampleIntervalSec;
+    const flow=state&&Number.isFinite(state.totalFlow)?state.totalFlow:0;
+    const threshold=this.settings.flowTriggerLMin/60;
+    const triggered=this.phaseTime>=this.settings.minExpiratoryTimeSec&&flow>=threshold&&flow>this.lastSampledFlowLps;
+    this.lastSampledFlowLps=flow;
+    return triggered;
+  }
+  _startInspiration(trigger){
+    this.phase=BreathPhase.INSPIRATION;
+    this.phaseTime=0;
+    this.timeSinceBreathStartSec=0;
+    this.breathIndex+=1;
+    this.peakInspiratoryFlowLps=0;
+    this.lastTrigger=trigger;
+    this.lastCycleReason=null;
+  }
+  step(state,dt,_deliveredSinceBreathStart=0,patientMusclePressureCmH2O=0){
+    positive(dt,'dt');
+    this.timeSinceBreathStartSec+=dt;
+    if(this.phase===BreathPhase.EXPIRATION){
+      if(patientMusclePressureCmH2O<=0)this.effortArmed=true;
+      const flowTrigger=this.effortArmed&&patientMusclePressureCmH2O>0&&this._sampleTrigger(state,dt);
+      const timedBackup=this.timeSinceBreathStartSec>=60/this.settings.backupRatePerMin;
+      if(flowTrigger||timedBackup){if(flowTrigger)this.effortArmed=false;this._startInspiration(flowTrigger?'FLOW':'BACKUP_TIME');}
+    }else{
+      const flow=state&&Number.isFinite(state.totalFlow)?Math.max(0,state.totalFlow):0;
+      this.peakInspiratoryFlowLps=Math.max(this.peakInspiratoryFlowLps,flow);
+      const flowCycle=this.peakInspiratoryFlowLps>0&&flow<=this.peakInspiratoryFlowLps*this.settings.cycleOffFraction;
+      const timedOut=this.phaseTime>=this.settings.maxInspiratoryTimeSec;
+      if(flowCycle||timedOut){
+        this.phase=BreathPhase.EXPIRATION;
+        this.phaseTime=0;
+        this.sampleAccumulatorSec=0;
+        this.lastSampledFlowLps=flow;
+        this.lastCycleReason=timedOut?'MAX_INSPIRATORY_TIME':'FLOW_CYCLE';
+      }
+    }
+    let pressureCmH2O=this.settings.peep;
+    if(this.phase===BreathPhase.INSPIRATION){
+      const ramp=Math.min(1,this.phaseTime/this.settings.riseTimeSec);
+      pressureCmH2O+=this.settings.pressureSupport*ramp;
+    }
+    this.phaseTime+=dt;
+    return makeBoundaryPressure({pressureCmH2O,fio2:this.settings.fio2});
+  }
+  snapshot(){return Object.freeze({
+    mode:'CSV_PS_CANDIDATE',phase:this.phase,phaseTimeSec:this.phaseTime,
+    breathIndex:this.breathIndex,peakInspiratoryFlowLps:this.peakInspiratoryFlowLps,
+    lastSampledFlowLps:this.lastSampledFlowLps,lastTrigger:this.lastTrigger,
+    lastCycleReason:this.lastCycleReason,effortArmed:this.effortArmed,settings:Object.freeze({...this.settings}),
+    authority:SOURCE.authority,controlAuthority:false,provenance:SOURCE,
+  });}
+}
+
+module.exports=Object.freeze({SOURCE,PressureSupportCandidateController});
+
+},
+"src/ventilator/simv_candidate.js":function(module,exports,require){
+'use strict';
+
+const { BreathPhase } = require("src/ventilator/controller.js");
+const { makeBoundaryPressure } = require("src/contracts.js");
+
+const SOURCE=Object.freeze({
+  citation:'Hennigs C et al. Comput Methods Programs Biomed. 2026;280:109329.',
+  equations:'23,24,26,27',sampleIntervalSec:0.01,
+  role:'candidate IMV-PC/PS controller with source-aligned assisted trigger/cycling',
+  authority:'candidate-not-canonical',
+  limitation:'The paper identifies imv-pc/ps as an assisted mode but does not fully specify a vendor-style SIMV synchronization-window algorithm; syncWindowSec remains explicit candidate semantics.',
+});
+function finite(v,l){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(l+' must be finite');return v;}
+function positive(v,l){finite(v,l);if(!(v>0))throw new Error(l+' must be > 0');return v;}
+function nonNegative(v,l){finite(v,l);if(v<0)throw new Error(l+' must be >= 0');return v;}
+function fraction(v,l){finite(v,l);if(!(v>0&&v<1))throw new Error(l+' must be between 0 and 1');return v;}
+
+class SimvCandidateController{
+  constructor(settings={}){
+    const required=['fio2','peep','mandatoryRatePerMin','mandatoryPinspCmH2O','mandatoryInspiratoryTimeSec','mandatoryRiseTimeSec','pressureSupportCmH2O','supportRiseTimeSec','flowTriggerLMin','cycleOffFraction','minExpiratoryTimeSec','maxSupportInspiratoryTimeSec','syncWindowSec'];
+    for(const k of required)finite(settings[k],'SIMV.'+k);
+    if(settings.fio2<0||settings.fio2>1)throw new Error('fio2 must be in [0,1]');
+    nonNegative(settings.peep,'peep');positive(settings.mandatoryRatePerMin,'mandatoryRatePerMin');positive(settings.mandatoryPinspCmH2O,'mandatoryPinspCmH2O');positive(settings.mandatoryInspiratoryTimeSec,'mandatoryInspiratoryTimeSec');positive(settings.mandatoryRiseTimeSec,'mandatoryRiseTimeSec');nonNegative(settings.pressureSupportCmH2O,'pressureSupportCmH2O');positive(settings.supportRiseTimeSec,'supportRiseTimeSec');positive(settings.flowTriggerLMin,'flowTriggerLMin');fraction(settings.cycleOffFraction,'cycleOffFraction');nonNegative(settings.minExpiratoryTimeSec,'minExpiratoryTimeSec');positive(settings.maxSupportInspiratoryTimeSec,'maxSupportInspiratoryTimeSec');nonNegative(settings.syncWindowSec,'syncWindowSec');
+    const period=60/settings.mandatoryRatePerMin;
+    if(settings.mandatoryInspiratoryTimeSec>=period)throw new Error('mandatory inspiratory time must be shorter than mandatory period');
+    if(settings.syncWindowSec>=period)throw new Error('syncWindowSec must be shorter than mandatory period');
+    this.settings={...settings};this.phase=BreathPhase.EXPIRATION;this.phaseTime=0;this.timeSinceMandatoryStartSec=period;this.breathIndex=0;this.mandatoryBreathCount=0;this.spontaneousBreathCount=0;this.activeBreathType=null;this.peakInspiratoryFlowLps=0;this.lastSampledFlowLps=0;this.sampleAccumulatorSec=0;this.lastTrigger='NONE';this.lastCycleReason=null;this.effortArmed=true;this.source=SOURCE;this.controlAuthority=false;
+  }
+  get breath(){return this.breathIndex;}
+  _sampleFlowTrigger(state,dt){
+    this.sampleAccumulatorSec+=dt;
+    if(this.sampleAccumulatorSec+1e-12<SOURCE.sampleIntervalSec)return false;
+    this.sampleAccumulatorSec-=SOURCE.sampleIntervalSec;
+    const flow=state&&Number.isFinite(state.totalFlow)?state.totalFlow:0;
+    const threshold=this.settings.flowTriggerLMin/60;
+    const trigger=this.phaseTime>=this.settings.minExpiratoryTimeSec&&flow>=threshold&&flow>this.lastSampledFlowLps;
+    this.lastSampledFlowLps=flow;return trigger;
+  }
+  _startMandatory(trigger){this.phase=BreathPhase.INSPIRATION;this.phaseTime=0;this.timeSinceMandatoryStartSec=0;this.breathIndex++;this.mandatoryBreathCount++;this.activeBreathType='MANDATORY';this.peakInspiratoryFlowLps=0;this.lastTrigger=trigger;this.lastCycleReason=null;}
+  _startSpontaneous(){this.phase=BreathPhase.INSPIRATION;this.phaseTime=0;this.breathIndex++;this.spontaneousBreathCount++;this.activeBreathType='SPONTANEOUS_PS';this.peakInspiratoryFlowLps=0;this.lastTrigger='FLOW';this.lastCycleReason=null;}
+  _end(reason){this.phase=BreathPhase.EXPIRATION;this.phaseTime=0;this.activeBreathType=null;this.sampleAccumulatorSec=0;this.lastCycleReason=reason;}
+  step(state,dt,_deliveredSinceBreathStart=0,patientMusclePressureCmH2O=0){
+    positive(dt,'dt');const period=60/this.settings.mandatoryRatePerMin;this.timeSinceMandatoryStartSec+=dt;
+    if(this.phase===BreathPhase.EXPIRATION){
+      if(patientMusclePressureCmH2O<=0)this.effortArmed=true;
+      const flowTrigger=this.effortArmed&&patientMusclePressureCmH2O>0&&this._sampleFlowTrigger(state,dt);
+      const inSyncWindow=this.timeSinceMandatoryStartSec>=period-this.settings.syncWindowSec;
+      const mandatoryDue=this.timeSinceMandatoryStartSec>=period;
+      if(flowTrigger)this.effortArmed=false;
+      if(mandatoryDue||(flowTrigger&&inSyncWindow))this._startMandatory(mandatoryDue?'TIME':'FLOW_SYNC');
+      else if(flowTrigger)this._startSpontaneous();
+    }else if(this.activeBreathType==='MANDATORY'){
+      if(this.phaseTime>=this.settings.mandatoryInspiratoryTimeSec)this._end('MANDATORY_TIME');
+    }else if(this.activeBreathType==='SPONTANEOUS_PS'){
+      const flow=state&&Number.isFinite(state.totalFlow)?Math.max(0,state.totalFlow):0;
+      this.peakInspiratoryFlowLps=Math.max(this.peakInspiratoryFlowLps,flow);
+      const flowCycle=this.peakInspiratoryFlowLps>0&&flow<=this.peakInspiratoryFlowLps*this.settings.cycleOffFraction;
+      const timedOut=this.phaseTime>=this.settings.maxSupportInspiratoryTimeSec;
+      if(flowCycle||timedOut)this._end(timedOut?'MAX_SUPPORT_TIME':'FLOW_CYCLE');
+    }
+    let pressure=this.settings.peep;
+    if(this.phase===BreathPhase.INSPIRATION){
+      const mandatory=this.activeBreathType==='MANDATORY';
+      const rise=mandatory?this.settings.mandatoryRiseTimeSec:this.settings.supportRiseTimeSec;
+      const delta=mandatory?this.settings.mandatoryPinspCmH2O:this.settings.pressureSupportCmH2O;
+      pressure+=delta*Math.min(1,this.phaseTime/rise);
+    }
+    this.phaseTime+=dt;
+    return makeBoundaryPressure({pressureCmH2O:pressure,fio2:this.settings.fio2});
+  }
+  snapshot(){return Object.freeze({mode:'SIMV_PC_PS_CANDIDATE',phase:this.phase,phaseTimeSec:this.phaseTime,timeSinceMandatoryStartSec:this.timeSinceMandatoryStartSec,breathIndex:this.breathIndex,mandatoryBreathCount:this.mandatoryBreathCount,spontaneousBreathCount:this.spontaneousBreathCount,activeBreathType:this.activeBreathType,lastTrigger:this.lastTrigger,lastCycleReason:this.lastCycleReason,effortArmed:this.effortArmed,settings:Object.freeze({...this.settings}),authority:SOURCE.authority,controlAuthority:false,provenance:SOURCE});}
+}
+module.exports=Object.freeze({SOURCE,SimvCandidateController});
 
 },
 "src/gas_exchange.js":function(module,exports,require){
@@ -8903,13 +9142,18 @@ function solveCo2Exchange({
     return endExpiredMlPerMin - expiredCo2MlPerMin;
   }
 
-  const high = alveolarVentilationStpdMlPerMin * 0.5;
+  // Net pulmonary CO2 exchange is signed. With inspired CO2 above the mixed-
+  // venous equilibrium, the lung can transiently absorb CO2, so restricting
+  // the root to non-negative excretion is not physically valid. Bound the
+  // search by alveolar fractions 0..1 instead.
+  const low = -bronchiCo2Fraction * alveolarVentilationStpdMlPerMin;
+  const high = (1 - bronchiCo2Fraction) * alveolarVentilationStpdMlPerMin;
   const expiredCo2MlPerMin = solveRootBisection({
     fn: residual,
-    low: 0,
+    low,
     high,
     tolerance: 1e-6,
-    label: 'HumMod LungCO2 expired',
+    label: 'HumMod LungCO2 net exchange',
   });
 
   const alveolarCo2Fraction =
@@ -9149,6 +9393,8 @@ function currentMode(simulation) {
     : '';
   if (name === 'VcAcController') return 'VC_AC';
   if (name === 'PcAcController') return 'PC_AC';
+  if (name === 'PressureSupportCandidateController') return 'PS';
+  if (name === 'SimvCandidateController') return 'SIMV';
   return 'UNKNOWN';
 }
 
@@ -9162,6 +9408,20 @@ function createVentToArdsCoreSnapshot(simulation, { recentSamples = 1000 } = {})
 
   const settings = simulation.controller.settings || {};
   const state = simulation.state;
+  const rrWindowSec = 30;
+  const cutoff = Math.max(0, state.t - rrWindowSec);
+  const recentRows = simulation.trace.filter(row => row.t >= cutoff);
+  let inspirationStarts = 0;
+  for (let i = 1; i < recentRows.length; i++) {
+    if (recentRows[i - 1].phase === 'EXPIRATION' && recentRows[i].phase === 'INSPIRATION') inspirationStarts += 1;
+  }
+  const observedDurationSec = recentRows.length > 1 ? recentRows[recentRows.length - 1].t - recentRows[0].t : 0;
+  const measuredRr = inspirationStarts >= 2 && observedDurationSec > 0
+    ? inspirationStarts * 60 / observedDurationSec : null;
+  const fallbackRr = Number.isFinite(settings.rr) ? settings.rr :
+    (Number.isFinite(settings.mandatoryRatePerMin) ? settings.mandatoryRatePerMin :
+      (Number.isFinite(settings.backupRatePerMin) ? settings.backupRatePerMin : null));
+  const respiratoryRatePerMin = measuredRr == null ? fallbackRr : measuredRr;
   const trace = simulation.trace.slice(-recentSamples).map(row => Object.freeze({
     tSec: row.t,
     phase: row.phase,
@@ -9186,7 +9446,7 @@ function createVentToArdsCoreSnapshot(simulation, { recentSamples = 1000 } = {})
       mode: currentMode(simulation),
       fio2: finite(settings.fio2, 'FiO2'),
       peepCmH2O: finite(settings.peep, 'PEEP'),
-      rrPerMin: finite(settings.rr, 'respiratory rate'),
+      rrPerMin: finite(respiratoryRatePerMin, 'respiratory rate'),
       settings: Object.freeze({ ...settings }),
     }),
     mechanics: Object.freeze({
@@ -10039,6 +10299,11 @@ const { sampleWaveformForDisplay } = require("src/waveform_display.js");
 const { getBerlinCase } = require("src/berlin_case_catalog.js");
 const { makePatientParams } = require("src/contracts.js");
 const { Simulation, VcAcController, PcAcController } = require("src/simulation.js");
+const { PressureSupportCandidateController } = require("src/ventilator/pressure_support_candidate.js");
+const { SimvCandidateController } = require("src/ventilator/simv_candidate.js");
+const { createHennigsPatientEffortCandidate } = require("src/hennigs_patient_effort_candidate.js");
+const { createHennigsMechanicalClosedEffortCandidate } = require("src/hennigs_mechanical_closed_effort_candidate.js");
+const { PROFILE: HENNIGS_SPONTANEOUS_PROFILE } = require("src/hennigs_supported_spontaneous_profile.js");
 const { summarizeSimulationMeasurements } = require("src/bedside_measurements.js");
 const { createThoraxState } = require("src/hummod_ards_core_thorax.js");
 const { createHumModArdsCirculation } = require("src/hummod_ards_core_circulation.js");
@@ -10199,7 +10464,25 @@ function buildLiveController(ventilation) {
         : nonNegative(ventilation.inspiratoryPauseSec, 'ventilation.inspiratoryPauseSec'),
     });
   }
-  throw new Error('ventilation.mode must be VC_AC or PC_AC');
+  if (ventilation.mode === 'PS') {
+    return new PressureSupportCandidateController({
+      fio2: common.fio2, peep: common.peep,
+      pressureSupport: nonNegative(ventilation.pressureSupportCmH2O, 'ventilation.pressureSupportCmH2O'),
+      flowTriggerLMin: 1.5, cycleOffFraction: 0.25, minExpiratoryTimeSec: 0.15,
+      maxInspiratoryTimeSec: 1.5, riseTimeSec: 0.1, backupRatePerMin: common.rr,
+    });
+  }
+  if (ventilation.mode === 'SIMV') {
+    return new SimvCandidateController({
+      fio2: common.fio2, peep: common.peep, mandatoryRatePerMin: common.rr,
+      mandatoryPinspCmH2O: positive(ventilation.pinspCmH2O, 'ventilation.pinspCmH2O'),
+      mandatoryInspiratoryTimeSec: positive(ventilation.inspiratoryTimeSec, 'ventilation.inspiratoryTimeSec'),
+      mandatoryRiseTimeSec: 0.1, pressureSupportCmH2O: nonNegative(ventilation.pressureSupportCmH2O, 'ventilation.pressureSupportCmH2O'),
+      supportRiseTimeSec: 0.1, flowTriggerLMin: 1.5, cycleOffFraction: 0.25,
+      minExpiratoryTimeSec: 0.15, maxSupportInspiratoryTimeSec: 1.5, syncWindowSec: 0.5,
+    });
+  }
+  throw new Error('ventilation.mode must be VC_AC, PC_AC, PS, or SIMV');
 }
 
 function createBerlinLiveHumModSession({
@@ -10356,6 +10639,28 @@ function createBerlinLiveHumModSession({
     initializationHistory,
   });
 
+  const effort = createHennigsPatientEffortCandidate({
+    dtSec: dt,
+    dRel: HENNIGS_SPONTANEOUS_PROFILE.minimumRelativeDrive,
+    gainProfile: 'hennigs-2026-validation-reference',
+    respiratoryFailureFraction: 0.75,
+    physicalClock: {
+      profile: 'hennigs-eq9',
+      estimateRawPeriodSec: () => HENNIGS_SPONTANEOUS_PROFILE.baselineRawOscillatorPeriod,
+    },
+  });
+  const spontaneousEffort = createHennigsMechanicalClosedEffortCandidate({
+    effort,
+    initialEndExpiratoryVolumeL: simulation.state.totalVolume,
+    functionalResidualCapacityL: 2.5,
+    heringBreuerThresholdL: 1.0,
+  });
+  simulation.patientEffortProvider = args =>
+    (simulation.controller instanceof PressureSupportCandidateController ||
+     simulation.controller instanceof SimvCandidateController)
+      ? spontaneousEffort.provider(args)
+      : 0;
+
   if (mechanicalWarmupSec > 0) simulation.runFor(mechanicalWarmupSec);
   const ventTimeOriginSec = simulation.state.t;
   const referenceMeanAirwayPressureCmH2O = meanAirwayPressureCmH2O(simulation);
@@ -10439,7 +10744,7 @@ function createBerlinLiveHumModSession({
         dtSec: dt,
         pao2MmHg: 95,
         paco2MmHg: 40,
-        tidalVolumeL: ventilation.vtL,
+        tidalVolumeL: ventilation.vtL == null ? HENNIGS_SPONTANEOUS_PROFILE.baselineTidalVolumeL : ventilation.vtL,
         averagingWindowSec: 1,
       })
     : null;
@@ -10591,23 +10896,15 @@ function createBerlinLiveHumModSession({
 
   function currentVentSettings() {
     const s = simulation.controller.settings;
-    const base = { fio2: s.fio2, peepCmH2O: s.peep, rrPerMin: s.rr };
-    if (simulation.controller instanceof VcAcController) {
-      return Object.freeze({
-        ...base,
-        mode: 'VC_AC',
-        vtL: s.vt,
-        inspiratoryFlowLps: s.inspiratoryFlow,
-        inspiratoryPauseSec: s.inspiratoryPause,
-      });
-    }
-    return Object.freeze({
-      ...base,
-      mode: 'PC_AC',
-      pinspCmH2O: s.pinsp,
-      inspiratoryTimeSec: s.inspiratoryTime,
-      inspiratoryPauseSec: s.inspiratoryPause,
-    });
+    const breaths = simulation.metrics();
+    const completed = breaths.length > 1 ? breaths[breaths.length - 2] : null;
+    const measuredRr = completed && Number.isFinite(completed.RR) ? completed.RR : null;
+    const base = { fio2: s.fio2, peepCmH2O: s.peep, rrPerMin: measuredRr };
+    if (simulation.controller instanceof VcAcController) return Object.freeze({...base, mode:'VC_AC', rrPerMin:s.rr, vtL:s.vt, inspiratoryFlowLps:s.inspiratoryFlow, inspiratoryPauseSec:s.inspiratoryPause});
+    if (simulation.controller instanceof PcAcController) return Object.freeze({...base, mode:'PC_AC', rrPerMin:s.rr, pinspCmH2O:s.pinsp, inspiratoryTimeSec:s.inspiratoryTime, inspiratoryPauseSec:s.inspiratoryPause});
+    if (simulation.controller instanceof PressureSupportCandidateController) return Object.freeze({...base, mode:'PS', pressureSupportCmH2O:s.pressureSupport, backupRatePerMin:s.backupRatePerMin});
+    if (simulation.controller instanceof SimvCandidateController) return Object.freeze({...base, mode:'SIMV', mandatoryRatePerMin:s.mandatoryRatePerMin, pinspCmH2O:s.mandatoryPinspCmH2O, inspiratoryTimeSec:s.mandatoryInspiratoryTimeSec, pressureSupportCmH2O:s.pressureSupportCmH2O});
+    throw new Error('unsupported live controller');
   }
 
   function liveSystemicView() {
@@ -10687,6 +10984,8 @@ function createBerlinLiveHumModSession({
         pao2MmHg: gas.gases.arterial.po2MmHg,
         paco2MmHg: gas.gases.arterial.pco2MmHg,
         pH: gas.gases.arterial.pH,
+        arterialHco3MmolPerL:
+          gas.gases.arterial.hco3MolPerL * 1000,
         sao2Fraction: gas.gases.arterial.saturationFraction,
         endTidalCo2ProxyMmHg: gas.exchange?.carbonDioxide?.pAlveolarCo2MmHg ?? null,
         pvo2MmHg: gas.gases.venous.po2MmHg,
@@ -10821,6 +11120,8 @@ function createBerlinLiveHumModSession({
           last.chronotropicExposureSec ?? 0,
         brainTissuePo2MmHg:
           last.brainHypoxia?.flow?.po2MmHg ?? null,
+        brainBloodFlowMlPerMin:
+          last.brainHypoxia?.flow?.bloodFlowMlPerMin ?? null,
         brainPo2DelayMmHg:
           last.brainHypoxia?.po2DelayMmHg ?? null,
         brainHypoxiaEffect:
@@ -11244,6 +11545,1207 @@ function sampleWaveformForDisplay(trace, timeOriginSec, windowSec = 30, maxSampl
 module.exports = {sampleWaveformForDisplay};
 
 },
+"src/hennigs_patient_effort_candidate.js":function(module,exports,require){
+'use strict';
+
+const {
+  createHennigsNeuralOscillatorRuntime,
+} = require("src/hennigs_neural_oscillator_runtime.js");
+const {
+  respiratoryMusclePressure,
+} = require("src/hennigs_respiratory_center_primitives.js");
+const {
+  createHennigsPhysicalClockAdapter,
+} = require("src/hennigs_physical_clock_adapter.js");
+
+const CMH2O_PER_MMHG = 1.3595100263596638;
+
+const HENNIGS_2026_VALIDATION_REFERENCE = Object.freeze({
+  kI: 1.87,
+  kE: 1.87,
+  units: 'mmHg/exc',
+  role: 'published baseline respiratory-center gains',
+  authority: 'validation-reference-not-patient-specific',
+  citation: 'Hennigs C et al. Validation of a Computational Respiratory System Model for Mechanical Ventilation. 2026.',
+});
+
+const SOURCE = Object.freeze({
+  citation: 'Hennigs C et al. Comput Methods Programs Biomed. 2026;280:109329.',
+  doi: '10.1016/j.cmpb.2026.109329',
+  role: 'candidate Hennigs neural-output to Vent patient-effort bridge',
+  authority: 'candidate-not-canonical',
+  limitation:
+    'kI/kE must be supplied from an independently verified Pmax/phi_max source chain; no default gain is permitted.',
+});
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be finite');
+  }
+  return v;
+}
+function nonNegative(v, label) {
+  finite(v, label);
+  if (v < 0) throw new Error(label + ' must be >= 0');
+  return v;
+}
+function unitInterval(v, label) {
+  finite(v, label);
+  if (v < 0 || v > 1) throw new Error(label + ' must be in [0,1]');
+  return v;
+}
+
+function createHennigsPatientEffortCandidate({
+  dtSec = 0.001,
+  dRel = 0.5,
+  kI,
+  kE,
+  gainProfile = null,
+  respiratoryFailureFraction = 0,
+  expiratoryThreshold = 5.2,
+  oscillatorOptions = null,
+  physicalClock = null,
+} = {}) {
+  if (gainProfile === 'hennigs-2026-validation-reference') {
+    if (kI != null || kE != null) {
+      throw new Error('do not combine validation-reference gainProfile with explicit kI/kE');
+    }
+    kI = HENNIGS_2026_VALIDATION_REFERENCE.kI;
+    kE = HENNIGS_2026_VALIDATION_REFERENCE.kE;
+  } else if (gainProfile != null) {
+    throw new Error('unsupported gainProfile: ' + gainProfile);
+  }
+  nonNegative(kI, 'kI');
+  nonNegative(kE, 'kE');
+  unitInterval(respiratoryFailureFraction, 'respiratoryFailureFraction');
+  finite(expiratoryThreshold, 'expiratoryThreshold');
+
+  const gainPressureConversion = gainProfile === 'hennigs-2026-validation-reference'
+    ? CMH2O_PER_MMHG
+    : 1;
+  const effectiveKI = kI * gainPressureConversion *
+    (1 - respiratoryFailureFraction);
+  const effectiveKE = kE * gainPressureConversion *
+    (1 - respiratoryFailureFraction);
+
+  const oscillator = createHennigsNeuralOscillatorRuntime({
+    dtSec,
+    dRel,
+    ...(oscillatorOptions || {}),
+  });
+  let last = null;
+  let physicalTimeSec = 0;
+  let rawStepAccumulator = 0;
+  let clockAdapter = null;
+  if (physicalClock != null) {
+    if (physicalClock.profile !== 'hennigs-eq9') throw new Error('unsupported physicalClock profile');
+    clockAdapter = createHennigsPhysicalClockAdapter({
+      estimateRawPeriodSec: physicalClock.estimateRawPeriodSec,
+    });
+  }
+
+  function step({ dtSec: callerDtSec } = {}) {
+    if (callerDtSec != null && Math.abs(callerDtSec - dtSec) > 1e-12) {
+      throw new Error('Hennigs effort bridge dtSec must match Vent dtSec');
+    }
+    let neural;
+    let clockMapping = null;
+    if (clockAdapter) {
+      clockMapping = clockAdapter.mapping(oscillator.snapshot().dRel);
+      rawStepAccumulator += clockMapping.rawTimePerPhysicalSecond;
+      const rawSteps = Math.floor(rawStepAccumulator + 1e-12);
+      rawStepAccumulator -= rawSteps;
+      for (let i = 0; i < rawSteps; i++) neural = oscillator.step();
+      neural = neural || oscillator.snapshot();
+      physicalTimeSec += dtSec;
+    } else {
+      neural = oscillator.step();
+      physicalTimeSec = neural.timeSec;
+    }
+    const patientMusclePressureCmH2O = respiratoryMusclePressure({
+      inspiratoryActivity: neural.state.I,
+      expiratoryActivity: neural.state.E,
+      expiratoryThreshold,
+      kI: effectiveKI,
+      kE: effectiveKE,
+    });
+    last = Object.freeze({
+      timeSec: physicalTimeSec,
+      oscillatorRawTime: neural.timeSec,
+      physicalClock: clockMapping,
+      patientMusclePressureCmH2O,
+      inspiratoryActivity: neural.state.I,
+      expiratoryActivity: neural.state.E,
+      prescribedRespiratoryRatePerMin: neural.prescribedRespiratoryRatePerMin,
+      dRel: neural.dRel,
+      authority: SOURCE.authority,
+      controlAuthority: false,
+      gainProfile: gainProfile || 'explicit',
+      muscleGains: Object.freeze({
+        sourceKI: kI,
+        sourceKE: kE,
+        effectiveKICmH2OPerExc: effectiveKI,
+        effectiveKECmH2OPerExc: effectiveKE,
+        respiratoryFailureFraction,
+      }),
+      gainProvenance: gainProfile ? HENNIGS_2026_VALIDATION_REFERENCE : null,
+      provenance: SOURCE,
+    });
+    return last;
+  }
+
+  function setMechanicalFeedback({
+    heringBreuerDrive = 0,
+    inspiratoryFlowDrive = 0,
+  } = {}) {
+    nonNegative(heringBreuerDrive, 'heringBreuerDrive');
+    nonNegative(inspiratoryFlowDrive, 'inspiratoryFlowDrive');
+    const total = heringBreuerDrive + inspiratoryFlowDrive;
+    oscillator.setTonicAdjustments({
+      I: -total,
+      E: total,
+    });
+    return snapshot();
+  }
+
+  function provider(args = {}) {
+    return step(args).patientMusclePressureCmH2O;
+  }
+
+  function snapshot() {
+    return last || Object.freeze({
+      timeSec: physicalTimeSec,
+      patientMusclePressureCmH2O: 0,
+      inspiratoryActivity: null,
+      expiratoryActivity: null,
+      prescribedRespiratoryRatePerMin: oscillator.snapshot().prescribedRespiratoryRatePerMin,
+      dRel: oscillator.snapshot().dRel,
+      authority: SOURCE.authority,
+      controlAuthority: false,
+      gainProfile: gainProfile || 'explicit',
+      muscleGains: Object.freeze({
+        sourceKI: kI,
+        sourceKE: kE,
+        effectiveKICmH2OPerExc: effectiveKI,
+        effectiveKECmH2OPerExc: effectiveKE,
+        respiratoryFailureFraction,
+      }),
+      gainProvenance: gainProfile ? HENNIGS_2026_VALIDATION_REFERENCE : null,
+      provenance: SOURCE,
+    });
+  }
+
+  function setRelativeDrive(next) {
+    oscillator.setRelativeDrive(next);
+    return snapshot();
+  }
+
+  return Object.freeze({
+    provider,
+    step,
+    snapshot,
+    setRelativeDrive,
+    setMechanicalFeedback,
+    oscillator,
+    source: SOURCE,
+  });
+}
+
+module.exports = Object.freeze({
+  SOURCE,
+  CMH2O_PER_MMHG,
+  HENNIGS_2026_VALIDATION_REFERENCE,
+  createHennigsPatientEffortCandidate,
+});
+
+},
+"src/hennigs_neural_oscillator_runtime.js":function(module,exports,require){
+'use strict';
+
+const {
+  POPULATIONS,
+  oscillatorDerivatives,
+  respiratoryRatePerMin,
+}=require("src/hennigs_neural_oscillator_candidate.js");
+
+const SOURCE=Object.freeze({
+  citation:'Hennigs C et al. Comput Methods Programs Biomed. 2026;280:109329.',
+  doi:'10.1016/j.cmpb.2026.109329',
+  role:'isolated neural-oscillator source reproduction',
+  authority:'candidate-not-canonical',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+
+function validateDRel(v){
+  finite(v,'dRel');
+  if(v<0) throw new Error('dRel must be >= 0');
+  return v;
+}
+
+function defaultNumericalSeed(){
+  // Numerical starting state only. It is discarded after settling and is not
+  // a physiologic initialization target.
+  return Object.freeze({R:0.1,I:0.2,L:-0.1,P:0.1,E:0});
+}
+
+function cloneState(s){
+  const out={};
+  for(const p of POPULATIONS){
+    out[p]=finite(s[p],'state.'+p);
+  }
+  return out;
+}
+
+function addScaled(a,b,scale){
+  const out={};
+  for(const p of POPULATIONS){
+    out[p]=a[p]+scale*b[p];
+  }
+  return out;
+}
+
+function combineRk4(s,k1,k2,k3,k4,h){
+  const out={};
+  for(const p of POPULATIONS){
+    out[p]=s[p]+h*(k1[p]+2*k2[p]+2*k3[p]+k4[p])/6;
+  }
+  return out;
+}
+
+function derivativeOnly(state,dRel,activeTonicAdjustments,sigmoidK){
+  return oscillatorDerivatives({
+    state,dRel,tonicAdjustments:activeTonicAdjustments,sigmoidK,
+  }).derivatives;
+}
+
+function createHennigsNeuralOscillatorRuntime({
+  dtSec=0.001,
+  dRel=0.5,
+  initialState=null,
+  tonicAdjustments=null,
+  sigmoidK=0.6,
+}={}){
+  positive(dtSec,'dtSec');
+  dRel=validateDRel(dRel);
+  finite(sigmoidK,'sigmoidK');
+  let state=cloneState(initialState||defaultNumericalSeed());
+  let activeTonicAdjustments=tonicAdjustments==null?null:{...tonicAdjustments};
+  let timeSec=0;
+
+  function setRelativeDrive(next){
+    dRel=validateDRel(next);
+    return snapshot();
+  }
+
+  function setTonicAdjustments(next){
+    if(next==null){activeTonicAdjustments=null;return snapshot();}
+    const normalized={};
+    for(const p of POPULATIONS){
+      const v=next[p]??0;
+      finite(v,'tonicAdjustments.'+p);
+      normalized[p]=v;
+    }
+    activeTonicAdjustments=normalized;
+    return snapshot();
+  }
+
+  function step(){
+    const h=dtSec;
+    const k1=derivativeOnly(state,dRel,activeTonicAdjustments,sigmoidK);
+    const k2=derivativeOnly(
+      addScaled(state,k1,h/2),dRel,activeTonicAdjustments,sigmoidK
+    );
+    const k3=derivativeOnly(
+      addScaled(state,k2,h/2),dRel,activeTonicAdjustments,sigmoidK
+    );
+    const k4=derivativeOnly(
+      addScaled(state,k3,h),dRel,activeTonicAdjustments,sigmoidK
+    );
+    state=combineRk4(state,k1,k2,k3,k4,h);
+    timeSec+=h;
+    for(const p of POPULATIONS){
+      if(!Number.isFinite(state[p])){
+        throw new Error('non-finite oscillator state '+p);
+      }
+    }
+    return snapshot();
+  }
+
+  function runFor(seconds){
+    finite(seconds,'seconds');
+    if(seconds<0) throw new Error('seconds must be >= 0');
+    const n=Math.floor(seconds/dtSec+1e-9);
+    for(let i=0;i<n;i++) step();
+    const rem=seconds-n*dtSec;
+    if(rem>1e-9){
+      throw new Error('seconds must be an integer multiple of dtSec');
+    }
+    return snapshot();
+  }
+
+  function snapshot(){
+    const derived=oscillatorDerivatives({
+      state,dRel,tonicAdjustments:activeTonicAdjustments,sigmoidK,
+    });
+    return Object.freeze({
+      timeSec,
+      state:Object.freeze({...state}),
+      neuralOutput:derived.neuralOutput,
+      dRel,
+      prescribedRespiratoryRatePerMin:respiratoryRatePerMin(dRel),
+      kRR:derived.kRR,
+      tonic:derived.tonic,
+      tonicAdjustments:activeTonicAdjustments==null?null:Object.freeze({...activeTonicAdjustments}),
+      authority:SOURCE.authority,
+      controlAuthority:false,
+      provenance:SOURCE,
+    });
+  }
+
+  return Object.freeze({
+    step,runFor,snapshot,setRelativeDrive,setTonicAdjustments,
+    source:SOURCE,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  defaultNumericalSeed,
+  createHennigsNeuralOscillatorRuntime,
+});
+
+},
+"src/hennigs_neural_oscillator_candidate.js":function(module,exports,require){
+'use strict';
+
+const {
+  inheritedNeuralSigmoid,
+}=require("src/hennigs_respiratory_center_primitives.js");
+
+/**
+ * Hennigs 2026 five-population respiratory neural oscillator.
+ *
+ * Scope:
+ * - exact Table-2 source->target topology;
+ * - Drel-dependent tonic inputs;
+ * - Eqs. 9-10 respiratory-rate coupling;
+ * - Eq. 1 derivatives.
+ *
+ * Not included:
+ * - chemical calculation of Drel;
+ * - stochastic terms;
+ * - mechanoreflex modifications;
+ * - Pmus;
+ * - lung mechanics.
+ *
+ * Authority: candidate-not-canonical.
+ */
+
+const SOURCE=Object.freeze({
+  citation:'Hennigs C et al. Patient-ventilator interaction—Development of a mathematical model of the respiratory center. Comput Methods Programs Biomed. 2026;280:109329.',
+  doi:'10.1016/j.cmpb.2026.109329',
+  equations:'1,8,9,10; Table 2',
+  authority:'candidate-not-canonical',
+});
+
+const POPULATIONS=Object.freeze(['R','I','L','P','E']);
+
+// Table 2. Rows are source populations; columns are target populations.
+// Null represents the printed dash / absent connection.
+const W=Object.freeze({
+  R:Object.freeze({R:0.7,I:null,L:-2.1,P:-2.3,E:-2.3}),
+  I:Object.freeze({R:-1.8,I:0.7,L:1.4,P:null,E:-0.7}),
+  L:Object.freeze({R:null,I:-5.0,L:2.3,P:null,E:null}),
+  P:Object.freeze({R:-2.2,I:-1.7,L:-3.0,P:1.5,E:0}),
+  E:Object.freeze({R:null,I:-1.4,L:-0.8,P:-1.4,E:1.6}),
+});
+
+// Active Eq.1 topology. Hennigs Table 2 contains P->L=-3.0, but the
+// published late-inspiratory differential equation omits W_PL*S(P).
+// Preserve the table value in W for provenance, but do not activate a term
+// that is absent from the governing equation.
+const ACTIVE_SOURCES_BY_TARGET=Object.freeze({
+  R:Object.freeze(['I','P','R']),
+  I:Object.freeze(['E','P','L','I']),
+  L:Object.freeze(['I','E','R','L']),
+  P:Object.freeze(['E','R','P']),
+  E:Object.freeze(['I','R','E']),
+});
+
+const BASAL_TONIC=Object.freeze({
+  R:2.19,
+  I:5.04,
+  P:3.99,
+  E:4.14,
+});
+
+const DECAY=Object.freeze({
+  R:0.59,
+  I:1.24,
+  L:2.09,
+  P:1.4,
+  E:1.41,
+});
+
+const RR=Object.freeze({
+  basePerMin:10,
+  amplitudePerMin:2.1,
+  sensitivity:1.8,
+  offsetPerMin:0.1212,
+  scalePerMin:6.545,
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+
+function nonNegativeDrive(v){
+  finite(v,'dRel');
+  if(v<0) throw new Error('dRel must be >= 0');
+  return v;
+}
+function amplitudeDrive01(v){
+  v=nonNegativeDrive(v);
+  return Math.min(1,v);
+}
+
+// Table-2 footnote.
+function lateInspiratoryTonic(dRel){
+  dRel=amplitudeDrive01(dRel);
+  return 3.628*dRel*dRel-5.628*dRel-0.5901;
+}
+
+// Eq. 9.
+function respiratoryRatePerMin(dRel){
+  dRel=nonNegativeDrive(dRel);
+  return RR.basePerMin+
+    Math.exp(RR.sensitivity*dRel)*RR.amplitudePerMin;
+}
+
+// Eq. 10, preserved exactly as printed.
+function respiratoryRateCouplingScale(dRel){
+  const rr=respiratoryRatePerMin(dRel);
+  return (rr-RR.offsetPerMin)/RR.scalePerMin;
+}
+
+// Eq. 8 plus Table-2 L footnote.
+function tonicInputs(dRel){
+  dRel=amplitudeDrive01(dRel);
+  return Object.freeze({
+    R:dRel*BASAL_TONIC.R,
+    I:dRel*BASAL_TONIC.I,
+    L:lateInspiratoryTonic(dRel),
+    P:dRel*BASAL_TONIC.P,
+    E:dRel*BASAL_TONIC.E,
+  });
+}
+
+function validateState(state){
+  if(!state||typeof state!=='object'){
+    throw new Error('state is required');
+  }
+  const out={};
+  for(const p of POPULATIONS){
+    out[p]=finite(state[p],'state.'+p);
+  }
+  return out;
+}
+
+/**
+ * Eq. 1 derivative.
+ * W[source][target] is multiplied by S(source activity). All W_ij are
+ * scaled by K_RR per Hennigs. Tonic inputs are handled separately.
+ *
+ * tonicAdjustments allows later source-complete reflex terms to alter tonic
+ * inputs without changing the base oscillator topology.
+ */
+function oscillatorDerivatives({
+  state,
+  dRel,
+  tonicAdjustments=null,
+  sigmoidK=0.6,
+}={}){
+  const x=validateState(state);
+  dRel=nonNegativeDrive(dRel);
+  finite(sigmoidK,'sigmoidK');
+
+  const b={...tonicInputs(dRel)};
+  if(tonicAdjustments!=null){
+    for(const p of POPULATIONS){
+      const v=tonicAdjustments[p]??0;
+      finite(v,'tonicAdjustments.'+p);
+      b[p]+=v;
+    }
+  }
+
+  const kRR=respiratoryRateCouplingScale(dRel);
+  const activity={};
+  for(const p of POPULATIONS){
+    activity[p]=inheritedNeuralSigmoid(x[p],{k:sigmoidK});
+  }
+
+  const dx={};
+  for(const target of POPULATIONS){
+    let coupling=0;
+    for(const source of ACTIVE_SOURCES_BY_TARGET[target]){
+      const wij=W[source][target];
+      if(wij==null){
+        throw new Error(
+          'Eq.1 active edge missing from Table 2: '+source+'->'+target
+        );
+      }
+      coupling+=kRR*wij*activity[source];
+    }
+    dx[target]=-DECAY[target]*x[target]+coupling+b[target];
+  }
+
+  return Object.freeze({
+    derivatives:Object.freeze(dx),
+    neuralOutput:Object.freeze(activity),
+    tonic:Object.freeze(b),
+    respiratoryRatePerMin:respiratoryRatePerMin(dRel),
+    kRR,
+    dRel,
+    authority:SOURCE.authority,
+  });
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  POPULATIONS,
+  W,
+  ACTIVE_SOURCES_BY_TARGET,
+  BASAL_TONIC,
+  DECAY,
+  RR,
+  lateInspiratoryTonic,
+  respiratoryRatePerMin,
+  respiratoryRateCouplingScale,
+  tonicInputs,
+  oscillatorDerivatives,
+});
+
+},
+"src/hennigs_respiratory_center_primitives.js":function(module,exports,require){
+'use strict';
+
+/**
+ * Source-complete primitives for the Hennigs 2026 respiratory-center candidate.
+ *
+ * IMPORTANT:
+ * - This module does not implement the full neural oscillator.
+ * - It does not own canonical respiratory drive or Pmus.
+ * - Ambiguous/incomplete source equations fail closed and are not exposed.
+ *
+ * Primary:
+ * Hennigs C et al. Comput Methods Programs Biomed. 2026;280:109329.
+ * DOI: 10.1016/j.cmpb.2026.109329.
+ *
+ * Inherited oscillator nonlinearity:
+ * Botros SM, Bruce EN. Biol Cybern. 1990;63:143-153.
+ * DOI: 10.1007/BF00203037.
+ * Exact algebra is supported here by later implementations explicitly
+ * incorporating the Botros/Bruce oscillator; canonical authority remains blocked
+ * pending direct primary-text verification.
+ */
+
+const SOURCE=Object.freeze({
+  hennigs2026:Object.freeze({
+    doi:'10.1016/j.cmpb.2026.109329',
+    equations:'2,3,11,12,13,16,17',
+  }),
+  botrosBruce1990:Object.freeze({
+    doi:'10.1007/BF00203037',
+    role:'inherited sigmoid; reproduction evidence only',
+  }),
+  authority:'candidate-not-canonical',
+});
+
+function finite(v,label){
+  if(typeof v!=='number'||!Number.isFinite(v)){
+    throw new Error(label+' must be finite');
+  }
+  return v;
+}
+
+function nonNegative(v,label){
+  finite(v,label);
+  if(v<0) throw new Error(label+' must be >= 0');
+  return v;
+}
+
+function positive(v,label){
+  finite(v,label);
+  if(!(v>0)) throw new Error(label+' must be > 0');
+  return v;
+}
+
+/**
+ * Botros/Bruce-lineage neural output nonlinearity.
+ *
+ * S(X) = K*alpha(X) + (1-K)*beta(X)
+ * alpha(X) = 0 for X<0, otherwise min(X,4)
+ * beta(X) = 4/(1+exp[-1.75*(X-2)])
+ *
+ * K=0.6 is retained as inherited-model reproduction evidence, not a new fitted
+ * project parameter.
+ */
+function inheritedNeuralSigmoid(x,{k=0.6}={}){
+  finite(x,'x');
+  finite(k,'k');
+  if(k<0||k>1) throw new Error('k must be between 0 and 1');
+  const alpha=x<0?0:Math.min(x,4);
+  const beta=4/(1+Math.exp(-1.75*(x-2)));
+  return k*alpha+(1-k)*beta;
+}
+
+/**
+ * Exact held-target update for Hennigs-style first-order chemical drive:
+ *   dD/dt = (target-D)/tau
+ *
+ * This helper intentionally takes the already sourced target as an input so it
+ * cannot invent missing Eq.4/Eq.6 chemistry.
+ */
+function firstOrderDriveStep({
+  drive,
+  target,
+  tauSec,
+  dtSec,
+}={}){
+  finite(drive,'drive');
+  finite(target,'target');
+  positive(tauSec,'tauSec');
+  nonNegative(dtSec,'dtSec');
+  const derivative=(target-drive)/tauSec;
+  if(dtSec===0){
+    return Object.freeze({drive,derivative});
+  }
+  const decay=Math.exp(-dtSec/tauSec);
+  const next=target+(drive-target)*decay;
+  return Object.freeze({drive:next,derivative});
+}
+
+/**
+ * Hennigs Eq.3 target only, expressed in source pressure units supplied by the
+ * caller. The hypoxic term fails closed above the source threshold because the
+ * paper describes activation below approximately 75 mmHg.
+ *
+ * No unit conversion is performed here.
+ */
+function peripheralHypoxiaTarget({
+  pao2,
+  threshold=75,
+  gain,
+}={}){
+  nonNegative(pao2,'pao2');
+  positive(threshold,'threshold');
+  nonNegative(gain,'gain');
+  const deficit=Math.max(0,threshold-pao2);
+  return gain*deficit;
+}
+
+/**
+ * Hennigs Eq.11 Hering-Breuer reflex transform.
+ * Caller supplies lung volumes in the same units as kPrs.
+ */
+function heringBreuerDrive({
+  lungVolume,
+  endExpiratoryVolume,
+  thresholdVolume,
+  kPrs,
+  sigmoidK=0.6,
+}={}){
+  finite(lungVolume,'lungVolume');
+  finite(endExpiratoryVolume,'endExpiratoryVolume');
+  nonNegative(thresholdVolume,'thresholdVolume');
+  positive(kPrs,'kPrs');
+  const x=kPrs*(
+    lungVolume-endExpiratoryVolume-thresholdVolume
+  );
+  return inheritedNeuralSigmoid(x,{k:sigmoidK});
+}
+
+/**
+ * Hennigs Eq.12 inspiratory-flow reflex.
+ * Caller is responsible for source-consistent inspiratory-flow sign/units.
+ */
+function inspiratoryFlowDrive({
+  inspiratoryFlow,
+  kInsp,
+  sigmoidK=0.6,
+}={}){
+  nonNegative(inspiratoryFlow,'inspiratoryFlow');
+  positive(kInsp,'kInsp');
+  return inheritedNeuralSigmoid(
+    kInsp*inspiratoryFlow,
+    {k:sigmoidK}
+  );
+}
+
+/**
+ * Hennigs Eq.13.
+ * Pua = Rua*qaw - Pmus
+ *
+ * No sign conversion is performed. The caller must use the Hennigs convention.
+ */
+function upperAirwayPressure({
+  upperAirwayResistance,
+  airwayFlow,
+  musclePressure,
+}={}){
+  nonNegative(upperAirwayResistance,'upperAirwayResistance');
+  finite(airwayFlow,'airwayFlow');
+  finite(musclePressure,'musclePressure');
+  return upperAirwayResistance*airwayFlow-musclePressure;
+}
+
+/**
+ * Hennigs Eq.16 piecewise respiratory-muscle pressure.
+ *
+ * Source convention: inspiratory Pmus is positive.
+ */
+function respiratoryMusclePressure({
+  inspiratoryActivity,
+  expiratoryActivity,
+  expiratoryThreshold=5.2,
+  kI,
+  kE,
+}={}){
+  finite(inspiratoryActivity,'inspiratoryActivity');
+  finite(expiratoryActivity,'expiratoryActivity');
+  finite(expiratoryThreshold,'expiratoryThreshold');
+  nonNegative(kI,'kI');
+  nonNegative(kE,'kE');
+
+  if(inspiratoryActivity>=0&&expiratoryActivity<expiratoryThreshold){
+    return kI*inspiratoryActivity;
+  }
+  if(inspiratoryActivity<0&&expiratoryActivity>=expiratoryThreshold){
+    return -kE*(expiratoryActivity-expiratoryThreshold);
+  }
+  return 0;
+}
+
+/**
+ * Hennigs Eq.17 gain calculation.
+ * Requires caller-supplied, independently verified Pmax and phiMax.
+ */
+function respiratoryMuscleGain({
+  maxPressure,
+  maxNeuralActivation,
+  respiratoryFailureFraction=0,
+}={}){
+  nonNegative(maxPressure,'maxPressure');
+  positive(maxNeuralActivation,'maxNeuralActivation');
+  finite(respiratoryFailureFraction,'respiratoryFailureFraction');
+  if(respiratoryFailureFraction<0||respiratoryFailureFraction>1){
+    throw new Error(
+      'respiratoryFailureFraction must be between 0 and 1'
+    );
+  }
+  return (
+    maxPressure*0.25/maxNeuralActivation
+  )*(1-respiratoryFailureFraction);
+}
+
+module.exports=Object.freeze({
+  SOURCE,
+  inheritedNeuralSigmoid,
+  firstOrderDriveStep,
+  peripheralHypoxiaTarget,
+  heringBreuerDrive,
+  inspiratoryFlowDrive,
+  upperAirwayPressure,
+  respiratoryMusclePressure,
+  respiratoryMuscleGain,
+});
+
+},
+"src/hennigs_physical_clock_adapter.js":function(module,exports,require){
+'use strict';
+
+const {respiratoryRatePerMin}=require("src/hennigs_neural_oscillator_candidate.js");
+
+const SOURCE=Object.freeze({
+  role:'Hennigs Eq.9 physical-clock adapter for non-dimensional Botros/Bruce oscillator',
+  authority:'candidate-quantification-bridge-not-source-exact',
+  controlAuthority:false,
+  basis:Object.freeze([
+    'Botros/Bruce oscillator omits an absolute physical time scale.',
+    'Longobardo et al. describe the inherited oscillator as non-dimensional and requiring quantification.',
+    'Hennigs Eq.9 supplies physical respiratory rate as a function of Drel.'
+  ])
+});
+
+function finite(v,label){if(typeof v!=='number'||!Number.isFinite(v))throw new Error(label+' must be finite');return v;}
+function positive(v,label){finite(v,label);if(!(v>0))throw new Error(label+' must be > 0');return v;}
+function nonNegative(v,label){finite(v,label);if(v<0)throw new Error(label+' must be >= 0');return v;}
+
+function createHennigsPhysicalClockAdapter({
+  estimateRawPeriodSec,
+  minScale=0.1,
+  maxScale=10,
+}={}){
+  if(typeof estimateRawPeriodSec!=='function') throw new Error('estimateRawPeriodSec function is required');
+  positive(minScale,'minScale');positive(maxScale,'maxScale');
+  if(maxScale<minScale) throw new Error('maxScale must be >= minScale');
+
+  const cache=new Map();
+  function key(dRel){return nonNegative(dRel,'dRel').toFixed(4);}
+  function mapping(dRel){
+    dRel=nonNegative(dRel,'dRel');
+    const k=key(dRel);
+    let rawPeriodSec=cache.get(k);
+    if(rawPeriodSec==null){
+      rawPeriodSec=positive(estimateRawPeriodSec(dRel),'rawPeriodSec');
+      cache.set(k,rawPeriodSec);
+    }
+    const targetRrPerMin=respiratoryRatePerMin(dRel);
+    const targetPeriodSec=60/targetRrPerMin;
+    const rawTimePerPhysicalSecond=Math.max(minScale,Math.min(maxScale,rawPeriodSec/targetPeriodSec));
+    return Object.freeze({
+      dRel,rawPeriodSec,targetRrPerMin,targetPeriodSec,rawTimePerPhysicalSecond,
+      authority:SOURCE.authority,controlAuthority:false,provenance:SOURCE,
+    });
+  }
+  return Object.freeze({mapping,source:SOURCE});
+}
+
+module.exports=Object.freeze({SOURCE,createHennigsPhysicalClockAdapter});
+
+},
+"src/hennigs_mechanical_closed_effort_candidate.js":function(module,exports,require){
+'use strict';
+
+const {
+  createHennigsMechanicalFeedbackCandidate,
+} = require("src/hennigs_mechanical_feedback_candidate.js");
+
+const SOURCE = Object.freeze({
+  role: 'candidate closed Hennigs mechanical-reflex to Pmus bridge',
+  authority: 'candidate-not-canonical',
+  controlAuthority: false,
+  mapping:
+    'Vent V/flow -> DHB/Dinsp -> BI subtraction / BE addition -> Hennigs oscillator -> Pmus',
+});
+
+function finite(v, label) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) {
+    throw new Error(label + ' must be finite');
+  }
+  return v;
+}
+function nonNegative(v, label) {
+  finite(v, label);
+  if (v < 0) throw new Error(label + ' must be >= 0');
+  return v;
+}
+
+function createHennigsMechanicalClosedEffortCandidate({
+  effort,
+  initialEndExpiratoryVolumeL,
+  heringBreuerThresholdL,
+  functionalResidualCapacityL,
+  kPrsPerL,
+  kInspSecPerL,
+} = {}) {
+  if (!effort || typeof effort.provider !== 'function' ||
+      typeof effort.setMechanicalFeedback !== 'function') {
+    throw new Error('effort bridge with provider and setMechanicalFeedback is required');
+  }
+  nonNegative(initialEndExpiratoryVolumeL, 'initialEndExpiratoryVolumeL');
+
+  const feedback = createHennigsMechanicalFeedbackCandidate({
+    endExpiratoryVolumeL: initialEndExpiratoryVolumeL,
+    heringBreuerThresholdL,
+    ...(functionalResidualCapacityL == null ? {} : { functionalResidualCapacityL }),
+    ...(kPrsPerL == null ? {} : { kPrsPerL }),
+    ...(kInspSecPerL == null ? {} : { kInspSecPerL }),
+  });
+
+  let previousPhase = null;
+  let expiratoryMinimumVolumeL = initialEndExpiratoryVolumeL;
+  let endExpiratoryVolumeL = initialEndExpiratoryVolumeL;
+  let last = null;
+
+  function provider(args = {}) {
+    if (!args.state || typeof args.state !== 'object') {
+      throw new Error('Vent state is required');
+    }
+    const totalVolumeL = args.state.totalVolume;
+    const airwayFlowLps = args.state.totalFlow;
+    nonNegative(totalVolumeL, 'state.totalVolume');
+    finite(airwayFlowLps, 'state.totalFlow');
+
+    const phase = args.phase || null;
+
+    if (phase === 'EXPIRATION') {
+      expiratoryMinimumVolumeL = Math.min(
+        expiratoryMinimumVolumeL,
+        totalVolumeL
+      );
+    }
+
+    if (phase === 'INSPIRATION' && previousPhase === 'EXPIRATION') {
+      endExpiratoryVolumeL = expiratoryMinimumVolumeL;
+      feedback.setEndExpiratoryVolumeL(endExpiratoryVolumeL);
+      expiratoryMinimumVolumeL = totalVolumeL;
+    }
+
+    if (phase === 'EXPIRATION' && previousPhase !== 'EXPIRATION') {
+      expiratoryMinimumVolumeL = totalVolumeL;
+    }
+
+    const mechanical = feedback.evaluate({
+      totalLungVolumeL: totalVolumeL,
+      airwayFlowLps,
+    });
+
+    effort.setMechanicalFeedback({
+      heringBreuerDrive: mechanical.heringBreuerDrive,
+      inspiratoryFlowDrive: mechanical.inspiratoryFlowDrive,
+    });
+
+    const patientMusclePressureCmH2O = effort.provider(args);
+    previousPhase = phase;
+
+    last = Object.freeze({
+      timeSec: args.timeSec ?? null,
+      phase,
+      endExpiratoryVolumeL,
+      expiratoryMinimumVolumeL,
+      mechanical,
+      patientMusclePressureCmH2O,
+      effort: effort.snapshot(),
+      authority: SOURCE.authority,
+      controlAuthority: false,
+      provenance: SOURCE,
+    });
+
+    return patientMusclePressureCmH2O;
+  }
+
+  function snapshot() {
+    return last || Object.freeze({
+      timeSec: 0,
+      phase: previousPhase,
+      endExpiratoryVolumeL,
+      expiratoryMinimumVolumeL,
+      mechanical: feedback.snapshot(),
+      patientMusclePressureCmH2O: effort.snapshot().patientMusclePressureCmH2O,
+      effort: effort.snapshot(),
+      authority: SOURCE.authority,
+      controlAuthority: false,
+      provenance: SOURCE,
+    });
+  }
+
+  return Object.freeze({
+    provider,
+    snapshot,
+    feedback,
+    effort,
+    source: SOURCE,
+  });
+}
+
+module.exports = Object.freeze({
+  SOURCE,
+  createHennigsMechanicalClosedEffortCandidate,
+});
+
+},
+"src/hennigs_mechanical_feedback_candidate.js":function(module,exports,require){
+'use strict';
+
+const {
+  heringBreuerDrive,
+  inspiratoryFlowDrive,
+} = require("src/hennigs_respiratory_center_primitives.js");
+
+const SOURCE = Object.freeze({
+  citation:
+    'Hennigs C et al. Validation of a Computational Respiratory System Model for Mechanical Ventilation. arXiv:2607.06210v2 (2026).',
+  companionPrimarySource: '10.1016/j.cmpb.2026.109329',
+  equations: 'primary Eqs. 11-12; validation reference parameter table',
+  authority: 'candidate-not-canonical',
+  controlAuthority: false,
+  referenceParameters: Object.freeze({
+    kPrsPerL: 7.5,
+    kInspSecPerL: 0.1,
+    functionalResidualCapacityL: 2.5,
+    heringBreuerThresholdRangeL: Object.freeze([1, 1.5]),
+  }),
+  limitation:
+    'Reflex equations and BI/BE mapping are source-backed; thresholds and reference parameters remain validation-reference values, not patient measurements.',
+});
+
+function finite(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(label + ' must be finite');
+  }
+  return value;
+}
+function nonNegative(value, label) {
+  finite(value, label);
+  if (value < 0) throw new Error(label + ' must be >= 0');
+  return value;
+}
+function positive(value, label) {
+  finite(value, label);
+  if (!(value > 0)) throw new Error(label + ' must be > 0');
+  return value;
+}
+
+function createHennigsMechanicalFeedbackCandidate({
+  endExpiratoryVolumeL,
+  heringBreuerThresholdL,
+  functionalResidualCapacityL = SOURCE.referenceParameters.functionalResidualCapacityL,
+  kPrsPerL = SOURCE.referenceParameters.kPrsPerL,
+  kInspSecPerL = SOURCE.referenceParameters.kInspSecPerL,
+} = {}) {
+  nonNegative(endExpiratoryVolumeL, 'endExpiratoryVolumeL');
+  nonNegative(functionalResidualCapacityL, 'functionalResidualCapacityL');
+  positive(heringBreuerThresholdL, 'heringBreuerThresholdL');
+  positive(kPrsPerL, 'kPrsPerL');
+  positive(kInspSecPerL, 'kInspSecPerL');
+
+  let currentEndExpiratoryVolumeL = endExpiratoryVolumeL;
+  const volumeReferenceOffsetL = functionalResidualCapacityL;
+  let last = null;
+
+  function setEndExpiratoryVolumeL(value) {
+    nonNegative(value, 'endExpiratoryVolumeL');
+    currentEndExpiratoryVolumeL = value;
+    return snapshot();
+  }
+
+  function evaluate({
+    totalLungVolumeL,
+    airwayFlowLps,
+  } = {}) {
+    nonNegative(totalLungVolumeL, 'totalLungVolumeL');
+    finite(airwayFlowLps, 'airwayFlowLps');
+
+    const inspiratoryFlowLps = Math.max(0, airwayFlowLps);
+    const absoluteLungVolumeL = volumeReferenceOffsetL + totalLungVolumeL;
+    const absoluteEndExpiratoryVolumeL =
+      volumeReferenceOffsetL + currentEndExpiratoryVolumeL;
+    const hbDrive = heringBreuerDrive({
+      lungVolume: absoluteLungVolumeL,
+      endExpiratoryVolume: absoluteEndExpiratoryVolumeL,
+      thresholdVolume: heringBreuerThresholdL,
+      kPrs: kPrsPerL,
+    });
+    const inspFlowDrive = inspiratoryFlowDrive({
+      inspiratoryFlow: inspiratoryFlowLps,
+      kInsp: kInspSecPerL,
+    });
+
+    last = Object.freeze({
+      totalLungVolumeL,
+      absoluteLungVolumeL,
+      volumeReferenceOffsetL,
+      endExpiratoryVolumeL: currentEndExpiratoryVolumeL,
+      absoluteEndExpiratoryVolumeL,
+      excessVolumeAboveEndExpirationL:
+        totalLungVolumeL - currentEndExpiratoryVolumeL,
+      airwayFlowLps,
+      inspiratoryFlowLps,
+      heringBreuerDrive: hbDrive,
+      inspiratoryFlowDrive: inspFlowDrive,
+      interpretation: Object.freeze({
+        heringBreuer:
+          'source reflex drive; inhibits inspiration and promotes expiration',
+        inspiratoryFlow:
+          'source reflex drive; inhibits inspiration and promotes expiration',
+      }),
+      authority: SOURCE.authority,
+      controlAuthority: false,
+      provenance: SOURCE,
+    });
+    return last;
+  }
+
+  function fromSimulation(simulation) {
+    if (!simulation || !simulation.state) {
+      throw new Error('simulation with current Vent state is required');
+    }
+    return evaluate({
+      totalLungVolumeL: simulation.state.totalVolume,
+      airwayFlowLps: simulation.state.totalFlow,
+    });
+  }
+
+  function snapshot() {
+    return last;
+  }
+
+  return Object.freeze({
+    evaluate,
+    fromSimulation,
+    setEndExpiratoryVolumeL,
+    snapshot,
+    source: SOURCE,
+  });
+}
+
+module.exports = Object.freeze({
+  SOURCE,
+  createHennigsMechanicalFeedbackCandidate,
+});
+
+},
+"src/hennigs_supported_spontaneous_profile.js":function(module,exports,require){
+'use strict';
+
+const SOURCE=Object.freeze({
+  authority:'hennigs-supported',
+  controlAuthority:true,
+  basis:Object.freeze([
+    'Hennigs et al. 2026 Eqs.2-10 and Table 3 define the chemical-drive structure.',
+    'Hennigs Figure 6 baseline RR is approximately 12.5/min; inversion of Eq.9 gives Drel approximately 0.097.',
+    'GPCO2,pH is present in Hennigs Eq.4 but no numeric value is published in Table 3; 25 exc/delta-pH is retained as a calibrated Hennigs-supported bridge, not a published constant.'
+  ]),
+  limitations:Object.freeze([
+    'The GPCO2,pH calibration does not reproduce the full Figure 6 time course when coupled to the reduced-HumMod gas plant.',
+    'This profile is a reasonable Hennigs-based integration choice, not a source-exact reproduction of the authors full cardiopulmonary model.'
+  ])
+});
+
+const PROFILE=Object.freeze({
+  parameterProfile:'development-paper',
+  gPco2Ph:25,
+  minimumRelativeDrive:0.09686299285820986,
+  maximumFrequencyRelativeDrive:1.1105014884421243,
+  baselineRespiratoryRatePerMin:12.5,
+  baselineTidalVolumeL:0.5,
+  baselineRawOscillatorPeriod:16.956222222302998,
+  boundaryAuthority:'hennigs-supported',
+  gainAuthority:'hennigs-supported',
+  authority:SOURCE.authority,
+  controlAuthority:true,
+  provenance:SOURCE,
+});
+
+module.exports=Object.freeze({SOURCE,PROFILE});
+
+},
 "src/hummod_ards_core_thorax.js":function(module,exports,require){
 'use strict';
 
@@ -11295,12 +12797,23 @@ function createThoraxState({
 
   const lungElastanceFraction = 1 - chestWallElastanceFraction;
 
-  function atStaticAirwayPressure(airwayPressureCmH2O) {
+  function atAirwayAndMusclePressure(
+    airwayPressureCmH2O,
+    patientMusclePressureCmH2O = 0
+  ) {
     finite(airwayPressureCmH2O, 'airwayPressureCmH2O');
+    finite(patientMusclePressureCmH2O, 'patientMusclePressureCmH2O');
     const deltaAirwayCmH2O =
       airwayPressureCmH2O - referenceAirwayPressureCmH2O;
-    const deltaPleuralCmH2O =
+    const passiveDeltaPleuralCmH2O =
       deltaAirwayCmH2O * chestWallElastanceFraction;
+    // Hennigs uses Paw + Pmus as the total respiratory-system driving
+    // pressure. Positive inspiratory Pmus is generated by the patient, so it
+    // lowers intrathoracic/pleural pressure relative to the passive chest-wall
+    // pressure while Paw remains the ventilator pressure.
+    const musclePleuralContributionCmH2O = -patientMusclePressureCmH2O;
+    const deltaPleuralCmH2O =
+      passiveDeltaPleuralCmH2O + musclePleuralContributionCmH2O;
     const pleuralPressureCmH2O =
       referencePleuralPressureCmH2O + deltaPleuralCmH2O;
     const transpulmonaryPressureCmH2O =
@@ -11308,17 +12821,27 @@ function createThoraxState({
 
     return Object.freeze({
       airwayPressureCmH2O,
+      patientMusclePressureCmH2O,
       pleuralPressureCmH2O,
       transpulmonaryPressureCmH2O,
       deltaAirwayCmH2O,
+      passiveDeltaPleuralCmH2O,
+      musclePleuralContributionCmH2O,
       deltaPleuralCmH2O,
       deltaTranspulmonaryCmH2O:
-        deltaAirwayCmH2O * lungElastanceFraction,
+        transpulmonaryPressureCmH2O -
+        (referenceAirwayPressureCmH2O-referencePleuralPressureCmH2O),
       chestWallElastanceFraction,
       lungElastanceFraction,
-      interpretation: 'passive-static-linear-elastance-partition',
+      interpretation: patientMusclePressureCmH2O === 0
+        ? 'passive-static-linear-elastance-partition'
+        : 'candidate-spontaneous-effort-thoracic-pressure-bridge',
       provenance: Object.freeze({ ...provenance }),
     });
+  }
+
+  function atStaticAirwayPressure(airwayPressureCmH2O) {
+    return atAirwayAndMusclePressure(airwayPressureCmH2O, 0);
   }
 
   return Object.freeze({
@@ -11329,6 +12852,7 @@ function createThoraxState({
     lungElastanceFraction,
     provenance: Object.freeze({ ...provenance }),
     atStaticAirwayPressure,
+    atAirwayAndMusclePressure,
   });
 }
 
@@ -11789,6 +13313,21 @@ function meanAirwayPressureCmH2O(simulation, recentSamples=1500){
   return tr.reduce((a,row)=>a+row.airwayPressureCmH2O,0)/tr.length;
 }
 
+function meanPatientMusclePressureCmH2O(simulation,recentSamples=1500){
+  const tr=simulation&&Array.isArray(simulation.trace)
+    ? simulation.trace.slice(-recentSamples)
+    : [];
+  if(!tr.length) return 0;
+  let sum=0;
+  for(const row of tr){
+    const v=row&&Number.isFinite(row.patientMusclePressureCmH2O)
+      ? row.patientMusclePressureCmH2O
+      : 0;
+    sum+=v;
+  }
+  return sum/tr.length;
+}
+
 function createHumModArdsCardiopulmonaryRuntime({
   simulation,
   thorax,
@@ -11904,7 +13443,10 @@ function createHumModArdsCardiopulmonaryRuntime({
     }
 
     const meanPaw=meanAirwayPressureCmH2O(simulation);
-    const thoraxState=thorax.atStaticAirwayPressure(meanPaw);
+    const meanPmus=meanPatientMusclePressureCmH2O(simulation);
+    const thoraxState=typeof thorax.atAirwayAndMusclePressure==='function'
+      ? thorax.atAirwayAndMusclePressure(meanPaw,meanPmus)
+      : thorax.atStaticAirwayPressure(meanPaw);
     const thoracicPressureMmHg=pressureAdapter.cmH2OToMmHg(
       thoraxState.pleuralPressureCmH2O);
     finite(thoracicPressureMmHg,'converted thoracic pressure');
@@ -12236,6 +13778,7 @@ function createHumModArdsCardiopulmonaryRuntime({
       timeSec+=dtSec;
       last=Object.freeze({
         meanAirwayPressureCmH2O:meanPaw,
+        meanPatientMusclePressureCmH2O:meanPmus,
         thorax:thoraxState,
         thoracicPressureMmHg,
         pericardialPressureMmHg,
@@ -12306,6 +13849,7 @@ function createHumModArdsCardiopulmonaryRuntime({
     timeSec+=dtSec;
     last=Object.freeze({
       meanAirwayPressureCmH2O:meanPaw,
+      meanPatientMusclePressureCmH2O:meanPmus,
       thorax:thoraxState,
       thoracicPressureMmHg,
       pericardialPressureMmHg,
@@ -12401,6 +13945,7 @@ function createHumModArdsCardiopulmonaryRuntime({
 
 module.exports={
   meanAirwayPressureCmH2O,
+  meanPatientMusclePressureCmH2O,
   createHumModArdsCardiopulmonaryRuntime,
 };
 
@@ -12505,8 +14050,8 @@ function createLiveCoreBoundaryFromVent({
   }
 
   const snap = createVentToArdsCoreSnapshot(simulation);
-  if (!['VC_AC', 'PC_AC'].includes(snap.ventilator.mode)) {
-    throw new Error('live core adapter supports VC_AC or PC_AC only');
+  if (!['VC_AC', 'PC_AC', 'PS', 'SIMV'].includes(snap.ventilator.mode)) {
+    throw new Error('live core adapter received unsupported ventilation mode');
   }
 
   let vtL;
@@ -12518,8 +14063,8 @@ function createLiveCoreBoundaryFromVent({
   } else {
     const completed = summarizeSimulationMeasurements(simulation).lastCompletedBreath;
     vtL = completed && completed.VtInspired;
-    tidalVolumeSource = 'PC last completed delivered breath';
-    positive(vtL, 'PC delivered tidal volume');
+    tidalVolumeSource = snap.ventilator.mode + ' last completed delivered breath';
+    positive(vtL, snap.ventilator.mode + ' delivered tidal volume');
   }
 
   const flow = deriveVentilatedPulmonaryFlowMlPerMin({
