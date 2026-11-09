@@ -57,6 +57,7 @@
   const activeControls = ['clinical-run','clinical-apply-vent','clinical-insp-hold','clinical-exp-hold','clinical-measure-mechanics'];
   function renderStandby() {
     snapshot = null;
+    $('clinical-arrest-banner').hidden = true;
     $('clinical-quick-start').textContent = 'Start patient';
     for (const id of ['servo-ppeak','servo-pplat','servo-dp','servo-measured-rr','servo-vte','servo-ve','servo-o2','servo-peep','servo-volume','servo-rate','clinical-hr','clinical-map','clinical-co','clinical-sao2','clinical-pao2','clinical-paco2','clinical-ph']) setText(id,'—');
     setText('servo-clock','0'); setText('servo-status','Start the reference patient to begin monitoring');

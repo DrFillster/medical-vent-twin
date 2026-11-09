@@ -18,6 +18,11 @@
 <header class="masthead"><div class="servo-brand"><b>VENT<span> / </span></b><span>Cardiopulmonary simulator <strong>v3.0</strong></span></div><div class="servo-release-links"><span>Servo-i inspired workstation</span><a href="/v2.4/">Open v2.4 ↗</a></div><div class="dev-banner">EDUCATIONAL SIMULATION · Synthetic patient · Not clinically validated · Not for patient care</div></header>
 <main>
 <section aria-labelledby="clinical-title" class="clinical-preview card"><div class="product-launch"><button disabled="" id="clinical-quick-start" type="button">Start patient</button><button class="secondary" disabled="" id="clinical-extremis-validation" type="button">Run extremis test harness</button></div><section aria-label="Ventilator workstation" class="servo-console" hidden="" id="clinical-live">
+<div aria-live="assertive" class="clinical-arrest-banner" hidden="" id="clinical-arrest-banner" role="alert">
+<strong id="clinical-arrest-title">CARDIAC ARREST</strong>
+<span id="clinical-arrest-rhythm"></span>
+<small id="clinical-arrest-detail"></small>
+</div>
 <div class="servo-modebar"><div><span class="servo-kicker">ADULT · INVASIVE</span><h1>Volume Control <small>CMV · VC-AC</small></h1></div><div class="servo-session"><span id="servo-run-state">STANDBY</span><span>Patient time <b id="servo-clock">0</b> s</span></div></div>
 <div class="servo-statusbar" role="status"><span class="servo-status-light"></span><span id="servo-status">Start the reference patient to begin monitoring</span><button data-panel="patient" type="button">Patient &amp; scenario</button></div>
 <div class="servo-patient-strip"><span><b>REFERENCE</b> Aspiration lung injury</span><span>No spontaneous effort · legacy passive scenario</span><span>Wakefulness / blockade: not modeled</span></div>
@@ -359,10 +364,6 @@
 
 
 
-</div><div aria-live="assertive" class="clinical-arrest-banner" hidden="" id="clinical-arrest-banner" role="alert">
-<strong id="clinical-arrest-title">CARDIAC ARREST</strong>
-<span id="clinical-arrest-rhythm"></span>
-<small id="clinical-arrest-detail"></small>
 </div><div class="section-heading monitor-heading"><span class="step">02</span><h2>Monitor</h2></div><div class="section-heading pressure-heading"><span class="step">V</span><h2>Primary variables</h2></div><div aria-labelledby="clinical-intervention-title" class="clinical-intervention-timeline card">
 <div class="card-heading"><h2 id="clinical-intervention-title">Intervention timeline</h2><span class="pill">Patient clock</span></div>
 <p class="hint">Ventilator changes are timestamped against the persistent simulated patient so physiologic responses can be interpreted relative to the intervention.</p>
