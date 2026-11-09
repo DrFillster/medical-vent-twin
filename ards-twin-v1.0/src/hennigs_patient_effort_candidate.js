@@ -6,6 +6,9 @@ const {
 const {
   respiratoryMusclePressure,
 } = require('./hennigs_respiratory_center_primitives.js');
+const {
+  createHennigsPhysicalClockAdapter,
+} = require('./hennigs_physical_clock_adapter.js');
 
 const CMH2O_PER_MMHG = 1.3595100263596638;
 
@@ -53,6 +56,7 @@ function createHennigsPatientEffortCandidate({
   respiratoryFailureFraction = 0,
   expiratoryThreshold = 5.2,
   oscillatorOptions = null,
+  physicalClock = null,
 } = {}) {
   if (gainProfile === 'hennigs-2026-validation-reference') {
     if (kI != null || kE != null) {
@@ -82,12 +86,34 @@ function createHennigsPatientEffortCandidate({
     ...(oscillatorOptions || {}),
   });
   let last = null;
+  let physicalTimeSec = 0;
+  let rawStepAccumulator = 0;
+  let clockAdapter = null;
+  if (physicalClock != null) {
+    if (physicalClock.profile !== 'hennigs-eq9') throw new Error('unsupported physicalClock profile');
+    clockAdapter = createHennigsPhysicalClockAdapter({
+      estimateRawPeriodSec: physicalClock.estimateRawPeriodSec,
+    });
+  }
 
   function step({ dtSec: callerDtSec } = {}) {
     if (callerDtSec != null && Math.abs(callerDtSec - dtSec) > 1e-12) {
       throw new Error('Hennigs effort bridge dtSec must match Vent dtSec');
     }
-    const neural = oscillator.step();
+    let neural;
+    let clockMapping = null;
+    if (clockAdapter) {
+      clockMapping = clockAdapter.mapping(oscillator.snapshot().dRel);
+      rawStepAccumulator += clockMapping.rawTimePerPhysicalSecond;
+      const rawSteps = Math.floor(rawStepAccumulator + 1e-12);
+      rawStepAccumulator -= rawSteps;
+      for (let i = 0; i < rawSteps; i++) neural = oscillator.step();
+      neural = neural || oscillator.snapshot();
+      physicalTimeSec += dtSec;
+    } else {
+      neural = oscillator.step();
+      physicalTimeSec = neural.timeSec;
+    }
     const patientMusclePressureCmH2O = respiratoryMusclePressure({
       inspiratoryActivity: neural.state.I,
       expiratoryActivity: neural.state.E,
@@ -96,7 +122,9 @@ function createHennigsPatientEffortCandidate({
       kE: effectiveKE,
     });
     last = Object.freeze({
-      timeSec: neural.timeSec,
+      timeSec: physicalTimeSec,
+      oscillatorRawTime: neural.timeSec,
+      physicalClock: clockMapping,
       patientMusclePressureCmH2O,
       inspiratoryActivity: neural.state.I,
       expiratoryActivity: neural.state.E,
@@ -138,7 +166,7 @@ function createHennigsPatientEffortCandidate({
 
   function snapshot() {
     return last || Object.freeze({
-      timeSec: 0,
+      timeSec: physicalTimeSec,
       patientMusclePressureCmH2O: 0,
       inspiratoryActivity: null,
       expiratoryActivity: null,
