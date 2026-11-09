@@ -8,6 +8,7 @@ The browser release is v3.0; the unchanged physiology package retains its existi
 
 - Servo-i inspired workstation: mode/status bands, three aligned pressure/flow/volume traces, a right-hand measured-values column, persistent cardiopulmonary strip, four direct-access settings and modal settings/holds/trends/clock/research panels.
 - Existing persistent reference patient and VC-AC engine, with unchanged equations, patient inputs, autonomic response, gas stores, timing, holds, exports and extremis scenario.
+- Waveforms show the last 30 seconds with up to 2,000 display samples, so low-rate breaths remain visible. Original committed traces and solver stepping are unchanged. Ppeak uses the last completed breath.
 - Device-facing VT in mL and flow in L/min. The adapter converts once to existing L and L/s inputs; waveforms convert for display only. The volume trace remains labeled modeled lung volume, not inspired tidal volume.
 - Measured RR and VTe use the last fully completed Vent breath, excluding the final partial-breath record. Expired minute ventilation is VTe × measured RR; no invented physiology or filtering. Pre-session warm-up breaths are labeled. Original exact measurement values remain available in Research; main pressure displays round to one decimal.
 - Current settings remain separate from pending edits. Apply uses the existing next-completed-breath transition; Cancel restores active values. Existing hold invalidation remains unchanged.

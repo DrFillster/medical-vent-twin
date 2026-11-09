@@ -64,8 +64,7 @@
     setText('servo-peep', fixed(v.peepCmH2O));
     setText('servo-volume', Number.isFinite(v.vtL) ? String(Math.round(v.vtL * 1000)) : '—');
     setText('servo-rate', fixed(v.rrPerMin ?? v.rr, 0));
-    const pressures = (snapshot.pulmonary?.recentWaveform || []).map(row => row.pressureCmH2O).filter(Number.isFinite);
-    setText('servo-ppeak', pressures.length ? fixed(Math.max(...pressures)) : '—');
+    setText('servo-ppeak', fixed(m.lastCompletedBreath?.Ppeak));
     setText('servo-pplat', fixed(m.plateauPressureCmH2O));
     setText('servo-dp', fixed(m.drivingPressureCmH2O));
     const breath = m.lastCompletedBreath;

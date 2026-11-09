@@ -898,7 +898,7 @@
       $('clinical-maneuver-result').textContent =
         'Ventilator settings changed. Repeat the inspiratory and expiratory holds to update respiratory mechanics.';
     }
-    const clinicalWaveform = snapshot.pulmonary?.recentWaveform || [];
+    const clinicalWaveform = snapshot.pulmonary?.displayWaveform || snapshot.pulmonary?.recentWaveform || [];
     drawClinicalTrace('clinical-pressure-chart', clinicalWaveform, 'pressureCmH2O');
     drawClinicalTrace('clinical-flow-chart', clinicalWaveform, 'flowLps');
     drawClinicalTrace('clinical-volume-chart', clinicalWaveform, 'volumeL');
