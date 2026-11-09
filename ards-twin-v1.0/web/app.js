@@ -303,6 +303,9 @@
     const pc = mode === 'PC_AC';
     const ps = mode === 'PS';
     const simv = mode === 'SIMV';
+    if ((pc || simv) && !(Number($('clinical-pinsp').value) > 0)) $('clinical-pinsp').value = '12';
+    if ((pc || simv) && !(Number($('clinical-ti').value) > 0)) $('clinical-ti').value = '0.8';
+    if ((ps || simv) && !(Number($('clinical-ps').value) >= 0)) $('clinical-ps').value = '8';
     $('clinical-vc-fields').hidden = !vc;
     $('clinical-pc-fields').hidden = !(pc || simv);
     $('clinical-ps-fields').hidden = !(ps || simv);
