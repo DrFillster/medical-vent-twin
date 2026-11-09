@@ -361,13 +361,18 @@ function solveCo2Exchange({
     return endExpiredMlPerMin - expiredCo2MlPerMin;
   }
 
-  const high = alveolarVentilationStpdMlPerMin * 0.5;
+  // Net pulmonary CO2 exchange is signed. With inspired CO2 above the mixed-
+  // venous equilibrium, the lung can transiently absorb CO2, so restricting
+  // the root to non-negative excretion is not physically valid. Bound the
+  // search by alveolar fractions 0..1 instead.
+  const low = -bronchiCo2Fraction * alveolarVentilationStpdMlPerMin;
+  const high = (1 - bronchiCo2Fraction) * alveolarVentilationStpdMlPerMin;
   const expiredCo2MlPerMin = solveRootBisection({
     fn: residual,
-    low: 0,
+    low,
     high,
     tolerance: 1e-6,
-    label: 'HumMod LungCO2 expired',
+    label: 'HumMod LungCO2 net exchange',
   });
 
   const alveolarCo2Fraction =
