@@ -636,6 +636,7 @@ function createBerlinLiveHumModSession({
         paco2MmHg: gas.gases.arterial.pco2MmHg,
         pH: gas.gases.arterial.pH,
         sao2Fraction: gas.gases.arterial.saturationFraction,
+        endTidalCo2ProxyMmHg: gas.exchange?.carbonDioxide?.pAlveolarCo2MmHg ?? null,
         pvo2MmHg: gas.gases.venous.po2MmHg,
         svo2Fraction: gas.gases.venous.saturationFraction,
         requestedTissueO2UseMlPerMin:

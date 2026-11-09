@@ -19,6 +19,10 @@ const {chromium} = require('playwright');
     await page.locator('#clinical-quick-start').click();
     await page.waitForFunction(()=>document.querySelector('#servo-o2').textContent==='60');
     assert.equal(await page.locator('#servo-volume').textContent(),'420');
+    assert(await page.locator('#icu-monitor').isVisible(),'ICU monitor should be visible beside the workstation');
+    for (const id of ['icu-hr','icu-art','icu-rr','icu-cvp','icu-spo2','icu-etco2']) {
+      assert.notEqual(await page.locator('#'+id).textContent(),'—',id+' should populate from the live snapshot');
+    }
     await page.locator('.servo-nav [data-panel="settings"]').click();
     assert.equal(await page.locator('#servo-vt').inputValue(),'420');
     assert.equal(await page.locator('#servo-flow').inputValue(),'42');

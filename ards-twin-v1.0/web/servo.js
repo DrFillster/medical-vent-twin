@@ -61,6 +61,7 @@
     $('clinical-quick-start').textContent = 'Start patient';
     for (const id of ['servo-ppeak','servo-pplat','servo-dp','servo-measured-rr','servo-vte','servo-ve','servo-o2','servo-peep','servo-volume','servo-rate','clinical-hr','clinical-map','clinical-co','clinical-sao2','clinical-pao2','clinical-paco2','clinical-ph']) setText(id,'—');
     setText('servo-clock','0'); setText('servo-status','Start the reference patient to begin monitoring');
+    for (const id of ['icu-hr','icu-art','icu-rr','icu-cvp','icu-spo2','icu-etco2']) setText(id,'—');
     setText('servo-applied-state','Start patient to apply reference settings');
     document.querySelector('.servo-statusbar').classList.remove('servo-arrest-alert');
     for (const id of activeControls) $(id).disabled = true;
@@ -86,6 +87,14 @@
     setText('servo-measured-rr', fixed(breath?.RR));
     setText('servo-vte', fixed(Number.isFinite(breath?.VtExpired) ? breath.VtExpired * 1000 : null, 0));
     setText('servo-ve', fixed(breath ? breath.VtExpired * breath.RR : null, 2));
+    const hemo = snapshot.systemic?.hemodynamics || {};
+    const gas = snapshot.systemic?.gasExchange || {};
+    setText('icu-hr', fixed(hemo.heartRatePerMin, 0));
+    setText('icu-art', fixed(hemo.meanArterialPressureMmHg, 0));
+    setText('icu-rr', fixed(breath?.RR ?? v.rrPerMin ?? v.rr, 0));
+    setText('icu-cvp', fixed(hemo.rightAtrialPressureMmHg, 1));
+    setText('icu-spo2', Number.isFinite(gas.sao2Fraction) ? String(Math.round(gas.sao2Fraction * 100)) : '—');
+    setText('icu-etco2', fixed(gas.endTidalCo2ProxyMmHg, 0));
     const arrested = Boolean(snapshot.systemic?.decompensation?.cardiacArrest);
     setText('servo-status', arrested ? 'CARDIAC ARREST · ' + (snapshot.systemic.decompensation.arrestRhythm || 'ARREST') : snapshot.ventilatorChangePending ? 'Settings pending · applying at the next completed breath boundary' : 'Patient active · controlled ventilation · no spontaneous effort');
     document.querySelector('.servo-statusbar').classList.toggle('servo-arrest-alert', arrested);
