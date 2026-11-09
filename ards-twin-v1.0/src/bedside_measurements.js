@@ -146,6 +146,12 @@ function summarizeSimulationMeasurements(simulation) {
     peakPressureCmH2O: latestBreath ? finiteOrNull(latestBreath.Ppeak) : null,
     breathPeepCmH2O: latestBreath ? finiteOrNull(latestBreath.PEEP) : null,
     latestBreath,
+    // metrics() includes the currently open breath as its final record.
+    // Device readouts must use the preceding, fully delivered breath.
+    lastCompletedBreath: (() => {
+      const breaths = typeof simulation.metrics === 'function' ? simulation.metrics() : [];
+      return breaths.length > 1 ? Object.freeze({ ...breaths[breaths.length - 2] }) : null;
+    })(),
     inspiratoryHold: inspiratory,
     expiratoryHold: expiratory,
   });

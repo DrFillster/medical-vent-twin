@@ -6,7 +6,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 const root=path.resolve(__dirname,'..');
-const files=['web/app.js','web/clinical-worker.js','web/worker.js'];
+const files=['web/app.js','web/clinical-worker.js','web/worker.js','web/servo.js'];
 
 const failures=[];
 for(const rel of files){

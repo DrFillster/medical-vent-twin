@@ -26,17 +26,20 @@ const { chromium } = require('playwright');
     page.on('pageerror', error => errors.push(error.message));
     await page.goto('http://127.0.0.1:8765/');
     await page.waitForFunction(() => !document.querySelector('#clinical-initialize').disabled);
-    await page.locator('#clinical-initialize').click();
+    await page.locator('#clinical-quick-start').click();
     await page.waitForFunction(() => document.querySelector('#clinical-time').textContent.trim() === '0');
 
     async function value(id) { return (await page.locator('#' + id).textContent()).trim(); }
     async function settings(fio2, peep, rr) {
+      await page.locator('.servo-nav [data-panel="settings"]').click();
       await page.locator('#clinical-fio2').fill(String(fio2));
       await page.locator('#clinical-peep').fill(String(peep));
       await page.locator('#clinical-rr').fill(String(rr));
       await page.locator('#clinical-apply-vent').click();
+      await page.locator('#servo-settings-panel [data-close-panel]').click();
     }
     async function advance(seconds) {
+      await page.locator('.servo-nav [data-panel="clock"]').click();
       const before = Number(await value('clinical-time'));
       await page.locator('#clinical-run-seconds').fill(String(seconds));
       await page.locator('#clinical-run').click();
@@ -46,8 +49,10 @@ const { chromium } = require('playwright');
           Number(document.querySelector('#clinical-time').textContent) >= before + seconds - 1e-6;
       }, { before, seconds }, { timeout: 120000 });
       assert.equal((await page.locator('#clinical-session-error').textContent()).trim(), '');
+      await page.locator('dialog[open] [data-close-panel]').click();
     }
     async function hold(id) {
+      await page.locator('.servo-nav [data-panel="holds"]').click();
       const before = Number(await value('clinical-time'));
       await page.locator('#' + id).click();
       await page.waitForFunction(({ before, id }) => {
@@ -57,6 +62,7 @@ const { chromium } = require('playwright');
             Number(document.querySelector('#clinical-time').textContent) > before);
       }, { before, id }, { timeout: 120000 });
       assert.equal((await page.locator('#clinical-session-error').textContent()).trim(), '');
+      await page.locator('dialog[open] [data-close-panel]').click();
     }
 
     await settings(0.30, 3, 4);

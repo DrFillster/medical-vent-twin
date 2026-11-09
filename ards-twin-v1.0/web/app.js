@@ -268,7 +268,7 @@
       const extremisButton = $('clinical-extremis-validation');
       if (extremisButton) extremisButton.disabled = false;
       $('clinical-initialize').disabled = false;
-      $('clinical-session-status').textContent = 'Reference inputs loaded. Start the v2.4 patient.';
+      $('clinical-session-status').textContent = 'Reference inputs loaded. Start patient.';
       select.addEventListener('change', () => {
         renderClinicalCase(select.value);
         if ($('clinical-systemic-provider')?.value === 'live-reduced-hummod' &&
@@ -645,7 +645,7 @@
     const t0 = rows[0].t;
     const data = rows.map(row => ({
       t: row.t - t0,
-      y: row[field],
+      y: row[field] * (field === 'flowLps' ? 60 : field === 'volumeL' ? 1000 : 1),
     })).filter(row => Number.isFinite(row.t) && Number.isFinite(row.y));
 
     if (data.length < 2) return;
@@ -925,6 +925,7 @@
     }
     $('clinical-reset').disabled = false;
     renderClinicalPendingSettings();
+    document.dispatchEvent(new CustomEvent('vent:snapshot', { detail: snapshot }));
     if (clinicalContinuousRun && clinicalWorker) {
       scheduleClinicalContinuousStep();
     }
@@ -1019,7 +1020,7 @@
     clinicalPhysiologyTrend = [];
     renderClinicalInterventions();
     renderClinicalPhysiologyTrends();
-    clinicalWorker = new Worker('./clinical-worker.js?v=1.5.1-candidate-runtime');
+    clinicalWorker = new Worker('./clinical-worker.js?v=3.0.0-ui');
     clinicalWorker.onerror = () => showClinicalError(
       'Could not load the clinical simulation worker. Confirm the generated engine bundle is current.');
     clinicalWorker.onmessage = ({ data }) => {
