@@ -162,9 +162,6 @@ test('oxygen extraction becomes supply-limited before venous oxygen reaches zero
     'aerobic oxygen use should become delivery limited');
 });
 
-console.log('\nTests: passed=' + passed + ' failed=' + failed);
-process.exit(failed === 0 ? 0 : 1);
-
 test('inspired CO2 permits signed net pulmonary CO2 exchange', () => {
   const b = boundary({ rr: 12.5, vt: 550 });
   b.environment.inspiredCo2Fraction = 0.07;
@@ -179,3 +176,6 @@ test('inspired CO2 permits signed net pulmonary CO2 exchange', () => {
     '7% inspired CO2 should raise arterial PCO2 in the reduced gas plant');
   assert(Number.isFinite(snap.exchange.carbonDioxide.expiredCo2MlPerMin));
 });
+
+console.log('\nTests: passed=' + passed + ' failed=' + failed);
+process.exit(failed === 0 ? 0 : 1);
