@@ -790,6 +790,8 @@ function createBerlinLiveHumModSession({
           last.chronotropicExposureSec ?? 0,
         brainTissuePo2MmHg:
           last.brainHypoxia?.flow?.po2MmHg ?? null,
+        brainBloodFlowMlPerMin:
+          last.brainHypoxia?.flow?.bloodFlowMlPerMin ?? null,
         brainPo2DelayMmHg:
           last.brainHypoxia?.po2DelayMmHg ?? null,
         brainHypoxiaEffect:
