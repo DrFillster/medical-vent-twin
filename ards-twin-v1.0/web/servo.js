@@ -55,6 +55,7 @@
     setText('servo-applied-state', snapshot ? state : 'Start patient to apply reference settings');
   }).observe($('clinical-settings-state'), {childList:true,subtree:true});
   document.addEventListener('vent:snapshot', event => {
+    const initializing = !snapshot;
     snapshot = event.detail;
     $('clinical-quick-start').textContent = 'Restart reference patient';
     const v = snapshot.ventilator || {}, m = snapshot.pulmonary?.measurements || {};
@@ -75,7 +76,7 @@
     setText('servo-status', arrested ? 'CARDIAC ARREST · ' + (snapshot.systemic.decompensation.arrestRhythm || 'ARREST') : snapshot.ventilatorChangePending ? 'Settings pending · applying at the next completed breath boundary' : 'Patient active · controlled ventilation · no spontaneous effort');
     document.querySelector('.servo-statusbar').classList.toggle('servo-arrest-alert', arrested);
     // Close setup only after successful initialization. Errors leave the form available.
-    if ($('servo-settings-panel').open && $('clinical-initialize').disabled && snapshot.timeSec === 0) $('servo-settings-panel').close();
+    if (initializing && $('servo-settings-panel').open && $('clinical-initialize').disabled) $('servo-settings-panel').close();
     renderRunState();
   });
   const error = document.createElement('p');
