@@ -116,10 +116,16 @@ function createHennigsPatientEffortCandidate({
     });
   }
 
+  function setRelativeDrive(next) {
+    oscillator.setRelativeDrive(next);
+    return snapshot();
+  }
+
   return Object.freeze({
     provider,
     step,
     snapshot,
+    setRelativeDrive,
     oscillator,
     source: SOURCE,
   });
