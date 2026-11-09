@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "authority": "digitized-literature-markers-not-raw-data",
+  "source": {
+    "paper": "Hennigs et al., Computer Methods and Programs in Biomedicine 280 (2026) 109329",
+    "figure": "Figure 6",
+    "page": 10,
+    "references": {"hypercapnia": 34, "hypoxia": 35},
+    "note": "Graphical estimates from red literature markers in Figure 6; not raw Reynolds subject data.",
+    "digitizationUncertainty": {"timeMin": 0.25, "respiratoryRatePerMin": 0.5, "tidalVolumeL": 0.03}
+  },
+  "publishedTable7MapePercent": {
+    "hypercapnia": {"respiratoryRate": 9.72, "tidalVolume": 11.18},
+    "hypoxia": {"respiratoryRate": 3.86, "tidalVolume": 10.23}
+  },
+  "hypercapnia": {
+    "inspiredCo2Fraction": 0.07,
+    "exposureDurationMin": 25,
+    "series": [
+      [0,12.5,0.55],[1,12.5,0.50],[2,14.0,0.65],[3,15.5,0.75],[4,17.0,0.95],
+      [5,18.0,1.25],[7,19.5,1.55],[9,20.0,1.70],[11,21.5,1.70],[13,22.5,1.70],
+      [15,23.5,1.65],[17,24.5,1.75],[19,24.5,1.70],[21,25.0,1.75],[23,25.0,1.70],
+      [25,25.0,1.75],[27,25.5,1.75],[29,16.0,0.95],[31,14.0,0.65],[33,13.5,0.55],[35,12.5,0.55]
+    ]
+  },
+  "hypoxia": {
+    "inspiredO2Fraction": 0.08,
+    "exposureDurationMin": 10,
+    "series": [
+      [0,12.5,0.55],[2,14.5,0.75],[4,15.5,0.90],[6,15.5,0.95],[8,15.0,1.00],
+      [10,15.0,1.00],[12,14.5,1.00],[13,13.5,0.55],[15,13.0,0.55]
+    ]
+  },
+  "seriesColumns": ["timeMin","respiratoryRatePerMin","tidalVolumeL"]
+}
