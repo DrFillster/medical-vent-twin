@@ -40,14 +40,14 @@
 <nav aria-label="Workstation controls" class="servo-nav"><button data-panel="settings" type="button">Change mode / settings</button><button data-panel="holds" type="button">Holds</button><button data-panel="trends" type="button">Trends</button><button data-panel="clock" type="button">Patient clock</button><button data-panel="research" type="button">Research</button></nav>
 </section>
 <aside aria-label="ICU bedside monitor" class="icu-monitor" id="icu-monitor">
-<header><span>ICU BEDSIDE MONITOR</span><small>SIMULATED</small></header>
-<div class="icu-monitor-grid">
-<article class="icu-vital hr"><h2>HR</h2><p><strong id="icu-hr">—</strong><small>/min</small></p></article>
-<article class="icu-vital art"><h2>ART MAP</h2><p><strong id="icu-art">—</strong><small>mmHg</small></p></article>
-<article class="icu-vital rr"><h2>RR</h2><p><strong id="icu-rr">—</strong><small>/min</small></p></article>
-<article class="icu-vital cvp"><h2>CVP</h2><p><strong id="icu-cvp">—</strong><small>mmHg</small></p></article>
-<article class="icu-vital spo2"><h2>SpO₂</h2><p><strong id="icu-spo2">—</strong><small>%</small></p></article>
-<article class="icu-vital etco2"><h2>EtCO₂</h2><p><strong id="icu-etco2">—</strong><small>mmHg</small></p><span>alveolar CO₂ proxy</span></article>
+<header><span>BED 01 · ICU MONITOR</span><small>SIMULATED</small></header>
+<div class="icu-screen">
+<div class="icu-trace-row ecg"><div class="icu-trace-label">ECG II</div><svg id="icu-ecg-wave" viewBox="0 0 600 92" preserveAspectRatio="none" aria-label="ECG display trace"></svg><div class="icu-readout"><span>HR</span><strong id="icu-hr">—</strong><small>/min</small></div></div>
+<div class="icu-trace-row art"><div class="icu-trace-label">ART</div><svg id="icu-art-wave" viewBox="0 0 600 92" preserveAspectRatio="none" aria-label="Arterial pressure display trace"></svg><div class="icu-readout"><span>MAP</span><strong id="icu-art">—</strong><small>mmHg</small></div></div>
+<div class="icu-trace-row pleth"><div class="icu-trace-label">PLETH</div><svg id="icu-pleth-wave" viewBox="0 0 600 92" preserveAspectRatio="none" aria-label="Pulse oximetry plethysmograph display trace"></svg><div class="icu-readout"><span>SpO₂</span><strong id="icu-spo2">—</strong><small>%</small></div></div>
+<div class="icu-trace-row co2"><div class="icu-trace-label">CO₂</div><svg id="icu-co2-wave" viewBox="0 0 600 92" preserveAspectRatio="none" aria-label="Capnography display trace"></svg><div class="icu-readout"><span>EtCO₂</span><strong id="icu-etco2">—</strong><small>mmHg</small></div></div>
+<div class="icu-bottom-readouts"><div><span>RR</span><strong id="icu-rr">—</strong><small>/min</small></div><div><span>CVP</span><strong id="icu-cvp">—</strong><small>mmHg</small></div></div>
+<footer>Waveforms are display-only derivatives of simulated values · EtCO₂ uses alveolar CO₂ proxy</footer>
 </div>
 </aside>
 
