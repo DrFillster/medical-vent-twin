@@ -466,3 +466,24 @@ A long-run numerical check of the current source-transcribed oscillator (300 s s
 This is not a transient artifact. A diagnostic-only experiment multiplying the whole oscillator ODE by `KRR` moved the corresponding rates to approximately 9.97, 13.33, and 14.93/min, but still did not reproduce Eq. 9 and is not source-authorized. It was not retained in code.
 
 Interpretation: the remaining defect is in the inherited oscillator time/coupling convention or another implementation detail not yet recovered from the cited source lineage. Do not fit `GPCO2,pH` or activate spontaneous ventilation to compensate for this mismatch. The public activation gate remains closed.
+
+## 2026-11-09 resolution: Botros oscillator has no native physical time scale
+
+The apparent mismatch between the numerical five-neuron cycle rate and Hennigs Eq. 9 is not, by itself, evidence of a seconds-integration defect.
+
+Source resolution:
+
+1. Botros & Bruce (1990) explicitly state that the basic model time scale is omitted because they investigate relative timing and that basic cycle time can be changed by uniformly scaling parameters.
+2. Longobardo, Evangelisti & Cherniack (2005) explicitly describe the Botros/Bruce respiratory pattern generator as non-dimensional and state that it requires a separate quantification procedure before inclusion in a physical neurochemical ventilation model.
+3. Hennigs et al. (2026) add an explicit physical respiratory-rate relation, Eq. 9, and a rate neural gain, Eq. 10, for scaling the oscillator coupling parameters.
+
+Therefore the current raw integration variable must not be interpreted as physical seconds without an explicit quantification/clock mapping. The prior empirical 5-6 cycles/min calculation used a 1:1 raw-time-to-seconds assumption that is not source-supported.
+
+### Consequence for implementation
+
+Two defensible paths remain:
+
+- **Hennigs-commanded physical clock:** treat Eq. 9 RR as authoritative physical respiratory frequency; use the five-neuron oscillator for phase/pattern/amplitude shape and map its non-dimensional cycle to the Eq. 9 physical period. This requires an explicit time-normalization adapter and must be labeled as the Hennigs/Longobardo quantification bridge, not native Botros seconds.
+- **Longobardo exact quantification reproduction:** recover the full 2005 quantification procedure and reproduce it exactly before assigning physical time. This is scientifically cleaner but currently blocked by unavailable full method details in accessible sources.
+
+Do not fit GPCO2,pH against Figure 6 until one of these physical-time mappings is selected and locked. Public spontaneous-mode activation remains blocked pending that decision.
