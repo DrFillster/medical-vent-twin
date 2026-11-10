@@ -1443,7 +1443,9 @@
     ['clinical-mode','clinical-fio2','clinical-peep','clinical-rr','clinical-vt','clinical-flow','clinical-vc-pause','clinical-pinsp','clinical-ti','clinical-pc-pause','clinical-ps']
       .forEach(id => $(id)?.addEventListener('input', renderClinicalPendingSettings));
 
-    $('clinical-apply-patient-state').addEventListener('click', () => {
+    $('clinical-apply-patient-state').addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');
         const profileId = $('clinical-patient-state').value;
