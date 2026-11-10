@@ -1443,6 +1443,18 @@
     ['clinical-mode','clinical-fio2','clinical-peep','clinical-rr','clinical-vt','clinical-flow','clinical-vc-pause','clinical-pinsp','clinical-ti','clinical-pc-pause','clinical-ps']
       .forEach(id => $(id)?.addEventListener('input', renderClinicalPendingSettings));
 
+    $('clinical-apply-patient-state').addEventListener('click', () => {
+      try {
+        if (!clinicalWorker) throw new Error('Initialize a clinical session first');
+        const profileId = $('clinical-patient-state').value;
+        clinicalWorker.postMessage({ type: 'setPatientStateProfile', profileId });
+        recordClinicalIntervention('Patient effort state → ' + $('clinical-patient-state').selectedOptions[0].textContent, { type: 'patient-state', profileId });
+        $('clinical-session-status').textContent = clinicalContinuousRun
+          ? 'Patient effort state applied · patient continues running in real time…'
+          : 'Patient effort state applied · patient time and physiology preserved.';
+      } catch (error) { showClinicalError(error.message); }
+    });
+
     $('clinical-apply-vent').addEventListener('click', () => {
       try {
         if (!clinicalWorker) throw new Error('Initialize a clinical session first');

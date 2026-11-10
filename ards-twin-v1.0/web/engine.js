@@ -10506,7 +10506,7 @@ function createBerlinLiveHumModSession({
       LIVE_HUMMOD_REFERENCE_CASE_ID);
   }
   const clinicalCase = getBerlinCase(caseId);
-  const patientState = getPatientStateProfile(patientStateProfile);
+  let patientState = getPatientStateProfile(patientStateProfile);
   if (nativeCalibrationTarget &&
       nativeCalibrationTarget.schema !== 'vent-native-reduced-hummod-calibration-target/v1') {
     throw new Error('nativeCalibrationTarget has unsupported schema');
@@ -11392,6 +11392,22 @@ function createBerlinLiveHumModSession({
         valueCmH2O: value,
         pulmonaryResponse: 'modeled-by-Vent',
         systemicResponse: 'modeled-by-live-reduced-HumMod-core-on-next-advance',
+      }));
+      return snapshot();
+    },
+
+    setPatientStateProfile(nextProfileId) {
+      if (!initialized) throw new Error('session must be initialized before interventions');
+      const nextState = getPatientStateProfile(nextProfileId);
+      const previousState = patientState;
+      patientState = nextState;
+      effort.setRelativeDrive(nextState.driveRelative);
+      sessionEvents.push(Object.freeze({
+        t: patientTimeSec(), kind: 'SET_PATIENT_STATE',
+        fromProfile: previousState.id, toProfile: nextState.id,
+        neuralDriveRelative: nextState.driveRelative,
+        muscleTransmission: nextState.muscleTransmission,
+        systemicResponse: 'patient-effort-state-updated-without-session-reset',
       }));
       return snapshot();
     },

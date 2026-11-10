@@ -40,6 +40,12 @@ self.onmessage = ({ data }) => {
       return;
     }
 
+    if (type === 'setPatientStateProfile') {
+      const snapshot = requireSession().setPatientStateProfile(data.profileId);
+      self.postMessage({ type: 'snapshot', action: 'setPatientStateProfile', snapshot });
+      return;
+    }
+
     if (type === 'requestVentilationChange') {
       const snapshot = requireSession().requestVentilationChange(data.ventilation);
       self.postMessage({ type: 'snapshot', action: 'requestVentilationChange', snapshot });
