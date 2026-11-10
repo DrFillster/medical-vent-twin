@@ -108,9 +108,15 @@ function createLiveCoreBoundaryFromVent({
     tidalVolumeSource = 'VC setting';
     positive(vtL, 'VC tidal volume');
   } else {
-    const completed = summarizeSimulationMeasurements(simulation).lastCompletedBreath;
-    vtL = completed && completed.VtInspired;
-    tidalVolumeSource = snap.ventilator.mode + ' last completed delivered breath';
+    const summary = summarizeSimulationMeasurements(simulation);
+    const delivered = summary.lastValidDeliveredBreath;
+    vtL = delivered && delivered.VtInspired;
+    tidalVolumeSource = snap.ventilator.mode + ' last valid delivered breath';
+    if (!(Number.isFinite(vtL) && vtL > 0) &&
+        (snap.ventilator.mode === 'PS' || snap.ventilator.mode === 'SIMV')) {
+      vtL = 0.5;
+      tidalVolumeSource = 'Hennigs-supported assisted-mode startup bridge';
+    }
     positive(vtL, snap.ventilator.mode + ' delivered tidal volume');
   }
 

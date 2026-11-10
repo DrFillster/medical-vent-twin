@@ -122,6 +122,9 @@ function summarizeSimulationMeasurements(simulation) {
   const metrics = typeof simulation.metrics === 'function' ? simulation.metrics() : [];
   const breaths = Array.isArray(metrics) ? metrics : [];
   const latestBreath = breaths.length ? breaths[breaths.length - 1] : null;
+  const completedBreaths = breaths.length > 1 ? breaths.slice(0, -1) : [];
+  const lastValidDeliveredBreath = [...completedBreaths].reverse().find(b =>
+    Number.isFinite(b && b.VtInspired) && b.VtInspired > 0) || null;
   const aop = simulation.params
     ? finiteOrNull(simulation.params.airwayOpeningPressure)
     : null;
@@ -144,6 +147,7 @@ function summarizeSimulationMeasurements(simulation) {
     // metrics() includes the currently open breath as its final record.
     // Device readouts must use the preceding, fully delivered breath.
     lastCompletedBreath: breaths.length > 1 ? Object.freeze({ ...breaths[breaths.length - 2] }) : null,
+    lastValidDeliveredBreath: lastValidDeliveredBreath ? Object.freeze({ ...lastValidDeliveredBreath }) : null,
     inspiratoryHold: inspiratory,
     expiratoryHold: expiratory,
   });
