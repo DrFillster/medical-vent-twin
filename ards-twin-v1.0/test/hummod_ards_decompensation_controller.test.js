@@ -131,5 +131,18 @@ test('MAP below 30 for ten minutes triggers experimental cardiovascular collapse
   assert(s.cardiacArrest===true,'MAP <30 for 10 min should trigger arrest');
 });
 
+
+test('post-insult recovery repays oxygen debt and restores myocardial reserve gradually',()=>{
+  const c=createHumModArdsDecompensationController();
+  let s;
+  for(let i=0;i<10*60;i++) s=c.step({dtSec:1,meanArterialPressureMmHg:65,mixedVenousO2SaturationFraction:0.35,requestedTissueO2UseMlPerMin:250,oxygenSupplyDeficitMlPerMin:200,arterialPh:7.20,arterialPco2MmHg:70});
+  const debtAtRescue=s.oxygenDebtMl, contractilityAtRescue=s.myocardialContractilityMultiplier;
+  for(let i=0;i<20*60;i++) s=c.step({dtSec:1,meanArterialPressureMmHg:75,mixedVenousO2SaturationFraction:0.65,requestedTissueO2UseMlPerMin:250,oxygenSupplyDeficitMlPerMin:0,arterialPh:7.40,arterialPco2MmHg:40});
+  assert(s.oxygenDebtMl < debtAtRescue*0.38 && s.oxygenDebtMl > debtAtRescue*0.35,'20-min recovery should clear about 63% of debt');
+  assert(s.myocardialContractilityMultiplier>contractilityAtRescue,'contractility should recover as debt clears');
+  assert(s.myocardialContractilityMultiplier<1,'recovery must be gradual, not instantaneous');
+  assert(s.oxygenDebtRecovering===true,'recovery state should be explicit');
+});
+
 console.log('\nTests: passed='+passed+' failed='+failed);
 process.exit(failed===0?0:1);

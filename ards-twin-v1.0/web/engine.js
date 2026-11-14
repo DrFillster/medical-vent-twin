@@ -4589,6 +4589,9 @@ function summarizeSimulationMeasurements(simulation) {
   const metrics = typeof simulation.metrics === 'function' ? simulation.metrics() : [];
   const breaths = Array.isArray(metrics) ? metrics : [];
   const latestBreath = breaths.length ? breaths[breaths.length - 1] : null;
+  const completedBreaths = breaths.length > 1 ? breaths.slice(0, -1) : [];
+  const lastValidDeliveredBreath = [...completedBreaths].reverse().find(b =>
+    Number.isFinite(b && b.VtInspired) && b.VtInspired > 0) || null;
   const aop = simulation.params
     ? finiteOrNull(simulation.params.airwayOpeningPressure)
     : null;
@@ -4611,6 +4614,7 @@ function summarizeSimulationMeasurements(simulation) {
     // metrics() includes the currently open breath as its final record.
     // Device readouts must use the preceding, fully delivered breath.
     lastCompletedBreath: breaths.length > 1 ? Object.freeze({ ...breaths[breaths.length - 2] }) : null,
+    lastValidDeliveredBreath: lastValidDeliveredBreath ? Object.freeze({ ...lastValidDeliveredBreath }) : null,
     inspiratoryHold: inspiratory,
     expiratoryHold: expiratory,
   });
@@ -14119,9 +14123,15 @@ function createLiveCoreBoundaryFromVent({
     tidalVolumeSource = 'VC setting';
     positive(vtL, 'VC tidal volume');
   } else {
-    const completed = summarizeSimulationMeasurements(simulation).lastCompletedBreath;
-    vtL = completed && completed.VtInspired;
-    tidalVolumeSource = snap.ventilator.mode + ' last completed delivered breath';
+    const summary = summarizeSimulationMeasurements(simulation);
+    const delivered = summary.lastValidDeliveredBreath;
+    vtL = delivered && delivered.VtInspired;
+    tidalVolumeSource = snap.ventilator.mode + ' last valid delivered breath';
+    if (!(Number.isFinite(vtL) && vtL > 0) &&
+        (snap.ventilator.mode === 'PS' || snap.ventilator.mode === 'SIMV')) {
+      vtL = 0.5;
+      tidalVolumeSource = 'Hennigs-supported assisted-mode startup bridge';
+    }
     positive(vtL, snap.ventilator.mode + ' delivered tidal volume');
   }
 
@@ -17209,6 +17219,8 @@ const CARDIOVASCULAR_COLLAPSE_MAP_MMHG = 30;
 const CARDIOVASCULAR_COLLAPSE_MAP_SEC = 10 * 60;
 const PROFOUND_COLLAPSE_MAP_MMHG = 20;
 const PROFOUND_COLLAPSE_MAP_SEC = 10;
+const OXYGEN_DEBT_RECOVERY_TAU_SEC = 20 * 60;
+const ASPHYXIAL_BURDEN_RECOVERY_TAU_SEC = 20 * 60;
 
 const OXYGEN_DEBT_PROVENANCE = Object.freeze({
   debtDefinition:
@@ -17220,6 +17232,8 @@ const OXYGEN_DEBT_PROVENANCE = Object.freeze({
     '35-minute equivalent-debt normalization is an explicit engineering bridge anchored to a porcine hemorrhage collapse-time study; it is not a universal human survival threshold',
   lowSvo2Marker:
     '45% is an engineering warning marker within a published critical-delivery range; it is not a universal shock threshold',
+  recoveryBridge:
+    'When current oxygen deficit and respiratory-acidosis burden are absent, accumulated oxygen debt and asphyxial burden recover exponentially with a 20-minute engineering time constant. This is not a HumMod constant; it is an explicit reversible-recovery bridge supported qualitatively by oxygen-debt repayment literature.',
 });
 
 // DeBehnke et al. standardized canine asphyxia model:
@@ -17339,9 +17353,18 @@ function createHumModArdsDecompensationController() {
       supplyDeficitFraction * respiratoryAcidosisSeverity;
 
     if (!cardiacArrest) {
-      oxygenDebtMl += oxygenSupplyDeficitMlPerMin * (dtSec / 60);
-      asphyxialEquivalentMinutes +=
-        asphyxialBurdenRate * (dtSec / 60);
+      if (oxygenSupplyDeficitMlPerMin > 0) {
+        oxygenDebtMl += oxygenSupplyDeficitMlPerMin * (dtSec / 60);
+      } else if (oxygenDebtMl > 0) {
+        oxygenDebtMl *= Math.exp(-dtSec / OXYGEN_DEBT_RECOVERY_TAU_SEC);
+        if (oxygenDebtMl < 1e-9) oxygenDebtMl = 0;
+      }
+      if (asphyxialBurdenRate > 0) {
+        asphyxialEquivalentMinutes += asphyxialBurdenRate * (dtSec / 60);
+      } else if (asphyxialEquivalentMinutes > 0) {
+        asphyxialEquivalentMinutes *= Math.exp(-dtSec / ASPHYXIAL_BURDEN_RECOVERY_TAU_SEC);
+        if (asphyxialEquivalentMinutes < 1e-9) asphyxialEquivalentMinutes = 0;
+      }
 
       lowMapBelow30Sec = meanArterialPressureMmHg <
         CARDIOVASCULAR_COLLAPSE_MAP_MMHG
@@ -17414,6 +17437,7 @@ function createHumModArdsDecompensationController() {
       cardiacArrestReason,
       arrestRhythm,
       oxygenDebtMl,
+      oxygenDebtRecovering: oxygenSupplyDeficitMlPerMin === 0 && oxygenDebtMl > 0,
       equivalentDebtMinutes,
       metabolicFailureFraction,
       debtMyocardialContractilityMultiplier,
@@ -17421,6 +17445,7 @@ function createHumModArdsDecompensationController() {
       chronotropicReserveMultiplier,
       asphyxialReserveMultiplier,
       asphyxialEquivalentMinutes,
+      asphyxialBurdenRecovering: asphyxialBurdenRate === 0 && asphyxialEquivalentMinutes > 0,
       asphyxialBurdenRate,
       respiratoryAcidosisSeverity,
       supplyDeficitFraction,
@@ -17470,6 +17495,7 @@ function createHumModArdsDecompensationController() {
       cardiacArrestReason,
       arrestRhythm,
       oxygenDebtMl,
+      oxygenDebtRecovering: false,
       equivalentDebtMinutes: 0,
       metabolicFailureFraction: 0,
       debtMyocardialContractilityMultiplier: 1,
@@ -17477,6 +17503,7 @@ function createHumModArdsDecompensationController() {
       chronotropicReserveMultiplier: 1,
       asphyxialReserveMultiplier: 1,
       asphyxialEquivalentMinutes,
+      asphyxialBurdenRecovering: false,
       asphyxialBurdenRate: 0,
       respiratoryAcidosisSeverity: 0,
       supplyDeficitFraction: 0,
@@ -17506,6 +17533,8 @@ module.exports = {
   CARDIOVASCULAR_COLLAPSE_MAP_SEC,
   PROFOUND_COLLAPSE_MAP_MMHG,
   PROFOUND_COLLAPSE_MAP_SEC,
+  OXYGEN_DEBT_RECOVERY_TAU_SEC,
+  ASPHYXIAL_BURDEN_RECOVERY_TAU_SEC,
   ASPHYXIAL_COLLAPSE_ANCHOR,
   OXYGEN_DEBT_PROVENANCE,
   createHumModArdsDecompensationController,
