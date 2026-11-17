@@ -1,0 +1,38 @@
+domain,role,itemid,label,unit,notes
+chart,exposure,223835,Inspired O2 Fraction,None,FiO2
+chart,exposure,220339,PEEP set,cmH2O,Set PEEP
+chart,exposure,224684,Tidal Volume (set),mL,Set tidal volume
+chart,exposure,224688,Respiratory Rate (Set),insp/min,Set respiratory rate
+chart,exposure,224701,PSV Level,cmH2O,Pressure support level
+chart,exposure,224702,PCV Level,cmH2O,Pressure control level
+chart,exposure,227187,Pinsp (Draeger only),cmH2O,Inspiratory pressure
+chart,exposure,229663,Pinsp (Hamilton),cmH2O,Inspiratory pressure
+chart,context,223849,Ventilator Mode,,Primary ventilator mode
+chart,context,229314,Ventilator Mode (Hamilton),,Hamilton ventilator mode
+chart,context,224705,P High (APRV),cmH2O,APRV high pressure
+chart,context,224706,P Low (APRV),cmH2O,APRV low pressure
+chart,context,224707,T High (APRV),sec,APRV high time
+chart,context,224709,T Low (APRV),sec,APRV low time
+chart,outcome,220045,Heart Rate,bpm,
+chart,outcome,220052,Arterial Blood Pressure mean,mmHg,Invasive MAP
+chart,outcome,220277,O2 saturation pulseoxymetry,%,SpO2
+chart,outcome,224687,Minute Volume,L/min,
+chart,outcome,224685,Tidal Volume (observed),mL,
+chart,outcome,224690,Respiratory Rate (Total),insp/min,
+chart,outcome,224689,Respiratory Rate (spontaneous),insp/min,
+chart,outcome,224695,Peak Insp. Pressure,cmH2O,
+chart,outcome,224696,Plateau Pressure,cmH2O,
+chart,outcome,224697,Mean Airway Pressure,cmH2O,
+chart,outcome,224700,Total PEEP Level,cmH2O,
+chart,outcome,220283,Resistance,cmH2O/L/seconds,
+chart,outcome,229661,Compliance,cmH2O/L/seconds,MIMIC source unit retained
+chart,outcome,229664,Resistance Exp,cmH2O/L/seconds,
+chart,outcome,229665,Resistance Insp,cmH2O/L/seconds,
+chart,outcome,228640,EtCO2,None,
+lab,outcome,50820,pH,,Blood gas
+lab,outcome,50818,pCO2,mmHg,Blood gas
+lab,outcome,50821,pO2,mmHg,Blood gas
+lab,outcome,50803,"Calculated Bicarbonate, Whole Blood",mEq/L,Blood gas
+lab,outcome,50802,Base Excess,mEq/L,Blood gas
+lab,outcome,50813,Lactate,mmol/L,Blood gas
+lab,context,52033,Specimen Type,,Required to distinguish arterial from venous/other blood gas
