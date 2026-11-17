@@ -1,0 +1,5 @@
+*.duckdb
+*.parquet
+*.csv
+data/
+derived/
