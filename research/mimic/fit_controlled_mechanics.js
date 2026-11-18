@@ -5,6 +5,8 @@ const { Simulation, VcAcController, PcAcController } =
   require('../../ards-twin-v1.0/src/simulation.js');
 const { getBerlinCase } =
   require('../../ards-twin-v1.0/src/berlin_case_catalog.js');
+const { summarizeSimulationMeasurements } =
+  require('../../ards-twin-v1.0/src/bedside_measurements.js');
 
 const DATA = '/Users/philipbernard/mimic-data/derived/controlled_fit_inputs.jsonl';
 const OUT = '/Users/philipbernard/mimic-data/derived/controlled_mechanics_fit.jsonl';
@@ -30,7 +32,10 @@ function controllerFor(event){
   if(event.hummod_mode==='VC_AC'){
     return new VcAcController({
       fio2, peep:v.peep, rr:v.rr_set, vt:v.vt_set_ml/1000,
-      inspiratoryFlow:v.flow_lps, inspiratoryPause:0,
+      inspiratoryFlow:v.flow_lps,
+      // Measurement-only pause: permits the validated inspiratory-hold path
+      // without changing the patient's documented flow/VT settings.
+      inspiratoryPause:0.01,
     });
   }
   if(event.hummod_mode==='PC_AC'){
@@ -50,71 +55,88 @@ function simulate(event,candidate){
     dt:0.002,
     trackGas:false,
     initialRecruitmentState:{
-      normal:1,recruitable:candidate.recruitableFraction,consolidated:0,
+      normal:1,recruitable:0.35,consolidated:0,
     },
   });
   const period=60/event.vent.rr_set;
   sim.runFor(period*5);
-  const breaths=sim.metrics().filter(m=>finite(m.VtInspired)&&m.VtInspired>0);
-  const last=breaths[breaths.length-1];
-  if(!last) throw new Error('no completed breath');
-  const cutoff=Math.max(0,sim.state.t-period*1.2);
-  const rows=sim.trace.filter(r=>r.t>=cutoff);
-  const peak=Math.max(...rows.map(r=>r.output.airwayPressure).filter(finite));
-  const vtMl=last.VtInspired*1000;
-  const deltaP=peak-event.vent.peep;
-  const compliance=deltaP>0?vtMl/deltaP:null;
+
+  if(event.hummod_mode==='VC_AC'){
+    sim.requestInspiratoryHold(0.4);
+    // Allow up to two complete cycles plus the hold itself. The hold request
+    // can arrive at any controller phase and activates only at end inspiration.
+    sim.runFor(period*2+1.0);
+  }
+
+  const summary=summarizeSimulationMeasurements(sim);
+  const last=summary.lastValidDeliveredBreath;
+  if(!last) throw new Error('no completed delivered breath');
+
+  const peak=finite(last.Ppeak) ? last.Ppeak : summary.peakPressureCmH2O;
+  if(!finite(peak)) throw new Error('no finite peak airway pressure');
+  const plateau=finite(summary.plateauPressureCmH2O)
+    ? summary.plateauPressureCmH2O
+    : null;
   return {
-    vtMl,
+    vtMl:last.VtInspired*1000,
     peakPressureCmH2O:peak,
-    dynamicComplianceMlPerCmH2O:compliance
+    plateauPressureCmH2O:plateau,
   };
 }
 
 function score(event,m){
   const t=event.targets;
   let value=0, terms=0;
-  if(event.hummod_mode==='PC_AC' && finite(t.vt_observed_ml)){
-    value += sq((m.vtMl-t.vt_observed_ml)/Math.max(50,0.15*t.vt_observed_ml));
+
+  if(event.hummod_mode==='PC_AC'){
+    if(!finite(t.vt_observed_ml)) return Infinity;
+    value += sq((m.vtMl-t.vt_observed_ml)/
+      Math.max(50,0.15*t.vt_observed_ml));
     terms++;
   }
-  if(event.hummod_mode==='VC_AC' && finite(t.peak_pressure)){
-    value += sq((m.peakPressureCmH2O-t.peak_pressure)/Math.max(3,0.10*t.peak_pressure));
-    terms++;
+
+  if(event.hummod_mode==='VC_AC'){
+    if(finite(t.plateau_pressure) && finite(m.plateauPressureCmH2O)){
+      value += sq((m.plateauPressureCmH2O-t.plateau_pressure)/
+        Math.max(2,0.08*t.plateau_pressure));
+      terms++;
+    }
+    if(finite(t.peak_pressure)){
+      value += sq((m.peakPressureCmH2O-t.peak_pressure)/
+        Math.max(3,0.10*t.peak_pressure));
+      terms++;
+    }
   }
-  if(finite(t.compliance_derived) && finite(m.dynamicComplianceMlPerCmH2O)){
-    value += sq((m.dynamicComplianceMlPerCmH2O-t.compliance_derived)/
-      Math.max(10,0.20*t.compliance_derived));
-    terms++;
-  }
+
   return terms===0 ? Infinity : value/terms;
 }
 
 const STIFFNESS_GRID=Object.freeze([0.4,0.6,0.8,1.0,1.25,1.6,2.0,2.5]);
 const RESISTANCE_GRID=Object.freeze([0.25,0.5,0.75,1.0,1.5,2.0,3.0,4.0]);
-const RECRUITMENT_GRID=Object.freeze([0.05,0.2,0.35,0.5,0.7,0.9]);
 
-function fitEvent(event,{forceRecruitmentGrid=null}={}){
-  const recruitable=forceRecruitmentGrid ||
-    (event.fit_status && event.fit_status.recruitability==='fit_from_preindex_peep_history'
-      ? RECRUITMENT_GRID : [0.35]);
+function fitEvent(event){
+  const canFitResistance =
+    event.hummod_mode==='VC_AC' &&
+    finite(event.targets.peak_pressure) &&
+    finite(event.targets.plateau_pressure) &&
+    finite(event.vent.flow_lps);
+  const resistanceGrid=canFitResistance ? RESISTANCE_GRID : [1.0];
+
   let best=null,tested=0,failed=0;
   for(const s of STIFFNESS_GRID){
-    for(const r of RESISTANCE_GRID){
-      for(const rec of recruitable){
-        try{
-          const candidate={stiffnessScale:s,resistanceScale:r,recruitableFraction:rec};
-          const model=simulate(event,candidate);
-          const objective=score(event,model);
-          tested++;
-          if(Number.isFinite(objective)&&(!best||objective<best.objective)){
-            best={...candidate,objective,model};
-          }
-        }catch(e){ failed++; }
-      }
+    for(const r of resistanceGrid){
+      try{
+        const candidate={stiffnessScale:s,resistanceScale:r,recruitableFraction:0.35};
+        const model=simulate(event,candidate);
+        const objective=score(event,model);
+        tested++;
+        if(Number.isFinite(objective)&&(!best||objective<best.objective)){
+          best={...candidate,objective,model};
+        }
+      }catch(e){ failed++; }
     }
   }
-  return {tested,failed,best};
+  return {tested,failed,best,canFitResistance};
 }
 
 function runFile(limit){
@@ -129,9 +151,9 @@ function runFile(limit){
       targets:{
         vt_observed_ml:event.targets.vt_observed_ml,
         peak_pressure:event.targets.peak_pressure,
-        compliance_derived:event.targets.compliance_derived,
+        plateau_pressure:event.targets.plateau_pressure,
       },
-      fit_scope:'pre-transition-mechanics-only',
+      fit_scope:'pre-transition-mechanics-only-v3',
     });
     console.log(JSON.stringify({
       event_id:event.event_id,mode:event.hummod_mode,
@@ -139,7 +161,7 @@ function runFile(limit){
       objective:fit.best&&fit.best.objective,
       stiffnessScale:fit.best&&fit.best.stiffnessScale,
       resistanceScale:fit.best&&fit.best.resistanceScale,
-      recruitableFraction:fit.best&&fit.best.recruitableFraction
+      canFitResistance:fit.canFitResistance
     }));
   }
   fs.writeFileSync(OUT,out.map(x=>JSON.stringify(x)).join('\n')+'\n');
@@ -153,5 +175,5 @@ if(require.main===module){
 
 module.exports={
   mechanicsParams,controllerFor,simulate,score,fitEvent,runFile,
-  STIFFNESS_GRID,RESISTANCE_GRID,RECRUITMENT_GRID
+  STIFFNESS_GRID,RESISTANCE_GRID
 };

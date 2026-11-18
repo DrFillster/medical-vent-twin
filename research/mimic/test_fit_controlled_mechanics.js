@@ -1,9 +1,7 @@
 'use strict';
 
 const assert=require('node:assert/strict');
-const {
-  simulate,fitEvent
-}=require('./fit_controlled_mechanics.js');
+const { simulate,fitEvent }=require('./fit_controlled_mechanics.js');
 
 function makePcEvent(){
   return {
@@ -14,11 +12,12 @@ function makePcEvent(){
       pinsp:14,flow_lps:null,inspiratory_time_sec:0.9,inspiratory_ratio:null
     },
     targets:{
-      vt_observed_ml:null,peak_pressure:null,compliance_derived:null
+      vt_observed_ml:null,peak_pressure:null,plateau_pressure:null
     },
-    fit_status:{recruitability:'fit_from_preindex_peep_history'}
+    fit_status:{}
   };
 }
+
 function makeVcEvent(){
   return {
     event_id:'SYNTH-VC',
@@ -28,24 +27,24 @@ function makeVcEvent(){
       pinsp:null,flow_lps:0.55,inspiratory_time_sec:null,inspiratory_ratio:null
     },
     targets:{
-      vt_observed_ml:null,peak_pressure:null,compliance_derived:null
+      vt_observed_ml:null,peak_pressure:null,plateau_pressure:null
     },
-    fit_status:{recruitability:'prior_constrained'}
+    fit_status:{}
   };
 }
 
 {
   const event=makePcEvent();
-  const truth={stiffnessScale:1.6,resistanceScale:2.0,recruitableFraction:0.7};
+  const truth={stiffnessScale:1.6,resistanceScale:1.0,recruitableFraction:0.35};
   const model=simulate(event,truth);
   event.targets.vt_observed_ml=model.vtMl;
-  event.targets.compliance_derived=model.dynamicComplianceMlPerCmH2O;
   const fit=fitEvent(event);
   assert(fit.best,'PC fit missing');
   assert.equal(fit.best.stiffnessScale,truth.stiffnessScale);
-  assert.equal(fit.best.resistanceScale,truth.resistanceScale);
-  assert.equal(fit.best.recruitableFraction,truth.recruitableFraction);
+  assert.equal(fit.best.resistanceScale,1.0);
+  assert.equal(fit.best.recruitableFraction,0.35);
   assert(fit.best.objective<1e-10);
+  assert.equal(fit.canFitResistance,false);
 }
 
 {
@@ -53,13 +52,14 @@ function makeVcEvent(){
   const truth={stiffnessScale:0.8,resistanceScale:3.0,recruitableFraction:0.35};
   const model=simulate(event,truth);
   event.targets.peak_pressure=model.peakPressureCmH2O;
-  event.targets.compliance_derived=model.dynamicComplianceMlPerCmH2O;
+  event.targets.plateau_pressure=model.plateauPressureCmH2O;
   const fit=fitEvent(event);
   assert(fit.best,'VC fit missing');
   assert.equal(fit.best.stiffnessScale,truth.stiffnessScale);
   assert.equal(fit.best.resistanceScale,truth.resistanceScale);
-  assert.equal(fit.best.recruitableFraction,truth.recruitableFraction);
+  assert.equal(fit.best.recruitableFraction,0.35);
   assert(fit.best.objective<1e-10);
+  assert.equal(fit.canFitResistance,true);
 }
 
-console.log('ok - controlled mechanics fitter recovers synthetic grid parameters');
+console.log('ok - v3 controlled mechanics fitter recovers identifiable synthetic parameters');

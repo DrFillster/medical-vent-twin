@@ -94,6 +94,8 @@ with OUT.open("w") as f:
             "compliance_derived":clean(r.pre_compliance_derived),
             "compliance_documented":clean(r.pre_compliance_documented),
             "resistance":clean(r.pre_resistance),
+            "rr_total":clean(r.pre_rr_total),
+            "rr_spontaneous":clean(r.pre_rr_spontaneous),
           },
           "fit_status":{
             "compliance":clean(r.compliance_status),"resistance":clean(r.resistance_status),
