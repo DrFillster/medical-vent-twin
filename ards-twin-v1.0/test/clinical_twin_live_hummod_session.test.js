@@ -4,6 +4,7 @@ const {
   LIVE_HUMMOD_REFERENCE_CASE_ID,
   createBerlinLiveHumModSession,
 } = require('../src/clinical_twin_live_hummod_session.js');
+const { getBerlinCase } = require('../src/berlin_case_catalog.js');
 
 let passed = 0;
 let failed = 0;
@@ -64,6 +65,33 @@ test('live session initializes with finite HumMod-derived gas and circulation ou
   assert(s.provenance.boundaryStatus.includes('synthetic-engineering'));
 });
 
+
+test('patient-specific mechanics override is explicit and default reference mechanics remain unchanged', () => {
+  const reference = makeSession().initialize();
+  assert(reference.coupling.patientMechanicsSource === 'reference-case');
+  assert(reference.coupling.patientMechanicsOverrideApplied === false);
+
+  const clinicalCase = getBerlinCase(LIVE_HUMMOD_REFERENCE_CASE_ID);
+  const override = JSON.parse(JSON.stringify(clinicalCase.phenotype.mechanicsParams));
+  override.centralAirwayResistance *= 2;
+
+  const patientSpecific = makeSession({ patientMechanicsParams: override }).initialize();
+  assert(patientSpecific.coupling.patientMechanicsSource ===
+    'patient-specific-research-override');
+  assert(patientSpecific.coupling.patientMechanicsOverrideApplied === true);
+
+  const refSession = makeSession();
+  refSession.initialize();
+  const refRun = refSession.runFor(5);
+  const overrideSession = makeSession({ patientMechanicsParams: override });
+  overrideSession.initialize();
+  const overrideRun = overrideSession.runFor(5);
+  assert(Number.isFinite(refRun.pulmonary.measurements.peakPressureCmH2O));
+  assert(Number.isFinite(overrideRun.pulmonary.measurements.peakPressureCmH2O));
+  assert(overrideRun.pulmonary.measurements.peakPressureCmH2O >
+    refRun.pulmonary.measurements.peakPressureCmH2O,
+    'higher patient airway resistance should increase VC peak airway pressure');
+});
 
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({

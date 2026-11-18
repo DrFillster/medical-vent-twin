@@ -208,6 +208,7 @@ function createBerlinLiveHumModSession({
   physicianValidationCandidate = true,
   heartRateControlMode = 'source-aligned',
   patientStateProfile = 'awake_cooperative',
+  patientMechanicsParams = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -341,7 +342,14 @@ function createBerlinLiveHumModSession({
   nonNegative(coupledEquilibrationSec, 'coupledEquilibrationSec');
 
   const controller = buildLiveController(ventilation);
-  const params = makePatientParams(clinicalCase.phenotype.mechanicsParams);
+  const mechanicsParamsSource = patientMechanicsParams == null
+    ? 'reference-case'
+    : 'patient-specific-research-override';
+  const params = makePatientParams(
+    patientMechanicsParams == null
+      ? clinicalCase.phenotype.mechanicsParams
+      : patientMechanicsParams
+  );
   const simulation = new Simulation({
     params,
     controller,
@@ -983,6 +991,8 @@ function createBerlinLiveHumModSession({
         nativeCirculationStateApplied: Boolean(nativeCirculationVolumes),
         nativeEcfvApplied: nativeEcfvMl != null,
         nativeAutonomicTrajectoryApplied: Boolean(nativeAutonomicTrajectory),
+        patientMechanicsSource: mechanicsParamsSource,
+        patientMechanicsOverrideApplied: patientMechanicsParams != null,
         benchmarkEcfvApplied: nativeEcfvMl == null,
         catecholamineEcfvMl,
         catecholamineEcfvSource,

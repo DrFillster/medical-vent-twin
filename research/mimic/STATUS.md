@@ -610,3 +610,36 @@ The latter three are deliberately not inferred from a single operating point. Th
 The current live HumMod session still constructs lung mechanics from the reference aspiration case. Therefore, the phenotype preparation layer does not yet run patient-specific predictions. A research-only patient-mechanics initialization boundary is required before phenotype fitting can be coupled to HumMod.
 
 The production/default reference behavior must remain unchanged when no patient-specific override is supplied.
+
+
+## Patient-specific mechanics runtime boundary
+
+A research-only patient-mechanics override has been added to the live HumMod session constructor.
+
+New optional input:
+
+- `patientMechanicsParams`
+
+Behavior:
+
+- when omitted, the session uses the existing authored reference-case mechanics exactly as before;
+- when supplied, the full mechanics object is validated through the existing `makePatientParams` contract;
+- the snapshot records:
+  - `patientMechanicsSource`
+  - `patientMechanicsOverrideApplied`
+
+Provenance values:
+
+- `reference-case`
+- `patient-specific-research-override`
+
+This does not remove the authored reference-case restriction for other HumMod engineering boundaries. It only creates the controlled mechanics injection point needed for phenotype research.
+
+Regression test:
+
+- default reference mechanics provenance: passed
+- patient-specific override provenance: passed
+- doubling central airway resistance increases VC peak airway pressure: passed
+- full live-session regression suite: 10/10 tests passed
+
+This boundary allows a future phenotype fitter to inject fitted patient mechanics without changing the deployed/default behavior when no override is supplied.
