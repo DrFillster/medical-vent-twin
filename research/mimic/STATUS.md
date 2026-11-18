@@ -1950,3 +1950,43 @@ The next test is direct rather than fitted:
 - measure whether the model maintains baseline PaCO2.
 
 This will test whether the measured gradient can be used directly as the model dead-space boundary without an empirical conversion.
+
+
+## Direct use of measured PaCO2-PETCO2 fraction in PS
+
+The six conservative PS cases with Grade A/B EtCO2 pairing were tested with the simulator dead-space fraction set directly equal to the measured:
+
+`(PaCO2 - PETCO2) / PaCO2`
+
+No dead-space fitting or conversion equation was used.
+
+All other pre-transition phenotype components were fixed:
+- fitted neural drive;
+- fitted muscle transmission;
+- fitted stiffness;
+- documented PS/PEEP/FiO2;
+- measured arterial gas initialization.
+
+Twenty-second baseline-maintenance results:
+
+- measured fraction 0.091 -> PaCO2 error -0.05 mmHg
+- measured fraction 0.125 -> PaCO2 error -0.51 mmHg
+- measured fraction 0.098 -> PaCO2 error -5.45 mmHg
+- measured fraction 0.071 -> PaCO2 error -2.60 mmHg
+- measured fraction 0.030 -> PaCO2 error +2.45 mmHg
+- measured fraction 0.189 -> PaCO2 error +2.36 mmHg
+
+Interpretation:
+
+- direct use of the measured PaCO2-PETCO2 fraction is more defensible than deriving an empirical simulator conversion from this small cohort;
+- five of six cases maintained baseline PaCO2 within approximately 3 mmHg;
+- one event remains a clear model-mismatch outlier;
+- Grade A/B measured PaCO2-PETCO2 fraction will therefore be the preferred dead-space boundary for phenotype initialization when available;
+- when no high-quality EtCO2 pair exists, effective dead-space behavior remains latent/prior-constrained.
+
+Important residual findings:
+
+- PaO2 remained substantially underpredicted in all six cases;
+- measured pH was also not preserved reliably because the current reduced gas core fixes SID rather than initializing patient-specific acid-base state.
+
+Therefore the next major phenotype problem is oxygenation / shunt-VQ state, not further dead-space tuning.
