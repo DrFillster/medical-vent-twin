@@ -1746,3 +1746,50 @@ Interpretation:
 - the measured PaCO2-PETCO2 gradient should therefore remain an independent measured phenotype constraint, not be converted directly into the simulator dead-space parameter with a fixed formula.
 
 The next useful validation set is the eight PS events with Grade A/B EtCO2 pairing, but those require pre-transition effort-profile fitting before simulator dead-space can be interpreted.
+
+
+## PS effort-profile smoke test
+
+A two-event smoke test was run in the Grade A/B EtCO2 PS subset before scaling to all 8 events.
+
+Design:
+
+- tested Hennigs profiles:
+  - passive_paralyzed
+  - sedated_breathing
+  - awake_cooperative
+  - agitated_high_drive
+- coarse stiffness grid fitted jointly with effort profile;
+- resistance prior-constrained;
+- PS backup rate fixed at 2/min, matching existing PS validation tests and well below observed patient RR;
+- score used only pre-transition:
+  - total RR
+  - observed VT
+  - minute ventilation
+- candidates were rejected if ventilator breaths were not predominantly patient-effort triggered.
+
+Results:
+
+Event 1:
+- observed RR 16/min, VT 417 mL, MV 6.6 L/min
+- best discrete profile: sedated_breathing
+- stiffness scale: 0.5
+- model RR 12.1/min, VT 479 mL, MV 5.8 L/min
+- objective 1.70
+- all 5 ventilator breaths were associated with patient efforts
+
+Event 2:
+- observed RR 20/min, VT 289 mL, MV 5.8 L/min
+- best discrete profile: awake_cooperative
+- stiffness scale: 1.25
+- model RR 12.3/min, VT 317 mL, MV 3.9 L/min
+- objective 6.23
+- all 5 ventilator breaths were associated with patient efforts
+
+Interpretation:
+
+- the PS backup rate is not driving the mismatch;
+- the four discrete Hennigs profile states are too coarse to reproduce observed respiratory rates in these two patients;
+- the existing continuous Hennigs-supported `patientDriveRelativeOverride` should therefore be fitted within its validated frequency envelope while retaining the discrete profile to represent muscle transmission / effort effectiveness.
+
+No post-transition data were used.
