@@ -1914,3 +1914,39 @@ For the next dead-space validation step, the conservative PS subset is:
 - no modeled asynchrony in the best fit.
 
 This leaves 6 PS events with measured Grade A/B EtCO2 for the first simulator-vs-measured dead-space comparison.
+
+
+## PS EtCO2 versus simulator dead-space validation
+
+The six conservative PS cases with:
+- Grade A/B EtCO2 pairing,
+- effort-fit objective <=1.0,
+- patient-effort-triggered breaths,
+- no modeled asynchrony,
+
+were used to compare measured PaCO2-PETCO2 gradient with the simulator dead-space fraction required to maintain pre-transition PaCO2.
+
+Results:
+
+- measured 0.091 -> simulator 0.10; PaCO2 error +0.005 mmHg
+- measured 0.125 -> simulator 0.20; PaCO2 error -0.13 mmHg
+- measured 0.098 -> simulator 0.80 upper boundary; PaCO2 error -1.28 mmHg
+- measured 0.071 -> simulator 0.50; PaCO2 error +0.08 mmHg
+- measured 0.030 -> simulator 0.05 lower boundary; PaCO2 error +2.54 mmHg
+- measured 0.189 -> simulator 0.05 lower boundary; PaCO2 error +1.74 mmHg
+
+Interpretation:
+
+- simulator effective dead-space fraction is not a one-to-one transform of the measured PaCO2-PETCO2 gradient;
+- the ordering is not consistently monotonic across these six patients;
+- three of six best fits occur at the tested dead-space boundary;
+- therefore no conversion equation is justified from these data;
+- the measured PaCO2-PETCO2 gradient remains a separate measured phenotype feature;
+- mismatch between measured gradient and simulator dead-space requirement is itself a useful model-diagnostic signal.
+
+The next test is direct rather than fitted:
+- set simulator dead-space fraction equal to the measured PaCO2-PETCO2 fraction;
+- keep effort, mechanics, ventilator settings, and arterial gas initialization fixed;
+- measure whether the model maintains baseline PaCO2.
+
+This will test whether the measured gradient can be used directly as the model dead-space boundary without an empirical conversion.
