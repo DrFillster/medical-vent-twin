@@ -292,3 +292,34 @@ A local timeline packet was generated for all 100 events. It contains nearby ven
 ### Remaining limitation
 
 The current medication screen is based on the selected MIMIC item list and documented input-event timing. It does not yet prove absence of every possible hemodynamic or sedative confounder, undocumented bolus, or medication outside the selected item list. Manual adjudication remains required.
+
+
+## Procedure / airway confounder screen
+
+The corrected 100-event manual-review sample was also screened for nearby major airway, procedure, recruitment, SBT, and ECMO activity.
+
+Procedure-event flags within +/-2 hours included:
+
+- intubation
+- extubation, including unplanned extubation
+- bronchoscopy
+- percutaneous or open tracheostomy
+- chest-tube placement or removal
+- ECMO inflow/outflow line procedures
+
+Chart-event flags within +/-2 hours included:
+
+- recruitment maneuvers
+- SBT start/stop/completion
+- ECMO flow/sweep/FiO2 context
+
+ECMO chart context was also checked within +/-6 hours.
+
+Result in the corrected 100-event sample:
+
+- nearby major airway/procedure event: 0/100
+- recruitment/SBT/ECMO event within +/-2 hours: 0/100
+- ECMO context within +/-6 hours: 0/100
+- none of the above: 100/100
+
+This is an automated screen based on the selected MIMIC item IDs. Manual timeline adjudication remains the final check.
