@@ -77,3 +77,20 @@ After outcome evaluation begins:
 - do not change outcome windows based on observed errors;
 - do not remove individual events because their prediction is poor;
 - any later model change creates a new model version and a new prospective/frozen prediction set.
+
+
+## Locked baseline-development split
+
+Before post-transition outcome values are opened, the population-average and empirical baselines use a deterministic event-level split derived only from the stable event ID:
+
+1. compute SHA-256 of `event_id`;
+2. interpret the first 8 hexadecimal characters as an unsigned integer;
+3. take modulo 10;
+4. values 0-6: training set;
+5. values 7-9: held-out test set.
+
+The split is independent of patient physiology, intervention, prediction error, and outcome values.
+
+Primary HumMod versus persistence analysis uses the full frozen 136-event cohort.
+
+Population-average and empirical-model comparisons are fit on the training subset and scored only on the held-out test subset. No event may move between sets after outcomes are opened.

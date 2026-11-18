@@ -45,3 +45,16 @@ Prediction generation may not read:
 - post-transition mechanics outcomes.
 
 Outcome values may be opened only after a prediction file is frozen and hashed.
+
+
+## Freeze 2 — dense 180-minute trajectory
+
+Status: frozen before post-transition outcome evaluation.
+
+- Prediction-eligible events: 136
+- Successful dense trajectories: 136
+- Prediction spacing: every 5 minutes through 180 minutes
+- Local file: `/Users/philipbernard/mimic-data/derived/blinded_dense180_frozen.jsonl`
+- SHA-256: `cfebb633eb63768e6eccc17656f52ad1d70bd5b41edd91f6fe1ce9c8c90e6d7b`
+
+This dense freeze is the only trajectory permitted for interpolation to the observed post-transition ABG time in Freeze 1 evaluation.
