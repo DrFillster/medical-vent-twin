@@ -195,3 +195,59 @@ For every accepted event:
 5. Freeze the first validation cohort.
 6. Run HumMod predictions without post-transition leakage.
 7. Compare against persistence, population-average response and simple empirical baselines.
+
+
+## Confounder flag update
+
+Automated nearby-treatment flags have now been added to the strict transition pool using MIMIC input events.
+
+Screening window:
+
+- medication start time within +/-60 minutes of the ventilator transition
+
+Flagged vasoactive agents:
+
+- norepinephrine
+- epinephrine
+- phenylephrine
+- vasopressin
+- dopamine
+- dobutamine
+
+Flagged sedation / analgesia agents:
+
+- propofol
+- dexmedetomidine
+- midazolam
+- fentanyl
+- morphine
+- ketamine
+
+Aggregate results in the 15,378-event strict pool:
+
+- no nearby vasoactive or sedative start: 4,187
+- nearby vasoactive start: 7,310
+- nearby sedative/analgesic start: 8,792
+- both flags present: 4,911
+
+A new balanced 100-event manual-review sample was generated from the strict pool, prioritizing events without either flag:
+
+- FiO2: 25
+- PEEP: 25
+- set RR: 25
+- set VT: 25
+- all 100 sampled events have neither nearby-start flag
+
+Important limitation:
+
+This is a first-pass confounder screen. It detects medication starts near the transition. It does not yet prove absence of an ongoing infusion, dose titration, bolus outside the exact item list, or another hemodynamic/sedative intervention. Manual review and a later rate-change screen are still required.
+
+## Updated next steps
+
+1. Build a local timeline packet for each of the 100 strict review events.
+2. Add ongoing-infusion and dose-change flags for vasoactive and sedative agents.
+3. Adjudicate the 100 events using the predefined categories.
+4. Use adjudication results to lock final inclusion/exclusion rules.
+5. Freeze the first validation cohort.
+6. Run blinded HumMod predictions from pre-transition data only.
+7. Compare HumMod with persistence, population-average response, and simple empirical baselines.
