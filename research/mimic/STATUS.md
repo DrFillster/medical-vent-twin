@@ -2225,3 +2225,91 @@ Controlled-mode mechanics availability:
 - documented resistance: 24/33
 
 The scalable fitting pipeline will therefore operate on 130 controller-ready events, with the 131st retained as a documented non-ready exclusion.
+
+
+## Scaled PS effort fitting in the primary <=60 minute cohort
+
+The generalized two-axis PS effort fitter was applied to all 98 controller-ready PS events in the primary <=60 minute cohort.
+
+Fitting method:
+
+Stage 1:
+- fit Hennigs-supported neural drive to pre-transition respiratory rate;
+- use total RR when available, otherwise spontaneous RR;
+- drive grid: 0.10, 0.20, 0.35, 0.50, 0.70, 0.95;
+- PS backup rate fixed at 2/min;
+- reject candidates without predominantly patient-effort-triggered breaths.
+
+Stage 2:
+- freeze selected neural drive;
+- jointly fit muscle transmission and global stiffness to the available pre-transition RR, observed VT, and minute ventilation;
+- coarse grid first;
+- refined grid only when coarse objective >0.5;
+- dt=0.010 s, validated against the canonical 0.002 s timestep in prior FiO2 and PEEP benchmarks;
+- no post-transition data used.
+
+Results:
+
+- completed: 98/98
+- strong fit (objective <=0.5): 66
+- acceptable (>0.5 to <=1.0): 21
+- weak (>1.0): 11
+- median objective: 0.349
+- 90th percentile objective: 1.093
+- maximum objective: 16.288
+- refinement grid used: 44/98
+
+Parameter-boundary diagnostics:
+
+- muscle transmission at upper supported envelope 1.2: 43
+- muscle transmission at lower tested value 0.4: 32
+- neural drive at low grid boundary 0.10: 14
+- neural drive at high tested value 0.95: 13
+- stiffness at low grid boundary 0.50: 26
+- stiffness at high grid boundary 1.50: 2
+
+Modeled patient-ventilator interaction:
+
+- zero modeled asynchrony: 47
+- nonzero modeled asynchrony: 51
+
+Structured MIMIC cannot verify dyssynchrony directly. Therefore modeled asynchrony is not interpreted as observed clinical dyssynchrony.
+
+Conservative structured-data PS primary subset:
+
+- strong or acceptable effort fit;
+- zero modeled asynchrony.
+
+Result:
+- 41 PS events
+- 33 strong
+- 8 acceptable
+- 24 FiO2 transitions
+- 17 PEEP transitions
+
+An additional 46 otherwise-good PS fits have nonzero model-inferred asynchrony. These remain available for sensitivity analysis and later waveform validation rather than being silently included in the structured-data primary analysis.
+
+## Controlled-mode short-horizon mechanics coverage
+
+The primary <=60 minute fit manifest contains 32 controller-ready PC_AC/VC_AC events.
+
+Existing controlled mechanics fits cover all 32/32.
+
+Fit quality:
+
+- finite mechanics fit: 32/32
+- objective <=0.5: 22
+- objective <=1.0: 22
+- weak (>1.0): 10
+
+There are no borderline events between 0.5 and 1.0 in this short-horizon controlled subset.
+
+The conservative mechanically representable controlled-mode primary subset is therefore 22 events.
+
+## Current conservative prefit cohort before gas/oxygenation fitting
+
+- PS with good effort fit and zero modeled asynchrony: 41
+- PC_AC/VC_AC with mechanics objective <=1.0: 22
+- total: 63 pre-transition mechanically/effort representable events
+
+Gas-exchange and oxygenation phenotype quality must still be fitted and scored separately before the final frozen validation cohort is defined.
