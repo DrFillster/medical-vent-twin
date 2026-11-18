@@ -10,7 +10,8 @@ const {getBerlinCase}=require('../../ards-twin-v1.0/src/berlin_case_catalog.js')
 const BASE='/Users/philipbernard/mimic-data/derived';
 const START_INDEX=Number(process.env.START_INDEX||0);
 const MAX_EVENTS=Number(process.env.MAX_EVENTS||5);
-const OUTPUT=process.env.OUTPUT||BASE+'/freeze3_stationary_refit.jsonl';
+const OUTPUT=process.env.OUTPUT||BASE+'/freeze3a_stationary_refit.jsonl';
+const INDEX=process.env.INDEX||BASE+'/freeze3a_fio2_prefit_index.jsonl';
 
 function load(p){return fs.readFileSync(p,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);}
 function finite(x){return typeof x==='number'&&Number.isFinite(x);}
@@ -82,7 +83,17 @@ const psInputs=new Map(load(BASE+'/ps_fit_inputs.jsonl').map(x=>[x.event_id,x]))
 let psRows=[];
 for(const p of fs.readdirSync(BASE).filter(x=>/^ps_fit_full_part.*\.jsonl$/.test(x)).sort()) psRows=psRows.concat(load(BASE+'/'+p));
 const psFits=new Map(psRows.map(x=>[x.event_id,x]));
-const dev=load(BASE+'/freeze3_dev_index.jsonl').slice(START_INDEX,START_INDEX+MAX_EVENTS);
+const fullDev=new Map(load(BASE+'/freeze3_dev_index.jsonl').map(x=>[x.event_id,x]));
+const lockedIndex=load(INDEX);
+const lockedIds=lockedIndex.map(x=>x.event_id);
+if(new Set(lockedIds).size!==lockedIds.length) throw new Error('Freeze 3A locked index contains duplicate event IDs');
+for(const e of lockedIndex){
+  if(!['SPONT','CPAP/PSV','PSV/SBT'].includes(e.pre_mode)) throw new Error('Freeze 3A index contains unsupported mode');
+  if(!(Number.isFinite(e.effort_score)&&e.effort_score<=2)) throw new Error('Freeze 3A index violates effort-score gate');
+  const d=fullDev.get(e.event_id);
+  if(!d||d.transition_itemid!==223835) throw new Error('Freeze 3A index contains non-FiO2 intervention');
+}
+const dev=lockedIndex.slice(START_INDEX,START_INDEX+MAX_EVENTS);
 
 const QGRID=[0.02,0.08,0.15,0.25,0.40,0.55];
 const DGRID=[0.10,0.25,0.40,0.55,0.70,0.82];

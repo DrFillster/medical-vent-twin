@@ -299,3 +299,33 @@ No Freeze 3A post-transition outcome is opened during fitting or eligibility sel
 Freeze 3A tests FiO2 response only.
 
 PEEP outcomes remain unopened for a later recruitment-dynamics validation. PEEP response requires additional identification of recruitment thresholds from prior PEEP history.
+
+
+## Freeze 3A pre-freeze implementation correction
+
+Before any Freeze 3A prediction artifact was created, an implementation audit found that `fit_ps_stationary.js` defaulted to `freeze3_dev_index.jsonl` instead of the locked `freeze3a_fio2_prefit_index.jsonl`.
+
+Consequences:
+
+- the initial local refit dry run did not represent the locked Freeze 3A cohort;
+- no Freeze 3A post-transition outcomes were opened;
+- no prediction file was frozen from the invalid dry run;
+- all wrong-index local refit artifacts were quarantined under:
+  - `/Users/philipbernard/mimic-data/derived/invalid_freeze3a_wrong_index/`
+
+The corrected fitter now defaults to the locked Freeze 3A index and fails closed unless:
+
+- event IDs are unique;
+- pre-transition mode is SPONT, CPAP/PSV, or PSV/SBT;
+- effort score is finite and <=2;
+- the corresponding Freeze 3 development record is a FiO2 transition.
+
+The locked Freeze 3A index remains:
+
+- 45 rows;
+- 45 unique events;
+- all outcome-unseen at protocol lock;
+- CPAP/PSV: 22;
+- SPONT: 23.
+
+The invalid dry-run fit results are not eligible for analysis or prediction freeze.

@@ -1486,3 +1486,33 @@ Fit-quality distribution among the 57 controller-compatible events:
 - poor: 10
 
 Mechanics fit quality remains continuous and will be used for sensitivity/failure analysis. Controller compatibility, not mechanics objective, is the representation gate for the next fitting stage.
+
+
+## Freeze 3A index-path correction
+
+A pre-freeze audit identified an index-path defect in the first stationarity-aware refit dry run.
+
+The fitter loaded the broader `freeze3_dev_index.jsonl` instead of the locked `freeze3a_fio2_prefit_index.jsonl`.
+
+This was detected before any Freeze 3A prediction freeze or outcome opening.
+
+Actions completed:
+
+- corrected fitter default index to `freeze3a_fio2_prefit_index.jsonl`;
+- added fail-closed assertions for:
+  - unique event IDs;
+  - supported PS mode;
+  - effort score <=2;
+  - FiO2 intervention;
+- quarantined 17 invalid local wrong-index refit artifacts;
+- preflight validation of the corrected locked index passed.
+
+Locked corrected cohort:
+
+- 45 rows;
+- 45 unique events;
+- CPAP/PSV: 22;
+- SPONT: 23;
+- all remain outcome-unseen.
+
+The wrong-index dry-run pass/fail counts are invalid and must not be used.
