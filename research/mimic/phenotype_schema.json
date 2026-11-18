@@ -1,10 +1,10 @@
 {
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "purpose": "Pre-transition HumMod phenotype initialization for blinded MIMIC ventilator-response validation",
   "no_future_leakage": true,
   "measured_state": {
     "ventilator": ["hummod_mode","pre_mode","pre_fio2","pre_peep","pre_rr_set","pre_vt_set","pre_psv","pre_pinsp"],
-    "gas_exchange": ["pre_ph","pre_pco2","pre_po2","pre_bicarbonate","pre_base_excess","pre_lactate","pre_spo2","pre_pf_ratio"],
+    "gas_exchange": ["pre_ph","pre_pco2","pre_po2","pre_petco2","measured_paco2_petco2_fraction","etco2_deadspace_quality","pre_bicarbonate","pre_base_excess","pre_lactate","pre_spo2","pre_pf_ratio"],
     "hemodynamics": ["pre_hr","pre_map"],
     "respiratory_observations": ["pre_vt_observed","pre_minute_volume","pre_rr_spontaneous","pre_rr_total","pre_peak_pressure","pre_plateau_pressure","pre_mean_airway_pressure","pre_total_peep","pre_resistance","pre_compliance_documented","pre_compliance_derived"]
   },
@@ -12,30 +12,48 @@
     "arterial_gas": {
       "inputs": ["pre_po2","pre_pco2","pre_ph"],
       "policy": "PaO2 and PaCO2 initialize model state through HumMod chemistry; measured pH is diagnostic at fixed SID; venous state remains source prior unless independently measured"
+    },
+    "dead_space": {
+      "preferred_when_available": "measured_paco2_petco2_fraction",
+      "quality_required": ["A","B"],
+      "policy": "use measured PaCO2-PETCO2 fraction directly as the model dead-space fraction when a close, plausible pair exists; otherwise treat effective dead-space behavior as latent/prior-constrained"
     }
   },
   "latent_parameters": {
     "fitted_compliance_ml_per_cmh2o": {"status": "fit_or_prior", "default": null},
     "fitted_resistance_cmh2o_s_per_l": {"status": "fit_or_prior", "default": null},
-    "fixed_nonventilated_perfusion_fraction": {"status": "fit_or_prior", "default": null, "constraint": "[0,1], total compartment perfusion remains 1"},
-    "fitted_dead_space_fraction": {"status": "fit_or_prior", "default": null},
-    "fitted_recruitability": {"status": "fit_from_preindex_history_or_prior", "default": null},
-    "fitted_effort_profile": {
-      "status": "fit_or_not_applicable",
-      "allowed": ["passive_paralyzed","sedated_breathing","awake_cooperative","agitated_high_drive"],
+    "effective_ventilated_perfusion_fraction": {
+      "status": "fit_composite_when_recruitment_and_regional_perfusion_are_not_separately_identifiable",
+      "constraint": "[0,1]",
+      "default": null,
+      "interpretation": "composite fraction of pulmonary perfusion participating in ventilated gas exchange; not a structural shunt fraction"
+    },
+    "fitted_dead_space_fraction": {
+      "status": "measured_from_etco2_when_quality_A_or_B_else_fit_or_prior",
       "default": null
     },
+    "fitted_recruitability": {"status": "fit_from_preindex_history_or_prior", "default": null},
     "hennigs_drive_relative": {
       "status": "fit_for_assisted_mode",
       "constraint": "Hennigs-supported frequency envelope",
+      "default": null
+    },
+    "muscle_transmission_relative": {
+      "status": "fit_for_assisted_mode",
+      "constraint": "[0,1.2] existing implemented profile envelope",
+      "default": null
+    },
+    "effort_profile_anchor": {
+      "status": "default_anchor_only_when_continuous_effort_axes_are_not_fitted",
+      "allowed": ["passive_paralyzed","sedated_breathing","awake_cooperative","agitated_high_drive"],
       "default": null
     },
     "fitted_hemodynamic_sensitivity": {"status": "fit_from_preindex_history_or_prior", "default": null},
     "fitted_autonomic_gain": {"status": "prior_constrained", "default": null}
   },
   "prefit_quality": {
-    "controlled_modes": ["gas_score","mechanics_score"],
-    "pressure_support": ["effort_score","gas_score"],
+    "controlled_modes": ["gas_score","mechanics_score","oxygenation_score"],
+    "pressure_support": ["effort_score","gas_score","oxygenation_score"],
     "policy": "domain scores remain separate; continuous scores are primary; diagnostic strata use pre-index data only"
   },
   "identifiability_grades": {
@@ -45,10 +63,10 @@
   },
   "freeze_contract": [
     "fit only from data at or before transition_time",
-    "record fitted versus prior-constrained parameters",
+    "record fitted versus measured versus prior-constrained parameters",
     "freeze phenotype before applying index intervention",
     "do not select phenotype using post-transition prediction error",
-    "do not use a direct PaO2 correction or free shunt override",
+    "do not use a direct PaO2 correction or free structural shunt override",
     "record code commit and schema version for every prediction"
   ]
 }

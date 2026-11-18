@@ -197,36 +197,49 @@ Pre-transition PaO2 and PaCO2 initialize the reduced HumMod arterial gas state t
 
 ### Effective oxygenation phenotype
 
-The fitter does not use a direct PaO2 correction or free shunt knob.
+The fitter does not use a direct PaO2 correction or a free structural shunt knob.
 
-Instead, it may fit a model-native fixed nonventilated perfusion burden by changing the perfusion fraction assigned to the nonventilated consolidated compartment while:
+When regional recruitment and perfusion cannot be separated from available pre-index data, the identifiable quantity is represented as:
 
-- keeping total perfusion fraction equal to 1;
-- retaining the reference normal:recruitable perfusion ratio for the remaining flow.
+- `effective_ventilated_perfusion_fraction`
 
-This parameter is reported as:
+This is a composite fraction of pulmonary perfusion participating in ventilated gas exchange in the reduced model. It is constrained to [0,1].
 
-- `fixed_nonventilated_perfusion_fraction`
+It does **not** claim to identify:
+- structural right-to-left shunt;
+- regional perfusion fractions;
+- recruitability;
+- current recruitment state
 
-Dynamic recruitability remains separate and is identified only from pre-index perturbation history where available.
+as separate quantities.
+
+When sufficient pre-index PEEP-response history exists, those components can be estimated separately and the composite parameter is not preferred.
+
+### Dead-space phenotype
+
+When a close, plausible EtCO2 measurement is available, the preferred measured descriptor is:
+
+`(PaCO2 - PETCO2) / PaCO2`
+
+Grade A/B timing pairs are used directly as the model dead-space fraction for initialization. Grade C pairs remain contextual only. Without a Grade A/B pair, effective dead-space behavior remains latent or prior-constrained.
+
+This measured PaCO2-PETCO2 gradient is not presented as equivalent to full Bohr/Enghoff physiologic VD/VT.
 
 ### Pressure-support effort phenotype
 
-For PS events the effort phenotype contains two components:
+For PS events the fitted effort phenotype contains two continuous components:
 
 1. `hennigs_drive_relative`
-   - continuous;
-   - fit from pre-transition respiratory behavior;
+   - neural drive / respiratory timing;
+   - fit from pre-transition RR;
    - constrained to the Hennigs-supported frequency envelope.
 
-2. `effort_profile`
-   - discrete transmission anchor:
-     - passive_paralyzed
-     - sedated_breathing
-     - awake_cooperative
-     - agitated_high_drive
+2. `muscle_transmission_relative`
+   - transmitted inspiratory effort amplitude;
+   - fit from pre-transition VT/MV jointly with mechanics;
+   - constrained to the existing implemented profile envelope [0,1.2].
 
-The project-created muscle-transmission scalar is not itself treated as a free continuous patient parameter.
+The original discrete patient-state profiles remain default anchors when continuous effort axes are not fitted. A fitted patient is not labeled "agitated" or "sedated" solely because a transmission amplitude resembles one of those defaults.
 
 ### Prefit scores remain domain specific
 

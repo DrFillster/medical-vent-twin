@@ -2035,3 +2035,45 @@ Validation:
 - full live-session regression suite: 15/15 tests passed.
 
 This composite parameter is appropriate only when the underlying recruitment/perfusion components are not separately identifiable. Pre-index perturbation history should be used to decompose the phenotype when sufficient data exist.
+
+
+## Oxygenation fit in six clean PS + EtCO2 cases
+
+The composite effective ventilated-perfusion fraction was fitted in the same six conservative PS cases after freezing:
+
+- neural drive;
+- muscle transmission;
+- stiffness;
+- measured PaCO2-PETCO2 dead-space fraction;
+- documented ventilator settings;
+- arterial gas initialization.
+
+Fit target:
+- pre-transition PaO2 only.
+
+Cross-check:
+- PaCO2 residual recorded separately.
+
+Results:
+
+- target PaO2 76 -> best effective ventilated-perfusion fraction 0.80; PaO2 error -3.13 mmHg; PaCO2 error -1.20 mmHg
+- target PaO2 133 -> 0.95; PaO2 error +4.88 mmHg; PaCO2 error -1.27 mmHg
+- target PaO2 154 -> 0.80; PaO2 error -2.12 mmHg; PaCO2 error -5.84 mmHg
+- target PaO2 87 -> 0.80; PaO2 error -0.87 mmHg; PaCO2 error -3.29 mmHg
+- target PaO2 85 -> 0.90; PaO2 error +6.10 mmHg; PaCO2 error +1.64 mmHg
+- target PaO2 80 -> 0.80; PaO2 error -4.15 mmHg; PaCO2 error +2.06 mmHg
+
+Interpretation:
+
+- all six baseline oxygenation states were reproducible to within approximately 6 mmHg PaO2 using the composite oxygenating-perfusion parameter;
+- fitted values ranged 0.80 to 0.95;
+- none required the absolute upper bound of 1.0;
+- the previously severe PaO2 underprediction was largely attributable to retaining the synthetic reference perfusion map;
+- oxygenation fitting did not eliminate the known CO2 mismatch in one case, confirming that oxygenation and ventilation fit quality must remain separate.
+
+Phenotype schema updated to v0.3.0:
+- measured EtCO2 gradient added;
+- measured dead-space initialization policy added;
+- effective ventilated-perfusion fraction replaces the older fixed nonventilated-perfusion parameter;
+- continuous Hennigs drive and muscle transmission are explicit assisted-mode phenotype axes;
+- domain-specific mechanics, gas, effort, and oxygenation quality remain separate.
