@@ -425,3 +425,118 @@ The local timeline packet for these 100 events contains 7,965 nearby chart, bloo
 Requiring FiO2, PEEP, set RR, set VT, and ventilator mode for every event is not appropriate because the cohort contains multiple ventilator modes with different required control variables.
 
 The initialization rule will therefore be mode-specific. Missing settings will not be imputed as normal or assumed absent. The mode-specific requirement will be defined before HumMod prediction runs.
+
+
+## HumMod mode-support gate
+
+The deployed v1.5 engine currently exposes four executable ventilator controller modes:
+
+- VC_AC
+- PC_AC
+- PS
+- SIMV
+
+Relevant runtime tests were executed directly against the current `ards-twin-v1.0` code:
+
+- PC-AC mechanics: 6/6 assertions passed
+- Hennigs pressure-support integration: passed
+- live Hennigs-supported PS/SIMV execution and VC-to-PS transition: passed
+- SIMV candidate triggering/cycling: passed
+- live HumMod session boundary:
+  - finite gas and circulation outputs: passed
+  - dynamic catecholamine pools: passed
+  - PEEP intervention persists through live systemic state: passed
+  - PEEP challenge produces cardiopulmonary/autonomic response: passed
+  - FiO2/VC setting changes feed the live core at breath boundaries: passed
+  - HumMod 2012/2013 HR candidate produces marked tachycardia before terminal reserve loss: passed
+
+Important implementation note:
+
+Some user-facing explanatory text still says that only the reference aspiration case in VC-AC is supported. That text lags the current controller/runtime implementation. For research validation, mode eligibility is based on tested executable runtime paths, not the stale UI wording.
+
+## Conservative MIMIC-to-HumMod mode map
+
+Adaptive or vendor-specific modes are not silently converted to a simpler mode.
+
+Accepted mappings for the first validation pass:
+
+- `SPONT`, `CPAP/PSV`, `PSV/SBT`, `CPAP/PPS` -> HumMod `PS`, with documented pressure support.
+- `P-CMV`, `PCV+Assist`, `PRES/AC` -> HumMod `PC_AC`, with documented set RR and inspiratory pressure.
+- `VOL/AC`, `CMV/ASSIST`, `CMV` -> HumMod `VC_AC`, with documented set RR and set VT.
+- explicit `SIMV/PSV` or `SIMV/PRES` -> HumMod `SIMV`, only if the mandatory pressure/rate and PS inputs required by the current controller are documented.
+
+Excluded from the first pass rather than approximated:
+
+- APV (cmv)
+- ASV
+- AutoFlow variants
+- PRVC
+- APRV
+- ambiguous/missing mode
+- other vendor-specific adaptive modes without a one-to-one current controller analogue
+
+Result after all prior invasive, timing, medication, and procedure screens:
+
+- 411 directly supported transitions
+- 293 ICU stays
+
+By HumMod mode:
+
+- PS: 333 transitions / 265 stays
+- PC_AC: 70 / 23
+- VC_AC: 8 / 6
+- SIMV: 0
+
+By intervention:
+
+- FiO2: 230
+- PEEP: 158
+- set RR: 19
+- set VT: 4
+
+This pool is sufficient for an initial FiO2/PEEP validation, but it is not sufficient for a balanced four-intervention validation without adding or qualifying adaptive ventilator modes.
+
+## Assisted-mode effort identifiability
+
+Pressure-support validation requires a patient-effort state. Wakefulness or sedation is not assumed from the mode.
+
+The existing Hennigs-supported effort profiles are candidate latent states:
+
+- passive / paralyzed
+- sedated but breathing
+- awake / cooperative
+- agitated / high drive
+
+For PS events, effort-state selection will use pre-transition respiratory observations only and will then be frozen before applying the ventilator change.
+
+Among the 333 directly supported PS transitions:
+
+- spontaneous RR available: 318
+- total RR available: 279
+- observed VT available: 318
+- minute ventilation available: 324
+- at least two of these four observables: 326
+- total RR + observed VT + minute ventilation: 273
+
+A local pre-fit target dataset has been generated:
+
+- 326 PS transitions
+- 258 ICU stays
+- 273 transitions with the strongest three-observable set
+
+No post-transition data will be used to select the effort profile.
+
+## Current scientific decision point
+
+Two paths are available:
+
+1. Validate the model now using only directly supported modes.
+   - Main first-study interventions: FiO2 and PEEP.
+   - Include PS only after pre-transition Hennigs effort-state fitting is implemented and frozen.
+   - Avoid changing the simulator to make the retrospective cohort larger.
+
+2. Add and qualify adaptive ventilator modes such as APV/ASV/AutoFlow before validation.
+   - This would recover a much larger fraction of the MIMIC cohort.
+   - It would also change the simulator before validation and add a substantial new model-validation burden.
+
+The conservative research path is Path 1: validate what the current tested model can represent before extending it.
