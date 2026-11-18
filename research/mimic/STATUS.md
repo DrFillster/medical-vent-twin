@@ -1659,3 +1659,48 @@ Interpretation:
 - the next step is to diagnose the PC_AC delivered-VT failure and determine whether the high-boundary PaCO2 fits reflect dead-space range, metabolic CO2 production, venous-state initialization, or another model boundary.
 
 No post-transition data were used.
+
+
+## EtCO2-constrained dead-space phenotype
+
+MIMIC item 228640 (EtCO2) is now paired with the nearest pre-transition arterial PaCO2.
+
+Computed descriptor:
+
+`(PaCO2 - PETCO2) / PaCO2`
+
+This is stored as a measured PaCO2-PETCO2 gradient descriptor when timing is sufficiently close. It is not treated as identical to full Bohr/Enghoff physiologic dead-space fraction, which would require mixed expired CO2 rather than PETCO2.
+
+Pairing results in the 411-event supported phenotype cohort:
+
+- EtCO2/arterial PaCO2 pairs within +/-30 minutes: 33
+- unique ICU stays: 30
+- pairs within 10 minutes: 11
+- pairs within 15 minutes: 14
+- nonnegative fraction among all +/-30-minute pairs: 26
+- negative gradient pairs: 7
+
+Strict measured subset:
+
+- timing <=15 minutes
+- fraction between 0 and 0.8
+- 11 events / 11 ICU stays
+- PS: 8
+- PC_AC: 3
+- median measured fraction: approximately 0.10
+
+Timing-quality grades:
+
+- A: <=5 minutes and plausible fraction: 4
+- B: >5 to <=15 minutes and plausible fraction: 7
+- C: >15 to <=30 minutes and plausible fraction: 15
+- none / unusable: 385
+
+Phenotype policy:
+
+- Grade A/B pairs are labeled `measured_paco2_petco2_gradient`.
+- Grade C is retained as supportive context only.
+- Patients without an A/B pair keep effective dead-space behavior as a latent/prior-constrained phenotype parameter.
+- The measured gradient is a constraint on gas-exchange phenotype; it does not automatically equal the simulator's full effective dead-space fraction.
+
+This replaces the earlier idea of fitting dead space blindly from PaCO2 alone whenever a close EtCO2 measurement is available.
