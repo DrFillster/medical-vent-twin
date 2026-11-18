@@ -765,6 +765,13 @@ function createBerlinLiveHumModSession({
         endTidalCo2ProxyMmHg: gas.exchange?.carbonDioxide?.pAlveolarCo2MmHg ?? null,
         pvo2MmHg: gas.gases.venous.po2MmHg,
         svo2Fraction: gas.gases.venous.saturationFraction,
+        alveolarPo2MmHg: gas.exchange?.oxygen?.pAlveolarO2MmHg ?? null,
+        endCapillaryPo2MmHg: gas.exchange?.oxygen?.pCapillaryO2MmHg ?? null,
+        oxygenUptakeMlPerMin: gas.exchange?.oxygen?.uptakeMlPerMin ?? null,
+        membraneGradientMmHg: gas.exchange?.oxygen?.membraneGradientMmHg ?? null,
+        ventilatedPerfusionFraction:
+          last.adapterDiagnostics?.ventilatedPerfusionFraction ?? null,
+        totalShuntMlPerMin: last.adapterDiagnostics?.totalShuntMlPerMin ?? null,
         requestedTissueO2UseMlPerMin:
           gas.exchange?.massBalance?.requestedTissueO2UseMlPerMin ?? null,
         actualTissueO2UseMlPerMin:

@@ -240,3 +240,62 @@ Index interventions:
 Freeze 3 development may use only pre-transition data for the 187 events whose outcomes remain unopened after Freeze 1 and Freeze 2.
 
 Any new phenotype-fitting method may be developed using the known aggregate failure modes from prior freezes, but individual Freeze 3 post-transition outcomes remain unavailable until a new prediction artifact is frozen and hashed.
+
+
+## Freeze 3A — FiO2-only state-identification protocol
+
+Freeze 3A is restricted to FiO2 transitions in directly supported pressure-support modes.
+
+Pre-fit candidate requirements:
+
+- post-transition outcome remains unopened after Freeze 1 and Freeze 2;
+- MIMIC pre-transition mode is SPONT, CPAP/PSV, or PSV/SBT;
+- index intervention is FiO2;
+- original PS phenotype fit completed;
+- original pre-transition respiratory-effort score <= 2.
+
+At protocol lock, 45 events meet these requirements.
+
+### Stationarity-aware recruitment-state fit
+
+The following quantities remain fixed from the pre-transition PS phenotype fit:
+
+- Hennigs effort profile;
+- Hennigs drive;
+- respiratory stiffness scale;
+- central airway resistance;
+- fixed nonventilated perfusion fraction.
+
+The refit estimates only existing model state/parameters:
+
+1. current recruited fraction:
+   - candidate grid 0.20, 0.40, 0.60, 0.80, 1.00;
+2. recruitment closing threshold:
+   - effective P_close candidate grid 0 to 2 cmH2O in 0.25-cmH2O increments;
+   - P_open is constrained to P_close + 10 cmH2O;
+   - k_open and k_close remain unchanged from the reference mechanics;
+3. dead-space fraction of delivered tidal volume:
+   - candidate grid 0.10, 0.25, 0.40, 0.55, 0.70, 0.82.
+
+All fitting uses unchanged pre-transition ventilation and pre-transition measurements only.
+
+Candidate-state searches use a 15-minute unchanged-ventilation horizon. The selected state is then independently confirmed for 60 minutes under unchanged ventilation.
+
+### Final eligibility gate
+
+A fitted event is Freeze 3A prediction-eligible only when:
+
+- absolute baseline PaCO2 residual <= 8 mmHg;
+- absolute baseline PaO2 residual <= 20 mmHg;
+- absolute 60-minute PaCO2 drift <= 8 mmHg;
+- absolute 60-minute PaO2 drift <= 20 mmHg.
+
+The original respiratory-effort score <= 2 requirement remains in force.
+
+No Freeze 3A post-transition outcome is opened during fitting or eligibility selection.
+
+### Scope
+
+Freeze 3A tests FiO2 response only.
+
+PEEP outcomes remain unopened for a later recruitment-dynamics validation. PEEP response requires additional identification of recruitment thresholds from prior PEEP history.
