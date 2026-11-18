@@ -94,3 +94,64 @@ The split is independent of patient physiology, intervention, prediction error, 
 Primary HumMod versus persistence analysis uses the full frozen 136-event cohort.
 
 Population-average and empirical-model comparisons are fit on the training subset and scored only on the held-out test subset. No event may move between sets after outcomes are opened.
+
+
+# Freeze 2 amendment — stationarity-gated validation
+
+Freeze 1 has been evaluated and is retained as a failed validation artifact. Freeze 2 is a new model-validation cycle.
+
+## Outcome separation
+
+Freeze 2 may use only events whose post-transition outcomes were not opened by the Freeze 1 evaluation workflow.
+
+Local outcome-unseen pool at amendment lock:
+
+- 268 events
+- PS: 225
+- PC_AC-mapped: 39
+- VC_AC: 4
+- P-CMV within the PC_AC-mapped group: 35
+
+## Mode eligibility change
+
+P-CMV is removed from direct support for Freeze 2.
+
+Reason: the current `PcAcController` is time-triggered only, while pressure assist-control / PC-CMV permits patient-triggered mandatory breaths. A P-CMV event can return only after a patient-triggered pressure-control controller is implemented and tested.
+
+Other pressure-control labels are not automatically assumed equivalent; they must pass the same controller-capability review.
+
+## Mandatory pre-transition stationarity gate
+
+After phenotype fitting, each candidate must be simulated under unchanged pre-transition ventilation for 60 minutes.
+
+No post-transition outcomes may be loaded.
+
+A phenotype is stationarity-eligible only if, at 60 minutes:
+
+- absolute PaCO2 drift from the fitted pre-transition baseline is <= 8 mmHg; and
+- absolute PaO2 drift is <= 20 mmHg.
+
+These are the same gas-error scales that were already used in the pre-transition phenotype fitter before Freeze 1 outcome evaluation.
+
+The gate is fail-closed.
+
+The stationarity trajectory is a phenotype-identification/eligibility test only. It is not an intervention prediction.
+
+## Freeze 2 prediction rule
+
+Only after:
+
+1. outcome-unseen status is verified;
+2. mode/controller compatibility is verified;
+3. phenotype fitting is complete;
+4. 60-minute no-intervention stationarity passes;
+
+may the index ventilator transition be applied.
+
+Freeze 2 predictions must then be written to a new file, hashed, and committed to a new freeze record before any Freeze 2 post-transition outcome bridge is created.
+
+## Interpretation
+
+Freeze 2 is the first cohort eligible for a confirmatory response-prediction claim after the stationarity defect discovered in Freeze 1.
+
+Freeze 1 remains part of the audit trail and must not be overwritten or reclassified as successful.
