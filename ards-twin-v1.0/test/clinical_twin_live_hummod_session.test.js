@@ -93,6 +93,22 @@ test('patient-specific mechanics override is explicit and default reference mech
     'higher patient airway resistance should increase VC peak airway pressure');
 });
 
+test('patient-specific dead-space boundary is explicit and affects CO2 elimination', () => {
+  const reference = makeSession();
+  reference.initialize();
+  const ref = reference.runFor(60);
+  assert(ref.coupling.patientDeadSpaceOverrideApplied === false);
+  assert(ref.coupling.patientDeadSpaceBtpsMl === null);
+
+  const highDeadSpace = makeSession({ patientDeadSpaceBtpsMl: 300 });
+  highDeadSpace.initialize();
+  const changed = highDeadSpace.runFor(60);
+  assert(changed.coupling.patientDeadSpaceOverrideApplied === true);
+  assert(changed.coupling.patientDeadSpaceBtpsMl === 300);
+  assert(changed.systemic.gasExchange.paco2MmHg > ref.systemic.gasExchange.paco2MmHg,
+    'higher explicit dead space should raise PaCO2 at fixed VC settings');
+});
+
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({
     heartRateControlMode:'hummod2013-baro-chemo',

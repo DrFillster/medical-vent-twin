@@ -209,6 +209,7 @@ function createBerlinLiveHumModSession({
   heartRateControlMode = 'source-aligned',
   patientStateProfile = 'awake_cooperative',
   patientMechanicsParams = null,
+  patientDeadSpaceBtpsMl = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -342,6 +343,15 @@ function createBerlinLiveHumModSession({
   nonNegative(coupledEquilibrationSec, 'coupledEquilibrationSec');
 
   const controller = buildLiveController(ventilation);
+  if (patientDeadSpaceBtpsMl != null) {
+    nonNegative(patientDeadSpaceBtpsMl, 'patientDeadSpaceBtpsMl');
+  }
+  const effectivePulmonaryBoundaries = Object.freeze({
+    ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.pulmonary,
+    ...(patientDeadSpaceBtpsMl == null
+      ? {}
+      : { deadSpaceBtpsMl: patientDeadSpaceBtpsMl }),
+  });
   const mechanicsParamsSource = patientMechanicsParams == null
     ? 'reference-case'
     : 'patient-specific-research-override';
@@ -418,7 +428,7 @@ function createBerlinLiveHumModSession({
       ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic,
       cardiacOutputMlPerMin: initialCardiacOutputMlPerMin,
     },
-    pulmonary: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.pulmonary,
+    pulmonary: effectivePulmonaryBoundaries,
     blood: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
     environment: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
   });
@@ -435,7 +445,7 @@ function createBerlinLiveHumModSession({
     gasRuntime,
     pressureAdapter: { cmH2OToMmHg },
     systemicBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic,
-    pulmonaryBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.pulmonary,
+    pulmonaryBoundaries: effectivePulmonaryBoundaries,
     bloodBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
     environmentBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
     pericardialTmpMmHg:
@@ -993,6 +1003,8 @@ function createBerlinLiveHumModSession({
         nativeAutonomicTrajectoryApplied: Boolean(nativeAutonomicTrajectory),
         patientMechanicsSource: mechanicsParamsSource,
         patientMechanicsOverrideApplied: patientMechanicsParams != null,
+        patientDeadSpaceOverrideApplied: patientDeadSpaceBtpsMl != null,
+        patientDeadSpaceBtpsMl,
         benchmarkEcfvApplied: nativeEcfvMl == null,
         catecholamineEcfvMl,
         catecholamineEcfvSource,

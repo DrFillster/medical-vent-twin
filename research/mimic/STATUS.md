@@ -672,3 +672,35 @@ At the index-event level:
 Autonomic gain remains prior-constrained in all 411 events. A PEEP-associated HR/MAP response alone cannot uniquely separate autonomic gain from preload/afterload and other hemodynamic effects.
 
 All historical identification data precede the index transition. Post-index values remain excluded from phenotype fitting.
+
+
+## Patient-specific dead-space runtime boundary
+
+A second research-only phenotype boundary has been added:
+
+- `patientDeadSpaceBtpsMl`
+
+Behavior:
+
+- when omitted, the existing HumMod legacy dead-space equation remains unchanged;
+- when supplied, the explicit patient dead-space value is passed through the live pulmonary boundary;
+- the snapshot records:
+  - `patientDeadSpaceOverrideApplied`
+  - `patientDeadSpaceBtpsMl`
+
+No direct shunt-fraction override was added.
+
+Reason:
+
+- in the current coupled model, alveolar shunt emerges from compartment perfusion fractions and recruitment state;
+- a separate direct shunt knob would bypass that structure and could hide model misspecification;
+- right-to-left shunt remains the explicit HumMod source-aligned baseline component.
+
+Regression test:
+
+- default dead-space behavior retained: passed
+- explicit dead-space provenance: passed
+- increased explicit dead space raises PaCO2 at fixed VC settings: passed
+- full live-session regression suite: 11/11 tests passed
+
+The runtime now has explicit phenotype injection points for patient mechanics and dead space while preserving default reference behavior when no override is supplied.
