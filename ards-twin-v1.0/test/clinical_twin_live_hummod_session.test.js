@@ -184,6 +184,28 @@ test('patient Hennigs muscle-transmission override is bounded and exposed indepe
   assert(threw,'muscle-transmission override outside supported profile envelope must fail');
 });
 
+test('patient ventilated-perfusion override is explicit and raises PaO2 when increased', () => {
+  const low = makeSession({
+    patientVentilatedPerfusionFractionOverride:0.45,
+    patientArterialGasInitialization:{po2MmHg:70,pco2MmHg:40,pH:7.40},
+  });
+  low.initialize();
+  const lowSnap=low.runFor(20);
+
+  const high = makeSession({
+    patientVentilatedPerfusionFractionOverride:0.90,
+    patientArterialGasInitialization:{po2MmHg:70,pco2MmHg:40,pH:7.40},
+  });
+  high.initialize();
+  const highSnap=high.runFor(20);
+
+  assert(lowSnap.coupling.patientVentilatedPerfusionFractionOverrideApplied===true);
+  assert(highSnap.coupling.patientVentilatedPerfusionFractionOverrideApplied===true);
+  assert(highSnap.systemic.gasExchange.pao2MmHg >
+    lowSnap.systemic.gasExchange.pao2MmHg,
+    'higher ventilated-perfusion fraction should raise PaO2 at fixed ventilation');
+});
+
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({
     heartRateControlMode:'hummod2013-baro-chemo',

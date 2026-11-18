@@ -27,6 +27,7 @@ function deriveVentilatedPulmonaryFlowMlPerMin({
   cardiacOutputMlPerMin,
   basicRightLeftShuntMlPerMin =
     HUMMOD_BASIC_RIGHT_LEFT_SHUNT_ML_PER_MIN,
+  ventilatedPerfusionFractionOverride = null,
 } = {}) {
   positive(cardiacOutputMlPerMin, 'cardiacOutputMlPerMin');
   finite(basicRightLeftShuntMlPerMin, 'basicRightLeftShuntMlPerMin');
@@ -49,7 +50,14 @@ function deriveVentilatedPulmonaryFlowMlPerMin({
 
   if (!(totalPerfusion > 0)) throw new Error('total perfusion fraction must be > 0');
 
-  const fraction = Math.max(0, Math.min(1, ventilatedPerfusion / totalPerfusion));
+  let fraction = Math.max(0, Math.min(1, ventilatedPerfusion / totalPerfusion));
+  if (ventilatedPerfusionFractionOverride != null) {
+    finite(ventilatedPerfusionFractionOverride, 'ventilatedPerfusionFractionOverride');
+    if (ventilatedPerfusionFractionOverride < 0 || ventilatedPerfusionFractionOverride > 1) {
+      throw new Error('ventilatedPerfusionFractionOverride must be in [0,1]');
+    }
+    fraction = ventilatedPerfusionFractionOverride;
+  }
 
   // HumMod LungBloodFlow.DES:
   //   Right-LeftShunt = BasicR-LShunt MIN Total
@@ -81,6 +89,9 @@ function deriveVentilatedPulmonaryFlowMlPerMin({
     totalShuntMlPerMin,
     humModSource:
       'Structure/Lungs/LungBloodFlow.DES@8dab57e05631f779bf5020fe0dd51874d8ae98c1',
+    ventilatedPerfusionSource: ventilatedPerfusionFractionOverride == null
+      ? 'Vent compartment perfusionFraction x current recruitment'
+      : 'patient-specific research composite override',
   });
 }
 
@@ -123,6 +134,10 @@ function createLiveCoreBoundaryFromVent({
   const flow = deriveVentilatedPulmonaryFlowMlPerMin({
     simulation,
     cardiacOutputMlPerMin: systemic.cardiacOutputMlPerMin,
+    ventilatedPerfusionFractionOverride:
+      pulmonary.ventilatedPerfusionFractionOverride == null
+        ? null
+        : pulmonary.ventilatedPerfusionFractionOverride,
   });
 
   const membrane = pulmonary.membranePermeabilityMlPerMinPerMmHg == null
@@ -183,7 +198,8 @@ function createLiveCoreBoundaryFromVent({
       alveolarShuntMlPerMin: flow.alveolarShuntMlPerMin,
       totalShuntMlPerMin: flow.totalShuntMlPerMin,
       source:
-        'HumMod LungBloodFlow basic R-L shunt + Vent compartment perfusionFraction x current recruitment',
+        'HumMod LungBloodFlow basic R-L shunt + effective ventilated perfusion fraction',
+      ventilatedPerfusionSource: flow.ventilatedPerfusionSource,
       deadSpaceSource: pulmonary.deadSpaceBtpsMl != null
         ? 'explicit-boundary'
         : (pulmonary.deadSpaceFractionOfTidalVolume != null

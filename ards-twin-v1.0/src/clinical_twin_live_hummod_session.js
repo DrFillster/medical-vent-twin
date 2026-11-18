@@ -214,6 +214,7 @@ function createBerlinLiveHumModSession({
   patientMechanicsParams = null,
   patientDeadSpaceBtpsMl = null,
   patientDeadSpaceFractionOfTidalVolume = null,
+  patientVentilatedPerfusionFractionOverride = null,
   patientArterialGasInitialization = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
@@ -360,6 +361,13 @@ function createBerlinLiveHumModSession({
       throw new Error('patientDeadSpaceFractionOfTidalVolume must be in [0,1)');
     }
   }
+  if (patientVentilatedPerfusionFractionOverride != null) {
+    finite(patientVentilatedPerfusionFractionOverride, 'patientVentilatedPerfusionFractionOverride');
+    if (patientVentilatedPerfusionFractionOverride < 0 ||
+        patientVentilatedPerfusionFractionOverride > 1) {
+      throw new Error('patientVentilatedPerfusionFractionOverride must be in [0,1]');
+    }
+  }
   const effectivePulmonaryBoundaries = Object.freeze({
     ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.pulmonary,
     ...(patientDeadSpaceBtpsMl == null
@@ -368,6 +376,9 @@ function createBerlinLiveHumModSession({
     ...(patientDeadSpaceFractionOfTidalVolume == null
       ? {}
       : { deadSpaceFractionOfTidalVolume: patientDeadSpaceFractionOfTidalVolume }),
+    ...(patientVentilatedPerfusionFractionOverride == null
+      ? {}
+      : { ventilatedPerfusionFractionOverride: patientVentilatedPerfusionFractionOverride }),
   });
   const mechanicsParamsSource = patientMechanicsParams == null
     ? 'reference-case'
@@ -1069,6 +1080,9 @@ function createBerlinLiveHumModSession({
           patientDeadSpaceBtpsMl != null || patientDeadSpaceFractionOfTidalVolume != null,
         patientDeadSpaceBtpsMl,
         patientDeadSpaceFractionOfTidalVolume,
+        patientVentilatedPerfusionFractionOverrideApplied:
+          patientVentilatedPerfusionFractionOverride != null,
+        patientVentilatedPerfusionFractionOverride,
         patientGasInitializationApplied: Boolean(patientGasInit),
         patientGasInitializationDiagnostics: patientGasInit ? patientGasInit.diagnostics : null,
         benchmarkEcfvApplied: nativeEcfvMl == null,

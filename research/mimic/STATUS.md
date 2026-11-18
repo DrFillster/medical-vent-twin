@@ -1990,3 +1990,48 @@ Important residual findings:
 - measured pH was also not preserved reliably because the current reduced gas core fixes SID rather than initializing patient-specific acid-base state.
 
 Therefore the next major phenotype problem is oxygenation / shunt-VQ state, not further dead-space tuning.
+
+
+## Composite oxygenating-perfusion phenotype boundary
+
+The persistent PaO2 mismatch was traced to a non-patient-specific oxygenation boundary.
+
+Before this change, patient-specific mechanics fitting changed stiffness/resistance but retained the synthetic reference perfusion distribution:
+
+- normal compartment perfusionFraction: 0.55
+- recruitable compartment perfusionFraction: 0.30
+- consolidated compartment perfusionFraction: 0.15
+
+The live reduced core then computed ventilated perfusion from those fixed fractions multiplied by current compartment recruitment, plus the HumMod basic right-to-left shunt of 220 mL/min.
+
+In the six clean PS + EtCO2 validation cases:
+
+- only 1/6 has any pre-index PEEP-response history;
+- 0/6 has paired historical pre/post compliance.
+
+Therefore recruitment state and regional perfusion maldistribution cannot be separately identified in this subgroup from a single baseline PaO2 value.
+
+A research-only composite phenotype boundary has been added:
+
+- `patientVentilatedPerfusionFractionOverride`
+
+Interpretation:
+
+- fraction of effective pulmonary perfusion participating in ventilated gas exchange in the reduced model;
+- composite oxygenation state;
+- does not claim to identify structural shunt, regional perfusion, or recruitment separately.
+
+Behavior:
+
+- when omitted, the original compartment perfusion x recruitment calculation is unchanged;
+- when supplied, the composite fraction replaces only the calculated effective ventilated-perfusion fraction;
+- HumMod basic right-to-left shunt and the downstream gas-exchange equations remain unchanged;
+- snapshot records whether the patient-specific override was applied.
+
+Validation:
+
+- lower and higher ventilated-perfusion fractions were tested at fixed ventilation and identical arterial gas initialization;
+- higher ventilated-perfusion fraction increased PaO2 in the expected direction;
+- full live-session regression suite: 15/15 tests passed.
+
+This composite parameter is appropriate only when the underlying recruitment/perfusion components are not separately identifiable. Pre-index perturbation history should be used to decompose the phenotype when sufficient data exist.
