@@ -251,3 +251,44 @@ This is a first-pass confounder screen. It detects medication starts near the tr
 5. Freeze the first validation cohort.
 6. Run blinded HumMod predictions from pre-transition data only.
 7. Compare HumMod with persistence, population-average response, and simple empirical baselines.
+
+
+## Confounder-screen correction
+
+The first medication screen only excluded nearby medication starts. That was insufficient because many events still had an infusion active across the ventilator transition.
+
+A stronger screen now distinguishes:
+
+- medication start within +/-60 minutes;
+- medication infusion active at the transition.
+
+In the 15,378-event strict pool:
+
+- vasoactive infusion active at transition: 8,486
+- sedative/analgesic infusion active at transition: 12,049
+- fully unconfounded by the current medication definition: 2,194
+
+For this first validation pilot, "fully unconfounded" means:
+
+- no active vasoactive infusion at the transition;
+- no active sedative/analgesic infusion at the transition;
+- no vasoactive start within +/-60 minutes;
+- no sedative/analgesic start within +/-60 minutes.
+
+A corrected balanced 100-event review sample was generated from those 2,194 events:
+
+- FiO2: 25
+- PEEP: 25
+- set RR: 25
+- set VT: 25
+
+Verification of the corrected 100-event sample:
+
+- active vasoactive infusion: 0/100
+- active sedative/analgesic infusion: 0/100
+
+A local timeline packet was generated for all 100 events. It contains nearby ventilator settings, respiratory mechanics, HR/MAP/SpO2, arterial blood gases, and relevant medication events. Patient-level timeline data remain local and are not committed to GitHub.
+
+### Remaining limitation
+
+The current medication screen is based on the selected MIMIC item list and documented input-event timing. It does not yet prove absence of every possible hemodynamic or sedative confounder, undocumented bolus, or medication outside the selected item list. Manual adjudication remains required.
