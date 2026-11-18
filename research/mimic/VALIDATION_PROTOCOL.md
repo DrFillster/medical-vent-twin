@@ -198,3 +198,45 @@ Stationarity-pass and controller-compatible events:
 - PEEP transitions: 37
 
 All 81 events are outcome-unseen by the Freeze 1 evaluation workflow at this gate.
+
+
+# Freeze 3 pre-outcome development amendment
+
+Freeze 2 evaluation showed that no-intervention stationarity is necessary but not sufficient.
+
+Freeze 3 phenotype eligibility must satisfy both baseline fidelity and stationarity.
+
+## Baseline-fidelity gate
+
+The gate uses the same gas residual scales that existed in the phenotype fitter before Freeze 1 outcome evaluation:
+
+- absolute PaCO2 baseline residual <= 8 mmHg
+- absolute PaO2 baseline residual <= 20 mmHg
+
+The event must then pass the existing 60-minute unchanged-ventilation stationarity gate:
+
+- absolute PaCO2 drift <= 8 mmHg
+- absolute PaO2 drift <= 20 mmHg
+
+Both gates are fail-closed.
+
+## Controller eligibility
+
+Until additional controller semantics are implemented and tested, Freeze 3 development is restricted to:
+
+- SPONT
+- CPAP/PSV
+- PSV/SBT
+
+mapped to the patient-triggered PS controller.
+
+Index interventions:
+
+- FiO2
+- PEEP
+
+## Outcome separation
+
+Freeze 3 development may use only pre-transition data for the 187 events whose outcomes remain unopened after Freeze 1 and Freeze 2.
+
+Any new phenotype-fitting method may be developed using the known aggregate failure modes from prior freezes, but individual Freeze 3 post-transition outcomes remain unavailable until a new prediction artifact is frozen and hashed.
