@@ -155,3 +155,46 @@ Freeze 2 predictions must then be written to a new file, hashed, and committed t
 Freeze 2 is the first cohort eligible for a confirmatory response-prediction claim after the stationarity defect discovered in Freeze 1.
 
 Freeze 1 remains part of the audit trail and must not be overwritten or reclassified as successful.
+
+
+## Freeze 2 final controller-compatibility gate
+
+The stationarity audit of 221 outcome-unseen, fit-complete, non-P-CMV events produced 85 stationarity-pass events.
+
+A stricter controller-capability gate is applied before prediction freeze.
+
+### Included
+
+Only pressure-support events with MIMIC pre-transition mode:
+
+- `SPONT`
+- `CPAP/PSV`
+- `PSV/SBT`
+
+and index intervention:
+
+- FiO2
+- PEEP
+
+These map to the current patient-triggered PS controller without requiring a time-triggered assist/control approximation.
+
+### Excluded
+
+- all current PC_AC mappings, because the implemented controller is time-triggered and does not model patient-triggered assist/control breaths;
+- `CMV/ASSIST` for the same reason in the current VC controller;
+- `CPAP/PPS`, because proportional pressure support is not equivalent to fixed pressure support;
+- set-RR transitions in PS, because MIMIC set-RR semantics in these spontaneous modes are not assumed to equal the model backup-rate control;
+- set-VT transitions outside directly supported VC control.
+
+### Freeze 2 pre-outcome cohort
+
+Stationarity-pass and controller-compatible events:
+
+- total: 81
+- CPAP/PSV: 35
+- SPONT: 45
+- PSV/SBT: 1
+- FiO2 transitions: 44
+- PEEP transitions: 37
+
+All 81 events are outcome-unseen by the Freeze 1 evaluation workflow at this gate.

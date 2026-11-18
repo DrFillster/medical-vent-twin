@@ -104,8 +104,11 @@ const psFits=new Map(psRows.map(x=>[x.event_id,x]));
 
 // Local event bridge intentionally contains intervention identity/value but no post-outcome values.
 // Export a minimal JSON bridge with Python before invoking this runner.
-const eventIndex=loadJsonl(duckdbPath+'/blinded_event_index.jsonl');
-const selected=eventIndex.filter(x=>x.representability==='well-represented')
+const eventIndexPath=process.env.EVENT_INDEX||duckdbPath+'/blinded_event_index.jsonl';
+const requireRepresentability=process.env.REQUIRE_REPRESENTABILITY!=='0';
+const eventIndex=loadJsonl(eventIndexPath);
+const selected=eventIndex
+  .filter(x=>!requireRepresentability || x.representability==='well-represented')
   .slice(START_INDEX,START_INDEX+MAX_EVENTS);
 
 const out=[];
