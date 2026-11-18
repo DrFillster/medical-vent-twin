@@ -1,0 +1,37 @@
+{
+  "schema_version": "0.1.0",
+  "purpose": "Pre-transition HumMod phenotype initialization for blinded MIMIC ventilator-response validation",
+  "no_future_leakage": true,
+  "measured_state": {
+    "ventilator": ["hummod_mode","pre_mode","pre_fio2","pre_peep","pre_rr_set","pre_vt_set","pre_psv","pre_pinsp"],
+    "gas_exchange": ["pre_ph","pre_pco2","pre_po2","pre_bicarbonate","pre_base_excess","pre_lactate","pre_spo2","pre_pf_ratio"],
+    "hemodynamics": ["pre_hr","pre_map"],
+    "respiratory_observations": ["pre_vt_observed","pre_minute_volume","pre_rr_spontaneous","pre_rr_total","pre_peak_pressure","pre_plateau_pressure","pre_mean_airway_pressure","pre_total_peep","pre_resistance","pre_compliance_documented","pre_compliance_derived"]
+  },
+  "latent_parameters": {
+    "fitted_compliance_ml_per_cmh2o": {"status": "fit_or_prior", "default": null},
+    "fitted_resistance_cmh2o_s_per_l": {"status": "fit_or_prior", "default": null},
+    "fitted_shunt_fraction": {"status": "fit_or_prior", "default": null},
+    "fitted_dead_space_fraction": {"status": "fit_or_prior", "default": null},
+    "fitted_recruitability": {"status": "fit_or_prior", "default": null},
+    "fitted_effort_profile": {
+      "status": "fit_or_not_applicable",
+      "allowed": ["passive_paralyzed","sedated_breathing","awake_cooperative","agitated_high_drive"],
+      "default": null
+    },
+    "fitted_hemodynamic_sensitivity": {"status": "fit_or_prior", "default": null},
+    "fitted_autonomic_gain": {"status": "fit_or_prior", "default": null}
+  },
+  "identifiability_grades": {
+    "A": "Strong pre-transition state for mode-specific fitting",
+    "B": "Usable with more prior-constrained parameters",
+    "C": "Insufficient for primary patient-specific validation"
+  },
+  "freeze_contract": [
+    "fit only from data at or before transition_time",
+    "record fitted versus prior-constrained parameters",
+    "freeze phenotype before applying index intervention",
+    "do not select phenotype using post-transition prediction error",
+    "record code commit and schema version for every prediction"
+  ]
+}

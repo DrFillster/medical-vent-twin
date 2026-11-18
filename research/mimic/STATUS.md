@@ -540,3 +540,73 @@ Two paths are available:
    - It would also change the simulator before validation and add a substantial new model-validation burden.
 
 The conservative research path is Path 1: validate what the current tested model can represent before extending it.
+
+
+## Pre-transition phenotype implementation
+
+The first phenotype preparation layer is now implemented.
+
+Local outputs:
+
+- `phenotype_inputs.parquet`
+- `phenotype_fit_plan.parquet`
+
+No patient-level phenotype rows are committed to GitHub.
+
+### Identifiability in the 411-event supported-mode pool
+
+- Grade A: 396
+- Grade B: 8
+- Grade C: 7
+- eligible for primary pre-fitting (A or B): 404
+
+### Parameter-identification status
+
+Compliance:
+
+- measured/derived: 39
+- measured/documented: 135
+- fit from pre-transition state: 230
+- not identifiable: 7
+
+Resistance:
+
+- measured/documented: 159
+- fit from pre-transition state: 15
+- prior-constrained: 237
+
+Effective shunt:
+
+- fit: 404
+- not identifiable: 7
+
+Effective dead-space behavior:
+
+- fit: 399
+- prior-constrained: 12
+
+Patient effort:
+
+- fit discrete Hennigs profile: 326
+- not applicable in controlled mode: 78
+- not identifiable: 7
+
+Recruitability:
+
+- prior-constrained: 411
+
+Hemodynamic sensitivity to airway pressure:
+
+- prior-constrained: 411
+
+Autonomic response gain:
+
+- prior-constrained: 411
+
+The latter three are deliberately not inferred from a single operating point. They require earlier pre-index perturbation history or an independent measurement.
+
+### Important runtime boundary
+
+The current live HumMod session still constructs lung mechanics from the reference aspiration case. Therefore, the phenotype preparation layer does not yet run patient-specific predictions. A research-only patient-mechanics initialization boundary is required before phenotype fitting can be coupled to HumMod.
+
+The production/default reference behavior must remain unchanged when no patient-specific override is supplied.
