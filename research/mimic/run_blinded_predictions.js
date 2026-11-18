@@ -11,7 +11,10 @@ const {getBerlinCase}=require('../../ards-twin-v1.0/src/berlin_case_catalog.js')
 const START_INDEX=Number(process.env.START_INDEX||0);
 const MAX_EVENTS=Number(process.env.MAX_EVENTS||10);
 const OUTPUT=process.env.OUTPUT||duckdbPath+'/blinded_predictions_part.jsonl';
-const HORIZONS=[300,900,1800,3600];
+const HORIZON_PROFILE=process.env.PREDICTION_HORIZON_PROFILE||'standard-60m';
+const HORIZONS=HORIZON_PROFILE==='dense-180m'
+  ? Array.from({length:36},(_,i)=>(i+1)*300)
+  : [300,900,1800,3600];
 
 function loadJsonl(p){
   if(!fs.existsSync(p)) return [];
@@ -170,6 +173,7 @@ for(let i=0;i<selected.length;i++){
         post_outcome_data_loaded:false,
         phenotype_schema_version:e.phenotype_schema_version,
         phenotype_commit:e.code_commit,
+        prediction_horizon_profile:HORIZON_PROFILE,
         prediction_horizons_sec:HORIZONS,
         runtime_dt_sec:0.01,
         physician_validation_candidate_enabled:false
