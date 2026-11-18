@@ -58,3 +58,45 @@ Status: frozen before post-transition outcome evaluation.
 - SHA-256: `cfebb633eb63768e6eccc17656f52ad1d70bd5b41edd91f6fe1ce9c8c90e6d7b`
 
 This dense freeze is the only trajectory permitted for interpolation to the observed post-transition ABG time in Freeze 1 evaluation.
+
+
+## Freeze 2 — stationarity-gated PS cohort
+
+Status: frozen before Freeze 2 post-transition outcome evaluation.
+
+Cohort:
+
+- 81 events
+- FiO2 transitions: 44
+- PEEP transitions: 37
+- pre-transition MIMIC modes:
+  - SPONT: 45
+  - CPAP/PSV: 35
+  - PSV/SBT: 1
+- all events were outcome-unseen by the Freeze 1 evaluation workflow
+- all events passed the locked 60-minute no-intervention stationarity gate
+- all events map to the current patient-triggered pressure-support controller
+
+Prediction trajectory:
+
+- every 5 minutes through 180 minutes
+- 36 prediction points per event
+- successful predictions: 81/81
+- missing: 0
+- duplicate event IDs: 0
+- prediction failures: 0
+- prediction provenance `post_outcome_data_loaded=false`: 81/81
+
+Local frozen prediction file:
+
+`/Users/philipbernard/mimic-data/derived/freeze2_dense_frozen.jsonl`
+
+SHA-256:
+
+`8a96fea22068d4e20fb06b80b85099f91be99cc8bf8df5c19c4e0c9c7fb0d48a`
+
+Prediction runtime code state:
+
+`c805d55e8d2e15ea45ec86d2b5ae2f4e0e7072a6`
+
+No Freeze 2 post-transition MIMIC outcome bridge existed when this file was merged, validated, and hashed.

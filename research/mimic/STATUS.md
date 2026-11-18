@@ -1325,3 +1325,56 @@ SHA-256:
 The patient-level prediction file remains local and is not committed to GitHub.
 
 No post-transition MIMIC outcome file had been opened for prediction evaluation at the time this freeze was created.
+
+
+## Freeze 2 stationarity gate
+
+Freeze 1 evaluation identified a baseline-stability defect: phenotypes could match the measured ABG over a short confirmation window yet drift substantially under unchanged ventilation.
+
+A new 60-minute no-intervention stationarity gate was therefore locked before opening outcomes for the Freeze 2 pool.
+
+Outcome-unseen, non-P-CMV, fit-complete candidates tested:
+
+- 221
+- runtime-complete stationarity simulations: 221/221
+- stationarity-pass: 85/221
+
+Locked gas-stability criterion at 60 minutes:
+
+- absolute PaCO2 drift <= 8 mmHg
+- absolute PaO2 drift <= 20 mmHg
+
+Pass counts by current mapped mode:
+
+- PS: 83/213
+- PC_AC: 1/4
+- VC_AC: 1/4
+
+## Freeze 2 controller-capability correction
+
+Review of the current ventilator controllers showed that the implemented VC_AC and PC_AC controllers are time-triggered only.
+
+They do not currently implement patient-triggered assist/control breaths.
+
+Therefore, assist/control labels are not used in Freeze 2 even when a phenotype passes stationarity.
+
+Freeze 2 is restricted to pressure-support modes that map directly to the current patient-triggered PS controller:
+
+- SPONT
+- CPAP/PSV
+- PSV/SBT
+
+CPAP/PPS is excluded because proportional pressure support is not equivalent to fixed pressure support.
+
+PS set-RR changes are excluded because MIMIC set-RR semantics in these spontaneous modes are not assumed to equal the model backup-rate setting.
+
+Final Freeze 2 pre-outcome prediction cohort:
+
+- 81 events
+- FiO2 transitions: 44
+- PEEP transitions: 37
+- SPONT: 45
+- CPAP/PSV: 35
+- PSV/SBT: 1
+
+All 81 events were outcome-unseen at cohort lock.
