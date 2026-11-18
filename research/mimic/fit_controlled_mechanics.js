@@ -126,7 +126,7 @@ function fitEvent(event){
   for(const s of STIFFNESS_GRID){
     for(const r of resistanceGrid){
       try{
-        const candidate={stiffnessScale:s,resistanceScale:r,recruitableFraction:0.35};
+        const candidate={stiffnessScale:s,resistanceScale:r,initialRecruitmentStateRecruitable:0.35};
         const model=simulate(event,candidate);
         const objective=score(event,model);
         tested++;

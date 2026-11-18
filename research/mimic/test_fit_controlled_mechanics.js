@@ -35,21 +35,21 @@ function makeVcEvent(){
 
 {
   const event=makePcEvent();
-  const truth={stiffnessScale:1.6,resistanceScale:1.0,recruitableFraction:0.35};
+  const truth={stiffnessScale:1.6,resistanceScale:1.0,initialRecruitmentStateRecruitable:0.35};
   const model=simulate(event,truth);
   event.targets.vt_observed_ml=model.vtMl;
   const fit=fitEvent(event);
   assert(fit.best,'PC fit missing');
   assert.equal(fit.best.stiffnessScale,truth.stiffnessScale);
   assert.equal(fit.best.resistanceScale,1.0);
-  assert.equal(fit.best.recruitableFraction,0.35);
+  assert.equal(fit.best.initialRecruitmentStateRecruitable,0.35);
   assert(fit.best.objective<1e-10);
   assert.equal(fit.canFitResistance,false);
 }
 
 {
   const event=makeVcEvent();
-  const truth={stiffnessScale:0.8,resistanceScale:3.0,recruitableFraction:0.35};
+  const truth={stiffnessScale:0.8,resistanceScale:3.0,initialRecruitmentStateRecruitable:0.35};
   const model=simulate(event,truth);
   event.targets.peak_pressure=model.peakPressureCmH2O;
   event.targets.plateau_pressure=model.plateauPressureCmH2O;
@@ -57,7 +57,7 @@ function makeVcEvent(){
   assert(fit.best,'VC fit missing');
   assert.equal(fit.best.stiffnessScale,truth.stiffnessScale);
   assert.equal(fit.best.resistanceScale,truth.resistanceScale);
-  assert.equal(fit.best.recruitableFraction,0.35);
+  assert.equal(fit.best.initialRecruitmentStateRecruitable,0.35);
   assert(fit.best.objective<1e-10);
   assert.equal(fit.canFitResistance,true);
 }
