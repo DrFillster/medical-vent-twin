@@ -1625,3 +1625,37 @@ Parameter-boundary diagnostics:
 Grid-edge fits are flagged as weakly constrained. The fitted point estimate must not be interpreted as a precise physiologic measurement.
 
 For the next gas-exchange fitting stage, the conservative primary subset is the 60 controlled-mode events with finite mechanics objective <=1.0. Mechanics parameters are frozen before gas/dead-space fitting.
+
+
+## Gas/dead-space fitting smoke test
+
+A five-event controlled-mode smoke test was run after freezing the pre-transition mechanics fit.
+
+Design:
+
+- patient mechanics fixed from the pre-transition controlled-mode mechanics fit;
+- documented ventilator settings fixed;
+- measured pre-transition arterial PaO2/PaCO2 used to initialize the reduced HumMod gas state;
+- measured pH retained as a diagnostic because the reduced core currently uses fixed SID and cannot independently initialize patient-specific pH;
+- dead space represented as a fraction of tidal volume;
+- tested fractions: 0.20, 0.35, 0.50, 0.65;
+- 20-second pre-transition maintenance window;
+- fitting target: PaCO2 maintenance only;
+- pH and PaO2 are diagnostics, not fit targets.
+
+Results:
+
+- 4/5 events produced finite gas-maintenance runs.
+- 1/5 failed at all tested dead-space fractions because the PC_AC live gas boundary did not obtain a finite delivered tidal volume for that event.
+- In 3/4 finite events, the best tested fraction was the upper grid boundary (0.65), indicating the current range is insufficient or another gas-exchange/metabolic parameter is mismatched.
+- One event maintained PaCO2 closely at fraction 0.65 (error approximately +0.3 mmHg).
+- Other finite best-fit PaCO2 errors were approximately -10.3, -13.2, and -1.8 mmHg.
+- PaO2 and pH residuals remained substantial in several events and are treated as model-mismatch diagnostics, not reasons to tune dead space.
+
+Interpretation:
+
+- dead-space fitting is technically feasible but is not yet ready to scale;
+- boundary hits indicate that PaCO2 mismatch cannot be assumed to represent dead space alone;
+- the next step is to diagnose the PC_AC delivered-VT failure and determine whether the high-boundary PaCO2 fits reflect dead-space range, metabolic CO2 production, venous-state initialization, or another model boundary.
+
+No post-transition data were used.
