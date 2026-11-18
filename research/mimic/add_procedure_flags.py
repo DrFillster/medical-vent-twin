@@ -4,7 +4,7 @@ import duckdb
 
 RAW=Path("/Users/philipbernard/mimic-data/raw/mimiciv/3.1/mimiciv-3.1")
 DER=Path("/Users/philipbernard/mimic-data/derived")
-SAMPLE=DER/"pilot_review_sample_strict_clean_100.parquet"
+SAMPLE=DER/"pilot_final_review_sample_100.parquet"
 PROC=RAW/"icu/procedureevents.csv.gz"
 VENT=DER/"vent_chart_events.parquet"
 OUT=DER/"pilot_review_procedure_flags_100.parquet"

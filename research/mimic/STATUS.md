@@ -323,3 +323,105 @@ Result in the corrected 100-event sample:
 - none of the above: 100/100
 
 This is an automated screen based on the selected MIMIC item IDs. Manual timeline adjudication remains the final check.
+
+
+## Official MIMIC ventilation-status classification
+
+The first-study cohort is now restricted using the official MIT-LCP MIMIC ventilation concept rather than an ad hoc airway-type rule.
+
+Source:
+
+- MIT-LCP mimic-code
+- `mimic-iv/concepts/treatment/ventilation.sql`
+- https://github.com/MIT-LCP/mimic-code/blob/main/mimic-iv/concepts/treatment/ventilation.sql
+
+The local implementation follows the published MIMIC logic:
+
+- combines ventilator mode with oxygen-delivery device documentation;
+- classifies episodes as:
+  - InvasiveVent
+  - Tracheostomy
+  - NonInvasiveVent
+  - HFNC
+  - SupplementalOxygen
+  - None
+- uses the MIMIC priority order for conflicting documentation;
+- groups ventilation states into episodes using the MIMIC 14-hour gap rule.
+
+Local episode counts:
+
+- InvasiveVent: 44,533
+- Tracheostomy: 19,867
+- NonInvasiveVent: 7,842
+- HFNC: 5,106
+- SupplementalOxygen: 96,140
+- None: 64,008
+
+The official MIMIC concept is also used by MIMIC-derived analyses such as SOFA when determining whether an arterial blood gas occurred during invasive ventilation.
+
+### Medication-clean transitions by ventilation status
+
+After the strict timing/context screen and medication-confounder screen:
+
+- InvasiveVent: 1,865 transitions / 1,175 ICU stays
+- Tracheostomy: 190 / 95
+- SupplementalOxygen: 91 / 90
+- unclassified: 81 / 75
+- NonInvasiveVent: 25 / 18
+- HFNC: 13 / 13
+
+Only `InvasiveVent` is retained for the first validation cohort.
+
+Invasive transitions by intervention:
+
+- FiO2: 1,112
+- PEEP: 420
+- set RR: 297
+- set VT: 36
+
+## Final automated screening before manual review
+
+The 1,865 invasive transitions were screened for:
+
+- intubation/extubation;
+- bronchoscopy;
+- tracheostomy;
+- chest-tube procedures;
+- recruitment maneuvers;
+- SBT activity;
+- ECMO procedures or chart context.
+
+Result after this screen:
+
+- 1,766 transitions
+- 1,090 ICU stays
+
+By intervention:
+
+- FiO2: 1,038
+- PEEP: 397
+- set RR: 295
+- set VT: 36
+
+A final balanced 100-event review sample was generated:
+
+- FiO2: 25
+- PEEP: 25
+- set RR: 25
+- set VT: 25
+
+Verification of the final 100-event sample:
+
+- active vasoactive infusion at transition: 0/100
+- active sedative/analgesic infusion at transition: 0/100
+- nearby major airway/procedure event: 0/100
+- recruitment/SBT/ECMO flag: 0/100
+- ECMO context: 0/100
+
+The local timeline packet for these 100 events contains 7,965 nearby chart, blood-gas, and medication records. Patient-level timeline data remain local and are not committed to GitHub.
+
+## Identifiability note
+
+Requiring FiO2, PEEP, set RR, set VT, and ventilator mode for every event is not appropriate because the cohort contains multiple ventilator modes with different required control variables.
+
+The initialization rule will therefore be mode-specific. Missing settings will not be imputed as normal or assumed absent. The mode-specific requirement will be defined before HumMod prediction runs.
