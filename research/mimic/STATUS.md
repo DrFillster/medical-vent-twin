@@ -1793,3 +1793,61 @@ Interpretation:
 - the existing continuous Hennigs-supported `patientDriveRelativeOverride` should therefore be fitted within its validated frequency envelope while retaining the discrete profile to represent muscle transmission / effort effectiveness.
 
 No post-transition data were used.
+
+
+## Two-axis PS effort phenotype
+
+The initial PS effort fitting showed that the discrete Hennigs profile labels were too coarse once patient-specific respiratory drive was introduced.
+
+Two-event continuous-drive smoke test:
+
+Event 1:
+- observed RR 16/min
+- best continuous drive 0.20
+- modeled RR 17.0/min
+- target VT 417 mL; modeled VT 327 mL
+- target MV 6.6 L/min; modeled MV 5.56 L/min
+- objective improved to 0.92
+- all ventilator breaths patient-effort triggered
+
+Event 2:
+- observed RR 20/min
+- best continuous drive 0.35
+- modeled RR 21.7/min
+- target VT 289 mL; modeled VT 251 mL
+- target MV 5.8 L/min; modeled MV 5.44 L/min
+- objective improved to 0.36
+- all ventilator breaths patient-effort triggered
+
+Interpretation:
+
+The patient-effort phenotype should not be represented only as a categorical profile label. The model now separates:
+
+1. neural drive / respiratory timing:
+   - patientDriveRelativeOverride
+   - bounded inside the existing Hennigs-supported frequency envelope
+
+2. muscle transmission / effort amplitude:
+   - patientMuscleTransmissionOverride
+   - bounded inside the existing implemented profile transmission envelope
+
+The original patient-state profiles remain valid defaults, but research fitting can now override these two axes independently. This avoids calling a patient "agitated_high_drive" when the fitted neural drive is actually moderate and only the transmitted muscle effort is high.
+
+Runtime changes:
+
+- added optional patientMuscleTransmissionOverride
+- snapshot records:
+  - effectiveDriveRelative
+  - driveOverrideApplied
+  - effectiveMuscleTransmission
+  - muscleTransmissionOverrideApplied
+- live profile switching respects both overrides
+- default behavior is unchanged when no overrides are supplied
+
+Validation:
+
+- dedicated muscle-transmission override test passed
+- out-of-envelope transmission values are rejected
+- full live-session regression suite: 14/14 tests passed
+
+No post-transition data were used in the effort-fitting smoke tests.

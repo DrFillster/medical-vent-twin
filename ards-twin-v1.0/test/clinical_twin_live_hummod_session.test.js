@@ -157,6 +157,33 @@ test('patient Hennigs drive override is bounded and exposed without changing tra
   assert(threw,'drive override outside Hennigs-supported envelope must fail');
 });
 
+test('patient Hennigs muscle-transmission override is bounded and exposed independently of drive', () => {
+  const session = makeSession({
+    ventilation: {
+      mode:'PS', fio2:0.40, peep:5, rr:2, pressureSupportCmH2O:8,
+    },
+    patientStateProfile:'awake_cooperative',
+    patientDriveRelativeOverride:0.20,
+    patientMuscleTransmissionOverride:0.70,
+  });
+  session.initialize();
+  const s=session.runFor(10);
+  assert(Math.abs(s.patientState.effectiveDriveRelative-0.20)<1e-12);
+  assert(Math.abs(s.patientState.effectiveMuscleTransmission-0.70)<1e-12);
+  assert(s.patientState.driveOverrideApplied===true);
+  assert(s.patientState.muscleTransmissionOverrideApplied===true);
+
+  let threw=false;
+  try {
+    makeSession({
+      patientMuscleTransmissionOverride:1.5,
+    });
+  } catch (e) {
+    threw=/supported profile transmission envelope/.test(e.message);
+  }
+  assert(threw,'muscle-transmission override outside supported profile envelope must fail');
+});
+
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({
     heartRateControlMode:'hummod2013-baro-chemo',

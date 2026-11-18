@@ -13,7 +13,7 @@ const { SimvCandidateController } = require('./ventilator/simv_candidate.js');
 const { createHennigsPatientEffortCandidate } = require('./hennigs_patient_effort_candidate.js');
 const { createHennigsMechanicalClosedEffortCandidate } = require('./hennigs_mechanical_closed_effort_candidate.js');
 const { PROFILE: HENNIGS_SPONTANEOUS_PROFILE } = require('./hennigs_supported_spontaneous_profile.js');
-const { getPatientStateProfile } = require('./hennigs_patient_state_profiles.js');
+const { PROFILES: HENNIGS_PATIENT_STATE_PROFILES, getPatientStateProfile } = require('./hennigs_patient_state_profiles.js');
 const { analyzePatientVentilatorInteraction } = require('./patient_ventilator_interaction.js');
 const { summarizeSimulationMeasurements } = require('./bedside_measurements.js');
 const { createThoraxState } = require('./hummod_ards_core_thorax.js');
@@ -210,6 +210,7 @@ function createBerlinLiveHumModSession({
   heartRateControlMode = 'source-aligned',
   patientStateProfile = 'awake_cooperative',
   patientDriveRelativeOverride = null,
+  patientMuscleTransmissionOverride = null,
   patientMechanicsParams = null,
   patientDeadSpaceBtpsMl = null,
   patientDeadSpaceFractionOfTidalVolume = null,
@@ -396,6 +397,19 @@ function createBerlinLiveHumModSession({
   let effectivePatientDriveRelative = patientDriveRelativeOverride == null
     ? patientState.driveRelative
     : patientDriveRelativeOverride;
+  const maxSupportedMuscleTransmission = Math.max(
+    ...Object.values(HENNIGS_PATIENT_STATE_PROFILES).map(p => p.muscleTransmission)
+  );
+  if (patientMuscleTransmissionOverride != null) {
+    finite(patientMuscleTransmissionOverride, 'patientMuscleTransmissionOverride');
+    if (patientMuscleTransmissionOverride < 0 ||
+        patientMuscleTransmissionOverride > maxSupportedMuscleTransmission) {
+      throw new Error('patientMuscleTransmissionOverride must remain inside supported profile transmission envelope');
+    }
+  }
+  let effectivePatientMuscleTransmission = patientMuscleTransmissionOverride == null
+    ? patientState.muscleTransmission
+    : patientMuscleTransmissionOverride;
   const effort = createHennigsPatientEffortCandidate({
     dtSec: dt,
     dRel: effectivePatientDriveRelative,
@@ -415,7 +429,7 @@ function createBerlinLiveHumModSession({
   simulation.patientEffortProvider = args =>
     (simulation.controller instanceof PressureSupportCandidateController ||
      simulation.controller instanceof SimvCandidateController)
-      ? spontaneousEffort.provider(args) * patientState.muscleTransmission
+      ? spontaneousEffort.provider(args) * effectivePatientMuscleTransmission
       : 0;
 
   if (mechanicalWarmupSec > 0) simulation.runFor(mechanicalWarmupSec);
@@ -1017,7 +1031,7 @@ function createBerlinLiveHumModSession({
         synthetic: clinicalCase.synthetic,
       }),
       ventilator: currentVentSettings(),
-      patientState: Object.freeze({...patientState, effectiveDriveRelative: effectivePatientDriveRelative, driveOverrideApplied: patientDriveRelativeOverride != null, patientMusclePressureCmH2O: simulation.state.patientMusclePressureCmH2O ?? 0}),
+      patientState: Object.freeze({...patientState, effectiveDriveRelative: effectivePatientDriveRelative, driveOverrideApplied: patientDriveRelativeOverride != null, effectiveMuscleTransmission: effectivePatientMuscleTransmission, muscleTransmissionOverrideApplied: patientMuscleTransmissionOverride != null, patientMusclePressureCmH2O: simulation.state.patientMusclePressureCmH2O ?? 0}),
       patientVentilatorInteraction: analyzePatientVentilatorInteraction(simulation.trace),
       ventilatorChangePending: Boolean(simulation.pendingControllerChange),
       pulmonary: Object.freeze({
@@ -1201,13 +1215,17 @@ function createBerlinLiveHumModSession({
       effectivePatientDriveRelative = patientDriveRelativeOverride == null
         ? nextState.driveRelative
         : patientDriveRelativeOverride;
+      effectivePatientMuscleTransmission = patientMuscleTransmissionOverride == null
+        ? nextState.muscleTransmission
+        : patientMuscleTransmissionOverride;
       effort.setRelativeDrive(effectivePatientDriveRelative);
       sessionEvents.push(Object.freeze({
         t: patientTimeSec(), kind: 'SET_PATIENT_STATE',
         fromProfile: previousState.id, toProfile: nextState.id,
         neuralDriveRelative: effectivePatientDriveRelative,
         driveOverrideApplied: patientDriveRelativeOverride != null,
-        muscleTransmission: nextState.muscleTransmission,
+        muscleTransmission: effectivePatientMuscleTransmission,
+        muscleTransmissionOverrideApplied: patientMuscleTransmissionOverride != null,
         systemicResponse: 'patient-effort-state-updated-without-session-reset',
       }));
       return snapshot();
