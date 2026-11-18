@@ -1704,3 +1704,45 @@ Phenotype policy:
 - The measured gradient is a constraint on gas-exchange phenotype; it does not automatically equal the simulator's full effective dead-space fraction.
 
 This replaces the earlier idea of fitting dead space blindly from PaCO2 alone whenever a close EtCO2 measurement is available.
+
+
+## PC-AC EtCO2 dead-space validation
+
+The first direct comparison between measured PaCO2-PETCO2 gradient and simulator dead-space fraction was run in the three strict PC_AC events with Grade A/B EtCO2 pairing.
+
+Design:
+
+- mechanics frozen from pre-transition mechanics fit;
+- ventilator settings fixed to pre-transition MIMIC values;
+- arterial gas state initialized from measured pre-transition PaO2/PaCO2;
+- simulator dead-space fraction grid: 0.10 to 0.80;
+- 20-second baseline-maintenance test;
+- objective: absolute PaCO2 maintenance error;
+- no post-transition data used.
+
+Results:
+
+1. measured gradient 0.022
+   - simulator best dead-space fraction: 0.10
+   - PaCO2 error: +1.6 mmHg
+   - mechanics objective: 0.035
+
+2. measured gradient 0.435
+   - simulator best dead-space fraction: 0.60
+   - PaCO2 error: -0.06 mmHg
+   - mechanics objective: 1.03
+
+3. measured gradient 0.102
+   - simulator best dead-space fraction: 0.80 (upper search boundary)
+   - PaCO2 error remained -5.5 mmHg
+   - mechanics objective: 1.20
+
+Interpretation:
+
+- the lowest measured gradient maps to a low simulator dead-space fraction;
+- the largest measured gradient maps to a high simulator dead-space fraction;
+- the third case does not preserve monotonic ordering and also has a weak mechanics fit plus an upper-bound dead-space hit;
+- three PC_AC cases are insufficient to establish a calibrated mapping;
+- the measured PaCO2-PETCO2 gradient should therefore remain an independent measured phenotype constraint, not be converted directly into the simulator dead-space parameter with a fixed formula.
+
+The next useful validation set is the eight PS events with Grade A/B EtCO2 pairing, but those require pre-transition effort-profile fitting before simulator dead-space can be interpreted.
