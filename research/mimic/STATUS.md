@@ -2077,3 +2077,96 @@ Phenotype schema updated to v0.3.0:
 - effective ventilated-perfusion fraction replaces the older fixed nonventilated-perfusion parameter;
 - continuous Hennigs drive and muscle transmission are explicit assisted-mode phenotype axes;
 - domain-specific mechanics, gas, effort, and oxygenation quality remain separate.
+
+
+## Prediction-horizon correction after blinded pilot diagnostic
+
+A six-event fully characterized PS + EtCO2 phenotype packet was frozen before outcome review.
+
+Frozen phenotype fields included:
+- controller state;
+- neural drive;
+- muscle transmission;
+- mechanics stiffness;
+- measured PaCO2-PETCO2 dead-space fraction;
+- fitted effective ventilated-perfusion fraction;
+- measured pre-transition arterial gas state;
+- phenotype schema version and code commit.
+
+One event was excluded from single-transition validation because a second material FiO2 change occurred before the post-ABG.
+
+The remaining five events had post-ABG horizons of 84 to 142 minutes.
+
+### Blinded long-horizon diagnostic
+
+Intervention trajectories were simulated without access to post-transition outcomes.
+
+After all predictions were written, outcomes were unsealed.
+
+Finding:
+- the absolute long-horizon model state drifted substantially from the fitted baseline;
+- matched no-change trajectories showed similar drift;
+- therefore the absolute 84-142 minute predictions cannot be interpreted as isolated intervention-response performance.
+
+A drift-corrected exploratory prediction was then formed using only pre-transition state and paired model trajectories:
+
+measured pre-state + [intervention model trajectory - no-change model trajectory]
+
+This removed much of the intrinsic model drift but still failed to explain large clinical changes in several patients over 1-2 hours.
+
+Interpretation:
+- a frozen phenotype over 84-142 minutes is not a valid primary single-transition assumption;
+- clinical state, perfusion, effort, metabolism, disease evolution, and non-ventilator care can change materially over this interval even without another material ventilator setting transition;
+- the five-case long-horizon exercise is a design diagnostic only, not a final model-performance estimate.
+
+### Numerical timestep benchmark
+
+For research prediction runs, dt=0.010 s was compared with the canonical dt=0.002 s over 120 seconds in:
+- one FiO2 transition;
+- one PEEP transition.
+
+PaO2, PaCO2, HR, MAP, RR, VT, and minute ventilation remained closely aligned, while the larger timestep materially reduced wall-clock time.
+
+For the short-horizon retrospective pilot:
+- prediction timestep: 0.010 s;
+- simulations use 60-second chunks with trace compaction;
+- canonical 0.002 s remains the reference implementation.
+
+### Revised primary outcome horizon
+
+The supported-mode cohort contains:
+
+- post-ABG <=30 minutes: 65 transitions / 54 ICU stays
+- <=45 minutes: 88 / 71
+- <=60 minutes: 131 / 102
+- <=90 minutes: 208 / 160
+- <=120 minutes: 281 / 206
+- <=180 minutes: 411 / 293
+
+Primary validation is now restricted to post-ABG <=60 minutes.
+
+Reason:
+- this matches the existing +/-60 minute material competing-transition exclusion;
+- the index ventilator change is therefore isolated throughout the primary outcome window;
+- it reduces unmodeled phenotype evolution relative to the prior <=180 minute design.
+
+Primary <=60 minute cohort:
+
+- PC_AC PEEP: 4
+- PC_AC FiO2: 18
+- PC_AC set RR: 8
+- PS PEEP: 43
+- PS FiO2: 55
+- VC_AC PEEP: 2
+- VC_AC set VT: 1
+- total: 131 transitions / 102 ICU stays
+
+Sensitivity cohort:
+- post-ABG <=30 minutes
+- 65 transitions / 54 ICU stays
+
+For the first FiO2/PEEP validation analysis, the <=60 minute cohort provides:
+- 73 FiO2 transitions
+- 49 PEEP transitions
+
+RR/VT transitions remain exploratory because of smaller numbers.
