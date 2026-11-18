@@ -1851,3 +1851,66 @@ Validation:
 - full live-session regression suite: 14/14 tests passed
 
 No post-transition data were used in the effort-fitting smoke tests.
+
+
+## Eight-event PS effort fit in EtCO2 subset
+
+The two-axis PS effort fitter was applied to all 8 Grade A/B EtCO2 PS events.
+
+Method:
+
+Stage 1:
+- fit Hennigs-supported neural drive to pre-transition total RR;
+- drive grid: 0.10, 0.20, 0.35, 0.50, 0.70, 0.95;
+- PS backup rate fixed at 2/min;
+- candidate required predominantly patient-effort-triggered breaths.
+
+Stage 2:
+- freeze selected neural drive;
+- jointly fit muscle transmission and global stiffness to pre-transition VT and minute ventilation, with RR retained in the objective;
+- muscle-transmission grid: 0.40, 0.55, 0.70, 0.85, 1.00, 1.20;
+- stiffness grid: 0.5, 0.75, 1.0, 1.25, 1.5;
+- no post-transition data used.
+
+Results:
+
+- finite patient-effort fit: 8/8
+- objective <=0.5: 4/8
+- objective <=1.0: 7/8
+- median objective: 0.475
+- maximum objective: 1.357
+- nonzero modeled asynchrony in best fit: 1/8
+
+Neural-drive selections:
+
+- 0.10: 2
+- 0.20: 4
+- 0.35: 2
+- no event required a higher tested drive value
+
+Muscle-transmission selections:
+
+- 0.40: 2
+- 1.20: 6
+
+Stiffness selections:
+
+- 0.50: 3
+- 0.75: 4
+- 1.50: 1
+
+Interpretation:
+
+- respiratory timing is identifiable reasonably well from pre-transition RR using the continuous Hennigs drive axis;
+- VT/MV fitting is less uniquely identifiable because muscle transmission and lung stiffness interact;
+- 6/8 events hit the maximum implemented muscle-transmission envelope (1.2);
+- those cases are therefore labeled high-transmission / boundary-constrained rather than assigned a precise muscle-transmission estimate;
+- the supported envelope is not widened solely to improve retrospective fit;
+- one event with nonzero modeled asynchrony should not be used as a clean dead-space validation case without further adjudication.
+
+For the next dead-space validation step, the conservative PS subset is:
+- objective <=1.0;
+- patient-effort-triggered;
+- no modeled asynchrony in the best fit.
+
+This leaves 6 PS events with measured Grade A/B EtCO2 for the first simulator-vs-measured dead-space comparison.
