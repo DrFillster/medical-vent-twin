@@ -1039,3 +1039,91 @@ Pre-specified diagnostic strata:
 These are technical model-quality strata, not clinical thresholds.
 
 No post-transition MIMIC observation has been used to define these strata.
+
+
+## Controlled-mode numerical mechanics fitter
+
+The first numerical phenotype fitter is now implemented for controlled modes.
+
+Input cohort:
+
+- 77 controlled-mode events with complete controller timing:
+  - PC_AC
+  - VC_AC
+- one PC_AC event lacking adequate timing information was excluded rather than assigned a guessed inspiratory time.
+
+Additional raw MIMIC controller variables extracted:
+
+- 224691 Flow Rate
+- 224738 Inspiratory Time
+- 226873 Inspiratory Ratio
+
+Local extraction:
+
+- 1,003,699 timing/flow rows
+
+Coverage in the controlled-mode phenotype cohort:
+
+- PC_AC: 63/70 flow, 69/70 inspiratory time
+- VC_AC: 1/8 direct flow, 6/8 inspiratory time, 8/8 inspiratory ratio
+
+VC flow is derived only when MIMIC records either inspiratory time or inspiratory ratio plus RR and VT.
+
+### Fitter structure
+
+The mechanics stage is intentionally separate from gas/systemic fitting.
+
+Fitted candidate parameters:
+
+- global mechanics stiffness scale
+- central airway-resistance scale
+- initial recruitable fraction only when pre-index PEEP history permits recruitability fitting
+
+No post-index observations are used.
+
+Synthetic recovery test:
+
+- PC_AC known grid parameters: exactly recovered
+- VC_AC known grid parameters: exactly recovered
+
+### Controlled-mode fit result
+
+- 77 events processed
+- 75 finite mechanics fits
+- 2 events had no usable mechanics target and therefore returned no fit
+- solver failures: 0
+
+Normalized objective distribution among finite fits:
+
+- median: 0.068
+- <=0.05: 32
+- <=0.10: 43
+- <=0.25: 53
+- <=0.50: 59
+- <=1.00: 68
+- >1.00: 7
+- >2.00: 4
+
+The objective is the mean squared residual after scaling each fitted mechanics target by its predefined tolerance. An objective near 1 therefore means approximately one tolerance unit RMS error.
+
+Search-boundary hits show weaker identifiability for resistance than for global stiffness:
+
+- stiffness low edge: 1
+- stiffness high edge: 19
+- resistance low edge: 31
+- resistance high edge: 19
+
+Boundary hits are recorded as identifiability warnings. They are not interpreted as true physiologic extremes.
+
+### Gas-fit initialization rule
+
+The reduced HumMod gas runtime begins from its source-aligned initial gas state. Patient arterial O2 content and venous state will not be synthesized from ABG values using ad hoc inverse formulas.
+
+Gas fitting will instead:
+
+1. use the recorded pre-transition ventilator state;
+2. use fitted mechanics and allowed recruitment state;
+3. equilibrate the live coupled model before the index intervention;
+4. compare the equilibrated pre-transition gas state with the observed arterial ABG;
+5. fit only allowed gas parameters such as explicit dead space;
+6. freeze the phenotype before applying the index transition.
