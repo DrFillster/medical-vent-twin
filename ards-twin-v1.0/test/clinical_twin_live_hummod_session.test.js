@@ -132,6 +132,31 @@ test('patient arterial gas initialization starts from measured PaO2 and PaCO2 wi
     'one-second coupled initialization should begin near supplied PaCO2');
 });
 
+test('patient Hennigs drive override is bounded and exposed without changing transmission profile', () => {
+  const session = makeSession({
+    ventilation: {
+      mode:'PS', fio2:0.40, peep:5, rr:2, pressureSupportCmH2O:8,
+    },
+    patientStateProfile:'awake_cooperative',
+    patientDriveRelativeOverride:0.50,
+  });
+  session.initialize();
+  const s=session.runFor(10);
+  assert(Math.abs(s.patientState.effectiveDriveRelative-0.50)<1e-12);
+  assert(s.patientState.driveOverrideApplied===true);
+  assert(s.patientState.muscleTransmission===1);
+
+  let threw=false;
+  try {
+    makeSession({
+      patientDriveRelativeOverride:1.5,
+    });
+  } catch (e) {
+    threw=/Hennigs-supported frequency envelope/.test(e.message);
+  }
+  assert(threw,'drive override outside Hennigs-supported envelope must fail');
+});
+
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({
     heartRateControlMode:'hummod2013-baro-chemo',

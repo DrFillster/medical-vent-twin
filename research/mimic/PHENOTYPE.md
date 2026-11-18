@@ -179,3 +179,67 @@ Each frozen phenotype must record:
 - code commit and phenotype-schema version
 
 This permits full reconstruction of the state used for every blinded prediction.
+
+
+## Phenotype contract update: numerical prefit
+
+The numerical phenotype now records domain-specific fitted and constrained states.
+
+### Arterial gas initialization
+
+Pre-transition PaO2 and PaCO2 initialize the reduced HumMod arterial gas state through the model's own chemistry functions.
+
+- PaO2 -> arterial O2 content using the HumMod hemoglobin/O2 relation.
+- PaCO2 -> arterial bicarbonate state using the HumMod gas-to-base relation at fixed model SID.
+- measured pH is retained as a diagnostic target;
+- no patient-specific SID is invented;
+- venous gas state remains a source prior unless an independent patient venous measurement is available.
+
+### Effective oxygenation phenotype
+
+The fitter does not use a direct PaO2 correction or free shunt knob.
+
+Instead, it may fit a model-native fixed nonventilated perfusion burden by changing the perfusion fraction assigned to the nonventilated consolidated compartment while:
+
+- keeping total perfusion fraction equal to 1;
+- retaining the reference normal:recruitable perfusion ratio for the remaining flow.
+
+This parameter is reported as:
+
+- `fixed_nonventilated_perfusion_fraction`
+
+Dynamic recruitability remains separate and is identified only from pre-index perturbation history where available.
+
+### Pressure-support effort phenotype
+
+For PS events the effort phenotype contains two components:
+
+1. `hennigs_drive_relative`
+   - continuous;
+   - fit from pre-transition respiratory behavior;
+   - constrained to the Hennigs-supported frequency envelope.
+
+2. `effort_profile`
+   - discrete transmission anchor:
+     - passive_paralyzed
+     - sedated_breathing
+     - awake_cooperative
+     - agitated_high_drive
+
+The project-created muscle-transmission scalar is not itself treated as a free continuous patient parameter.
+
+### Prefit scores remain domain specific
+
+Controlled modes:
+
+- gas prefit score
+- mechanics prefit score
+
+Pressure support:
+
+- effort prefit score
+- gas prefit score
+
+A patient can therefore be well represented in one domain and poorly represented in another. These scores must remain separate in analysis and provenance.
+
+Post-transition observations are not used to choose any prefit parameter or representability classification.

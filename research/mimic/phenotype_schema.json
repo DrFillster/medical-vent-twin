@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "purpose": "Pre-transition HumMod phenotype initialization for blinded MIMIC ventilator-response validation",
   "no_future_leakage": true,
   "measured_state": {
@@ -8,19 +8,35 @@
     "hemodynamics": ["pre_hr","pre_map"],
     "respiratory_observations": ["pre_vt_observed","pre_minute_volume","pre_rr_spontaneous","pre_rr_total","pre_peak_pressure","pre_plateau_pressure","pre_mean_airway_pressure","pre_total_peep","pre_resistance","pre_compliance_documented","pre_compliance_derived"]
   },
+  "initialization": {
+    "arterial_gas": {
+      "inputs": ["pre_po2","pre_pco2","pre_ph"],
+      "policy": "PaO2 and PaCO2 initialize model state through HumMod chemistry; measured pH is diagnostic at fixed SID; venous state remains source prior unless independently measured"
+    }
+  },
   "latent_parameters": {
     "fitted_compliance_ml_per_cmh2o": {"status": "fit_or_prior", "default": null},
     "fitted_resistance_cmh2o_s_per_l": {"status": "fit_or_prior", "default": null},
-    "fitted_shunt_fraction": {"status": "fit_or_prior", "default": null},
+    "fixed_nonventilated_perfusion_fraction": {"status": "fit_or_prior", "default": null, "constraint": "[0,1], total compartment perfusion remains 1"},
     "fitted_dead_space_fraction": {"status": "fit_or_prior", "default": null},
-    "fitted_recruitability": {"status": "fit_or_prior", "default": null},
+    "fitted_recruitability": {"status": "fit_from_preindex_history_or_prior", "default": null},
     "fitted_effort_profile": {
       "status": "fit_or_not_applicable",
       "allowed": ["passive_paralyzed","sedated_breathing","awake_cooperative","agitated_high_drive"],
       "default": null
     },
-    "fitted_hemodynamic_sensitivity": {"status": "fit_or_prior", "default": null},
-    "fitted_autonomic_gain": {"status": "fit_or_prior", "default": null}
+    "hennigs_drive_relative": {
+      "status": "fit_for_assisted_mode",
+      "constraint": "Hennigs-supported frequency envelope",
+      "default": null
+    },
+    "fitted_hemodynamic_sensitivity": {"status": "fit_from_preindex_history_or_prior", "default": null},
+    "fitted_autonomic_gain": {"status": "prior_constrained", "default": null}
+  },
+  "prefit_quality": {
+    "controlled_modes": ["gas_score","mechanics_score"],
+    "pressure_support": ["effort_score","gas_score"],
+    "policy": "domain scores remain separate; continuous scores are primary; diagnostic strata use pre-index data only"
   },
   "identifiability_grades": {
     "A": "Strong pre-transition state for mode-specific fitting",
@@ -32,6 +48,7 @@
     "record fitted versus prior-constrained parameters",
     "freeze phenotype before applying index intervention",
     "do not select phenotype using post-transition prediction error",
+    "do not use a direct PaO2 correction or free shunt override",
     "record code commit and schema version for every prediction"
   ]
 }

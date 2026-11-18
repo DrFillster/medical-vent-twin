@@ -209,6 +209,7 @@ function createBerlinLiveHumModSession({
   physicianValidationCandidate = true,
   heartRateControlMode = 'source-aligned',
   patientStateProfile = 'awake_cooperative',
+  patientDriveRelativeOverride = null,
   patientMechanicsParams = null,
   patientDeadSpaceBtpsMl = null,
   patientArterialGasInitialization = null,
@@ -372,9 +373,19 @@ function createBerlinLiveHumModSession({
     initializationHistory,
   });
 
+  if (patientDriveRelativeOverride != null) {
+    finite(patientDriveRelativeOverride, 'patientDriveRelativeOverride');
+    if (patientDriveRelativeOverride < HENNIGS_SPONTANEOUS_PROFILE.minimumRelativeDrive ||
+        patientDriveRelativeOverride > HENNIGS_SPONTANEOUS_PROFILE.maximumFrequencyRelativeDrive) {
+      throw new Error('patientDriveRelativeOverride must remain inside Hennigs-supported frequency envelope');
+    }
+  }
+  let effectivePatientDriveRelative = patientDriveRelativeOverride == null
+    ? patientState.driveRelative
+    : patientDriveRelativeOverride;
   const effort = createHennigsPatientEffortCandidate({
     dtSec: dt,
-    dRel: patientState.driveRelative,
+    dRel: effectivePatientDriveRelative,
     gainProfile: 'hennigs-2026-validation-reference',
     respiratoryFailureFraction: 0.75,
     physicalClock: {
@@ -982,7 +993,7 @@ function createBerlinLiveHumModSession({
         synthetic: clinicalCase.synthetic,
       }),
       ventilator: currentVentSettings(),
-      patientState: Object.freeze({...patientState, patientMusclePressureCmH2O: simulation.state.patientMusclePressureCmH2O ?? 0}),
+      patientState: Object.freeze({...patientState, effectiveDriveRelative: effectivePatientDriveRelative, driveOverrideApplied: patientDriveRelativeOverride != null, patientMusclePressureCmH2O: simulation.state.patientMusclePressureCmH2O ?? 0}),
       patientVentilatorInteraction: analyzePatientVentilatorInteraction(simulation.trace),
       ventilatorChangePending: Boolean(simulation.pendingControllerChange),
       pulmonary: Object.freeze({
@@ -1147,11 +1158,15 @@ function createBerlinLiveHumModSession({
       const nextState = getPatientStateProfile(nextProfileId);
       const previousState = patientState;
       patientState = nextState;
-      effort.setRelativeDrive(nextState.driveRelative);
+      effectivePatientDriveRelative = patientDriveRelativeOverride == null
+        ? nextState.driveRelative
+        : patientDriveRelativeOverride;
+      effort.setRelativeDrive(effectivePatientDriveRelative);
       sessionEvents.push(Object.freeze({
         t: patientTimeSec(), kind: 'SET_PATIENT_STATE',
         fromProfile: previousState.id, toProfile: nextState.id,
-        neuralDriveRelative: nextState.driveRelative,
+        neuralDriveRelative: effectivePatientDriveRelative,
+        driveOverrideApplied: patientDriveRelativeOverride != null,
         muscleTransmission: nextState.muscleTransmission,
         systemicResponse: 'patient-effort-state-updated-without-session-reset',
       }));

@@ -863,3 +863,179 @@ The current result supports separating:
 - combined mismatch phenotypes.
 
 Any primary-validation eligibility rule based on these pre-transition fit residuals must be frozen before post-transition outcomes are examined.
+
+
+## Baseline representability policy frozen before outcome evaluation
+
+The numerical prefit residual is a technical model-representability measure, not a clinical severity score.
+
+Primary handling:
+
+- retain gas and mechanics prefit scores as continuous variables;
+- do not use post-transition outcomes to alter fit bounds, weights, or phenotype eligibility;
+- do not discard model-mismatch events solely to improve post-transition prediction performance.
+
+Pre-specified diagnostic strata for model-development reporting:
+
+- **well represented:** gas score <=2 AND mechanics score <=3
+- **clear baseline mismatch:** gas score >10 OR mechanics score >10
+- **intermediate:** all other completed fits
+
+These cut points are tied to the already-defined normalized fitting objective. They are engineering/model-quality strata, not clinical thresholds.
+
+In the 75-event controlled-mode cohort:
+
+- well represented: 35
+- clear baseline mismatch: 12
+- intermediate: 28
+
+For primary predictive analyses, baseline fit quality will be reported and used for stratified/sensitivity analysis. Any decision to exclude clear baseline-mismatch cases from a primary patient-specific prediction endpoint must be specified before viewing post-transition prediction errors.
+
+### Assist-control effort caveat
+
+Among 70 mapped PC_AC transitions:
+
+- total RR documented: 68
+- total RR > set RR by >1/min: 15
+- spontaneous RR documented: 6
+- spontaneous RR >0: 1
+
+The current PC_AC controller does not transmit Hennigs patient effort. Therefore, PC_AC events with evidence of patient-triggered breathing must be flagged as possible assist-control effort mismatch. The mechanics fitter must not interpret this automatically as altered compliance.
+
+
+## Pressure-support phenotype fitting
+
+The PS phenotype fitter now separates respiratory frequency drive from effort transmission.
+
+### Source-bounded continuous drive
+
+Hennigs relative neural drive (`dRel`) is fit continuously within the existing Hennigs-supported frequency envelope:
+
+- minimum: 0.09686299285820986
+- maximum: 1.1105014884421243
+
+This is the source-supported frequency/drive coordinate already implemented by the Hennigs oscillator.
+
+The four existing patient-state profiles remain as discrete muscle-transmission anchors:
+
+- passive_paralyzed
+- sedated_breathing
+- awake_cooperative
+- agitated_high_drive
+
+The transmission scalar is **not** converted into a free continuous patient-fit parameter because it is an integration bridge rather than an independently validated Hennigs patient parameter.
+
+### PS controller priors held fixed
+
+The following controller settings are not fitted from MIMIC:
+
+- flow trigger: 1.5 L/min
+- cycle-off fraction: 0.25
+- rise time: 0.1 s
+- backup rate: 2/min
+
+These are explicit engineering/controller priors. The low backup rate is used so spontaneous Hennigs effort, not the backup clock, determines the observed PS breathing pattern when effort is present.
+
+### PS fit cohort
+
+Pre-transition PS events eligible for effort fitting:
+
+- 326 transitions
+- total RR available: 279
+- spontaneous RR available: 318
+- observed VT available: 318
+- minute ventilation available: 324
+
+Fit targets use only pre-index data.
+
+### Initial discrete-profile-only pilot
+
+In the first five PS events, fitting only the four discrete profiles produced:
+
+- median effort score: 7.31
+- median absolute RR error: 7.0/min
+- median absolute VT error: 79 mL
+
+This showed that the discrete profiles were too coarse for patient-specific respiratory frequency.
+
+### Continuous-dRel pilot
+
+After adding continuous Hennigs dRel while retaining discrete transmission profiles, the same five events produced:
+
+- median effort score: 0.38
+- median absolute RR error: 2.0/min
+- median absolute VT error: 9 mL
+
+This supports dRel as the patient-specific respiratory-drive phenotype coordinate.
+
+### Thirty-event PS sample
+
+A 30-event pre-index PS sample was then fit with:
+
+- continuous Hennigs dRel;
+- discrete transmission profile;
+- global stiffness scale;
+- documented resistance when available, otherwise prior;
+- model-native fixed nonventilated perfusion fraction;
+- dead space;
+- patient arterial gas initialization.
+
+Profile selection:
+
+- agitated_high_drive: 17
+- awake_cooperative: 7
+- sedated_breathing: 5
+- passive_paralyzed: 1
+
+Effort score:
+- 25th percentile: 0.36
+- median: 1.01
+- 75th percentile: 4.73
+- 90th percentile: 14.57
+- maximum: 65.77
+- effort score <=2: 17/30
+- effort score >10: 5/30
+
+Median absolute prefit residuals:
+
+- RR: 2.0/min
+- VT: 72 mL
+- minute ventilation: 0.80 L/min
+- PaCO2: 0.92 mmHg
+- PaO2: 42 mmHg
+
+Gas mismatch remains separable from effort mismatch:
+
+- gas score <=2: 10/30
+- gas score >10: 11/30
+- both effort <=2 and gas <=2: 5/30
+
+### Effort-amplitude limitation
+
+The remaining VT mismatch must not be removed by freely fitting the project-created muscle-transmission scalar. The current source-supported approach therefore retains:
+
+- continuous Hennigs dRel for frequency/drive;
+- discrete transmission anchors for effort amplitude;
+- explicit residuals when MIMIC VT/minute ventilation cannot be represented.
+
+This preserves the distinction between source-supported physiology and project-created integration assumptions.
+
+
+### Pressure-support representability policy frozen before outcome evaluation
+
+Primary handling:
+
+- retain effort and gas prefit scores as continuous variables;
+- report the two domains separately;
+- do not change Hennigs drive bounds, transmission profiles, gas-fit bounds, or score weights based on post-transition prediction performance.
+
+Pre-specified diagnostic strata:
+
+- **well represented PS phenotype:** effort score <=2 AND gas score <=2
+- **clear PS baseline mismatch:** effort score >10 OR gas score >10
+- **intermediate:** all other completed PS fits
+- **runtime-unrepresentable:** fail-closed candidate execution; retained as a separate model-limit category
+
+These are technical model-quality strata, not clinical thresholds.
+
+No post-transition MIMIC observation has been used to define these strata.
