@@ -1543,3 +1543,85 @@ The final script:
 - loads no post-index outcome values.
 
 The older `fit_ps_stationary.js` now fails by default and can run only with an explicit development override.
+
+
+## Controlled-mode numerical mechanics fitting
+
+A bounded pre-transition mechanics fitter is now implemented for directly supported controlled modes.
+
+Controller inputs are taken from MIMIC where available:
+
+- VC_AC:
+  - set VT
+  - set RR
+  - PEEP
+  - FiO2
+  - recorded inspiratory flow when available
+  - otherwise flow is derived only from recorded inspiratory time or recorded inspiratory ratio
+- PC_AC:
+  - inspiratory pressure
+  - set RR
+  - PEEP
+  - FiO2
+  - recorded inspiratory time
+
+Additional raw MIMIC extraction added:
+
+- item 224691: Flow Rate (L/min)
+- item 224738: Inspiratory Time
+- item 226873: Inspiratory Ratio
+
+Coverage in the controlled-mode cohort:
+
+- PC_AC: 69/70 have recorded inspiratory time
+- VC_AC: all 8 have sufficient recorded timing/ratio information to define inspiratory flow
+- one PC_AC event is excluded from controlled fitting rather than assigned a guessed inspiratory time
+
+Controlled fit input set:
+
+- 77 events
+
+Mechanics fitter:
+
+- global stiffness scale
+- central airway-resistance scale
+- recruitable fraction only when the event has pre-index PEEP-history eligibility
+- pre-transition targets only
+- no post-index physiology is used
+
+The fitter was first tested on synthetic PC_AC and VC_AC observations generated from known grid parameters. It exactly recovered the known stiffness, resistance, and recruitment grid values.
+
+Full controlled-mode fit results:
+
+- events attempted: 77
+- finite best fit: 75
+- no usable mechanics target: 2
+- candidate simulations evaluated: 952
+- solver failures: 0
+
+Objective distribution among 75 finite fits:
+
+- objective <= 0.05: 19
+- <= 0.10: 24
+- <= 0.25: 43
+- <= 0.50: 54
+- <= 1.00: 60
+- <= 2.00: 72
+- median objective: 0.181
+- 90th percentile: 1.197
+- maximum: 3.125
+
+By mode:
+
+- PC_AC: 67 finite fits; 53 objective <=1.0
+- VC_AC: 8 finite fits; 7 objective <=1.0
+
+Parameter-boundary diagnostics:
+
+- stiffness-grid edge: 20/75
+- resistance-grid edge: 3/75
+- recruitment-grid edge among history-enabled fits: 0
+
+Grid-edge fits are flagged as weakly constrained. The fitted point estimate must not be interpreted as a precise physiologic measurement.
+
+For the next gas-exchange fitting stage, the conservative primary subset is the 60 controlled-mode events with finite mechanics objective <=1.0. Mechanics parameters are frozen before gas/dead-space fitting.
