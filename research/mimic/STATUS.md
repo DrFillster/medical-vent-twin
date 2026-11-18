@@ -1516,3 +1516,30 @@ Locked corrected cohort:
 - all remain outcome-unseen.
 
 The wrong-index dry-run pass/fail counts are invalid and must not be used.
+
+
+## Freeze 3A parameterization correction
+
+A second pre-freeze implementation audit identified that `fit_ps_stationary.js` was not protocol-complete:
+
+- it varied nonventilated perfusion even though Freeze 3A required that parameter to remain fixed;
+- it omitted the required P_close/P_open threshold fit.
+
+The incomplete workers were stopped. No prediction artifact or post-transition outcome was opened from that run.
+
+Final locked implementation:
+
+- `research/mimic/fit_freeze3a_locked.js`
+
+The final script:
+
+- uses only the 45-event locked Freeze 3A index;
+- asserts unique IDs, supported PS modes, effort score <=2, and FiO2 intervention;
+- keeps nonventilated perfusion fixed from the original PS phenotype;
+- refits only current recruitment state, P_close/P_open, and dead-space fraction;
+- preserves 10 cmH2O recruitment hysteresis width and existing recruitment kinetics;
+- uses 15-minute pre-transition search trajectories;
+- requires an independent 60-minute unchanged-ventilation confirmation;
+- loads no post-index outcome values.
+
+The older `fit_ps_stationary.js` now fails by default and can run only with an explicit development override.

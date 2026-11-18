@@ -13,6 +13,10 @@ const MAX_EVENTS=Number(process.env.MAX_EVENTS||5);
 const OUTPUT=process.env.OUTPUT||BASE+'/freeze3a_stationary_refit.jsonl';
 const INDEX=process.env.INDEX||BASE+'/freeze3a_fio2_prefit_index.jsonl';
 
+if(require.main===module && process.env.ALLOW_INCOMPLETE_FREEZE3A_DEV!=='1'){
+  throw new Error('fit_ps_stationary.js is a development-only incomplete Freeze 3A search; use fit_freeze3a_locked.js');
+}
+
 function load(p){return fs.readFileSync(p,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);}
 function finite(x){return typeof x==='number'&&Number.isFinite(x);}
 function clone(x){return JSON.parse(JSON.stringify(x));}

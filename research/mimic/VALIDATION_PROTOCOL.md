@@ -329,3 +329,55 @@ The locked Freeze 3A index remains:
 - SPONT: 23.
 
 The invalid dry-run fit results are not eligible for analysis or prediction freeze.
+
+
+## Freeze 3A fitter-parameterization correction
+
+A second pre-freeze audit found that the development script `fit_ps_stationary.js` did not match the locked Freeze 3A parameter roles:
+
+- it refit fixed nonventilated perfusion, which the protocol required to remain fixed;
+- it did not fit the recruitment closing threshold P_close, which the protocol required.
+
+Those incomplete-protocol workers were stopped before any Freeze 3A prediction freeze or outcome opening. No results from that run are eligible for analysis.
+
+The final locked fitter is:
+
+`research/mimic/fit_freeze3a_locked.js`
+
+It implements the locked Freeze 3A state-identification model as follows:
+
+Fixed from the original pre-transition PS fit:
+
+- Hennigs effort profile;
+- Hennigs drive;
+- respiratory stiffness scale;
+- central airway resistance;
+- fixed nonventilated perfusion fraction.
+
+Refit from pre-transition measurements only:
+
+1. current recruitable-compartment state:
+   - 0.20, 0.40, 0.60, 0.80, 1.00;
+2. recruitment closing threshold P_close:
+   - 0 to 2 cmH2O in 0.25-cmH2O increments;
+   - P_open = P_close + 10 cmH2O;
+   - recruitment kinetic constants unchanged;
+3. dead-space fraction of delivered VT:
+   - 0.10, 0.25, 0.40, 0.55, 0.70, 0.82.
+
+Deterministic staged search:
+
+- current recruitment search at the lower P_close bound;
+- P_close search with the selected current recruitment state;
+- dead-space search with selected recruitment state/threshold;
+- each search uses 15 minutes of unchanged pre-transition ventilation;
+- the selected state is confirmed for 60 minutes under unchanged ventilation.
+
+Eligibility remains exactly:
+
+- absolute baseline PaCO2 residual <=8 mmHg;
+- absolute baseline PaO2 residual <=20 mmHg;
+- absolute 60-minute PaCO2 drift <=8 mmHg;
+- absolute 60-minute PaO2 drift <=20 mmHg.
+
+The final fitter fails closed against the 45-event locked Freeze 3A index before running.
