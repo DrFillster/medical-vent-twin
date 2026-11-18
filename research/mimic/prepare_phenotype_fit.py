@@ -4,12 +4,38 @@ import duckdb
 
 DER=Path("/Users/philipbernard/mimic-data/derived")
 SRC=DER/"phenotype_inputs.parquet"
+HIST=DER/"preindex_peep_history.parquet"
 OUT=DER/"phenotype_fit_plan.parquet"
 
 con=duckdb.connect()
 con.execute("PRAGMA threads=4")
 con.execute(f"""
 COPY (
+WITH x AS (
+ SELECT s.*,
+   EXISTS (
+     SELECT 1 FROM read_parquet('{HIST}') h
+     WHERE h.stay_id=s.stay_id
+       AND h.index_transition_time=s.transition_time
+   ) has_preindex_peep_history,
+   EXISTS (
+     SELECT 1 FROM read_parquet('{HIST}') h
+     WHERE h.stay_id=s.stay_id
+       AND h.index_transition_time=s.transition_time
+       AND h.historical_pre_compliance IS NOT NULL
+       AND h.historical_post_compliance IS NOT NULL
+   ) has_preindex_compliance_response,
+   EXISTS (
+     SELECT 1 FROM read_parquet('{HIST}') h
+     WHERE h.stay_id=s.stay_id
+       AND h.index_transition_time=s.transition_time
+       AND h.historical_pre_hr IS NOT NULL
+       AND h.historical_post_hr IS NOT NULL
+       AND h.historical_pre_map IS NOT NULL
+       AND h.historical_post_map IS NOT NULL
+   ) has_preindex_hemodynamic_response
+ FROM read_parquet('{SRC}') s
+)
 SELECT *,
   CASE
     WHEN pre_compliance_derived IS NOT NULL THEN 'measured_derived'
@@ -40,10 +66,10 @@ SELECT *,
     ELSE 'prior_constrained'
   END dead_space_status,
 
-  -- Recruitability requires pre-index PEEP-response history or another
-  -- independent recruitment-sensitive observation. A single baseline state
-  -- does not identify it.
-  'prior_constrained' recruitability_status,
+  CASE
+    WHEN has_preindex_peep_history THEN 'fit_from_preindex_peep_history'
+    ELSE 'prior_constrained'
+  END recruitability_status,
 
   CASE
     WHEN hummod_mode='PS' AND identifiability_grade IN ('A','B')
@@ -52,16 +78,17 @@ SELECT *,
     ELSE 'not_applicable'
   END effort_status,
 
-  -- A single HR/MAP operating point cannot identify pressure sensitivity
-  -- or autonomic gain. These require pre-index perturbation history.
-  'prior_constrained' hemodynamic_sensitivity_status,
+  CASE
+    WHEN has_preindex_hemodynamic_response
+      THEN 'fit_from_preindex_peep_history'
+    ELSE 'prior_constrained'
+  END hemodynamic_sensitivity_status,
+
+  -- Autonomic gain remains prior-constrained. HR/MAP response to PEEP alone
+  -- cannot uniquely separate autonomic gain from preload/afterload effects.
   'prior_constrained' autonomic_gain_status,
 
-  CASE
-    WHEN identifiability_grade='A' THEN true
-    WHEN identifiability_grade='B' THEN true
-    ELSE false
-  END eligible_for_primary_prefit,
+  identifiability_grade IN ('A','B') AS eligible_for_primary_prefit,
 
   CASE
     WHEN hummod_mode='PS' THEN
@@ -69,12 +96,15 @@ SELECT *,
     ELSE
       'fit gas/mechanics parameters only where status permits; controlled mode has no effort-profile fit'
   END fit_instruction
-FROM read_parquet('{SRC}')
+FROM x
 ) TO '{OUT}' (FORMAT PARQUET, COMPRESSION ZSTD)
 """)
 
 print("rows",con.execute(f"select count(*) from read_parquet('{OUT}')").fetchone()[0])
 print("primary_prefit",con.execute(f"select count(*) from read_parquet('{OUT}') where eligible_for_primary_prefit").fetchone()[0])
+print("with_preindex_peep_history",con.execute(f"select count(*) from read_parquet('{OUT}') where has_preindex_peep_history").fetchone()[0])
+print("with_preindex_compliance_response",con.execute(f"select count(*) from read_parquet('{OUT}') where has_preindex_compliance_response").fetchone()[0])
+print("with_preindex_hemodynamic_response",con.execute(f"select count(*) from read_parquet('{OUT}') where has_preindex_hemodynamic_response").fetchone()[0])
 for col in [
   "compliance_status","resistance_status","shunt_status","dead_space_status",
   "recruitability_status","effort_status","hemodynamic_sensitivity_status","autonomic_gain_status"

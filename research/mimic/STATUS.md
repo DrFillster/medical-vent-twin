@@ -643,3 +643,32 @@ Regression test:
 - full live-session regression suite: 10/10 tests passed
 
 This boundary allows a future phenotype fitter to inject fitted patient mechanics without changing the deployed/default behavior when no override is supplied.
+
+
+## Pre-index perturbation history
+
+To improve identifiability without post-index leakage, the pipeline now searches for earlier PEEP transitions in the same ICU stay.
+
+History window:
+
+- historical PEEP transition: 24 to 2 hours before the index transition
+- historical pre/post ABG and mechanics responses must occur before the index transition
+
+Local historical dataset:
+
+- 224 historical PEEP perturbations
+- supports 135 index events
+- 97 ICU stays
+- paired pre/post compliance available for 13 historical perturbations
+- paired pre/post HR and MAP available for 217 historical perturbations
+
+At the index-event level:
+
+- recruitability can be fit from pre-index PEEP history in 135/411 events
+- airway-pressure hemodynamic sensitivity can be fit from pre-index PEEP history in 130/411 events
+- recruitability remains prior-constrained in 276/411
+- hemodynamic sensitivity remains prior-constrained in 281/411
+
+Autonomic gain remains prior-constrained in all 411 events. A PEEP-associated HR/MAP response alone cannot uniquely separate autonomic gain from preload/afterload and other hemodynamic effects.
+
+All historical identification data precede the index transition. Post-index values remain excluded from phenotype fitting.
