@@ -2313,3 +2313,59 @@ The conservative mechanically representable controlled-mode primary subset is th
 - total: 63 pre-transition mechanically/effort representable events
 
 Gas-exchange and oxygenation phenotype quality must still be fitted and scored separately before the final frozen validation cohort is defined.
+
+
+## CO2 phenotype identifiability and patient-specific metabolic boundary
+
+The latent dead-space smoke test was repeated in five mixed-mode conservative primary events after mechanics/effort fitting.
+
+Result:
+- four finite fits selected the maximum tested dead-space fraction (0.80);
+- one PC_AC case failed the gas-maintenance run;
+- residual PaCO2 error remained substantial in several cases.
+
+Interpretation:
+
+A single pre-transition PaCO2 operating point cannot identify dead space independently because the reduced core also contains a fixed metabolic CO2-production boundary and a source-prior venous gas state.
+
+The dead-space search range was **not** widened to improve retrospective fit.
+
+### Longitudinal pre-index availability
+
+Within the 63-event conservative mechanically/effort-representable cohort:
+
+- events with >=2 arterial ABGs in the prior 6 hours: 50/63
+- events with >=2 ABGs that also have nearby minute ventilation or documented RR+observed VT sufficient to characterize ventilation: 12/63
+- events with >=3 such ABG/ventilation pairs: 3/63
+
+By mode, events with >=2 paired pre-index observations:
+- PS: 6/41
+- PC_AC: 5/20
+- VC_AC: 1/2
+
+Therefore:
+- 12 events are candidates for joint longitudinal identification of effective dead space and metabolic CO2 production;
+- the remaining 51 events do not have enough structured pre-index information to separate those latent quantities reliably.
+
+### Patient-specific metabolic CO2-production boundary
+
+The live reduced HumMod core already has an explicit systemic metabolic CO2-production boundary. The reference value is inherited from the authored engineering boundary.
+
+A research-only override has now been added:
+
+- `patientTissueCo2ProductionMmolPerMin`
+
+Behavior:
+- when absent, the reference systemic gas boundary is unchanged;
+- when supplied, only tissue CO2 production is replaced;
+- downstream HumMod gas-exchange equations are unchanged;
+- snapshot provenance records whether the override was applied.
+
+Validation:
+- at fixed ventilation, mechanics, dead space, and arterial gas initialization, higher patient-specific tissue CO2 production raises PaCO2 in the expected direction;
+- full live-session regression suite: 16/16 tests passed.
+
+Policy:
+- do not fit dead space alone from a single PaCO2 point;
+- where >=2 pre-index ABG/ventilation observations exist, dead space and tissue CO2 production may be jointly estimated;
+- otherwise effective CO2-elimination phenotype remains partially identified/prior-constrained rather than assigned a falsely precise dead-space value.

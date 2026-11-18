@@ -206,6 +206,30 @@ test('patient ventilated-perfusion override is explicit and raises PaO2 when inc
     'higher ventilated-perfusion fraction should raise PaO2 at fixed ventilation');
 });
 
+test('patient tissue CO2 production override is explicit and raises PaCO2 when increased', () => {
+  const low = makeSession({
+    patientDeadSpaceFractionOfTidalVolume:0.30,
+    patientTissueCo2ProductionMmolPerMin:5.0,
+    patientArterialGasInitialization:{po2MmHg:80,pco2MmHg:40,pH:7.40},
+  });
+  low.initialize();
+  const lowSnap=low.runFor(20);
+
+  const high = makeSession({
+    patientDeadSpaceFractionOfTidalVolume:0.30,
+    patientTissueCo2ProductionMmolPerMin:12.0,
+    patientArterialGasInitialization:{po2MmHg:80,pco2MmHg:40,pH:7.40},
+  });
+  high.initialize();
+  const highSnap=high.runFor(20);
+
+  assert(lowSnap.coupling.patientTissueCo2ProductionOverrideApplied===true);
+  assert(highSnap.coupling.patientTissueCo2ProductionOverrideApplied===true);
+  assert(highSnap.systemic.gasExchange.paco2MmHg >
+    lowSnap.systemic.gasExchange.paco2MmHg,
+    'higher tissue CO2 production should raise PaCO2 at fixed ventilation');
+});
+
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({
     heartRateControlMode:'hummod2013-baro-chemo',

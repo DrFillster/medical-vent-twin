@@ -215,6 +215,7 @@ function createBerlinLiveHumModSession({
   patientDeadSpaceBtpsMl = null,
   patientDeadSpaceFractionOfTidalVolume = null,
   patientVentilatedPerfusionFractionOverride = null,
+  patientTissueCo2ProductionMmolPerMin = null,
   patientArterialGasInitialization = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
@@ -368,6 +369,15 @@ function createBerlinLiveHumModSession({
       throw new Error('patientVentilatedPerfusionFractionOverride must be in [0,1]');
     }
   }
+  if (patientTissueCo2ProductionMmolPerMin != null) {
+    nonNegative(patientTissueCo2ProductionMmolPerMin, 'patientTissueCo2ProductionMmolPerMin');
+  }
+  const effectiveSystemicGasBoundaries = Object.freeze({
+    ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic,
+    ...(patientTissueCo2ProductionMmolPerMin == null
+      ? {}
+      : { tissueCo2ProductionMmolPerMin: patientTissueCo2ProductionMmolPerMin }),
+  });
   const effectivePulmonaryBoundaries = Object.freeze({
     ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.pulmonary,
     ...(patientDeadSpaceBtpsMl == null
@@ -485,7 +495,7 @@ function createBerlinLiveHumModSession({
   const initialGasBoundary = createLiveCoreBoundaryFromVent({
     simulation,
     systemic: {
-      ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic,
+      ...effectiveSystemicGasBoundaries,
       cardiacOutputMlPerMin: initialCardiacOutputMlPerMin,
     },
     pulmonary: effectivePulmonaryBoundaries,
@@ -506,7 +516,7 @@ function createBerlinLiveHumModSession({
     circulation,
     gasRuntime,
     pressureAdapter: { cmH2OToMmHg },
-    systemicBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic,
+    systemicBoundaries: effectiveSystemicGasBoundaries,
     pulmonaryBoundaries: effectivePulmonaryBoundaries,
     bloodBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
     environmentBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
@@ -1083,6 +1093,9 @@ function createBerlinLiveHumModSession({
         patientVentilatedPerfusionFractionOverrideApplied:
           patientVentilatedPerfusionFractionOverride != null,
         patientVentilatedPerfusionFractionOverride,
+        patientTissueCo2ProductionOverrideApplied:
+          patientTissueCo2ProductionMmolPerMin != null,
+        patientTissueCo2ProductionMmolPerMin,
         patientGasInitializationApplied: Boolean(patientGasInit),
         patientGasInitializationDiagnostics: patientGasInit ? patientGasInit.diagnostics : null,
         benchmarkEcfvApplied: nativeEcfvMl == null,
