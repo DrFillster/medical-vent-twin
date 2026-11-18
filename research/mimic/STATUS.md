@@ -2369,3 +2369,58 @@ Policy:
 - do not fit dead space alone from a single PaCO2 point;
 - where >=2 pre-index ABG/ventilation observations exist, dead space and tissue CO2 production may be jointly estimated;
 - otherwise effective CO2-elimination phenotype remains partially identified/prior-constrained rather than assigned a falsely precise dead-space value.
+
+
+## Joint longitudinal dead-space / CO2-production proof of concept
+
+After requiring:
+- at least two pre-index arterial ABGs;
+- complete contemporaneous ventilation characterization;
+- the same directly supported ventilator mode as the index event;
+
+only 2 of the 63 conservative mechanically/effort-representable events remained:
+
+- 1 PS
+- 1 PC_AC
+- 2 usable historical points each
+
+A joint grid fit was tested for:
+- effective dead-space fraction;
+- patient-specific tissue CO2 production.
+
+Results:
+
+PS case:
+- best dead-space fraction: 0.70
+- best tissue CO2 production: lower search boundary
+- standardized objective: 0.57
+- PaCO2 residuals at the two historical points: approximately -3.2 and +4.3 mmHg
+
+PC_AC case:
+- best dead-space fraction: upper search boundary 0.80
+- best tissue CO2 production: upper search boundary
+- standardized objective: 0.14
+- PaCO2 residuals: approximately -2.4 and -1.9 mmHg
+
+Interpretation:
+
+Even after adding a second pre-index operating point, dead space and metabolic CO2 production are not robustly separable in these two structured-data cases. Boundary hits remain common.
+
+Phenotype policy is therefore:
+
+1. If a high-quality paired EtCO2 measurement exists:
+   - retain measured (PaCO2-PETCO2)/PaCO2 as the measured dead-space-related phenotype;
+   - use it directly as the model dead-space initialization boundary for the current pilot.
+
+2. If no high-quality EtCO2 pair exists:
+   - do not estimate a precise patient dead-space fraction from PaCO2 alone;
+   - label effective dead-space behavior as latent/prior-constrained;
+   - retain uncertainty explicitly;
+   - do not widen search envelopes solely to improve retrospective baseline fit.
+
+3. Tissue CO2 production:
+   - patient-specific runtime override is available and validated;
+   - it is fitted only when independently identifiable from sufficient longitudinal pre-index data;
+   - otherwise it remains prior-constrained.
+
+This preserves the distinction between a physiologically measured dead-space descriptor and a model parameter that structured MIMIC cannot uniquely identify.
