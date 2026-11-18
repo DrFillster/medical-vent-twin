@@ -144,9 +144,11 @@ function createLiveCoreBoundaryFromVent({
       ventilation: Object.freeze({
         respiratoryRatePerMin: snap.ventilator.rrPerMin,
         tidalVolumeBtpsMl: vtL * 1000,
-        deadSpaceBtpsMl: pulmonary.deadSpaceBtpsMl == null
-          ? humModLegacyDeadSpaceMl(vtL * 1000)
-          : pulmonary.deadSpaceBtpsMl,
+        deadSpaceBtpsMl: pulmonary.deadSpaceBtpsMl != null
+          ? pulmonary.deadSpaceBtpsMl
+          : (pulmonary.deadSpaceFractionOfTidalVolume != null
+              ? pulmonary.deadSpaceFractionOfTidalVolume * vtL * 1000
+              : humModLegacyDeadSpaceMl(vtL * 1000)),
         fio2: snap.ventilator.fio2,
       }),
       pulmonary: Object.freeze({
@@ -182,9 +184,11 @@ function createLiveCoreBoundaryFromVent({
       totalShuntMlPerMin: flow.totalShuntMlPerMin,
       source:
         'HumMod LungBloodFlow basic R-L shunt + Vent compartment perfusionFraction x current recruitment',
-      deadSpaceSource: pulmonary.deadSpaceBtpsMl == null
-        ? 'HumMod Breathing.DES legacy equation'
-        : 'explicit-boundary',
+      deadSpaceSource: pulmonary.deadSpaceBtpsMl != null
+        ? 'explicit-boundary'
+        : (pulmonary.deadSpaceFractionOfTidalVolume != null
+            ? 'explicit-fraction-of-current-tidal-volume'
+            : 'HumMod Breathing.DES legacy equation'),
       membranePermeabilityMlPerMinPerMmHg,
       membraneRecruitment: membrane ? membrane.recruitment : null,
       membraneSource: membrane

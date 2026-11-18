@@ -25,6 +25,10 @@
 //   - No `1000 * capacity` clamp; the Newton solver enforces feasibility via line search.
 
 const EPS_CAP = 1e-9;
+// Numerical closure floor only. Recruitment below this level contributes
+// negligible volume/conductance but can enter the subnormal floating-point
+// range and destabilize finite-capacity domain checks during long runs.
+const MIN_RECRUITMENT_AVAILABILITY = 1e-12;
 
 function availabilityFor(cp, recruitment) {
   if (cp.id === 'normal') return 1.0;
@@ -32,7 +36,7 @@ function availabilityFor(cp, recruitment) {
     if (typeof recruitment !== 'number' || !Number.isFinite(recruitment)) {
       throw new Error('recruitment must be finite number');
     }
-    if (recruitment < 0) return 0;
+    if (recruitment <= MIN_RECRUITMENT_AVAILABILITY) return 0;
     if (recruitment > 1) return 1;
     return recruitment;
   }

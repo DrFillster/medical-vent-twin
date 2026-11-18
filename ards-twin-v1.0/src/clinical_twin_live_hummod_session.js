@@ -212,6 +212,7 @@ function createBerlinLiveHumModSession({
   patientDriveRelativeOverride = null,
   patientMechanicsParams = null,
   patientDeadSpaceBtpsMl = null,
+  patientDeadSpaceFractionOfTidalVolume = null,
   patientArterialGasInitialization = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
@@ -346,14 +347,26 @@ function createBerlinLiveHumModSession({
   nonNegative(coupledEquilibrationSec, 'coupledEquilibrationSec');
 
   const controller = buildLiveController(ventilation);
+  if (patientDeadSpaceBtpsMl != null && patientDeadSpaceFractionOfTidalVolume != null) {
+    throw new Error('choose patientDeadSpaceBtpsMl or patientDeadSpaceFractionOfTidalVolume, not both');
+  }
   if (patientDeadSpaceBtpsMl != null) {
     nonNegative(patientDeadSpaceBtpsMl, 'patientDeadSpaceBtpsMl');
+  }
+  if (patientDeadSpaceFractionOfTidalVolume != null) {
+    finite(patientDeadSpaceFractionOfTidalVolume, 'patientDeadSpaceFractionOfTidalVolume');
+    if (patientDeadSpaceFractionOfTidalVolume < 0 || patientDeadSpaceFractionOfTidalVolume >= 1) {
+      throw new Error('patientDeadSpaceFractionOfTidalVolume must be in [0,1)');
+    }
   }
   const effectivePulmonaryBoundaries = Object.freeze({
     ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.pulmonary,
     ...(patientDeadSpaceBtpsMl == null
       ? {}
       : { deadSpaceBtpsMl: patientDeadSpaceBtpsMl }),
+    ...(patientDeadSpaceFractionOfTidalVolume == null
+      ? {}
+      : { deadSpaceFractionOfTidalVolume: patientDeadSpaceFractionOfTidalVolume }),
   });
   const mechanicsParamsSource = patientMechanicsParams == null
     ? 'reference-case'
@@ -584,7 +597,11 @@ function createBerlinLiveHumModSession({
       physicianCandidate.setEnvironment({
         pao2MmHg: arterial.po2MmHg,
         paco2MmHg: arterial.pco2MmHg,
-        tidalVolumeL: deliveredVt > 0 ? deliveredVt : ventilation.vtL,
+        tidalVolumeL: deliveredVt > 0
+          ? deliveredVt
+          : (ventilation.vtL == null
+              ? HENNIGS_SPONTANEOUS_PROFILE.baselineTidalVolumeL
+              : ventilation.vtL),
       });
     }
     physicianCandidateState = physicianCandidate.runFor(seconds);
@@ -1027,8 +1044,10 @@ function createBerlinLiveHumModSession({
         nativeAutonomicTrajectoryApplied: Boolean(nativeAutonomicTrajectory),
         patientMechanicsSource: mechanicsParamsSource,
         patientMechanicsOverrideApplied: patientMechanicsParams != null,
-        patientDeadSpaceOverrideApplied: patientDeadSpaceBtpsMl != null,
+        patientDeadSpaceOverrideApplied:
+          patientDeadSpaceBtpsMl != null || patientDeadSpaceFractionOfTidalVolume != null,
         patientDeadSpaceBtpsMl,
+        patientDeadSpaceFractionOfTidalVolume,
         patientGasInitializationApplied: Boolean(patientGasInit),
         patientGasInitializationDiagnostics: patientGasInit ? patientGasInit.diagnostics : null,
         benchmarkEcfvApplied: nativeEcfvMl == null,
@@ -1138,6 +1157,20 @@ function createBerlinLiveHumModSession({
       if (!initialized) throw new Error('session must be initialized before runFor');
       stepCoupled(seconds);
       return snapshot();
+    },
+
+    compactTraceHistory(maxAgeSec = 60) {
+      if (!initialized) throw new Error('session must be initialized before trace compaction');
+      positive(maxAgeSec, 'maxAgeSec');
+      const cutoff = simulation.state.t - maxAgeSec;
+      let remove = 0;
+      while (remove < simulation.trace.length && simulation.trace[remove].t < cutoff) remove++;
+      if (remove > 0) simulation.trace.splice(0, remove);
+      return Object.freeze({
+        retainedRows: simulation.trace.length,
+        maxAgeSec,
+        cutoffVentTimeSec: cutoff,
+      });
     },
 
     setPEEP(value) {

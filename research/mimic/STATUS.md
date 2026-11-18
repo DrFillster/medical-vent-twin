@@ -1180,3 +1180,148 @@ Selected Hennigs latent effort profile among successful PS fits:
 These labels are model latent-state labels only. They must not be interpreted as documented clinical wakefulness, agitation, paralysis, or sedation unless independently documented.
 
 The high frequency of the high-drive profile is a model-fit diagnostic and may indicate limited granularity of the current four-profile effort representation, unmodeled patient-ventilator interaction, or residual physiologic heterogeneity. It is not evidence that most patients were clinically agitated.
+
+
+## Blinded prediction runtime and freeze
+
+A separate blinded prediction runner has now been implemented.
+
+### Separation from outcomes
+
+The prediction runner opens only:
+
+- frozen phenotype parameters;
+- pre-transition phenotype-fit inputs;
+- a minimal local event bridge containing:
+  - stable event ID;
+  - mapped HumMod mode;
+  - transition item ID;
+  - observed ventilator setting after the transition.
+
+It does **not** open or join post-transition ABG, HR, MAP, SpO2, or other outcome values.
+
+Prediction horizons are fixed in advance:
+
+- 5 minutes
+- 15 minutes
+- 30 minutes
+- 60 minutes
+
+Predicted outputs include:
+
+- PaO2
+- PaCO2
+- pH
+- SaO2
+- HR
+- MAP
+- cardiac output
+- tidal volume
+- minute ventilation
+- peak airway pressure
+
+### Prediction-eligibility gate
+
+In addition to a `well-represented` pre-transition phenotype, the index intervention must be executable in the mapped controller:
+
+- FiO2: VC_AC, PC_AC, or PS
+- PEEP: VC_AC, PC_AC, or PS
+- set RR: VC_AC or PC_AC
+- set VT: VC_AC only
+
+One otherwise well-represented event had a set-VT transition while mapped as PC_AC. It is excluded from the blinded prediction cohort rather than approximated.
+
+Final prediction-eligible cohort:
+
+- 136 events
+
+### Long-run numerical/runtime safeguards
+
+Several pre-outcome runtime issues were found and corrected before prediction freeze.
+
+#### Trace compaction
+
+Long simulations retained every high-frequency trace row and became progressively slower.
+
+A research runtime method now retains only recent trace history during long predictions.
+
+Regression test:
+
+- compacted vs uncompacted PaO2: identical
+- PaCO2: identical
+- HR: identical
+- MAP: identical
+- recent trace remains bounded
+
+This changes memory/history retention only, not physiology.
+
+#### Fractional dead-space phenotype
+
+A fitted absolute dead-space value could become larger than tidal volume after a ventilator change.
+
+The phenotype already fits dead space as a fraction of VT. Prediction now carries that dimensionless phenotype forward and recomputes dead space from current delivered VT.
+
+Regression test across a VC tidal-volume reduction: passed.
+
+#### Assisted-controller rollback
+
+Simulation rollback assumed every ventilator controller owned a BreathTracker. Assisted PS/SIMV controllers do not.
+
+Rollback now restores tracker state only when a tracker exists.
+
+Existing assisted-mode regression test: passed.
+
+#### Numerical closure floor
+
+During a long assisted-mode run, recruitable availability could decay into the floating-point subnormal range (~1e-315), where finite-capacity domain checks become numerically unstable.
+
+Recruitment availability <=1e-12 is now treated as numerically closed.
+
+This is a numerical zero/closure floor, not a physiologic calibration change.
+
+Regression tests:
+
+- conservation: 8/8 passed
+- recruitment: 7/7 passed
+- assisted modes: passed
+- trace-compaction invariance: passed
+
+#### Physician validation candidate
+
+The parallel physician validation candidate is observational only and has no control authority.
+
+Its invariance test confirms that enabling/disabling it does not change canonical live physiology.
+
+The blinded prediction runner therefore disables this diagnostic candidate to reduce runtime and eliminate irrelevant comparison-layer failure modes. The general runtime PS fallback was also corrected so the candidate remains valid when enabled.
+
+### Final regression state
+
+Full live HumMod session suite after these changes:
+
+- 13/13 tests passed
+
+### Blinded prediction freeze
+
+Eight uniform prediction shards were run with the final configuration.
+
+The one controller-incompatible event was removed by the prespecified executable-transition gate.
+
+Frozen compatible predictions:
+
+- eligible events: 136
+- successful trajectories: 136
+- missing: 0
+- duplicate: 0
+- eligible runtime failures: 0
+
+Local frozen prediction file:
+
+`/Users/philipbernard/mimic-data/derived/blinded_predictions_frozen.jsonl`
+
+SHA-256:
+
+`99c4cbac2574178c091133e9743e47561b97f64b608d7ea21a5f0605b988789b`
+
+The patient-level prediction file remains local and is not committed to GitHub.
+
+No post-transition MIMIC outcome file had been opened for prediction evaluation at the time this freeze was created.

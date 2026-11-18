@@ -398,10 +398,14 @@ class Simulation {
       // Snapshot mutable controller state so a rejected step is transactional.
       // Both shipped controllers own scalar fields plus a BreathTracker.
       controllerSnapshot = { ...this.controller };
-      trackerSnapshot = { ...this.controller.tracker };
+      trackerSnapshot = this.controller.tracker
+        ? { ...this.controller.tracker }
+        : null;
       restoreController = () => {
         Object.assign(this.controller, controllerSnapshot);
-        Object.assign(this.controller.tracker, trackerSnapshot);
+        if (trackerSnapshot && this.controller.tracker) {
+          Object.assign(this.controller.tracker, trackerSnapshot);
+        }
       };
 
       // 1. Resolve patient effort before controller action so assisted modes
