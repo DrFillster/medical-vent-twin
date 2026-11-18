@@ -704,3 +704,162 @@ Regression test:
 - full live-session regression suite: 11/11 tests passed
 
 The runtime now has explicit phenotype injection points for patient mechanics and dead space while preserving default reference behavior when no override is supplied.
+
+
+## Numerical phenotype fitter: controlled modes
+
+The first numerical phenotype fitter is now implemented for directly mapped controlled modes (VC_AC and PC_AC).
+
+### Additional controller-state extraction
+
+MIMIC controller timing/flow fields were added:
+
+- 224691 Flow Rate (L/min)
+- 224738 Inspiratory Time
+- 226873 Inspiratory Ratio
+
+Local extraction:
+
+- 1,003,699 timing/flow rows
+- Flow Rate: 351,146 rows / 16,408 ICU stays
+- Inspiratory Time: 422,123 / 36,890
+- Inspiratory Ratio: 230,430 / 21,951
+
+Coverage in the controlled-mode fit pool:
+
+- PC_AC: 70 candidate transitions
+  - flow documented: 63
+  - inspiratory time documented: 69
+  - at least one timing/flow descriptor: 70
+- VC_AC: 8 candidate transitions
+  - inspiratory time documented: 6
+  - flow documented: 1
+  - inspiratory ratio documented: 8
+
+Two VC events were excluded from the numerical fit because neither a usable inspiratory time nor flow was available. One PC event lacked a usable inspiratory time for the current controller mapping.
+
+Final numerical controlled-mode fit set:
+
+- 75 events
+- 69 PC_AC
+- 6 VC_AC
+
+### Patient arterial gas initialization
+
+A patient-specific arterial gas initialization boundary was added.
+
+Inputs:
+
+- pre-transition PaO2
+- pre-transition PaCO2
+- measured pH retained as a diagnostic
+
+Implementation:
+
+- arterial HCO3 state is generated from PaCO2 using the existing HumMod gas-to-base relation at the fixed SID boundary;
+- arterial O2 content is generated from PaO2 using the existing HumMod hemoglobin/O2-content relation;
+- the source venous gas state remains the prior because no patient venous measurement is available;
+- no patient-specific SID is invented to force pH.
+
+The raw initializer reproduces supplied PaO2 and PaCO2 to numerical tolerance before the required one-second coupled initialization step.
+
+Measured pH is not used in the pulmonary fit objective because the reduced core currently determines pH from its fixed SID boundary. The pH residual remains visible as a structural-model residual.
+
+### Controlled-mode fitting parameters
+
+The current bounded fitter varies only model-native pre-transition phenotype parameters:
+
+- global lung stiffness scale;
+- central airway resistance;
+- fixed nonventilated perfusion fraction, implemented by redistributing compartment perfusion while preserving total perfusion = 1;
+- dead space as a fraction of delivered tidal volume.
+
+Baseline recruitment is held at the reference prior in this fitter. Dynamic recruitability is reserved for the separate pre-index PEEP-history fit.
+
+No direct shunt-fraction correction or post-index information is used.
+
+### PC inspiratory-pressure interpretation check
+
+For 68 PC_AC events with both Pinsp and peak airway pressure documented:
+
+- median |Ppeak - Pinsp| = 12 cmH2O
+- median |Ppeak - (PEEP + Pinsp)| = 2 cmH2O
+
+This supports interpreting the mapped MIMIC Pinsp field as pressure above PEEP for the current PC_AC controller.
+
+### 75-event controlled-mode fit results
+
+All 75 events completed the bounded numerical fit and a higher-fidelity confirmation run.
+
+Normalized fit-score distribution:
+
+Gas score:
+- median: 1.42
+- 75th percentile: 5.10
+- 90th percentile: 10.98
+- 95th percentile: 76.74
+- maximum: 286.41
+
+Mechanics score:
+- median: 1.07
+- 75th percentile: 2.20
+- 90th percentile: 5.70
+- 95th percentile: 8.49
+- maximum: 24.66
+
+Counts using the pre-specified objective normalization:
+
+- gas score <=2: 42/75
+- gas score >10: 9/75
+- gas score >25: 5/75
+- mechanics score <=3: 61/75
+- mechanics score >10: 4/75
+- both gas <=2 and mechanics <=3: 35/75
+- either gas >10 or mechanics >10: 12/75
+
+Median absolute confirmed residuals:
+
+- PaO2: 14.4 mmHg
+- PaCO2: 3.1 mmHg
+- pH: 0.080 (diagnostic only; fixed-SID structural residual)
+- SpO2: 3.9 percentage points
+- VT: 44 mL
+- minute ventilation: 0.77 L/min
+- peak airway pressure: 2 cmH2O
+
+### Gas-exchange failure phenotype
+
+The clear gas-fit failures are not explained by an intervening material ventilator change between the pre-ABG and index transition:
+
+- 73/75 controlled fits have no material ventilator transition between pre-ABG and index transition;
+- all 9 gas-score >10 cases are in that stable subset;
+- all 5 gas-score >25 cases are also in that stable subset.
+
+The gas-score >10 subgroup is strongly hyperoxic at baseline:
+
+- median pre-transition PaO2: 228 mmHg
+- median FiO2: 60%
+- median PEEP: 10 cmH2O
+
+For gas-score <=10:
+
+- median pre-transition PaO2: 75.5 mmHg
+- median FiO2: 55%
+- median PEEP: 10 cmH2O
+
+Interpretation:
+
+The current reduced gas-exchange model cannot preserve some high-PaO2 states under its present recruitment/perfusion/shunt structure, even after fitting a model-native nonventilated-perfusion parameter. These cases are retained as model-mismatch cases and are not tuned away.
+
+### Controlled-mode prefit quality
+
+The baseline fitter is a pre-index representability test, not an outcome model.
+
+The current result supports separating:
+
+- well-represented baseline phenotypes;
+- gas-exchange mismatch phenotypes;
+- mechanics mismatch phenotypes;
+- combined mismatch phenotypes.
+
+Any primary-validation eligibility rule based on these pre-transition fit residuals must be frozen before post-transition outcomes are examined.

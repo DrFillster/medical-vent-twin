@@ -109,6 +109,29 @@ test('patient-specific dead-space boundary is explicit and affects CO2 eliminati
     'higher explicit dead space should raise PaCO2 at fixed VC settings');
 });
 
+test('patient arterial gas initialization starts from measured PaO2 and PaCO2 without fitting SID', () => {
+  const session = makeSession({
+    patientArterialGasInitialization: {
+      po2MmHg: 70,
+      pco2MmHg: 50,
+      pH: 7.25,
+    },
+  });
+  const s = session.initialize();
+  assert(s.coupling.patientGasInitializationApplied === true);
+  const d = s.coupling.patientGasInitializationDiagnostics;
+  assert(Math.abs(d.initializedPo2MmHg - 70) < 0.001,
+    'raw patient gas initializer must reproduce supplied PaO2');
+  assert(Math.abs(d.initializedPco2MmHg - 50) < 0.01,
+    'raw patient gas initializer must reproduce supplied PaCO2');
+  assert(d.phPolicy.includes('fixed-SID'));
+  assert(Number.isFinite(s.systemic.gasExchange.pH));
+  assert(Math.abs(s.systemic.gasExchange.pao2MmHg - 70) < 2,
+    'one-second coupled initialization should begin near supplied PaO2');
+  assert(Math.abs(s.systemic.gasExchange.paco2MmHg - 50) < 2,
+    'one-second coupled initialization should begin near supplied PaCO2');
+});
+
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({
     heartRateControlMode:'hummod2013-baro-chemo',

@@ -36,3 +36,6 @@ lab,outcome,50803,"Calculated Bicarbonate, Whole Blood",mEq/L,Blood gas
 lab,outcome,50802,Base Excess,mEq/L,Blood gas
 lab,outcome,50813,Lactate,mmol/L,Blood gas
 lab,context,52033,Specimen Type,,Required to distinguish arterial from venous/other blood gas
+chart,context,224691,Flow Rate (L/min),L/min,Inspiratory flow rate when documented
+chart,context,224738,Inspiratory Time,sec,Inspiratory time when documented
+chart,context,226873,Inspiratory Ratio,None,Inspiratory component of I:E documentation

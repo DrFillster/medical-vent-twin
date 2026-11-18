@@ -19,6 +19,7 @@ const { summarizeSimulationMeasurements } = require('./bedside_measurements.js')
 const { createThoraxState } = require('./hummod_ards_core_thorax.js');
 const { createHumModArdsCirculation } = require('./hummod_ards_core_circulation.js');
 const { createHumModArdsGasRuntime } = require('./hummod_ards_core_runtime.js');
+const { createPatientArterialGasInitialState } = require('./patient_gas_initialization.js');
 const {
   createHumModArdsCardiopulmonaryRuntime,
   meanAirwayPressureCmH2O,
@@ -210,6 +211,7 @@ function createBerlinLiveHumModSession({
   patientStateProfile = 'awake_cooperative',
   patientMechanicsParams = null,
   patientDeadSpaceBtpsMl = null,
+  patientArterialGasInitialization = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
     throw new Error(
@@ -422,6 +424,15 @@ function createBerlinLiveHumModSession({
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
   });
   const initialCardiacOutputMlPerMin = primedCirc.flowsMlPerMin.leftVentricular;
+  if (nativeState && patientArterialGasInitialization) {
+    throw new Error('choose native gas state or patientArterialGasInitialization, not both');
+  }
+  const patientGasInit = patientArterialGasInitialization
+    ? createPatientArterialGasInitialState({
+        ...patientArterialGasInitialization,
+        blood: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
+      })
+    : null;
   const initialGasBoundary = createLiveCoreBoundaryFromVent({
     simulation,
     systemic: {
@@ -435,7 +446,9 @@ function createBerlinLiveHumModSession({
   const gasRuntime = createHumModArdsGasRuntime({
     ...(nativeState
       ? { initialState: nativeState }
-      : { useHumModSourceInitialState: true }),
+      : patientGasInit
+        ? { initialState: patientGasInit.state }
+        : { useHumModSourceInitialState: true }),
     boundary: initialGasBoundary.boundary,
   });
   const systemicRuntime = createHumModArdsCardiopulmonaryRuntime({
@@ -1005,6 +1018,8 @@ function createBerlinLiveHumModSession({
         patientMechanicsOverrideApplied: patientMechanicsParams != null,
         patientDeadSpaceOverrideApplied: patientDeadSpaceBtpsMl != null,
         patientDeadSpaceBtpsMl,
+        patientGasInitializationApplied: Boolean(patientGasInit),
+        patientGasInitializationDiagnostics: patientGasInit ? patientGasInit.diagnostics : null,
         benchmarkEcfvApplied: nativeEcfvMl == null,
         catecholamineEcfvMl,
         catecholamineEcfvSource,
