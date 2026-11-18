@@ -2170,3 +2170,58 @@ For the first FiO2/PEEP validation analysis, the <=60 minute cohort provides:
 - 49 PEEP transitions
 
 RR/VT transitions remain exploratory because of smaller numbers.
+
+
+## Primary <=60 minute phenotype fit readiness
+
+A pre-transition-only fit manifest has been created for the 131-event primary validation cohort.
+
+The manifest contains:
+- anonymous stable event ID;
+- intervention variable and pre/post setting values;
+- pre-transition ventilator state;
+- pre-transition arterial gas state;
+- HR/MAP/SpO2;
+- respiratory effort/mechanics observations;
+- EtCO2 dead-space descriptor when available;
+- identifiability and fit-status flags;
+- pre-index PEEP-history availability;
+- recorded inspiratory timing/flow needed for controlled modes.
+
+Post-transition outcome values are not included in this manifest.
+
+Readiness:
+
+- total manifest: 131
+- controller-ready: 130
+- PS: 98/98 ready
+- PC_AC: 29/30 ready
+- VC_AC: 3/3 ready
+
+The single non-ready PC_AC event lacks sufficient recorded inspiratory timing information and is excluded rather than assigned a guessed value.
+
+Dead-space source plan:
+
+- measured Grade A/B EtCO2: 1
+- latent effective dead-space fit/prior: 130
+
+Oxygenation source plan:
+
+- pre-index PEEP history potentially available for decomposition: 43
+- composite effective oxygenating-perfusion phenotype: 88
+
+PS effort observability in the primary cohort:
+
+- 2 effort observables: 2 events
+- 3 observables: 15
+- all 4 observables: 81
+
+Controlled-mode mechanics availability:
+
+- observed VT: 33/33
+- peak pressure: 33/33
+- plateau pressure: 20/33
+- documented compliance: 25/33
+- documented resistance: 24/33
+
+The scalable fitting pipeline will therefore operate on 130 controller-ready events, with the 131st retained as a documented non-ready exclusion.
