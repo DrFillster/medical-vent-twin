@@ -1127,3 +1127,56 @@ Gas fitting will instead:
 4. compare the equilibrated pre-transition gas state with the observed arterial ABG;
 5. fit only allowed gas parameters such as explicit dead space;
 6. freeze the phenotype before applying the index transition.
+
+
+## Integrated pre-transition phenotype fitting
+
+The controlled-mode integrated phenotype fitter has now been run across all 77 controlled-mode events using the committed patient gas-initialization boundary.
+
+Controlled-mode representability:
+
+- well-represented: 36
+- intermediate: 28
+- clear baseline mismatch: 13
+
+Aggregate controlled fit scores:
+
+- median gas score: 1.371
+- median mechanics score: 1.067
+- gas score >10: 9
+- mechanics score >10: 5
+
+Quality definitions follow the existing freeze workflow:
+
+- well-represented: gas <=2 and mechanics <=3
+- clear baseline mismatch: gas >10 or mechanics >10
+- otherwise: intermediate
+
+The integrated fitter initializes the pre-transition arterial gas state from the measured pre-transition PaO2/PaCO2/pH through the source-bounded patient gas initialization module, then measures drift under unchanged recorded ventilation. It does not use post-index outcomes.
+
+## Pressure-support phenotype fitting
+
+The previously completed source-bounded PS fit consists of 326 events.
+
+PS representability:
+
+- well-represented: 101
+- intermediate: 119
+- clear baseline mismatch: 94
+- fit/runtime failure: 12
+
+Aggregate PS scores:
+
+- median effort score: 0.603
+- median gas score: 2.894
+
+Selected Hennigs latent effort profile among successful PS fits:
+
+- agitated_high_drive: 200
+- awake_cooperative: 54
+- sedated_breathing: 54
+- passive_paralyzed: 6
+
+These labels are model latent-state labels only. They must not be interpreted as documented clinical wakefulness, agitation, paralysis, or sedation unless independently documented.
+
+The high frequency of the high-drive profile is a model-fit diagnostic and may indicate limited granularity of the current four-profile effort representation, unmodeled patient-ventilator interaction, or residual physiologic heterogeneity. It is not evidence that most patients were clinically agitated.

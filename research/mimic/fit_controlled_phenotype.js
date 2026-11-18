@@ -21,9 +21,11 @@ function ventilationFrom(row) {
   const v = row.vent;
   if (row.hummod_mode === 'VC_AC') {
     const vtL = v.vt_set_ml / 1000;
-    const flowLps = finite(v.flow_l_min)
-      ? v.flow_l_min / 60
-      : vtL / v.inspiratory_time_sec;
+    const flowLps = finite(v.flow_lps)
+      ? v.flow_lps
+      : (finite(v.flow_l_min)
+          ? v.flow_l_min / 60
+          : vtL / v.inspiratory_time_sec);
     return {
       mode: 'VC_AC', fio2: v.fio2_percent / 100, peep: v.peep, rr: v.rr_set,
       vtL, inspiratoryFlowLps: flowLps, inspiratoryPauseSec: 0,
