@@ -3111,3 +3111,64 @@ Among the 48 controlled mechanics-fit-ready events:
 - <=90 min: 30
 
 Prediction horizon must therefore be explicitly matched or stratified before cohort-scale scoring.
+
+
+### Second blinded controlled event
+
+Independent blinded test:
+
+- event: FIT-f469668e9be5
+- mode: PC_AC
+- intervention: FiO2 0.50 -> 0.40
+- held-out ABG timing: 1 minute
+- mechanics objective: 0.147
+
+Pre-transition baseline:
+
+- PaO2 84 mmHg
+- PaCO2 46 mmHg
+- pH 7.44
+
+The baseline gas fitter was made horizon-aware and run at the 60-second evaluation horizon.
+
+Pre-only fitted effective gas parameters:
+
+- effective dead-space fraction: 0.10
+- ventilated-perfusion fraction: 0.85
+- tissue CO2 production: 4 mmol/min
+
+60-second pre-transition stability:
+
+- PaO2 78.4 mmHg
+- PaCO2 47.2 mmHg
+- pH 7.348
+
+Baseline QC was accepted for PaO2/PaCO2 development purposes; pH remains diagnostic because SID is fixed in the reduced core.
+
+Frozen 60-second prediction:
+
+- PaO2 62.8 mmHg
+- PaCO2 47.2 mmHg
+- pH 7.348
+
+Held-out observed 1-minute ABG:
+
+- PaO2 84 mmHg
+- PaCO2 46 mmHg
+- pH 7.47
+
+Errors:
+
+- PaO2: -21.2 mmHg
+- PaCO2: +1.2 mmHg
+- pH: -0.122
+
+Interpretation:
+
+- CO2 prediction was close;
+- oxygenation response was substantially overpredicted;
+- the event is recorded as a blinded oxygenation-response miss;
+- no phenotype parameter is retuned from this post-transition result;
+- the next independent short-horizon FiO2 event is used to test whether this is event-specific or systematic.
+
+The PC_AC mechanical warm-up is now mode/rate dependent so multiple complete breaths occur before gas-core initialization.

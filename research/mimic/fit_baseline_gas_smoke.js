@@ -10,6 +10,7 @@ const {mechanicsParams}=require('./fit_controlled_mechanics.js');
 const INPUT='/Users/philipbernard/mimic-data/derived/controlled_blinded_fit_ready.json';
 const OUT='/Users/philipbernard/mimic-data/derived/baseline_gas_fit_smoke.json';
 const EVENT_ID=process.env.EVENT_ID||'FIT-b63aa85c9b17';
+const FIT_HORIZON_SEC=Number(process.env.HORIZON_SEC||120);
 
 const DEADSPACE=[0.10,0.20,0.30,0.40,0.50,0.60,0.70];
 const VPF=[0.60,0.70,0.80,0.85,0.90,0.95,1.00];
@@ -51,7 +52,9 @@ function makeSession({deadspace=null,vpf=null,co2Production=null}){
     ...(deadspace==null?{}:{patientDeadSpaceFractionOfTidalVolume:deadspace}),
     ...(vpf==null?{}:{patientVentilatedPerfusionFractionOverride:vpf}),
     ...(co2Production==null?{}:{patientTissueCo2ProductionMmolPerMin:co2Production}),
-    dt:0.002,mechanicalWarmupSec:3,coupledEquilibrationSec:0,
+    dt:0.002,
+    mechanicalWarmupSec:Math.max(3,2.5*(60/e.pre_rr_set)),
+    coupledEquilibrationSec:0,
   });
 }
 
@@ -100,7 +103,7 @@ for(const co2Production of CO2_PRODUCTION){
   try{
     const s=makeSession({deadspace:bestDeadspace.deadspace,vpf:bestVpf.vpf,co2Production});
     s.initialize();
-    const x=s.runFor(120);
+    const x=s.runFor(FIT_HORIZON_SEC);
     const g=x.systemic.gasExchange;
     const po2Err=g.pao2MmHg-e.pre_po2;
     const pco2Err=g.paco2MmHg-e.pre_pco2;
@@ -116,7 +119,7 @@ for(const co2Production of CO2_PRODUCTION){
 // Final long-horizon stability check.
 const finalSession=makeSession({deadspace:bestDeadspace.deadspace,vpf:bestVpf.vpf,co2Production:bestCo2Production.co2Production});
 finalSession.initialize();
-const final=finalSession.runFor(120);
+const final=finalSession.runFor(FIT_HORIZON_SEC);
 
 const out={
   event_id:e.event_id,
@@ -124,7 +127,8 @@ const out={
   bestDeadspace,
   bestVpf,
   bestTissueCo2Production:bestCo2Production,
-  final120s:{
+  fitHorizonSec:FIT_HORIZON_SEC,
+  finalStability:{
     pao2:final.systemic.gasExchange.pao2MmHg,
     paco2:final.systemic.gasExchange.paco2MmHg,
     pH:final.systemic.gasExchange.pH,

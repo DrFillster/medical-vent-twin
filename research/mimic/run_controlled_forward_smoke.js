@@ -85,7 +85,7 @@ function makeSession(event){
       } : {}),
     } : {}),
     dt:0.002,
-    mechanicalWarmupSec:3,
+    mechanicalWarmupSec:Math.max(3,2.5*(60/event.pre_rr_set)),
     coupledEquilibrationSec:0,
   });
 }
