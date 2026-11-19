@@ -108,3 +108,35 @@ No post-transition value may be used for:
 - simulation rescue.
 
 Simulation failures must be recorded as failures, not repaired using held-out outcomes.
+
+
+## Controlled-mode controller state
+
+The blinded input file includes pre-transition inspiratory timing/flow needed to recreate the exact controlled ventilator state:
+
+- PC_AC: `pre_inspiratory_time_sec`
+- VC_AC: `pre_inspiratory_flow_lps`
+- optional: `pre_inspiratory_ratio`
+
+These are pre-transition controller inputs and do not contain outcome information.
+
+## Baseline-stability requirement
+
+A prediction is not considered valid unless the fitted phenotype can first maintain the observed pre-transition state without an intervention.
+
+Current development QC checks baseline drift in:
+
+- PaO2
+- PaCO2
+- pH
+- ventilator mechanics
+
+Gas-state fitting may use pre-transition:
+
+- effective dead-space fraction
+- ventilated-perfusion fraction
+- metabolic CO2 production
+
+These parameters must be frozen before the index ventilator change.
+
+A failed baseline-stability test is a model/identifiability failure and must not be repaired using post-transition outcomes.

@@ -2987,3 +2987,127 @@ Leakage protection:
 - fitter/simulator code must not read the truth file.
 
 Full contract: research/mimic/BLINDED_VALIDATION.md
+
+
+## First end-to-end blinded controlled prediction smoke test
+
+The blinded controlled-mode pipeline was completed for one VC_AC PEEP event with a post-intervention ABG 2 minutes after the ventilator change.
+
+### Controller-state completeness
+
+The blinded prediction export now includes the full pre-transition controlled-mode controller state:
+
+- PC_AC:
+  - inspiratory time
+- VC_AC:
+  - inspiratory flow
+- both:
+  - mode-specific RR / VT / Pinsp / PEEP / FiO2
+
+Current controller-state coverage in the blinded primary cohort:
+
+- PC_AC with inspiratory time: 50/51
+- VC_AC with inspiratory flow: 7/7
+
+The single PC_AC event without timing is not part of the high-quality controlled mechanics-fit subset.
+
+### Controlled mechanics-fit-ready primary subset
+
+Within the blinded FiO2/PEEP primary cohort:
+
+- controlled-mode events: 58
+- matched to controlled mechanics fit: 57
+- finite mechanics fit: 56
+- mechanics objective <=1.0: 48
+  - PC_AC: 41
+  - VC_AC: 7
+
+Interventions among these 48:
+
+- FiO2: 35
+- PEEP: 13
+
+### Baseline gas-state stabilization
+
+A first truth-blind forward run showed that a good mechanics fit is not sufficient: the gas state can drift substantially even with no ventilator intervention.
+
+A pre-transition gas fitter was therefore added.
+
+Patient-specific effective gas phenotype parameters:
+
+1. effective dead-space fraction
+2. ventilated-perfusion fraction
+3. metabolic CO2 production
+
+These are fit only to pre-transition physiology and then frozen before intervention.
+
+For the first time-matched VC_AC test event:
+
+- observed baseline PaO2: 116 mmHg
+- observed baseline PaCO2: 50 mmHg
+- observed baseline pH: 7.30
+
+Best pre-only gas fit:
+
+- effective dead-space fraction: 0.70
+- ventilated-perfusion fraction: 1.0
+- metabolic CO2 production: 6 mmol/min
+
+120-second no-intervention stability:
+
+- PaO2: 115.2 mmHg
+- PaCO2: 49.1 mmHg
+- pH: 7.331
+
+These are effective latent model parameters. The dead-space value is not claimed to equal measured physiologic VD/VT unless separately constrained by EtCO2.
+
+### Blinded 2-minute prediction
+
+Intervention:
+
+- mode: VC_AC
+- PEEP 10 -> 8 cmH2O
+
+The model generated and wrote the 120-second prediction before the truth file was opened.
+
+Predicted:
+
+- PaO2: 115.9 mmHg
+- PaCO2: 49.0 mmHg
+- pH: 7.331
+
+Held-out observed ABG at 2 minutes:
+
+- PaO2: 121 mmHg
+- PaCO2: 46 mmHg
+- pH: 7.33
+
+Prediction error:
+
+- PaO2: -5.1 mmHg
+- PaCO2: +3.0 mmHg
+- pH: +0.0015
+
+This is a single technical smoke test, not a study result.
+
+### Outcome-time issue
+
+The first attempted controlled event had its next ABG 103 minutes after the intervention, making a 20-second model prediction non-comparable.
+
+Outcome timing in the 330-event primary cohort:
+
+- <=15 min: 19
+- <=30 min: 52
+- <=60 min: 106
+- <=90 min: 170
+- <=120 min: 227
+- <=180 min: 330
+
+Among the 48 controlled mechanics-fit-ready events:
+
+- <=15 min: 3
+- <=30 min: 11
+- <=60 min: 19
+- <=90 min: 30
+
+Prediction horizon must therefore be explicitly matched or stratified before cohort-scale scoring.

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import duckdb
+import duckdb, json
 
 DER=Path("/Users/philipbernard/mimic-data/derived")
 PHENO=DER/"pretransition_phenotype_packet.parquet"
 POOL=DER/"pilot_supported_mode_pool.parquet"
+CONTROLLED=DER/"controlled_fit_inputs.jsonl"
 BLIND=DER/"blinded_primary_prediction_inputs.parquet"
 TRUTH=DER/"blinded_primary_prediction_truth.parquet"
 
@@ -14,6 +15,24 @@ PEEP_ITEM=220339
 con=duckdb.connect()
 con.execute("PRAGMA threads=4")
 con.execute("PRAGMA memory_limit='4GB'")
+
+# Controlled-mode timing/flow are pre-transition controller inputs.
+con.execute("create temp table controlled_inputs(event_id varchar, pre_inspiratory_flow_lps double, pre_inspiratory_time_sec double, pre_inspiratory_ratio double)")
+controlled_rows=[]
+if CONTROLLED.exists():
+    for line in open(CONTROLLED):
+        if not line.strip():
+            continue
+        r=json.loads(line)
+        v=r.get('vent') or {}
+        controlled_rows.append((
+            r.get('event_id'),
+            v.get('flow_lps'),
+            v.get('inspiratory_time_sec'),
+            v.get('inspiratory_ratio'),
+        ))
+if controlled_rows:
+    con.executemany("insert into controlled_inputs values (?,?,?,?)",controlled_rows)
 
 # Primary prediction inputs: pre-transition state + observed ventilator intervention only.
 con.execute(f"""
@@ -33,6 +52,7 @@ SELECT
   -- mode / controller state
   p.hummod_mode,p.pre_mode,
   p.pre_fio2,p.pre_peep,p.pre_rr_set,p.pre_vt_set,p.pre_psv,p.pre_pinsp,
+  c.pre_inspiratory_flow_lps,c.pre_inspiratory_time_sec,c.pre_inspiratory_ratio,
 
   -- observed baseline physiology
   p.pre_hr,p.pre_map,p.pre_spo2,
@@ -57,6 +77,7 @@ JOIN read_parquet('{POOL}') s
   ON s.stay_id=p.stay_id
  AND s.transition_time=p.transition_time
  AND s.itemid=p.transition_itemid
+LEFT JOIN controlled_inputs c ON c.event_id=p.event_id
 WHERE p.pretransition_fit_ready
   AND s.itemid IN ({FIO2_ITEM},{PEEP_ITEM})
 ) TO '{BLIND}' (FORMAT PARQUET, COMPRESSION ZSTD)
