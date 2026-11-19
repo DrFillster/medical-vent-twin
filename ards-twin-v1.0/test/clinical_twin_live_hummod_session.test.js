@@ -390,6 +390,27 @@ test('prolonged profound hypoxemic hypercapnic failure decompensates instead of 
     'respiratory/asphyxial collapse should terminate as PEA in this pathway');
   assert(h.heartRatePerMin === 0 && h.cardiacOutputMlPerMin === 0,
     'terminal state must no longer report a perfusing circulation');
+
+  session.requestVentilationChange({
+    mode: 'VC_AC', fio2: 0.60, peep: 8, rr: 20,
+    vtL: 0.42, inspiratoryFlowLps: 0.70, inspiratoryPauseSec: 0.20,
+  });
+  const afterRestore = session.runFor(60);
+  const restored = afterRestore.systemic;
+  assert(afterRestore.timeSec === s.timeSec + 60,
+    'restoring settings after arrest must not reset the patient');
+  assert(afterRestore.ventilator.fio2 === 0.60 &&
+    afterRestore.ventilator.rrPerMin === 20 && !afterRestore.ventilatorChangePending,
+    'the controller must actually apply the restored settings');
+  assert(restored.decompensation.cardiacArrest === true &&
+    restored.decompensation.alive === false && restored.decompensation.arrestRhythm === d.arrestRhythm,
+    'arrest must stay latched on the same patient after ventilation is restored');
+  assert(restored.hemodynamics.heartRatePerMin === 0 &&
+    restored.hemodynamics.cardiacOutputMlPerMin === 0,
+    'ventilation must not restore a perfusing circulation after arrest');
+  assert(restored.gasExchange.pao2MmHg === g.pao2MmHg &&
+    restored.gasExchange.paco2MmHg === g.paco2MmHg,
+    'terminal systemic gas state must stay frozen despite the mechanical change');
 });
 
 test('live core supports PC-AC using delivered Vent tidal volume', () => {
