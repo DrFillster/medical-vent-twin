@@ -2771,3 +2771,111 @@ Current controlled-history conclusion:
 
 - 1/2 plausible controlled historical PEEP perturbations supports the recruitment phenotype structure;
 - 1/2 is not baseline-identifiable and is excluded rather than forced.
+
+
+## Spontaneous-mode historical recruitment development
+
+The clean historical PEEP cohort contains 27 spontaneous-mode rows before deduplication:
+
+- SPONT: 14 rows
+- CPAP/PSV: 13 rows
+
+After deduplication:
+
+- SPONT: 13 unique historical perturbations
+- CPAP/PSV: 12 unique historical perturbations
+
+Pre-transition effort-data coverage:
+
+- SPONT:
+  - 12/13 have RR + VT + minute ventilation + pressure support
+  - 7/13 also have documented compliance
+- CPAP/PSV:
+  - 7/12 have RR + VT + minute ventilation + pressure support
+  - none of these have documented compliance
+
+Therefore the first spontaneous recruitment-development subset is the 7 SPONT histories with both effort targets and compliance.
+
+### Historical ABG timing
+
+The broad historical screen allows relatively wide pre/post ABG windows. This is appropriate for candidate discovery but too loose for precise recruitment-parameter calibration.
+
+Among the 7 SPONT + compliance histories, ABG timing relative to the PEEP transition was:
+
+- 42 min pre / 158 min post
+- 97 / 143
+- 24 / 52
+- 100 / 233
+- 63 / 78
+- 74 / 109
+- 30 / 81
+
+The 97/143-minute PEEP 5->8 event was initially tested but is now excluded from primary recruitment calibration because the pre-ABG is too remote from the transition to represent an exact baseline state.
+
+For primary recruitment development, tighter historical gas timing is required. The best available SPONT case has pre/post ABGs 24 and 52 minutes from the intervention.
+
+### First tighter SPONT recruitment case
+
+Event characteristics:
+
+- mode: SPONT / pressure support
+- PEEP: 10 -> 8 cmH2O
+- pressure support: 8 cmH2O
+- pre/post ABG timing: 24 min before / 52 min after
+- observed RR: 27/min
+- observed VT: 480 mL
+- observed minute ventilation: 12.7 L/min
+- documented compliance: 56.1 mL/cmH2O
+- PaO2: 114 -> 113 mmHg
+- post VT: 537 mL
+- post minute ventilation: 13.5 L/min
+
+Pre-step effort/mechanics fit:
+
+- stiffness scale: 0.75
+- modeled compliance: 52.3 mL/cmH2O
+- neural drive: 0.45
+- muscle transmission: 1.0
+- modeled RR: 24.3/min
+- modeled VT: 505 mL
+- modeled MV: 12.3 L/min
+- effort objective: 0.39
+- effort/breath coupling: 1:1
+- no asynchrony
+
+The mechanics response to PEEP 10 -> 8 was also reproduced well:
+
+- modeled post VT approximately 536 mL
+- observed post VT 537 mL
+- modeled post MV approximately 13.0 L/min
+- observed post MV 13.5 L/min
+
+### Low-recruitability oxygenation fit
+
+The initial oxygenation grid forced at least 5% fixed plus 5% recruitable perfusion and therefore could not exceed a ventilated-perfusion fraction of 0.90. That artificially underpredicted the measured PaO2.
+
+A near-zero abnormal-perfusion refinement was therefore run.
+
+Best region:
+
+- total non-normal perfusion burden approximately 0.05
+- pre modeled PaO2 approximately 114 mmHg
+- post modeled PaO2 approximately 109 mmHg
+- observed 114 -> 113 mmHg
+
+Several decompositions were nearly equivalent:
+
+- recruitable 0.025 + fixed 0.025
+- recruitable 0.00 + fixed 0.05
+- recruitable 0.05 + fixed 0.00
+
+These solutions had nearly identical objective values.
+
+Interpretation:
+
+- this event supports a low total abnormal-perfusion / low-recruitability phenotype;
+- it does not separately identify fixed versus recruitable perfusion burden because the observed PEEP change produced essentially no oxygenation response;
+- fixed and recruitable shunt components must therefore remain partially identified in this event rather than assigned a precise split;
+- the controlled PEEP 15 -> 10 event remains the stronger example for separating fixed from recruitable burden because it contains a large oxygenation response.
+
+No post-index data were used.
