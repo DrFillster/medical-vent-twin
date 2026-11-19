@@ -2424,3 +2424,103 @@ Phenotype policy is therefore:
    - otherwise it remains prior-constrained.
 
 This preserves the distinction between a physiologically measured dead-space descriptor and a model parameter that structured MIMIC cannot uniquely identify.
+
+
+## Full PS + EtCO2 two-axis effort fitting
+
+The two-axis effort fitter was run across all 8 PS events with Grade A/B EtCO2 pairing.
+
+Research phenotype axes:
+
+- neural drive: continuous Hennigs-supported relative drive
+- muscle transmission: continuous transmission amplitude within implemented profile envelope
+- lung stiffness: initially fitted jointly, then constrained by documented compliance where available
+
+Initial 8-event joint fit results:
+
+- objective <=0.10: 2/8
+- <=0.50: 4/8
+- <=1.00: 6/8
+- <=1.50: 8/8
+- median objective: 0.503
+
+Best neural-drive values:
+
+- 0.10 to 0.35 across the 8 events
+- no event required a drive outside the Hennigs-supported envelope
+
+Initial amplitude/stiffness identifiability:
+
+- muscle-transmission low-grid edge: 3/8
+- muscle-transmission high-grid edge: 5/8
+- stiffness low-grid edge: 3/8
+- one event showed nonzero asynchrony
+
+Interpretation:
+
+Neural timing is identifiable from pre-transition RR, but muscle-transmission amplitude and lung stiffness trade off substantially if fitted together.
+
+### MIMIC Compliance validation
+
+MIMIC item 229661 is labeled `Compliance`, but its metadata unit is `cmH2O/L/seconds`, which is dimensionally inconsistent with compliance.
+
+Before using the field, it was compared against independently derived compliance from observed VT / (plateau - PEEP) in events where both were available.
+
+Paired comparison:
+
+- n = 22
+- Pearson correlation = 0.958
+- documented / derived compliance ratio:
+  - median = 0.913
+  - IQR approximately 0.85 to 1.05
+
+Therefore item 229661 is treated as a compliance measurement for phenotype fitting, with the metadata-unit inconsistency explicitly documented.
+
+### Compliance-to-stiffness mapping
+
+For PS patients with documented compliance, model stiffness was mapped using a standardized passive pressure-controlled breath, independent of patient effort.
+
+Documented compliance available in 6/8 EtCO2 PS events.
+
+Closest model compliance results:
+
+- 4/6 reproduced documented compliance within approximately 14%
+- two very high-compliance cases were near the softest model boundary
+
+### Compliance-constrained effort fitting
+
+With neural drive fixed from RR and stiffness fixed from documented compliance, muscle transmission was refit.
+
+Results:
+
+- objective <=0.10: 2/6
+- <=0.25: 3/6
+- <=1.00: 4/6
+- median objective: 0.60
+
+Four cases were usable under the current model.
+
+Two high-compliance cases failed the combined effort/mechanics consistency test:
+
+- one produced only 1 ventilator breath for 3 efforts, RR ~5.7/min vs observed 15/min, objective ~17.6
+- one produced 2 ventilator breaths for 3 efforts with excess VT/MV, objective ~5.1
+
+These are rejected rather than forced into a fitted phenotype.
+
+### PS acceptance-rule correction
+
+The earlier patient-triggered check was one-sided and could accept multiple ineffective efforts.
+
+The fitter now requires both:
+
+- efforts >= 80% of ventilator breaths
+- ventilator breaths >= 80% of efforts
+
+This rejects substantial ineffective-effort or backup-breath mismatch.
+
+Current interpretation:
+
+- neural drive is well identified in most PS patients from pre-transition RR
+- effort amplitude becomes interpretable only after mechanics are constrained
+- extreme high-compliance cases expose a current model-boundary limitation and should be excluded from primary dead-space validation
+- the next dead-space validation should use the PS cases that pass both compliance and effort-coupling checks
