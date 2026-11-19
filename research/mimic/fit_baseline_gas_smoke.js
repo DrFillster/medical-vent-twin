@@ -11,6 +11,8 @@ const INPUT='/Users/philipbernard/mimic-data/derived/controlled_blinded_fit_read
 const OUT='/Users/philipbernard/mimic-data/derived/baseline_gas_fit_smoke.json';
 const EVENT_ID=process.env.EVENT_ID||'FIT-b63aa85c9b17';
 const FIT_HORIZON_SEC=Number(process.env.HORIZON_SEC||120);
+const SEARCH_DT_SEC=Number(process.env.SEARCH_DT_SEC||0.005);
+const CONFIRM_DT_SEC=Number(process.env.CONFIRM_DT_SEC||0.002);
 
 const DEADSPACE=[0.10,0.20,0.30,0.40,0.50,0.60,0.70];
 const VPF=[0.60,0.70,0.80,0.85,0.90,0.95,1.00];
@@ -35,7 +37,7 @@ function ventilationFor(event){
     inspiratoryFlowLps:event.pre_inspiratory_flow_lps,inspiratoryPauseSec:0,
   };
 }
-function makeSession({deadspace=null,vpf=null,co2Production=null}){
+function makeSession({deadspace=null,vpf=null,co2Production=null,dtSec=SEARCH_DT_SEC}){
   const m=e.mechanics_fit;
   return createBerlinLiveHumModSession({
     caseId:LIVE_HUMMOD_REFERENCE_CASE_ID,
@@ -52,7 +54,7 @@ function makeSession({deadspace=null,vpf=null,co2Production=null}){
     ...(deadspace==null?{}:{patientDeadSpaceFractionOfTidalVolume:deadspace}),
     ...(vpf==null?{}:{patientVentilatedPerfusionFractionOverride:vpf}),
     ...(co2Production==null?{}:{patientTissueCo2ProductionMmolPerMin:co2Production}),
-    dt:0.002,
+    dt:dtSec,
     mechanicalWarmupSec:Math.max(3,2.5*(60/e.pre_rr_set)),
     coupledEquilibrationSec:0,
   });
@@ -144,7 +146,7 @@ for(const screened of shortlist){
 if(!bestCo2Production) throw new Error('no finite CO2-production candidate after full-horizon confirmation');
 
 // Final long-horizon stability check uses the selected candidate once.
-const finalSession=makeSession({deadspace:bestDeadspace.deadspace,vpf:bestVpf.vpf,co2Production:bestCo2Production.co2Production});
+const finalSession=makeSession({deadspace:bestDeadspace.deadspace,vpf:bestVpf.vpf,co2Production:bestCo2Production.co2Production,dtSec:CONFIRM_DT_SEC});
 finalSession.initialize();
 const final=finalSession.runFor(FIT_HORIZON_SEC);
 
@@ -155,6 +157,8 @@ const out={
   bestVpf,
   bestTissueCo2Production:bestCo2Production,
   fitHorizonSec:FIT_HORIZON_SEC,
+  searchDtSec:SEARCH_DT_SEC,
+  confirmDtSec:CONFIRM_DT_SEC,
   finalStability:{
     pao2:final.systemic.gasExchange.pao2MmHg,
     paco2:final.systemic.gasExchange.paco2MmHg,

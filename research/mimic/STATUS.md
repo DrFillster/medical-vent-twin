@@ -3239,3 +3239,44 @@ Final 60-second baseline:
 - pH: 7.348
 
 This reproduces the previously documented horizon-aware fit for this event and confirms that the screening optimization does not materially change the selected pre-transition phenotype.
+
+
+## Third controlled FiO2 candidate: baseline-stability failure before prediction
+
+Candidate selection:
+
+- event: FIT-11e9d251e800
+- mode: PC_AC
+- intervention: FiO2 0.50 -> 0.40
+- mechanics objective: 0.00075
+- post-ABG timing used only to set the simulation horizon: 28 minutes
+- post-transition outcome values were not read
+
+The pre-transition gas phenotype was fit without intervention and then tested over the full 28-minute horizon.
+
+Observed pre-transition state:
+
+- PaO2: 79 mmHg
+- PaCO2: 70 mmHg
+- pH: 7.27
+
+Search behavior:
+
+- effective dead-space fraction selected at upper grid boundary: 0.70
+- ventilated-perfusion fraction selected at upper grid boundary: 1.00
+- short-screen CO2 production favored the upper part of the tested range
+
+Full-horizon no-intervention confirmation failed:
+
+- PaO2 approximately 37.6 mmHg
+- PaCO2 approximately 165.6 mmHg
+- pH approximately 6.80
+
+Interpretation:
+
+- this event fails the baseline-stability requirement before any blinded forward prediction;
+- no post-transition truth was opened;
+- the event must be recorded as a model/identifiability failure, not repaired by using held-out outcome data;
+- the current reduced core is not yet reliable for this phenotype over a 28-minute horizon despite an excellent mechanics fit.
+
+This result supports keeping a short-horizon validation stratum separate from longer-horizon prediction until baseline stationarity is demonstrated.
