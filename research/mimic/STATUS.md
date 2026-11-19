@@ -2904,3 +2904,52 @@ Current recruitment-calibration policy:
 - historical PEEP response is used only when pre-step effort/mechanics and baseline oxygenation are adequately identified;
 - wide ABG timing windows are exploratory only;
 - discordant events are retained as model-mismatch cases rather than forcing additional phenotype parameters.
+
+
+## Pre-transition phenotype packet
+
+A frozen pre-index phenotype packet is now generated for all 411 directly supported events.
+
+Local output:
+
+`/Users/philipbernard/mimic-data/derived/pretransition_phenotype_packet.parquet`
+
+Patient-level packet rows remain local and are not committed.
+
+Aggregate results:
+
+- total supported events: 411
+- pre-transition fit-ready: 351
+- mode counts:
+  - PS 333
+  - PC_AC 70
+  - VC_AC 8
+
+Mechanics identifiability:
+
+- A: 159
+- B: 16
+- C: 236
+
+PS effort identifiability:
+
+- A: 112
+- B: 161
+- C: 60
+
+Dead-space identifiability:
+
+- A: 4
+- B: 7
+- C: 400
+
+Recruitment identifiability:
+
+- B: 6
+- C: 405
+
+The packet explicitly distinguishes observed measurements, fit-ready latent parameters, historically constrained parameters, and prior-only states.
+
+The previous empty `fitted_*` placeholder columns are not interpreted as fitted physiology.
+
+Full field definitions and grading rules are documented in `research/mimic/PHENOTYPE_PACKET.md`.
