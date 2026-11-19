@@ -2723,3 +2723,51 @@ Interpretation:
 - the result is a development smoke test from one historical perturbation, not a calibrated population estimate.
 
 No post-index data were used.
+
+
+### Second controlled historical PEEP event: excluded from recruitment calibration
+
+The second unique controlled P-CMV historical event had:
+
+- PEEP 20 -> 18 cmH2O
+- FiO2 0.40
+- RR 10/min
+- inspiratory pressure 10 cmH2O
+- inspiratory time 3.0 s
+- observed VT 150 -> 149 mL
+- minute ventilation 1.50 -> 1.49 L/min
+- PaO2 101 -> 99 mmHg
+- PaCO2 43 -> 44 mmHg
+
+The recorded pre-step plateau pressure was 17 cmH2O while PEEP was 20 cmH2O. That value is physiologically incompatible with the same breath/setting state and was excluded from fitting.
+
+Mechanics-only fitting was strong:
+
+- best stiffness scale approximately 2.0
+- modeled VT approximately 153 -> 159 mL
+- mechanics objective approximately 0.07
+
+However, oxygenation could not be initialized correctly with recruitment/shunt parameters alone.
+
+At the maximum tested ventilated-perfusion fraction:
+
+- ventilated perfusion fraction = 1.00
+- modeled PaO2 approximately 73 mmHg
+- observed PaO2 = 101 mmHg
+- modeled alveolar PO2 approximately 64 mmHg
+- modeled end-capillary PO2 approximately 64 mmHg
+- membrane gradient was small (~0.4 mmHg), arguing against membrane-diffusion limitation
+- PaCO2 remained close to observed (~44 vs 43 mmHg)
+
+Therefore the baseline failure is not explained by recruitable/fixed shunt burden. It reflects a gas-core limitation or an unmodeled patient-specific gas state in this very-low-VT phenotype.
+
+Policy:
+
+- this event is excluded from recruitment-parameter calibration;
+- it can remain a model-mismatch case for later gas-core refinement;
+- no recruitment threshold, recruitable perfusion, or fixed shunt estimate is accepted from this event.
+
+Current controlled-history conclusion:
+
+- 1/2 plausible controlled historical PEEP perturbations supports the recruitment phenotype structure;
+- 1/2 is not baseline-identifiable and is excluded rather than forced.
