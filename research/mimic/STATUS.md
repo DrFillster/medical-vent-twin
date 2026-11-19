@@ -2597,3 +2597,129 @@ Interpretation:
 - measured PaCO2-PETCO2 gradient remains an independent phenotype descriptor and model-validation constraint.
 
 This supports using the simulator dead-space parameter as a patient-specific latent gas-exchange parameter, but not equating it directly with the measured PaCO2-PETCO2 fraction.
+
+
+## Oxygenation / recruitment phenotype development
+
+Recruitability is now separated from baseline oxygenation impairment rather than represented by a single shunt parameter.
+
+### Clean pre-index PEEP identification set
+
+Historical PEEP perturbations were screened for:
+
+- occurrence before the index transition;
+- stable FiO2 across the historical step (<5 percentage-point change);
+- stable ventilator mode;
+- paired pre/post arterial gases.
+
+Results:
+
+- 224 historical PEEP perturbation rows before deduplication
+- 34 with both stable FiO2 and stable mode
+- 33 supported index events
+- 31/34 also had paired SpO2
+- all 34 had paired arterial PaO2
+
+Mode distribution among the 34 clean historical perturbations:
+
+- SPONT: 14
+- CPAP/PSV: 13
+- P-CMV: 6
+- CMV/ASSIST/AutoFlow: 1
+
+For controlled-mode recruitment development, the P-CMV subset was used first to avoid effort confounding.
+
+### Controlled-history data-quality result
+
+The 6 P-CMV rows represented 4 unique historical perturbations.
+
+After applying the existing adult observed-VT plausibility range:
+
+- 2 unique controlled historical perturbations remained suitable for mechanics fitting.
+
+The first development event:
+
+- PEEP 15 -> 10
+- pre VT 187 mL
+- post VT 135 mL
+- pre PaO2 160 mmHg
+- post PaO2 90 mmHg
+
+### Recruitment-model limitation identified
+
+The original recruitable compartment used synthetic engineering anchors:
+
+- P_open = 22 cmH2O above AOP
+- P_close = 12 cmH2O above AOP
+- k_open = 0.02
+- k_close = 0.05
+
+Using the reference thresholds caused the live model to converge to a patient-independent recruitment state and prevented the measured pre-step oxygenation from being reproduced.
+
+A single patient-specific pressure-threshold shift was therefore introduced in research fitting:
+
+- P_open_patient = P_open_reference + threshold_shift
+- P_close_patient = P_close_reference + threshold_shift
+- hysteresis gap and kinetic rate constants remain unchanged
+
+This is a research phenotype parameter only; the reference/default model remains unchanged.
+
+### Phenotype decomposition
+
+The oxygenation/recruitment phenotype is now represented by separate components:
+
+1. normal ventilated perfusion burden;
+2. fixed nonrecruitable/consolidated perfusion burden;
+3. recruitable perfusion burden;
+4. patient-specific recruitment pressure-threshold shift;
+5. current recruitment state;
+6. mechanics/stiffness.
+
+This separation is required because baseline oxygenation and the oxygenation response to PEEP constrain different physiology.
+
+### Threshold smoke test
+
+At stiffness scale 2.0 and initial recruitable state 1.0:
+
+- threshold shifts from -2 through -8 cmH2O kept the recruitable compartment open at PEEP 15;
+- reference shift 0 caused substantial derecruitment before the historical PEEP intervention;
+- positive shift +2 caused still greater derecruitment.
+
+This demonstrated that a patient-specific threshold location is necessary for the historical event.
+
+### First successful historical recruitment fit
+
+A small grid separated fixed nonrecruitable perfusion from recruitable perfusion while holding:
+
+- stiffness scale = 2.0
+- recruitment threshold shift = -4 cmH2O
+- initial recruitable state = 1.0
+
+Best candidate:
+
+- normal perfusion fraction: 0.70
+- recruitable perfusion fraction: 0.15
+- fixed consolidated perfusion fraction: 0.15
+
+Observed versus modeled:
+
+- pre PaO2: 160 vs 151.3 mmHg
+- post PaO2: 90 vs 90.5 mmHg
+- pre observed VT: 187 vs 199.5 mL
+- post observed VT: 135 vs 131.4 mL
+
+Model ventilated-perfusion fraction:
+
+- pre: 0.85
+- post: 0.722
+
+This is the first pre-index historical perturbation in which the same patient-specific phenotype reproduces both the mechanical and oxygenation direction/magnitude of a PEEP change without using the index-transition outcome.
+
+Interpretation:
+
+- fixed shunt burden and recruitable shunt burden must be separate phenotype axes;
+- recruitment pressure threshold must be patient-specific;
+- recruitment kinetics remain fixed at the current reference values for now and are not claimed to be identified;
+- the result is a development smoke test from one historical perturbation, not a calibrated population estimate.
+
+No post-index data were used.
