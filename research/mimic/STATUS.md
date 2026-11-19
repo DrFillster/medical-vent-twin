@@ -3280,3 +3280,61 @@ Interpretation:
 - the current reduced core is not yet reliable for this phenotype over a 28-minute horizon despite an excellent mechanics fit.
 
 This result supports keeping a short-horizon validation stratum separate from longer-horizon prediction until baseline stationarity is demonstrated.
+
+
+## Freeze 3A aggregation and prediction-horizon correction
+
+The protocol-complete Freeze 3A phenotype refit completed in nine local shards.
+
+Locked index verification:
+
+- expected locked events: 45
+- refit rows: 45
+- unique refit event IDs: 45
+- refit event set exactly equals locked index
+- fit-complete: 45/45
+- post-index data loaded during fitting: false
+
+Locked stationarity / baseline gate:
+
+- pass: 12/45
+- fail: 33/45
+
+Gate-failure counts:
+
+- baseline PaO2 error >20 mmHg: 23
+- 60-minute PaO2 drift >20 mmHg: 13
+- 60-minute PaCO2 drift >8 mmHg: 11
+- baseline PaCO2 error >8 mmHg: 5
+
+Median absolute residuals across all 45 fits:
+
+- baseline PaCO2: 2.91 mmHg
+- baseline PaO2: 21.35 mmHg
+- 60-minute PaCO2 drift: 4.13 mmHg
+- 60-minute PaO2 drift: 9.79 mmHg
+
+Only the 12 prespecified gate-passing phenotypes are eligible for Freeze 3A prediction.
+
+### Prediction horizon correction
+
+The initial Freeze 3A runner inherited a legacy 5-to-180-minute output grid.
+
+The current primary study protocol is explicitly limited to post-ABG <=60 minutes because longer frozen-phenotype trajectories were previously shown to be confounded by baseline model drift and clinical state evolution.
+
+Freeze 3A prediction horizons are therefore now:
+
+- 5, 10, 15, ..., 60 minutes
+
+No longer-horizon Freeze 3A predictions are generated.
+
+One-event runtime smoke test:
+
+- event: PSFIT-d761e27fdf35
+- status: predicted
+- horizons: 12
+- final horizon: 60 minutes
+- post-outcome data loaded: false
+- runtime: approximately 13 seconds
+
+The general longer-horizon research runners remain unchanged; this correction applies only to the locked Freeze 3A primary validation runner.

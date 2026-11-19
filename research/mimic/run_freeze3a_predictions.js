@@ -12,7 +12,9 @@ const BASE='/Users/philipbernard/mimic-data/derived';
 const START_INDEX=Number(process.env.START_INDEX||0);
 const MAX_EVENTS=Number(process.env.MAX_EVENTS||1000);
 const OUTPUT=process.env.OUTPUT||BASE+'/freeze3a_predictions_part.jsonl';
-const HORIZONS=Array.from({length:36},(_,i)=>(i+1)*300);
+// Freeze 3A follows the locked <=60-minute primary validation horizon.
+// Longer frozen-phenotype trajectories are not part of this freeze.
+const HORIZONS=Array.from({length:12},(_,i)=>(i+1)*300);
 const PREDICTION_COMMIT=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
 
 function load(p){
