@@ -3338,3 +3338,51 @@ One-event runtime smoke test:
 - runtime: approximately 13 seconds
 
 The general longer-horizon research runners remain unchanged; this correction applies only to the locked Freeze 3A primary validation runner.
+
+## Freeze 3A prediction freeze
+
+The protocol-complete Freeze 3A refit was aggregated before outcome access.
+
+Refit lock:
+
+- locked FiO2 PS events: 45
+- fit-complete: 45/45
+- baseline + 60-minute stationarity pass: 12/45
+- fail: 33/45
+
+The prediction index was generated from the exact 12-event pass set.
+
+Prediction runtime:
+
+- mode: PS only
+- intervention: FiO2 only
+- horizons: 5, 10, 15, ..., 60 minutes
+- runtime timestep: 0.010 s
+- physician validation candidate disabled
+- post-outcome data loaded: false
+
+Prediction execution:
+
+- 3 shards x 4 events
+- predicted: 12/12
+- runtime failures: 0
+- missing: 0
+- duplicate: 0
+- horizons per event: 12
+- final horizon: 3600 seconds
+
+Frozen local prediction artifact:
+
+`/Users/philipbernard/mimic-data/derived/freeze3a_predictions_frozen.jsonl`
+
+Prediction runtime commit:
+
+`245217aadda7ea658124cda3adb2482f7359520c`
+
+Frozen artifact SHA-256:
+
+`f75fd1b832c69c306e006bee3bb449df0f3ddde16922a580510655e7ea312efd`
+
+The patient-level prediction artifact remains local and is not committed to GitHub.
+
+No post-transition outcome values had been opened for Freeze 3A scoring at the time this freeze and hash were created.
