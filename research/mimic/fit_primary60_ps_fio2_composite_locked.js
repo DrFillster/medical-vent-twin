@@ -1,6 +1,7 @@
 'use strict';
 
 const fs=require('fs');
+const {createHash}=require('node:crypto');
 const {
   LIVE_HUMMOD_REFERENCE_CASE_ID,
   createBerlinLiveHumModSession,
@@ -25,20 +26,33 @@ function loadJsonl(p){
 function sq(x){return x*x;}
 
 const lock=loadJsonl(LOCK);
-const allPrefit=JSON.parse(fs.readFileSync(PREFIT,'utf8'));
+const prefitSource=fs.readFileSync(PREFIT,'utf8');
+const prefitSha256=createHash('sha256').update(prefitSource,'utf8').digest('hex');
+const allPrefit=JSON.parse(prefitSource);
 const prefit=new Map(allPrefit.map(x=>[x.event_id,x]));
+if(prefit.size!==allPrefit.length) throw new Error('duplicate conservative prefit event');
 
 const composite=lock.filter(x=>x.oxygenation_source_plan==='composite_effective_oxygenation');
 if(composite.length!==19) throw new Error('expected exactly 19 composite-oxygenation events');
 if(composite.some(x=>x.deadspace_source_plan!=='latent_prior_constrained')){
   throw new Error('composite lock contains unexpected measured dead-space event');
 }
+const LOCKED_PREFIT_KEYS=['drive','muscle_transmission','stiffness_scale','resistance_scale'];
+for(const e of composite){
+  const p=prefit.get(e.event_id)?.prefit;
+  if(!p) throw new Error('missing conservative prefit input for '+e.event_id);
+  for(const key of LOCKED_PREFIT_KEYS){
+    if(!Number.isFinite(e[key]) || p[key]!==e[key]){
+      throw new Error('locked prefit mismatch for '+e.event_id+': '+key);
+    }
+  }
+}
 const selected=composite.slice(START_INDEX,START_INDEX+MAX_EVENTS);
 
 function sessionFor(e,{co2Nuisance=0.40,vpf=0.85}={}){
   const x=prefit.get(e.event_id);
   if(!x) throw new Error('missing conservative prefit input');
-  const p=x.prefit,v=x.vent;
+  const p=e,v=x.vent;
   return createBerlinLiveHumModSession({
     caseId:LIVE_HUMMOD_REFERENCE_CASE_ID,
     ventilation:{
@@ -138,10 +152,10 @@ for(let i=0;i<selected.length;i++){
     fitted:{
       effective_co2_elimination_fraction:bestCo2.value,
       effective_ventilated_perfusion_fraction:bestVpf.value,
-      drive:x.prefit.drive,
-      muscle_transmission:x.prefit.muscle_transmission,
-      stiffness_scale:x.prefit.stiffness_scale,
-      resistance_scale:x.prefit.resistance_scale
+      drive:e.drive,
+      muscle_transmission:e.muscle_transmission,
+      stiffness_scale:e.stiffness_scale,
+      resistance_scale:e.resistance_scale
     },
     residuals:{
       baseline_pco2:basePco2,baseline_po2:basePo2,
@@ -155,6 +169,7 @@ for(let i=0;i<selected.length;i++){
     provenance:{
       post_index_data_loaded:false,
       locked_index:'primary60_ps_fio2_prefit_index.jsonl',
+      prefit_input_sha256:prefitSha256,
       oxygenation_source_plan:'composite_effective_oxygenation',
       co2_parameter_interpretation:'effective-nuisance-not-physiologic-dead-space-estimate',
       tissue_co2_production:'model-prior-not-refit',
