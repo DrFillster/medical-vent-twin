@@ -2524,3 +2524,39 @@ Current interpretation:
 - effort amplitude becomes interpretable only after mechanics are constrained
 - extreme high-compliance cases expose a current model-boundary limitation and should be excluded from primary dead-space validation
 - the next dead-space validation should use the PS cases that pass both compliance and effort-coupling checks
+
+
+## PS EtCO2 dead-space validation after effort/mechanics fitting
+
+Dead-space validation was repeated in the PS subgroup only after freezing patient-specific:
+
+- neural drive
+- muscle transmission
+- compliance-constrained stiffness
+- ventilator settings
+- pre-transition arterial gas initialization
+
+Eligibility required:
+
+- compliance/effort objective <=1.0
+- near one-to-one patient effort / ventilator breath coupling
+- asynchrony index <=0.25
+
+Accepted PS events: 4
+
+Measured PaCO2-PETCO2 gradient vs best simulator dead-space fraction:
+
+- 0.189 -> 0.05; PaCO2 residual +1.1 mmHg
+- 0.300 -> 0.30; residual -0.2 mmHg
+- 0.030 -> 0.05; residual +1.8 mmHg
+- 0.091 -> 0.05; residual +1.5 mmHg
+
+Interpretation:
+
+- the largest measured gradient maps to the largest simulator dead-space setting;
+- the very low measured gradient maps to the low simulator range;
+- one moderate measured gradient (0.189) remains discordant with the simulator parameter;
+- with n=4, no calibrated conversion is justified;
+- measured PaCO2-PETCO2 gradient remains an independent phenotype constraint rather than a direct substitute for simulator dead-space fraction.
+
+The next check is time-horizon stability of the inferred dead-space value, because the patient arterial initializer retains a HumMod venous gas prior. If the inferred dead-space setting changes materially between short maintenance windows, initialization dynamics rather than patient dead space may be driving the estimate.
