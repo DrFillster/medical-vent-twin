@@ -2560,3 +2560,40 @@ Interpretation:
 - measured PaCO2-PETCO2 gradient remains an independent phenotype constraint rather than a direct substitute for simulator dead-space fraction.
 
 The next check is time-horizon stability of the inferred dead-space value, because the patient arterial initializer retains a HumMod venous gas prior. If the inferred dead-space setting changes materially between short maintenance windows, initialization dynamics rather than patient dead space may be driving the estimate.
+
+
+## PS dead-space time-horizon stability
+
+The four accepted PS dead-space validation cases were retested over 5-, 10-, and 20-second pre-transition maintenance windows.
+
+Purpose:
+
+- determine whether the inferred simulator dead-space fraction is stable;
+- identify whether retained venous gas priors or short initialization transients materially drive the fit.
+
+Results:
+
+1. measured gradient 0.189
+   - best simulator fraction: 0.05 at 5 s, 10 s, and 20 s
+   - PaCO2 residuals remained approximately +0.9 to +1.1 mmHg
+
+2. measured gradient 0.300
+   - best simulator fraction: 0.40 at 5 s and 10 s
+   - best simulator fraction: 0.30 at 20 s
+   - PaCO2 residuals remained within approximately +/-0.2 mmHg
+
+3. measured gradient 0.030
+   - best simulator fraction: 0.05 at 5 s, 10 s, and 20 s
+
+4. measured gradient 0.091
+   - best simulator fraction: 0.05 at 5 s, 10 s, and 20 s
+
+Interpretation:
+
+- 3/4 cases are fully stable across the tested maintenance horizons;
+- 1/4 shows only one grid-step variation;
+- the discordant 0.189 measured-gradient case remains discordant across all horizons, so the discrepancy is not explained by short-horizon initialization alone;
+- simulator dead-space fraction should be reported with uncertainty/range rather than as an exact measured physiologic quantity;
+- measured PaCO2-PETCO2 gradient remains an independent phenotype descriptor and model-validation constraint.
+
+This supports using the simulator dead-space parameter as a patient-specific latent gas-exchange parameter, but not equating it directly with the measured PaCO2-PETCO2 fraction.
