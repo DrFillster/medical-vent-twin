@@ -3172,3 +3172,41 @@ Interpretation:
 - the next independent short-horizon FiO2 event is used to test whether this is event-specific or systematic.
 
 The PC_AC mechanical warm-up is now mode/rate dependent so multiple complete breaths occur before gas-core initialization.
+
+
+## Primary-60 pre-transition oxygenation smoke screen
+
+After the second blinded FiO2-response miss, a pre-transition-only oxygenation screen was started before additional outcome scoring.
+
+Purpose:
+
+- test whether the reduced core can reproduce baseline PaO2 across the short-horizon cohort using a patient-specific ventilated-perfusion fraction;
+- do not use post-transition outcome values;
+- keep prefit mechanics / PS effort state frozen.
+
+First 3 events:
+
+1. FIT-05c54056e1c9, PS
+   - best ventilated-perfusion fraction: 0.60
+   - PaO2 residual: -1.35 mmHg
+   - PaCO2 residual: -14.85 mmHg
+   - oxygenation-search boundary hit: no
+
+2. FIT-0a7a90b63a74, PS
+   - best ventilated-perfusion fraction: 0.80
+   - PaO2 residual: -5.25 mmHg
+   - PaCO2 residual: -7.72 mmHg
+   - oxygenation-search boundary hit: no
+
+3. FIT-102b833418f3, PS
+   - best ventilated-perfusion fraction: 0.90
+   - PaO2 residual: +6.15 mmHg
+   - PaCO2 residual: -7.50 mmHg
+   - oxygenation-search boundary hit: no
+
+Interpretation:
+
+- baseline oxygenation can be represented reasonably in these first three events without forcing the search to a boundary;
+- the previous blinded FiO2-response miss is therefore not explained simply by inability to match baseline PaO2;
+- PaCO2 remains unstable when only oxygenation is fitted, so full baseline gas fitting still requires dead-space / CO2-load constraints;
+- no post-transition truth was read for this screen.
