@@ -230,6 +230,35 @@ test('patient tissue CO2 production override is explicit and raises PaCO2 when i
     'higher tissue CO2 production should raise PaCO2 at fixed ventilation');
 });
 
+test('patient blood SID research boundary is explicit, bounded, and default-safe', () => {
+  const base = makeSession({
+    patientArterialGasInitialization: { po2MmHg:80, pco2MmHg:60, pH:7.20 },
+  });
+  const baseSnap = base.initialize();
+  assert(baseSnap.coupling.patientBloodSidOverrideApplied === false);
+  assert(Math.abs(baseSnap.coupling.patientBloodSidMolPerL - 0.040) < 1e-12);
+
+  const changed = makeSession({
+    patientBloodSidMolPerL: 0.035,
+    patientArterialGasInitialization: { po2MmHg:80, pco2MmHg:60, pH:7.20 },
+  });
+  const changedSnap = changed.initialize();
+  assert(changedSnap.coupling.patientBloodSidOverrideApplied === true);
+  assert(Math.abs(changedSnap.coupling.patientBloodSidMolPerL - 0.035) < 1e-12);
+  assert(Math.abs(
+    changedSnap.coupling.patientGasInitializationDiagnostics.initializedPH -
+    baseSnap.coupling.patientGasInitializationDiagnostics.initializedPH
+  ) > 1e-6);
+
+  let threw=false;
+  try {
+    makeSession({ patientBloodSidMolPerL: 0 });
+  } catch (e) {
+    threw=/must be > 0/.test(e.message);
+  }
+  assert(threw,'nonpositive patient blood SID must fail');
+});
+
 test('native ECFV enables dynamic source-aligned catecholamine pools', () => {
   const session = makeSession({
     heartRateControlMode:'hummod2013-baro-chemo',

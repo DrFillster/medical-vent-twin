@@ -84,3 +84,66 @@ The current reduced core should not claim patient-specific acid-base initializat
 A future correction must add a defensible patient-specific acid-base boundary/state that can preserve measured pre-transition acid-base status. It must not silently infer or invent an unmeasured SID.
 
 Until that boundary exists, baseline pH mismatch must remain an explicit applicability limitation and stationarity failure criterion.
+
+
+## Chemistry availability for patient-specific acid-base state
+
+Primary-60 cohort: 63 events.
+
+Latest pre-transition routine chemistry coverage:
+
+Within 4 hours:
+- bicarbonate: 19/63
+- sodium: 19/63
+- chloride: 19/63
+- potassium: 22/63
+- complete bicarbonate + sodium + chloride + potassium: 19/63
+
+Within 12 hours:
+- bicarbonate: 54/63
+- sodium: 52/63
+- chloride: 54/63
+- potassium: 55/63
+- complete four-variable set: 52/63
+
+Within 24 hours:
+- bicarbonate: 61/63
+- sodium: 59/63
+- chloride: 61/63
+- potassium: 60/63
+- complete four-variable set: 59/63
+
+Base excess from the arterial blood-gas extraction is available in 63/63.
+
+This supports a timestamp-graded acid-base phenotype rather than assuming one fixed acid-base state for the entire cohort.
+
+## Patient blood SID research boundary
+
+A research-only optional `patientBloodSidMolPerL` boundary has been added in this isolated branch.
+
+Behavior:
+
+- omitted: existing 0.040 mol/L default remains unchanged;
+- supplied: the value is passed consistently to patient gas initialization, live gas exchange, and cardiopulmonary runtime;
+- non-finite or nonpositive values fail;
+- every snapshot records:
+  - `patientBloodSidOverrideApplied`
+  - `patientBloodSidMolPerL`
+
+The boundary does not derive or invent a patient SID. It only creates the explicit model input required for a future pre-transition acid-base fitter.
+
+Regression validation:
+
+- default SID path unchanged;
+- explicit SID override changes initialized acid-base state;
+- invalid values are rejected;
+- full live-session regression suite passed.
+
+## Decision point
+
+The model now has the engineering boundary needed to represent patient-specific acid-base state, but the primary research protocol still needs one methodological choice:
+
+1. fit the latent model SID parameter from pre-transition acid-base observations and validate it against available chemistry/base-excess context; or
+2. keep fixed SID and exclude/stratify patients whose measured pH is not representable by the fixed-SID state.
+
+The current audit favors option 1 if the fitted parameter is treated explicitly as a model latent state rather than a directly measured clinical SID.

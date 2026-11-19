@@ -216,6 +216,7 @@ function createBerlinLiveHumModSession({
   patientDeadSpaceFractionOfTidalVolume = null,
   patientVentilatedPerfusionFractionOverride = null,
   patientTissueCo2ProductionMmolPerMin = null,
+  patientBloodSidMolPerL = null,
   patientArterialGasInitialization = null,
 } = {}) {
   if (caseId !== LIVE_HUMMOD_REFERENCE_CASE_ID) {
@@ -372,6 +373,16 @@ function createBerlinLiveHumModSession({
   if (patientTissueCo2ProductionMmolPerMin != null) {
     nonNegative(patientTissueCo2ProductionMmolPerMin, 'patientTissueCo2ProductionMmolPerMin');
   }
+  if (patientBloodSidMolPerL != null) {
+    finite(patientBloodSidMolPerL, 'patientBloodSidMolPerL');
+    if (!(patientBloodSidMolPerL > 0)) {
+      throw new Error('patientBloodSidMolPerL must be > 0');
+    }
+  }
+  const effectiveBloodBoundaries = Object.freeze({
+    ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
+    ...(patientBloodSidMolPerL == null ? {} : { sidMolPerL: patientBloodSidMolPerL }),
+  });
   const effectiveSystemicGasBoundaries = Object.freeze({
     ...LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.systemic,
     ...(patientTissueCo2ProductionMmolPerMin == null
@@ -489,7 +500,7 @@ function createBerlinLiveHumModSession({
   const patientGasInit = patientArterialGasInitialization
     ? createPatientArterialGasInitialState({
         ...patientArterialGasInitialization,
-        blood: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
+        blood: effectiveBloodBoundaries,
       })
     : null;
   const initialGasBoundary = createLiveCoreBoundaryFromVent({
@@ -499,7 +510,7 @@ function createBerlinLiveHumModSession({
       cardiacOutputMlPerMin: initialCardiacOutputMlPerMin,
     },
     pulmonary: effectivePulmonaryBoundaries,
-    blood: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
+    blood: effectiveBloodBoundaries,
     environment: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
   });
   const gasRuntime = createHumModArdsGasRuntime({
@@ -518,7 +529,7 @@ function createBerlinLiveHumModSession({
     pressureAdapter: { cmH2OToMmHg },
     systemicBoundaries: effectiveSystemicGasBoundaries,
     pulmonaryBoundaries: effectivePulmonaryBoundaries,
-    bloodBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.blood,
+    bloodBoundaries: effectiveBloodBoundaries,
     environmentBoundaries: LIVE_HUMMOD_ENGINEERING_BOUNDARIES.gas.environment,
     pericardialTmpMmHg:
       LIVE_HUMMOD_ENGINEERING_BOUNDARIES.thorax.pericardialTmpMmHg,
@@ -1096,6 +1107,8 @@ function createBerlinLiveHumModSession({
         patientTissueCo2ProductionOverrideApplied:
           patientTissueCo2ProductionMmolPerMin != null,
         patientTissueCo2ProductionMmolPerMin,
+        patientBloodSidOverrideApplied: patientBloodSidMolPerL != null,
+        patientBloodSidMolPerL: effectiveBloodBoundaries.sidMolPerL,
         patientGasInitializationApplied: Boolean(patientGasInit),
         patientGasInitializationDiagnostics: patientGasInit ? patientGasInit.diagnostics : null,
         benchmarkEcfvApplied: nativeEcfvMl == null,
