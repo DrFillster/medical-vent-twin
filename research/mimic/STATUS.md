@@ -3420,3 +3420,59 @@ SHA-256:
 `ed830e4566aed5283e52bc9cf437eb38af181fede886c8ff3b8d0ec988e8edc2`
 
 The oxygenation source plan is frozen per event so composite and history-decomposable phenotype paths cannot be mixed silently during refitting.
+
+## Primary60 PS FiO2 composite-oxygenation stationarity gate
+
+The 19 locked PS FiO2 events without identifying pre-index PEEP history were fit through the composite-oxygenation pathway before any outcome access.
+
+Fixed from the primary60 prefit:
+
+- neural drive
+- muscle transmission
+- lung stiffness
+- airway-resistance prior
+- documented PS / PEEP / FiO2
+- pre-transition arterial gas initialization
+
+Fitted only as effective nuisance state:
+
+- effective CO2-elimination fraction
+- effective ventilated-perfusion fraction
+
+The CO2 parameter is explicitly a model nuisance parameter in this cohort. It is not reported as a measured or physiologically identified VD/VT because none of the 19 events has Grade A/B EtCO2 and none has sufficient longitudinal CO2 data to separate dead space from metabolic CO2 production.
+
+Locked gate:
+
+- baseline absolute PaCO2 error <=8 mmHg
+- baseline absolute PaO2 error <=20 mmHg
+- 60-minute PaCO2 drift <=8 mmHg
+- 60-minute PaO2 drift <=20 mmHg
+
+Results:
+
+- fit-complete: 19/19
+- gate pass: 5/19
+- gate fail: 14/19
+- baseline PaCO2 failures: 4
+- baseline PaO2 failures: 6
+- 60-minute PaCO2-drift failures: 7
+- 60-minute PaO2-drift failures: 2
+- CO2 nuisance search-boundary hits: 2/19
+- oxygenation search-boundary hits: 5/19
+
+Median absolute residuals:
+
+- baseline PaCO2: 4.06 mmHg
+- baseline PaO2: 4.25 mmHg
+- 60-minute PaCO2 drift: 6.44 mmHg
+- 60-minute PaO2 drift: 3.65 mmHg
+
+Local aggregate:
+
+`/Users/philipbernard/mimic-data/derived/primary60_ps_fio2_composite_refit.jsonl`
+
+SHA-256:
+
+`ac2aacad9e5045455c1e2437e4547c0cabd900cf3ea2bd951ddcdc9e99ba51b1`
+
+Only the 5 gate-passing composite phenotypes can proceed to prediction. The 5 history-decomposable locked events remain separate and have not yet been refit through the recruitment-aware path.
