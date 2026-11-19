@@ -10,7 +10,10 @@ const {mechanicsParams}=require('./fit_controlled_mechanics.js');
 const INPUT='/Users/philipbernard/mimic-data/derived/controlled_blinded_fit_ready.json';
 const OUT='/Users/philipbernard/mimic-data/derived/controlled_forward_smoke_1.json';
 const GAS_FIT='/Users/philipbernard/mimic-data/derived/baseline_gas_fit_smoke.json';
-const HORIZON_SEC=Number(process.env.HORIZON_SEC||20);
+const HORIZON_SEC=Number(process.env.HORIZON_SEC??20);
+if(!Number.isFinite(HORIZON_SEC) || HORIZON_SEC<=0){
+  throw new Error('HORIZON_SEC must be finite and positive');
+}
 
 const rows=JSON.parse(fs.readFileSync(INPUT,'utf8'));
 if(!rows.length) throw new Error('no controlled blinded fit-ready events');
@@ -54,13 +57,36 @@ function ventilationFor(event,after=false){
   throw new Error('unsupported controlled mode '+event.hummod_mode);
 }
 
-function makeSession(event){
-  const m=event.mechanics_fit;
-  let gasFit=null;
+function readMatchingGasFit(event, horizonSec){
+  let fit;
   try {
-    const g=JSON.parse(fs.readFileSync(GAS_FIT,'utf8'));
-    if(g.event_id===event.event_id) gasFit=g;
-  } catch {}
+    fit=JSON.parse(fs.readFileSync(GAS_FIT,'utf8'));
+  } catch (cause) {
+    throw new Error('Could not read or parse the saved baseline gas fit', {cause});
+  }
+  if(fit?.event_id!==event.event_id){
+    throw new Error('Saved baseline gas fit event does not match selected event');
+  }
+  if(fit.fitHorizonSec!==horizonSec){
+    throw new Error('Saved baseline gas fit horizon does not match HORIZON_SEC');
+  }
+  const deadspace=fit.bestDeadspace?.deadspace;
+  const vpf=fit.bestVpf?.vpf;
+  const co2Production=fit.bestTissueCo2Production?.co2Production;
+  if(!Number.isFinite(deadspace) || deadspace<0 || deadspace>=1 ||
+     !Number.isFinite(vpf) || vpf<0 || vpf>1 ||
+     !Number.isFinite(co2Production) || co2Production<=0){
+    throw new Error('Saved baseline gas fit contains invalid gas parameters');
+  }
+  return {
+    patientDeadSpaceFractionOfTidalVolume:deadspace,
+    patientVentilatedPerfusionFractionOverride:vpf,
+    patientTissueCo2ProductionMmolPerMin:co2Production,
+  };
+}
+
+function makeSession(event, gasParams){
+  const m=event.mechanics_fit;
   return createBerlinLiveHumModSession({
     caseId:LIVE_HUMMOD_REFERENCE_CASE_ID,
     ventilation:ventilationFor(event,false),
@@ -77,13 +103,7 @@ function makeSession(event){
       pco2MmHg:event.pre_pco2,
       pH:event.pre_ph,
     },
-    ...(gasFit ? {
-      patientDeadSpaceFractionOfTidalVolume:gasFit.bestDeadspace.deadspace,
-      patientVentilatedPerfusionFractionOverride:gasFit.bestVpf.vpf,
-      ...(gasFit.bestTissueCo2Production ? {
-        patientTissueCo2ProductionMmolPerMin:gasFit.bestTissueCo2Production.co2Production,
-      } : {}),
-    } : {}),
+    ...gasParams,
     dt:0.002,
     mechanicalWarmupSec:Math.max(3,2.5*(60/event.pre_rr_set)),
     coupledEquilibrationSec:0,
@@ -91,12 +111,13 @@ function makeSession(event){
 }
 
 // Independent baseline-stability probe; does not use truth.
-const baselineSession=makeSession(e);
-const initBaseline=baselineSession.initialize();
-const baseline10=baselineSession.runFor(10);
+const gasParams=readMatchingGasFit(e,HORIZON_SEC);
+const baselineSession=makeSession(e,gasParams);
+baselineSession.initialize();
+const baseline=baselineSession.runFor(HORIZON_SEC);
 
 // Fresh session for actual blinded intervention.
-const predSession=makeSession(e);
+const predSession=makeSession(e,gasParams);
 const initPred=predSession.initialize();
 predSession.requestVentilationChange(ventilationFor(e,true));
 const predicted=predSession.runFor(HORIZON_SEC);
@@ -138,9 +159,10 @@ const out={
     hr:e.pre_hr,map:e.pre_map,spo2:e.pre_spo2,
   },
   initialization:gases(initPred),
-  no_intervention_10s:{
-    gases:gases(baseline10),
-    mechanics:mechanics(baseline10),
+  no_intervention_at_horizon:{
+    horizonSec:HORIZON_SEC,
+    gases:gases(baseline),
+    mechanics:mechanics(baseline),
   },
   blinded_prediction:{
     horizonSec:HORIZON_SEC,
