@@ -3476,3 +3476,64 @@ SHA-256:
 `ac2aacad9e5045455c1e2437e4547c0cabd900cf3ea2bd951ddcdc9e99ba51b1`
 
 Only the 5 gate-passing composite phenotypes can proceed to prediction. The 5 history-decomposable locked events remain separate and have not yet been refit through the recruitment-aware path.
+
+
+## Baseline-stability failure: FIT-11e9d251e800
+
+A third controlled FiO2 candidate was selected without reading held-out outcome values.
+
+Event:
+
+- FIT-11e9d251e800
+- mode: PC_AC
+- FiO2 0.50 -> 0.40
+- post-ABG timing only: 28 minutes
+- mechanics objective: 0.00075
+
+Observed pre-transition state:
+
+- PaO2 79 mmHg
+- PaCO2 70 mmHg
+- pH 7.27
+- set RR 10/min
+- observed VT 213 mL
+- minute ventilation 2.13 L/min
+
+The mechanics model reproduced ventilation closely:
+
+- modeled RR approximately 10/min
+- modeled VT approximately 218 mL
+- modeled minute ventilation approximately 2.18 L/min
+
+However, no pre-transition gas phenotype in the tested search maintained the baseline over 28 minutes.
+
+Best tested gas state:
+
+- effective dead-space fraction 0.70
+- ventilated-perfusion fraction 1.0
+- tissue CO2 production 7 mmol/min
+
+No-intervention trajectory:
+
+- 60 s: PaO2 59.9, PaCO2 63.2
+- 120 s: PaO2 51.2, PaCO2 69.5
+- 5 min: PaO2 39.4, PaCO2 86.2
+- 28 min: PaO2 37.6, PaCO2 165.6
+
+Diagnostic findings:
+
+- ventilator mechanics remain stable and close to observed minute ventilation;
+- FiO2 is passed correctly into the reduced HumMod gas boundary;
+- ventilated-perfusion fraction is already at 1.0;
+- the failure is therefore not explained by controller-state mismatch or insufficient ventilated perfusion;
+- the reduced gas core uses algebraic steady-state alveolar O2/CO2 exchange rather than an explicit alveolar gas-volume reservoir;
+- at very low alveolar ventilation this event is not baseline-stable in the reduced core.
+
+Disposition:
+
+- baseline QC failed before outcome unblinding;
+- no blinded intervention prediction is generated for this event;
+- the event is classified as a model/identifiability failure, not repaired with post-transition data;
+- no phenotype parameter is expanded solely to force this patient to fit.
+
+Truth file read: false.
