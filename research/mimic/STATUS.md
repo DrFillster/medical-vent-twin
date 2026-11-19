@@ -2953,3 +2953,37 @@ The packet explicitly distinguishes observed measurements, fit-ready latent para
 The previous empty `fitted_*` placeholder columns are not interpreted as fitted physiology.
 
 Full field definitions and grading rules are documented in `research/mimic/PHENOTYPE_PACKET.md`.
+
+
+## Blinded primary prediction set
+
+Primary validation inputs and held-out truth are now physically separated.
+
+Primary scope:
+
+- interventions: FiO2 and PEEP
+- modes: PS, PC_AC, VC_AC
+- requires pretransition_fit_ready
+
+Local outputs:
+
+- blinded_primary_prediction_inputs.parquet
+- blinded_primary_prediction_truth.parquet
+
+Counts:
+
+- total: 330
+- FiO2: 196
+- PEEP: 134
+- PS: 272
+- PC_AC: 51
+- VC_AC: 7
+- complete held-out post ABG: 330/330
+
+Leakage protection:
+
+- build script asserts that no post-transition field exists in the blinded input schema;
+- current leakage check passes;
+- fitter/simulator code must not read the truth file.
+
+Full contract: research/mimic/BLINDED_VALIDATION.md
