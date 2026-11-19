@@ -3210,3 +3210,32 @@ Interpretation:
 - the previous blinded FiO2-response miss is therefore not explained simply by inability to match baseline PaO2;
 - PaCO2 remains unstable when only oxygenation is fitted, so full baseline gas fitting still requires dead-space / CO2-load constraints;
 - no post-transition truth was read for this screen.
+
+
+## Horizon-aware baseline gas fitter regression
+
+The pre-transition gas fitter was optimized to avoid brute-force long-horizon runs:
+
+- all CO2-production candidates are screened at up to 120 seconds;
+- only the best one or two candidates are confirmed at the requested fit horizon;
+- the selected candidate is then run once for the final stability check.
+
+Regression check:
+
+- event: FIT-f469668e9be5
+- fit horizon: 60 seconds
+- truth file read: false
+
+Selected phenotype:
+
+- effective dead-space fraction: 0.10
+- ventilated-perfusion fraction: 0.85
+- tissue CO2 production: 4 mmol/min
+
+Final 60-second baseline:
+
+- PaO2: 78.39 mmHg
+- PaCO2: 47.22 mmHg
+- pH: 7.348
+
+This reproduces the previously documented horizon-aware fit for this event and confirms that the screening optimization does not materially change the selected pre-transition phenotype.

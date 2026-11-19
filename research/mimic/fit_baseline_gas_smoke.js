@@ -96,27 +96,54 @@ for(const vpf of VPF){
   }
 }
 
-// Stage 3: long-horizon CO2-load fit with dead space and oxygenation fixed.
-let bestCo2Production=null;
-const co2ProductionRows=[];
+// Stage 3: screen CO2 load at 120 s, then confirm only the best two
+// candidates over the requested horizon. This avoids brute-force long runs.
+const CO2_SCREEN_SEC=Math.min(120,FIT_HORIZON_SEC);
+const co2ScreenRows=[];
 for(const co2Production of CO2_PRODUCTION){
   try{
     const s=makeSession({deadspace:bestDeadspace.deadspace,vpf:bestVpf.vpf,co2Production});
+    s.initialize();
+    const x=s.runFor(CO2_SCREEN_SEC);
+    const g=x.systemic.gasExchange;
+    const po2Err=g.pao2MmHg-e.pre_po2;
+    const pco2Err=g.paco2MmHg-e.pre_pco2;
+    const objective=Math.pow(po2Err/10,2)+Math.pow(pco2Err/5,2);
+    co2ScreenRows.push({co2Production,pao2:g.pao2MmHg,paco2:g.paco2MmHg,pH:g.pH,po2Err,pco2Err,objective});
+  }catch(err){
+    co2ScreenRows.push({co2Production,errorMessage:String(err.message||err)});
+  }
+}
+const shortlist=co2ScreenRows
+  .filter(r=>Number.isFinite(r.objective))
+  .sort((a,b)=>a.objective-b.objective)
+  .slice(0,FIT_HORIZON_SEC>CO2_SCREEN_SEC?2:1);
+
+let bestCo2Production=null;
+const co2ProductionRows=[];
+for(const screened of shortlist){
+  try{
+    const s=makeSession({
+      deadspace:bestDeadspace.deadspace,
+      vpf:bestVpf.vpf,
+      co2Production:screened.co2Production
+    });
     s.initialize();
     const x=s.runFor(FIT_HORIZON_SEC);
     const g=x.systemic.gasExchange;
     const po2Err=g.pao2MmHg-e.pre_po2;
     const pco2Err=g.paco2MmHg-e.pre_pco2;
     const objective=Math.pow(po2Err/10,2)+Math.pow(pco2Err/5,2);
-    const row={co2Production,pao2:g.pao2MmHg,paco2:g.paco2MmHg,pH:g.pH,po2Err,pco2Err,objective};
+    const row={co2Production:screened.co2Production,pao2:g.pao2MmHg,paco2:g.paco2MmHg,pH:g.pH,po2Err,pco2Err,objective};
     co2ProductionRows.push(row);
     if(!bestCo2Production||objective<bestCo2Production.objective)bestCo2Production=row;
   }catch(err){
-    co2ProductionRows.push({co2Production,errorMessage:String(err.message||err)});
+    co2ProductionRows.push({co2Production:screened.co2Production,errorMessage:String(err.message||err)});
   }
 }
+if(!bestCo2Production) throw new Error('no finite CO2-production candidate after full-horizon confirmation');
 
-// Final long-horizon stability check.
+// Final long-horizon stability check uses the selected candidate once.
 const finalSession=makeSession({deadspace:bestDeadspace.deadspace,vpf:bestVpf.vpf,co2Production:bestCo2Production.co2Production});
 finalSession.initialize();
 const final=finalSession.runFor(FIT_HORIZON_SEC);
@@ -134,7 +161,7 @@ const out={
     pH:final.systemic.gasExchange.pH,
     vpf:final.systemic.gasExchange.ventilatedPerfusionFraction,
   },
-  deadspaceRows,vpfRows,co2ProductionRows,
+  deadspaceRows,vpfRows,co2ScreenRows,co2ProductionRows,
   truth_file_read:false,
 };
 fs.writeFileSync(OUT,JSON.stringify(out,null,2)+'\n');
