@@ -3386,3 +3386,37 @@ Frozen artifact SHA-256:
 The patient-level prediction artifact remains local and is not committed to GitHub.
 
 No post-transition outcome values had been opened for Freeze 3A scoring at the time this freeze and hash were created.
+
+## Current primary-60 PS FiO2 pre-outcome lock
+
+The previous 12-event Freeze 3A artifact is retained as a historical diagnostic freeze, but it is not the current primary cohort because only 4/12 events have a complete post-ABG within the revised <=60-minute primary window.
+
+A new protocol-consistent pre-outcome PS FiO2 lock has been generated from the existing primary60 conservative prefit cohort.
+
+Eligibility:
+
+- mode: PS
+- intervention: FiO2
+- post-ABG cohort source already restricted to <=60 minutes in the primary60 manifest
+- pre-transition effort/mechanics quality: strong or acceptable
+- modeled asynchrony index: 0
+- no post-transition outcome values included in the lock
+
+Locked cohort:
+
+- events: 24
+- unique event IDs: 24
+- composite effective oxygenation plan: 19
+- history-decomposable oxygenation plan: 5
+- measured Grade A/B EtCO2 dead-space source: 0
+- latent/prior-constrained dead-space source: 24
+
+Local lock:
+
+`/Users/philipbernard/mimic-data/derived/primary60_ps_fio2_prefit_index.jsonl`
+
+SHA-256:
+
+`ed830e4566aed5283e52bc9cf437eb38af181fede886c8ff3b8d0ec988e8edc2`
+
+The oxygenation source plan is frozen per event so composite and history-decomposable phenotype paths cannot be mixed silently during refitting.
