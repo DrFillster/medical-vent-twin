@@ -2879,3 +2879,28 @@ Interpretation:
 - the controlled PEEP 15 -> 10 event remains the stronger example for separating fixed from recruitable burden because it contains a large oxygenation response.
 
 No post-index data were used.
+
+
+### Additional SPONT historical case excluded
+
+The second tighter-timing SPONT candidate had:
+
+- PEEP 10 -> 8 cmH2O
+- pre/post ABG timing approximately 30 / 81 minutes
+- PaO2 58 -> 73 mmHg
+
+This apparent improvement in oxygenation after PEEP reduction could reflect overdistension/perfusion redistribution or other time-varying physiology. However, the pre-step effort phenotype was not adequately identified:
+
+- RR target 20/min; modeled ~20.7/min
+- VT target 381 mL; modeled ~538 mL
+- MV target 9.3 L/min; modeled ~11.1 L/min
+- effort objective ~2.09
+- mild ineffective-effort mismatch
+
+Therefore this event is excluded from recruitment calibration. No overdistension or inverse-PEEP-response phenotype is inferred from it.
+
+Current recruitment-calibration policy:
+
+- historical PEEP response is used only when pre-step effort/mechanics and baseline oxygenation are adequately identified;
+- wide ABG timing windows are exploratory only;
+- discordant events are retained as model-mismatch cases rather than forcing additional phenotype parameters.
