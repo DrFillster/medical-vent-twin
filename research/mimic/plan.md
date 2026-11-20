@@ -417,3 +417,12 @@ unreviewed and source timestamps unverified. Independent exact-membership and
 limitation assertions PASS. No diagnoses assigned, no outcomes read or physiology
 changed. See DISEASE_CONTROL_AUDIT.md. Next: timestamp and authorized-source
 inventory, evidence-contract tests, then control sensitivity checks.
+
+## Multi-state capability matrix completed
+
+See MULTISTATE_CAPABILITY_MATRIX.md. Key finding: stiffness scaling also
+changes capacity; chest-wall fraction fixed at 0.25; recruitment normal and
+consolidated states constrained. Expiratory solver exists but obstruction
+behavior not yet demonstrated. Next isolate controls in research tests,
+then select MIMIC examples with timestamped clinical evidence. No production
+changes or diagnosis assignments.
