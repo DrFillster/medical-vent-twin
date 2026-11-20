@@ -455,3 +455,14 @@ adapter only. Production unmodified. Corrected raw inventory finds diagnosis,
 lab, input and chart source files in deeper directory. Headers only; no patient
 rows read. Next 19-case timestamped extraction, PS effort and longer stability
 runs. See EXPLICIT_STATE_BATCH_RESULTS.md for exact scope and limitations.
+
+## PS and pre-change source audit executed
+
+Four 60-second coupled PS configurations pass controls/finite-volume checks.
+Audited 247 field checks across all 19 dev cases: 63 matching strictly available
+candidates, seven late/unknown-store matches, 75 missing, 102 no strict match.
+Do not interpret as exact source verification or patient counts. Original
+extractor includes equal charttime and no storetime cutoff; review required.
+Synthetic 19-case provenance test PASS; no post-change outcomes read. Next
+dictionary verification, exact source reconstruction, labs/settings and context.
+See PS_AND_SOURCE_AUDIT_RESULTS.md.
