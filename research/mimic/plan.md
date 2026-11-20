@@ -339,3 +339,14 @@ Next: timestamp/source-window audit and expansion of pre-change context,
 then coverage comparison and phenotype-informed development design. No truth
 access or production change. Fresh normal GitHub publication attempt follows
 user's explicit update instruction; no alternate route if it is denied.
+
+## GitHub publication restored
+
+Normal git commit/push succeeded on research/baseline-stability-audit at
+5cc3834, preserving the accumulated 53 source/document files. This supersedes
+all earlier pending/blocked publication status; historical notes are retained.
+No production merge. Patient-level artifacts remain outside the repository.
+Phenotype inventory independently checked: all 19 unique records, every group
+availability count, explicit unknowns and no fitted-feature circularity.
+Next bounded chunk: source timestamp alignment and raw pre-change context
+extraction, not disease labeling from incomplete prefits.
