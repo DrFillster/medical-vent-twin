@@ -147,3 +147,67 @@ The model now has the engineering boundary needed to represent patient-specific 
 2. keep fixed SID and exclude/stratify patients whose measured pH is not representable by the fixed-SID state.
 
 The current audit favors option 1 if the fitted parameter is treated explicitly as a model latent state rather than a directly measured clinical SID.
+
+
+## Acid-base latent-state smoke tests
+
+Path 1 was tested in two stages on three acidotic stationarity failures plus one prior stationarity-pass control.
+
+### Stage 1: SID-only pH fit
+
+For each event:
+
+- measured pre-transition PaO2/PaCO2 were retained;
+- latent model SID was varied only until initialized model pH matched measured pH;
+- previously fitted effective CO2-elimination and ventilated-perfusion parameters were frozen;
+- 60-minute stationarity was then rerun.
+
+Result:
+
+- 0/3 prior failures converted to pass;
+- the prior pass control converted to fail.
+
+Conclusion:
+
+A patient-specific SID cannot be added after gas-state fitting because the acid-base boundary changes the coupled gas chemistry enough to invalidate the prior CO2/oxygenation nuisance fit.
+
+### Stage 2: SID + CO2-elimination + oxygenation refit
+
+For the same four events:
+
+1. fit latent SID to measured pre-transition pH;
+2. freeze SID;
+3. refit effective CO2-elimination fraction;
+4. refit effective ventilated-perfusion fraction;
+5. confirm for 60 minutes with no intervention.
+
+Results:
+
+- FIT-05c54056e1c9: fail
+  - baseline PaCO2 residual -15.66 mmHg
+  - 60-min PaCO2 drift +15.44 mmHg
+- FIT-37d46fb4de8b: fail
+  - CO2 behavior acceptable
+  - baseline PaO2 residual -30.56 mmHg
+- FIT-66b775dbbe1f: fail
+  - baseline PaO2 residual -29.27 mmHg
+  - 60-min PaO2 drift -28.58 mmHg
+- FIT-102b833418f3: prior pass -> fail
+  - baseline PaCO2 residual -10.44 mmHg
+  - 60-min PaCO2 drift +11.73 mmHg
+
+Therefore:
+
+- pH-only latent SID fitting is insufficient;
+- the failure is not a single-parameter acid-base defect;
+- acid-base, CO2 mass balance, and oxygenation are coupled;
+- a valid patient-specific acid-base phenotype needs additional measured constraints.
+
+The primary-60 cohort has arterial base excess in 63/63 events. Routine serum bicarbonate/Na/Cl/K are available in 52/63 within 12 hours and 59/63 within 24 hours.
+
+Next method:
+
+- treat measured pH, PaCO2, and base excess as the core acid-base observation set;
+- use routine chemistry only as timestamp-graded secondary context;
+- do not report fitted SID as a measured clinical SID;
+- do not merge the SID boundary to v1.5 until the latent state can improve stationarity without degrading existing pass controls.
