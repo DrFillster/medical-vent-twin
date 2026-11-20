@@ -350,3 +350,20 @@ Phenotype inventory independently checked: all 19 unique records, every group
 availability count, explicit unknowns and no fitted-feature circularity.
 Next bounded chunk: source timestamp alignment and raw pre-change context
 extraction, not disease labeling from incomplete prefits.
+
+## Approved aims adopted; Terry reproduction gate started
+
+Saved user-approved text as SPECIFIC_AIMS_2026-11-20.md. Only Terry first-day
+two-cluster classifier; cluster adequacy remains an empirical question, no new
+phenotypes. Individual continuous measurements remain in each patient's fit.
+Main paper checked; wrote TERRY_REPRODUCTION_GATE.md with exact preprocessing,
+centers/imputation and timing prerequisites. PMC download was HTML; alternate
+Europe PMC supplement ZIP retrieved successfully, contents await inspection.
+No assignments made; published deployable artifacts not yet verified.
+
+Expanded availability audit from transition-time manifest: SpO2/FiO2/PEEP/HR/MAP
+19, minute ventilation/observed VT 18, lactate nine, plateau and bicarbonate
+zero in current manifest. These are NOT first-24h availability estimates and
+must not justify excluding patients or imputing source values. Next inspect
+supplement, establish final retained features/transformations/centers and raw
+first-day extraction. No outcome values read, model parameters unchanged.
