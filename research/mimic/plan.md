@@ -435,3 +435,12 @@ changes all affect outputs. See ISOLATED_STATE_CONTROL_RESULTS.md. Summary
 peak pressure zero in PC tests; unresolved readout blocks pressure-based
 calibration. No patient reads or production edits. Next inspect pressure
 provenance then obstruction/recruitment tests and live research configuration.
+
+## Pressure provenance and nine expiratory tests completed
+
+Research readout resolves zero peak by selecting completed delivered breath;
+production unchanged. Nine passive PC fixtures with explicit expiratory holds
+show higher total PEEP with rate/resistance; monotonic and missing-breath tests
+pass. Not a validated COPD disease state. See EXPIRATORY_STATE_CONTROL_RESULTS.md.
+Next recruitment/history checks and explicit research live-state adapter;
+setting-change freshness needed before wrapper used in patient transitions.
