@@ -466,3 +466,15 @@ extractor includes equal charttime and no storetime cutoff; review required.
 Synthetic 19-case provenance test PASS; no post-change outcomes read. Next
 dictionary verification, exact source reconstruction, labs/settings and context.
 See PS_AND_SOURCE_AUDIT_RESULTS.md.
+
+## Disease context and exact source reconstruction completed
+
+19 development cases linked to retrospective code titles (453 rows), excluded
+from fitting inputs. Inclusive legacy source selection reproduces all 247 fields;
+114 present sources charted at transition, 49 strictly available; four timestamp
+ties. Strict earlier packet has 112 raw sources/110 unambiguous time/type-gated
+fields; not prediction-ready. Resistance variants/compliance units require review.
+Latest complete ABG raw components strictly available in 18/19 cases; target value
+agreement still pending. Four PS configs ran 600 seconds with finite-volume checks,
+not long-term clinical stability proof. See DISEASE_CONTEXT_AND_SOURCE_RESULTS.md.
+Next setting provenance, lab target matching, medication context, clinical review.
