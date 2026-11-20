@@ -42,7 +42,7 @@ study, not modification of this reproduction.
 ## Current blocking facts
 
 Main article verified. PMC supplement URL returns an HTML download challenge,
-not a verified DOCX; alternate Europe PMC retrieval succeeded as a ZIP bundle. Supplement contents await inspection. Deployable
+not a verified DOCX; alternate Europe PMC retrieval succeeded as a ZIP bundle. Supplement inspected; see TERRY_SUPPLEMENT_FINDINGS.md for numeric-artifact and prospective-timing blockers. Deployable
 model components have not yet been verified. No cluster assignments made.
 LLM assistance is proposed in aims; a fixed constrained input contract and
 its independent checks must be implemented before claiming validated assistance.

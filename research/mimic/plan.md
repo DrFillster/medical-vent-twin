@@ -367,3 +367,22 @@ zero in current manifest. These are NOT first-24h availability estimates and
 must not justify excluding patients or imputing source values. Next inspect
 supplement, establish final retained features/transformations/centers and raw
 first-day extraction. No outcome values read, model parameters unchanged.
+
+## Supplement inspected; substantive two-cluster and timing findings
+
+TERRY_SUPPLEMENT_FINDINGS.md records source hash and verified findings.
+Day-one NBClust most often selected THREE; authors retained TWO for parsimony
+and agreement across time windows, supported by other diagnostics. Do not
+claim unanimous evidence for two groups. No numeric deployable centers/scaler
+identified; package names and cluster medians cannot replace the original
+model. Author artifact request prepared, not sent. Encounter-level preprocessing
+raises prospective leakage question needing clarification.
+
+Implemented and ran audit_terry_temporal_readiness.py: nine of 19 development
+transitions before 24h from earliest InvasiveVent status; ten at/after. These
+are provisional ICU-status anchors, not confirmed hospital/intubation anchors.
+Synthetic regression test PASS: boundary equality, early/unknown/before-start,
+explicit limitations, duplicate rejection and overwrite protection. Patient
+records remain outside GitHub; no outcome values read; no labels or new fitting.
+Milestone remains partial: author artifacts, true first-day extraction and
+historical-use-complete independent cohort are outstanding.
