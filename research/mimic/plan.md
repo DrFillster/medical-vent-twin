@@ -386,3 +386,12 @@ explicit limitations, duplicate rejection and overwrite protection. Patient
 records remain outside GitHub; no outcome values read; no labels or new fitting.
 Milestone remains partial: author artifacts, true first-day extraction and
 historical-use-complete independent cohort are outstanding.
+
+## Public-only Terry check concluded
+
+See TERRY_PUBLIC_REPRODUCTION_DECISION.md. All 25 supplement tables and
+OOXML members checked; custom XML is empty bibliography, no embedded model.
+No public Terry repo located in targeted GitHub/web searches. Publisher extra
+files unverified because HTTP 403. Original classification not reproducible
+from inspected public materials; no-new-clusters constraint maintained.
+No outreach; author request remains unsent and is not a next action.
