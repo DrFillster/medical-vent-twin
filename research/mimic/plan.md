@@ -426,3 +426,12 @@ consolidated states constrained. Expiratory solver exists but obstruction
 behavior not yet demonstrated. Next isolate controls in research tests,
 then select MIMIC examples with timestamped clinical evidence. No production
 changes or diagnosis assignments.
+
+## Isolated controls executed
+
+Added independent_mechanics_controls.js and synthetic tests; baseline and
+legacy parameter equivalence pass. Resistance/stiffness/capacity separate
+changes all affect outputs. See ISOLATED_STATE_CONTROL_RESULTS.md. Summary
+peak pressure zero in PC tests; unresolved readout blocks pressure-based
+calibration. No patient reads or production edits. Next inspect pressure
+provenance then obstruction/recruitment tests and live research configuration.
