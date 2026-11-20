@@ -1,0 +1,28 @@
+'use strict';
+// Synthetic scoring-contract tests. Does not read MIMIC data or start a session.
+const assert=require('assert');
+const fs=require('fs');
+const vm=require('vm');
+const source=fs.readFileSync(__dirname+'/fit_acid_base_paired_grid_control.js','utf8');
+const start=source.indexOf('function objective(');
+const end=source.indexOf("const id='FIT-102b833418f3';",start);
+assert(start>=0 && end>start,'scoring contract not found');
+const box={};
+vm.createContext(box);
+vm.runInContext(source.slice(start,end)+';this.api={objective,summarize};',box);
+const {objective,summarize}=box.api;
+const target={pco2:40,po2:80,ph:7.4};
+const state=()=>({baseline:{pco2:40,po2:80,pH:7.4},final:{pco2:40,po2:80,pH:7.4}});
+assert.strictEqual(objective(state(),target),0);
+assert.strictEqual(summarize(state(),target).pass,true);
+let r=state();r.baseline.pco2+=9;
+assert.strictEqual(summarize(r,target).pass,false);
+r=state();r.final.po2+=21;
+assert.strictEqual(summarize(r,target).pass,false);
+r=state();r.final.pH-=0.2;
+assert(objective(r,target)>0,'pH must affect the search objective');
+assert.strictEqual(summarize(r,target).pass,true,'pH must not silently redefine the historical gas gate');
+r=state();r.final.pco2=NaN;
+assert.throws(()=>objective(r,target),/nonfinite objective/);
+assert.strictEqual(summarize(r,target).pass,false);
+console.log('ok - 8 synthetic scoring and unchanged-gate assertions');

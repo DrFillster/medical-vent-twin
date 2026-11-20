@@ -211,3 +211,15 @@ Next method:
 - use routine chemistry only as timestamp-graded secondary context;
 - do not report fitted SID as a measured clinical SID;
 - do not merge the SID boundary to v1.5 until the latent state can improve stationarity without degrading existing pass controls.
+
+
+## Optimizer audit continuation
+
+A source review found that the preceding stage-2 "joint" smoke test is actually
+a sequential single-pass CO2 fit followed by an oxygen-only fit. It does not
+exhaust the paired nuisance grid or revisit CO2 after oxygenation changes.
+Therefore those results establish failure of the tested method, not proof that
+additional measured constraints alone will correct the model. Before scaling
+the proposed next method, the passing control is being checked with a combined
+paired-grid development diagnostic. See `ACID_BASE_OPTIMIZER_AUDIT.md` and
+`plan.md` for the scoped continuation, limitations, and recorded result.
