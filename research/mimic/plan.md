@@ -395,3 +395,11 @@ No public Terry repo located in targeted GitHub/web searches. Publisher extra
 files unverified because HTTP 403. Original classification not reproducible
 from inspected public materials; no-new-clusters constraint maintained.
 No outreach; author request remains unsent and is not a next action.
+
+## Phenotype utility experiment specified
+
+See PHENOTYPE_UTILITY_EXPERIMENT_PLAN.md. A: no-label individual fitting;
+B: same predictions stratified by label; C: group-informed soft priors with
+identical patient inputs/bounds/compute budget. No new clusters. Label-only
+audits separate from parameter inference. Development first, then immutable
+patient-disjoint evaluation; classifier public-artifact blocker remains.
