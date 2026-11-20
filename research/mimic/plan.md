@@ -444,3 +444,14 @@ show higher total PEEP with rate/resistance; monotonic and missing-breath tests
 pass. Not a validated COPD disease state. See EXPIRATORY_STATE_CONTROL_RESULTS.md.
 Next recruitment/history checks and explicit research live-state adapter;
 setting-change freshness needed before wrapper used in patient transitions.
+
+## Larger explicit-state batch completed
+
+Added explicit_patient_state_adapter.js and batch runner. Eight synthetic
+coupled configurations initialize/advance; source and control contracts enforced.
+Recruitment/history checks pass but reveal ignored nested kinetics in legacy
+path; dedicated mismatch reproducer added, opt-in top-level plumbing in research
+adapter only. Production unmodified. Corrected raw inventory finds diagnosis,
+lab, input and chart source files in deeper directory. Headers only; no patient
+rows read. Next 19-case timestamped extraction, PS effort and longer stability
+runs. See EXPLICIT_STATE_BATCH_RESULTS.md for exact scope and limitations.
