@@ -403,3 +403,17 @@ B: same predictions stratified by label; C: group-informed soft priors with
 identical patient inputs/bounds/compute budget. No new clusters. Label-only
 audits separate from parameter inference. Development first, then immutable
 patient-disjoint evaluation; classifier public-artifact blocker remains.
+
+## Disease controls and first evidence records
+
+Current live research path guarded to one moderate aspiration reference case;
+individual mechanics/effort/gas overrides exist, not broad diagnosis-driven
+state selection. All cases share recruitment initializer and nominal awake
+profile, latter overridden for drive/transmission. Do not imply these labels
+are verified patient diagnoses or awake-state observations. Source wiring
+inspected; control perturbation tests remain pending.
+Built all 19 source-linked fit/assumption records; explicit disease evidence
+unreviewed and source timestamps unverified. Independent exact-membership and
+limitation assertions PASS. No diagnoses assigned, no outcomes read or physiology
+changed. See DISEASE_CONTROL_AUDIT.md. Next: timestamp and authorized-source
+inventory, evidence-contract tests, then control sensitivity checks.
