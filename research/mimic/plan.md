@@ -535,3 +535,17 @@ Same-time entries retain ordering ambiguity; no clinical alignment implied.
 See MECHANICAL_ENSEMBLE_AND_ALIGNMENT_RESULTS.md. Next reconstruct compatible
 blocks, then pre-change gas fitting with mechanical rechecks and ensembles.
 No outcome files read by this batch, production/independent cohort unchanged.
+
+## 2026-11-21 provisional pre-change gas ensemble screen complete
+
+Three recorded-context-matching cases, 31 retained mechanical configs; fourth
+case withheld for PS-at-MV context. 279 short gas-grid simulations plus three
+fresh ten-minute confirmations, zero execution errors. One case meets joint
+O2/CO2/mechanics endpoint limits, two fail gas limits; all three preserve
+mechanical screen at confirmation. Passing gas case has material pH mismatch:
+NOT full baseline qualification. Reference SID not fitted; pH not optimized.
+No old fitted gas parameters/post-change outcome files read. Source alignment
+remains provisional; no clinical adjudication implied. See
+PRECHANGE_GAS_ENSEMBLE_RESULTS.md. Next acid-base state/parameter initialization
+review and bounded gas refinement with mechanical rechecks. No threshold
+relaxation, no claims of improved old 10/19 coverage. Production/test untouched.
