@@ -591,3 +591,17 @@ consistent inspected CO2 scaling, no thousand-fold defect; metabolic defaults
 not patient measurements. Next bounded long-horizon gas-fraction search with
 fixed priors and multi-checkpoint mechanics, not expanded metabolism freedom.
 Production and independent cohort unchanged; no post-change outcomes read.
+
+## 2026-11-21 final bounded development search closed; freeze gate explicit
+
+27 ten-minute gas candidates + three fresh thirty-minute confirmations, zero
+errors. Multi-check mechanics pass all three selected cases; one O2/CO2 pass,
+two gas failures retained. Development tuning stops; do not start another
+parameter search. Recruitment path IS affected: missing explicit kinetics
+falls back to defaults rather than template; new regression confirms selected
+path and explicit-template option difference. Next correct research kinetic
+path and paired replay, not patient parameter retuning. Freeze candidate is
+NOT locked: source-block rules, pH/drift acceptance, comparator implementation,
+patient-disjoint prior-use checks and scoring still required before test-label
+access. See FINAL_BOUNDED_GAS_RESULTS.md and PREDICTION_PILOT_FREEZE_GATE.md.
+Production and independent cohort unchanged, no outcomes read by this batch.
