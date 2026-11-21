@@ -488,3 +488,19 @@ one with qualified saved prediction and observed gas. Development outcomes
 now explicitly unblinded. No accuracy claim; post-change confounders pending.
 See SIMILAR_SETTINGS_DEVELOPMENT_RESULTS.md. Next physiological/time-valid
 matching rather than settings-only equivalence; independent cohort untouched.
+
+## 2026-11-21 exact-time similar-case replay complete
+
+Six fresh paired runs in three cases with previously inspected development gases;
+explicit-state options at legacy-equivalent values, no retuning. Exact specimen
+time alignment and initial-gas equality pass. One qualified and two failed
+baselines retained; failed cases have poor CO2 agreement, no uniform oxygen
+benefit from recorded-change arm. No clinical accuracy claim. First strict
+parameter-equality attempt stopped for last-bit arithmetic mismatch; v2 tolerant
+parameter contract completed. All nine setting timelines audited; no recorded
+strictly later divergence, not proof of no cointerventions. Three medication
+contexts scanned; two overlapping input records in one case, no later starts;
+selected inputevents only, incomplete medication reconciliation. See
+EXACT_TIME_SIMILAR_CASE_RESULTS.md. Next pre-change-only independent mechanical
+fitting for failed baselines, not fitting to inspected outcomes. Production and
+independent test cohort unchanged.
