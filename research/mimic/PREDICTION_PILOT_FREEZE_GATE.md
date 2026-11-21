@@ -52,3 +52,13 @@ fill this document. Implementation and evidence decisions must be recorded
 before test labels are exposed. This file is a gate checklist, not a completed
 protocol, registration or clearance. No request for user action yet: the next
 blocking task is technical recruitment-path regression, not more tuning.
+
+## Update: research wiring correction tested
+
+Opt-in declared_recruitment_options.js now exposes template kinetics through
+the existing adapter. Twelve fixed-parameter baseline/synthetic-FiO2 replays
+pass; legacy and corrected recorded checkpoints identical for these cases.
+The old path remains unchanged and defective for nested kinetic controls.
+Candidate pilot must explicitly import the corrected helper; no claim of
+production repair or PEEP-response validation. Other gates remain unresolved.
+See DECLARED_RECRUITMENT_REPLAY_RESULTS.md. No restart of patient tuning.

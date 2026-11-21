@@ -605,3 +605,15 @@ NOT locked: source-block rules, pH/drift acceptance, comparator implementation,
 patient-disjoint prior-use checks and scoring still required before test-label
 access. See FINAL_BOUNDED_GAS_RESULTS.md and PREDICTION_PILOT_FREEZE_GATE.md.
 Production and independent cohort unchanged, no outcomes read by this batch.
+
+## 2026-11-21 declared recruitment research correction replay complete
+
+Added opt-in declared_recruitment_options.js, unit tests and hashed-source
+paired replay. Three saved cases x legacy/declared x unchanged/synthetic FiO2
+step: 12 runs, zero errors, fixed fits; 1800s baseline +300s observation. Source/
+input hashes, pre-step identity and legacy baseline reproduction all pass.
+Recorded gas/mechanics checkpoints identical between wiring arms in these
+conditions; baseline gas failures unchanged. Rate probes confirm intended
+kinetics now effective, but no claim of general defect harmlessness or PEEP
+validation. Production and legacy runners untouched. Next explicit candidate
+pilot integration and remaining freeze gates, not more patient tuning.
