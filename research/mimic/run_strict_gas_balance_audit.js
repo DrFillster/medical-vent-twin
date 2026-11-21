@@ -1,0 +1,11 @@
+'use strict';
+// Read-only runtime instrumentation; no equation or production-file changes.
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const runtimePath=require.resolve('../../ards-twin-v1.0/src/hummod_ards_core_runtime');const original=require(runtimePath);let activeRuntime=null;
+require.cache[runtimePath].exports={...original,createHumModArdsGasRuntime(args){const r=original.createHumModArdsGasRuntime(args);activeRuntime=r;return r;}};
+const adapter=require('./development_model_adapter');adapter.setAlternative(true);
+const {config}=require('./time_verified_ps_runner'),{optionsFor}=require('./explicit_patient_state_adapter');const {createBerlinLiveHumModSession}=require('../../ards-twin-v1.0/src/clinical_twin_live_hummod_session');
+const b=process.argv[2],out=path.join(b,'dev-strict-gas-balance-v1');fs.mkdirSync(out,{recursive:true});const packets=new Map(JSON.parse(fs.readFileSync(path.join(b,'dev-time-verified-replay-v1/packets.json'))).map(x=>[x.event_id,x]));const seeds=fs.readFileSync(path.join(b,'dev-strict-acid-base-v1/confirmations.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+fs.writeFileSync(path.join(out,'manifest.json'),JSON.stringify({cases:seeds.map(x=>x.event_id),durationSec:1800,sampleEverySec:30,controlsRetuned:false,outcomeFilesRead:false,purpose:'raw exchange/pool/target balance tracing, not clinical score or literal whole-body mass conservation'},null,2),{flag:'wx'});
+for(const seed of seeds){const p=packets.get(seed.event_id);const s=createBerlinLiveHumModSession({...optionsFor(config(p,seed.controls)),patientDeadSpaceFractionOfTidalVolume:seed.gasParameters.deadSpace,patientVentilatedPerfusionFractionOverride:seed.gasParameters.vpf,patientBloodSidMolPerL:seed.sid,patientArterialGasInitialization:{po2MmHg:p.targets.po2,pco2MmHg:p.targets.pco2,pH:p.targets.ph}});s.initialize();assert(activeRuntime);const r=activeRuntime;for(let t=0;t<=1800;t+=30){if(t){s.runFor(30);s.compactTraceHistory(60);}const z=s.snapshot(),g=r.snapshot();const row={event_id:seed.event_id,timeSec:t,sessionGas:z.systemic.gasExchange,core:g};fs.appendFileSync(path.join(out,'samples.jsonl'),JSON.stringify(row)+'\n');}console.log('completed case');}
+console.log('COMPLETE');

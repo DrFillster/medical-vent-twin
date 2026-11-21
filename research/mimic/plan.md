@@ -564,3 +564,16 @@ data retained. Existing research venous-PCO2 correction does not rescue failed
 long endpoints here. See STRICT_ACID_BASE_REVIEW_RESULTS.md. Next audit CO2
 pool/ventilation/metabolic and oxygen/perfusion balance plus early/late slopes,
 not force baseline fit with extra parameters. No production/test changes.
+
+## 2026-11-21 fixed-parameter 30-minute gas-balance audit complete
+
+Three fresh unchanged-support runs, 183 raw exchange/boundary/state samples,
+finite outputs and prior 600-second confirmation agreement. First/third trends
+near plateau away from targets; second continues CO2 accumulation and acid-base
+mismatch. Fixed reference metabolic O2/CO2 inputs used for all three, not patient
+measurements. Late O2 uptake near demand does not ensure matching arterial O2.
+Sparse instantaneous rates not mean balance or whole-body conservation proof;
+reduced state lacks explicit volume-weighted whole-body inventories. See
+STRICT_GAS_BALANCE_AUDIT_RESULTS.md. Next long-horizon fitting across retained
+ensembles, metabolic source/units and data-availability audit before extra freedom.
+No retuning, post-change data, production changes or independent cohort use.
