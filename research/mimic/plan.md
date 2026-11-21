@@ -617,3 +617,17 @@ conditions; baseline gas failures unchanged. Rate probes confirm intended
 kinetics now effective, but no claim of general defect harmlessness or PEEP
 validation. Production and legacy runners untouched. Next explicit candidate
 pilot integration and remaining freeze gates, not more patient tuning.
+
+## 2026-11-21 candidate session integrated; existing pool nearly exhausted
+
+Candidate session imports corrected kinetics and research initializer in fresh
+worker; smoke/input/import-order tests pass. Review contract rejects missing
+fields but is not evidence verification; no completed lock/scoring authorization.
+Identity-only conservative audit finds 502 historical events/286 subjects;
+root index IDs all mapped. Existing pool 411 events/292 subjects leaves six
+events/six subjects outside mapped fitting history, NOT six qualified independent
+patients. Existing pool has downstream selection dependency. Full prior-use
+ledger beyond root indices still needed. Next outcome-independent raw transition
+inventory + pre-change eligibility, not reuse old blinded labels. No outcomes
+read, production changed or development patients retuned. See
+CANDIDATE_PILOT_INTEGRATION_STATUS.md. Patient identities not published.
