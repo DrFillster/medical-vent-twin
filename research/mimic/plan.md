@@ -549,3 +549,18 @@ remains provisional; no clinical adjudication implied. See
 PRECHANGE_GAS_ENSEMBLE_RESULTS.md. Next acid-base state/parameter initialization
 review and bounded gas refinement with mechanical rechecks. No threshold
 relaxation, no claims of improved old 10/19 coverage. Production/test untouched.
+
+## 2026-11-21 strict acid-base paired review complete
+
+Initializer source audit corrects prior wording: measured pH input is diagnostic,
+not directly imposed at fixed SID. Three fitted SID values reproduce original-
+initializer initial pH, but free evolution still drifts. Nine long paired
+reference/fitted/corrected initializer runs, 21 local gas refinements and three
+long confirmations: 33 dynamic simulations, zero errors. Mechanical screen
+preserved in all three refined confirmations; one O2/CO2 pass, no full baseline
+qualification. Pure initializer invariants do not imply bitwise identical
+session-level outputs; initial checker assumption failed and was corrected,
+data retained. Existing research venous-PCO2 correction does not rescue failed
+long endpoints here. See STRICT_ACID_BASE_REVIEW_RESULTS.md. Next audit CO2
+pool/ventilation/metabolic and oxygen/perfusion balance plus early/late slopes,
+not force baseline fit with extra parameters. No production/test changes.
