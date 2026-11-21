@@ -504,3 +504,18 @@ selected inputevents only, incomplete medication reconciliation. See
 EXACT_TIME_SIMILAR_CASE_RESULTS.md. Next pre-change-only independent mechanical
 fitting for failed baselines, not fitting to inspected outcomes. Production and
 independent test cohort unchanged.
+
+## 2026-11-21 strict-input independent mechanical search complete
+
+Fresh packets across 19: four satisfy strict pre-change setting/mode/lab-time
+requirements; 15 source-history exclusions, not fitting failures. All 19 have
+available complete arterial gases under matching raw component rule. Missing
+mode source main bottleneck; alternate Hamilton item not implemented here.
+352 mechanical search simulations plus four fresh ten-minute confirmations;
+zero execution errors. Three selected sets pass engineering mechanical screen
+and confirmation, fourth fails timing. Multiple acceptable configurations in
+all three passing cases: not identified disease states, not gas qualification,
+not improvement claim over old 10/19. No old prefits or outcome files read.
+See TIME_VERIFIED_MECHANICAL_FIT_RESULTS.md. Next co-temporal context review,
+retain candidate ensembles for pre-change gas qualification, joint drive search
+for failed timing case. Production and independent cohort unchanged.
