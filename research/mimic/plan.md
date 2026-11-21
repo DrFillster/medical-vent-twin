@@ -519,3 +519,19 @@ not improvement claim over old 10/19. No old prefits or outcome files read.
 See TIME_VERIFIED_MECHANICAL_FIT_RESULTS.md. Next co-temporal context review,
 retain candidate ensembles for pre-change gas qualification, joint drive search
 for failed timing case. Production and independent cohort unchanged.
+
+## 2026-11-21 ensemble confirmation and joint timing search complete
+
+36 unique prior acceptable configurations (deduplicated from 37 passing
+attempts) all pass fresh ten-minute mechanical screen. Fourth-case joint
+seven-drive x 81-control search completes 567 short runs; 28 pass, selected
+best also passes fresh ten-minute run. Total 604 fresh simulations, zero
+execution errors. All four now have an engineering mechanical fit, not gas
+qualification. 37 long-replay configurations retained; other joint short
+alternatives preserved unconfirmed. Context audit: three cases have matching
+recorded settings at/before all measurement samples; one has earlier MV
+without documented PS at that sample, not authorized for gas fitting yet.
+Same-time entries retain ordering ambiguity; no clinical alignment implied.
+See MECHANICAL_ENSEMBLE_AND_ALIGNMENT_RESULTS.md. Next reconstruct compatible
+blocks, then pre-change gas fitting with mechanical rechecks and ensembles.
+No outcome files read by this batch, production/independent cohort unchanged.
