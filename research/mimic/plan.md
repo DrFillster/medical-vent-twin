@@ -478,3 +478,13 @@ Latest complete ABG raw components strictly available in 18/19 cases; target val
 agreement still pending. Four PS configs ran 600 seconds with finite-volume checks,
 not long-term clinical stability proof. See DISEASE_CONTEXT_AND_SOURCE_RESULTS.md.
 Next setting provenance, lab target matching, medication context, clinical review.
+
+## First similar-settings patient experiment executed
+
+Four exact starting-setting groups, nine existing dev cases; 18 fresh paired
+60-second runs, zero errors. Three previously qualified, six baseline failures
+retained. Outcome window fixed before reading new outcomes; three with gases,
+one with qualified saved prediction and observed gas. Development outcomes
+now explicitly unblinded. No accuracy claim; post-change confounders pending.
+See SIMILAR_SETTINGS_DEVELOPMENT_RESULTS.md. Next physiological/time-valid
+matching rather than settings-only equivalence; independent cohort untouched.
