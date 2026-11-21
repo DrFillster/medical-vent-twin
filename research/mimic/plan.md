@@ -577,3 +577,17 @@ reduced state lacks explicit volume-weighted whole-body inventories. See
 STRICT_GAS_BALANCE_AUDIT_RESULTS.md. Next long-horizon fitting across retained
 ensembles, metabolic source/units and data-availability audit before extra freedom.
 No retuning, post-change data, production changes or independent cohort use.
+
+## 2026-11-21 long-horizon mechanical ensemble complete
+
+31 ten-minute retained alternatives at fixed prior case gas fractions/SID,
+three fresh thirty-minute winner replays: 34 runs, zero errors. All preserve
+terminal mechanical screen; 14 candidate O2/CO2/mechanical passes, one selected
+thirty-minute O2/CO2 pass. First-case final pH/CO2 substantially closer than
+short-selected predecessor; second CO2 and third O2 failures remain. No full
+baseline/pH/cardiovascular qualification assigned. Input/new-runner hashes
+recorded before runs. See LONG_HORIZON_ENSEMBLE_RESULTS.md. Unit audit finds
+consistent inspected CO2 scaling, no thousand-fold defect; metabolic defaults
+not patient measurements. Next bounded long-horizon gas-fraction search with
+fixed priors and multi-checkpoint mechanics, not expanded metabolism freedom.
+Production and independent cohort unchanged; no post-change outcomes read.
