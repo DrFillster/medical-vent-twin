@@ -631,3 +631,17 @@ ledger beyond root indices still needed. Next outcome-independent raw transition
 inventory + pre-change eligibility, not reuse old blinded labels. No outcomes
 read, production changed or development patients retuned. See
 CANDIDATE_PILOT_INTEGRATION_STATUS.md. Patient identities not published.
+
+## 2026-11-22 outcome-independent candidate setting inventory completed
+
+Rebuilt from raw-item-only chart extraction, no old supported-mode/outcome pool
+or lab joins. 318,781 material setting changes/32,827 subjects; after existing
+adult-stay/time, prior-setting availability and mapped historical exclusions:
+286,120 events/32,176 subjects. FiO2 189,933; PEEP 96,187. These are candidates,
+NOT qualified ventilated patients or a certified test set. Prior six unused
+subjects applied only to old outcome-selected pool. Synthetic and full-data
+contracts pass timestamps/conflicts/duplicates/units/counts/exclusions/hashes.
+No outcomes read, no fitting, production unchanged. See
+OUTCOME_INDEPENDENT_TRANSITION_RESULTS.md. Next strict pre-change airway/mode,
+source-block and baseline data eligibility plus expanded historical-use audit;
+no post-change gas requirement and no restart of development patient tuning.
