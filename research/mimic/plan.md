@@ -645,3 +645,16 @@ No outcomes read, no fitting, production unchanged. See
 OUTCOME_INDEPENDENT_TRANSITION_RESULTS.md. Next strict pre-change airway/mode,
 source-block and baseline data eligibility plus expanded historical-use audit;
 no post-change gas requirement and no restart of development patient tuning.
+
+## 2026-11-22 pre-change input availability screen complete
+
+286,120 setting events -> 11,641 chart-input events/5,781 subjects -> 5,448
+complete available arterial gas + chart events/3,427 subjects. Sequential
+exclusions recorded. Only pre-change chart/lab rows with pre-change storetime;
+no post-change endpoint requirement. Initial exact mmHg-string bug yielded zero;
+corrected mm Hg normalization in separate v2 artifacts, old data retained.
+Synthetic specimen SQL + full-data contracts pass. This is availability, NOT
+invasive airway/source-block eligibility or fitting qualification. Airway fields
+absent from current extract; next retrieve device evidence and align exposure
+blocks, extend history and define subject split. Production unchanged, no fit
+or outcome scoring. See PRECHANGE_CANDIDATE_SCREEN_RESULTS.md.
