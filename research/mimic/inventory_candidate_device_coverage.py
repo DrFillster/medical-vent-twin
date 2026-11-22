@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""Document record availability, not clinical invasive-airway eligibility."""
+from pathlib import Path
+import sys,json,duckdb
+b=Path(sys.argv[1]);o=b/'candidate-airway-devices-v1';assert json.loads((o/'manifest.json').read_text())['status']=='completed';c=duckdb.connect();c.execute('CREATE TABLE w AS SELECT event_key,subject_id,stay_id,charttime cutoff FROM read_parquet(?) WHERE recorded_exposure_compatible',[str(b/'candidate-exposure-alignment-v1/assessment.parquet')]);c.execute('CREATE TABLE d AS SELECT * FROM read_parquet(?)',[str(o/'device_events.parquet')]);c.execute("""CREATE TABLE coverage AS SELECT w.event_key,w.subject_id,count(d.itemid) rows,
+count(d.itemid) FILTER(WHERE d.itemid IN(223837,223838,224415,224832,225277,225278)) ett_field_rows,
+count(d.itemid) FILTER(WHERE d.itemid IN(224829,224831)) trach_field_rows,
+count(d.itemid) FILTER(WHERE d.itemid IN(227567,227568)) newer_airway_field_rows,
+count(d.itemid) FILTER(WHERE d.itemid=223836) route_field_rows
+FROM w LEFT JOIN d ON d.subject_id=w.subject_id AND d.stay_id=w.stay_id AND d.charttime>=w.cutoff-INTERVAL '4 hours' AND d.charttime<w.cutoff AND d.storetime<w.cutoff GROUP BY w.event_key,w.subject_id""");c.execute('COPY coverage TO ? (FORMAT PARQUET,COMPRESSION ZSTD)',[str(o/'coverage.parquet')]);r={'windows':c.execute('SELECT count(*) FROM coverage').fetchone()[0],'withAnyDeviceRecord':c.execute('SELECT count(*) FROM coverage WHERE rows>0').fetchone()[0],'withETTFieldRecord':c.execute('SELECT count(*) FROM coverage WHERE ett_field_rows>0').fetchone()[0],'withTrachFieldRecord':c.execute('SELECT count(*) FROM coverage WHERE trach_field_rows>0').fetchone()[0],'withNewerAirwayFieldRecord':c.execute('SELECT count(*) FROM coverage WHERE newer_airway_field_rows>0').fetchone()[0],'devicePresenceAdjudicated':False,'limitation':'counts field presence including negative/ambiguous values, NOT positive device classification; groups overlap','outcomesRead':False};(o/'coverage_summary.json').write_text(json.dumps(r,indent=2));print(json.dumps(r))

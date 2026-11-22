@@ -671,3 +671,18 @@ state. Synthetic/full-data checks pass, outcomes/fitting untouched. Next broader
 ETT/trach field extraction from verified dictionary plus contradiction handling,
 then complete prior-use and partition. Do not discard all unlabeled candidates
 as noninvasive. See CANDIDATE_EXPOSURE_ALIGNMENT_RESULTS.md.
+
+## 2026-11-22 broader device extraction checkpoint
+
+Started one raw chartevents pass (PID 41776) for eleven dictionary-verified
+ETT/trach/airway fields, restricted to 1,414 exposure-compatible pre-change
+windows. Candidate-airway-devices-v1/manifest.json controls completion; partial
+Parquet existence is NOT completed extraction. Synthetic window and syntax
+tests pass; full-data checker and field coverage inventory ready but cannot
+certify until extraction finishes. No clinical classifications or new counts
+yet. Nested identity metadata audit: 13 manifests, six explicit identity arrays,
+three already-excluded subjects, zero unmapped IDs; seven metadata-incomplete,
+full history still open. See CANDIDATE_AIRWAY_DEVICE_EXTRACTION_STATUS.md.
+No outcome selection, fit, retuning, production or UI changes. Next check raw
+completion once, run contracts, review vocabulary and baseline-spanning device
+evidence without discarding unknowns as noninvasive.

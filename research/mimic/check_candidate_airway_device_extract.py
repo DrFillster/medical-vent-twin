@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import sys,json,duckdb,hashlib
+b=Path(sys.argv[1]);o=b/'candidate-airway-devices-v1';m=json.loads((o/'manifest.json').read_text());assert m['status']=='completed';r=json.loads((o/'summary.json').read_text());c=duckdb.connect();c.execute('CREATE TABLE devices AS SELECT * FROM read_parquet(?)',[str(o/'device_events.parquet')]);c.execute('CREATE TABLE windows AS SELECT event_key,subject_id,stay_id,charttime cutoff FROM read_parquet(?) WHERE recorded_exposure_compatible',[str(b/'candidate-exposure-alignment-v1/assessment.parquet')]);assert c.execute('SELECT count(*) FROM devices').fetchone()[0]==r['rows'];assert c.execute('SELECT count(*) FROM windows').fetchone()[0]==r['candidateWindows']
+assert c.execute("SELECT count(*) FROM devices d WHERE NOT EXISTS(SELECT 1 FROM windows w WHERE w.subject_id=d.subject_id AND w.stay_id=d.stay_id AND d.charttime>=w.cutoff-INTERVAL '4 hours' AND d.charttime<w.cutoff AND d.storetime<w.cutoff)").fetchone()[0]==0
+assert not set(x[0]for x in c.execute('SELECT distinct itemid FROM devices').fetchall())-set(m['items']);raw=Path(m['source']);assert raw.stat().st_size==m['sourceSize']and raw.stat().st_mtime_ns==m['sourceMtimeNs'];assert not m['outcomesRead'];print('PASS restricted item identities, all device records within at least one available pre-change candidate window, row counts and raw metadata unchanged')
+print('deviceSha256',hashlib.file_digest((o/'device_events.parquet').open('rb'),'sha256').hexdigest())
