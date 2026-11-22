@@ -658,3 +658,16 @@ invasive airway/source-block eligibility or fitting qualification. Airway fields
 absent from current extract; next retrieve device evidence and align exposure
 blocks, extend history and define subject split. Production unchanged, no fit
 or outcome scoring. See PRECHANGE_CANDIDATE_SCREEN_RESULTS.md.
+
+## 2026-11-22 candidate airway/exposure documentary audit complete
+
+Existing raw-item airway extraction found/verified, no raw reread. Among 5,448
+input-complete candidates, 1,414 satisfy strict earlier-setting support for all
+four measurement/four setting combinations without documented intervening
+conflict. Narrow recent Oral/Nasotracheal field present in 62 events; both
+screens in 20 events/17 subjects. NOT qualified cohort: narrow route field
+misses other device evidence and does not prove airway span or clinical steady
+state. Synthetic/full-data checks pass, outcomes/fitting untouched. Next broader
+ETT/trach field extraction from verified dictionary plus contradiction handling,
+then complete prior-use and partition. Do not discard all unlabeled candidates
+as noninvasive. See CANDIDATE_EXPOSURE_ALIGNMENT_RESULTS.md.
