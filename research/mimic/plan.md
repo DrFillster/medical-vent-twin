@@ -696,3 +696,17 @@ negative values). Pre-change vocab inspected, Not applicable retained. Old
 narrow-route 20-event result not evidence of absent devices. No final airway
 eligibility count yet: next explicit value/contradiction/sample-span checks.
 No need to rerun raw extraction. Machine manifest now completed.
+
+## 2026-11-22 consolidated cohort/baseline package
+
+Completed two-field same-family documentary baseline span: 277 events/245
+subjects from 1,414 time-compatible events. Expanded designated historical
+identity audit to 13 tables/500 subjects removes four; 241 remain one event per
+subject. Deterministic provisional partition 199 comparator-training/42 reserved.
+Resolved all 100 legacy EVT IDs via exact original review ordering with no
+ties, covering 93 subjects; no additional overlap, no timeline values read.
+Built/checked 241 baseline-only v2 packets with mode text; no outcome payload.
+Synthetic cohort, full cohort/partition, packet QC and simulator regressions
+pass. NOT validated twins or final cohort: source QC, cross-field airway
+contradictions, full undocumented-use scope and prediction protocol remain.
+No patient retuning or outcome access. See DOCUMENTED_COHORT_PACKAGE.md.
