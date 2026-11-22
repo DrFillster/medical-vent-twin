@@ -53,3 +53,30 @@ check span across baseline samples. Retain all 1,414 candidate assessments and
 unknowns. Do not widen lookbacks or infer noninvasive status merely because a
 field is missing. No patient fitting or retuning, source outcome inspection,
 production changes or accepted UI changes in this batch.
+
+## Completion update (supersedes running checkpoint above)
+
+Process completed successfully in 49.34 seconds: 5,882 retained source rows.
+Full-data extraction checker PASSED item/window restrictions, row counts and
+unchanged source metadata. Device output SHA-256:
+130dc7e50af25cc1c781a76323629ded3211b38c8b40b8976391b0fcdc9486ef.
+Coverage inventory completed for all 1,414 event windows:
+
+| Available device field category | Event windows |
+| --- | ---: |
+| Any selected device field | 1,329 |
+| ETT-specific field | 1,267 |
+| Tracheostomy-specific field | 81 |
+| Newer airway field | 8 |
+
+Categories overlap; counts include negative/ambiguous values. They are not
+positive airway classifications. Actual pre-change vocabulary inspected:
+ETT location includes Oral-R, Oral Center, Oral-L, Nasal-L and Not applicable;
+ETT type includes Standard, Double Lumen and Not applicable. Trach types include
+Perc Trach, Cuffed, Standard and other tube descriptors. Thus broader device
+fields are widely available, and the old 20-event narrow route-field result
+was a documentation limitation rather than evidence of absent invasive devices.
+No replacement patient count issued until contradictions and measurement-span
+checks are applied. Missing fields remain unknown. Next use explicit reviewed
+value mappings, latest-time conflicts and sample-span chronology; do not fit
+or inspect outcomes before completion of eligibility and protocol gates.

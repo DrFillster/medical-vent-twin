@@ -686,3 +686,13 @@ full history still open. See CANDIDATE_AIRWAY_DEVICE_EXTRACTION_STATUS.md.
 No outcome selection, fit, retuning, production or UI changes. Next check raw
 completion once, run contracts, review vocabulary and baseline-spanning device
 evidence without discarding unknowns as noninvasive.
+
+### Same-batch airway extraction completion
+
+Raw pass finished successfully (49.34s), 5,882 selected rows. Full-data checker
+passes; coverage inventory: any selected device field in 1,329/1,414 windows,
+ETT fields 1,267, trach fields 81, newer airway fields 8 (overlap; includes
+negative values). Pre-change vocab inspected, Not applicable retained. Old
+narrow-route 20-event result not evidence of absent devices. No final airway
+eligibility count yet: next explicit value/contradiction/sample-span checks.
+No need to rerun raw extraction. Machine manifest now completed.
